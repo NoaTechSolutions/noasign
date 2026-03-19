@@ -2,20 +2,14 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-
-type StoredUser = {
-  email: string;
-  role: string;
-  status: string;
-  companyProfileId: string | null;
-};
+import { clearSession, getStoredToken, getStoredUser, type StoredUser } from "../../lib/auth-storage";
 
 export default function DashboardPage() {
   const router = useRouter();
   const user = useStoredUser();
 
   useEffect(() => {
-    const accessToken = window.localStorage.getItem("noasign.accessToken");
+    const accessToken = getStoredToken();
 
     if (!accessToken || !user) {
       router.replace("/");
@@ -23,9 +17,7 @@ export default function DashboardPage() {
   }, [router, user]);
 
   function handleSignOut() {
-    window.localStorage.removeItem("noasign.accessToken");
-    window.localStorage.removeItem("noasign.user");
-    window.dispatchEvent(new Event("noasign-auth-change"));
+    clearSession();
     router.replace("/");
   }
 
@@ -120,19 +112,7 @@ function subscribe(onStoreChange: () => void) {
 }
 
 function getStoredUserSnapshot(): StoredUser | null {
-  const storedUser = window.localStorage.getItem("noasign.user");
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(storedUser) as StoredUser;
-  } catch {
-    window.localStorage.removeItem("noasign.accessToken");
-    window.localStorage.removeItem("noasign.user");
-    return null;
-  }
+  return getStoredUser();
 }
 
 function getServerSnapshot(): StoredUser | null {

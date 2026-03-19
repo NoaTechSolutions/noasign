@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getStoredToken, persistSession } from "../lib/auth-storage";
 
 type LoginResponse = {
   accessToken: string;
@@ -26,7 +27,7 @@ export function LoginForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = window.localStorage.getItem("noasign.accessToken");
+    const token = getStoredToken();
 
     if (token) {
       router.replace("/dashboard");
@@ -58,9 +59,7 @@ export function LoginForm() {
         throw new Error(data.message ?? "Unable to sign in");
       }
 
-      window.localStorage.setItem("noasign.accessToken", data.accessToken);
-      window.localStorage.setItem("noasign.user", JSON.stringify(data.user));
-      window.dispatchEvent(new Event("noasign-auth-change"));
+      persistSession(data.accessToken, data.user);
 
       startTransition(() => {
         router.push("/dashboard");
