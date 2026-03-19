@@ -5,56 +5,142 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "38342061"
   },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/"
+    },
+    {
+      "key": "user_email",
+      "value": ""
+    },
+    {
+      "key": "user_password",
+      "value": "secret123"
+    },
+    {
+      "key": "auth_token",
+      "value": ""
+    },
+    {
+      "key": "company_profile_id",
+      "value": ""
+    },
+    {
+      "key": "document_type_id",
+      "value": "d175ede8-f244-46f2-974e-3ecd09184827"
+    },
+    {
+      "key": "form_definition_id",
+      "value": "55bf672d-f307-46df-abe7-f2f7b9ca653c"
+    },
+    {
+      "key": "pandadoc_template_id",
+      "value": "2b549fa1-82a5-41b2-87ad-45796a3626f6"
+    },
+    {
+      "key": "document_id",
+      "value": ""
+    },
+    {
+      "key": "billing_month",
+      "value": ""
+    }
+  ],
   "item": [
     {
       "name": "Auth",
       "item": [
         {
           "name": "Register User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const unique = Date.now();",
+                  "pm.collectionVariables.set('user_email', `smoke.${unique}@noasign.test`);",
+                  "pm.collectionVariables.set('billing_month', new Date().toISOString().slice(0, 7));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('register returns 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('register assigns MASTER role', function () {",
+                  "  pm.expect(body.user.role).to.eql('MASTER');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"email\": \"admin2@noasign.com\",\r\n  \"password\": \"123456\",\r\n  \"role\": \"ADMIN\"\r\n}",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "http://localhost:3000/auth/register",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "3000",
-              "path": [
-                "auth",
-                "register"
-              ]
-            }
+            "url": "{{base_url}}auth/register"
           },
           "response": []
         },
         {
           "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login returns 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('auth_token', body.accessToken);",
+                  "pm.collectionVariables.set('company_profile_id', body.user.companyProfileId);",
+                  "pm.test('login stores token', function () {",
+                  "  pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:3000/auth/login",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "3000",
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}auth/login"
           },
           "response": []
         }
@@ -65,28 +151,37 @@
       "item": [
         {
           "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('users/me returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('users/me returns the registered user', function () {",
+                  "  pm.expect(body.email).to.eql(pm.collectionVariables.get('user_email'));",
+                  "  pm.expect(body.role).to.eql('MASTER');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}users/me",
-              "host": [
-                "{{base_url}}users"
-              ],
-              "path": [
-                "me"
-              ]
-            }
+            "url": "{{base_url}}users/me"
           },
           "response": []
         }
@@ -97,64 +192,133 @@
       "item": [
         {
           "name": "Get My Company Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('company-profile/me returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('company profile matches login company', function () {",
+                  "  pm.expect(body.id).to.eql(pm.collectionVariables.get('company_profile_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}company-profile/me",
-              "host": [
-                "{{base_url}}company-profile"
-              ],
-              "path": [
-                "me"
-              ]
-            }
+            "url": "{{base_url}}company-profile/me"
           },
           "response": []
         },
         {
           "name": "Update My Company Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('company-profile update returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('company-profile fields were updated', function () {",
+                  "  pm.expect(body.companyName).to.eql('NoaSign Demo LLC');",
+                  "  pm.expect(body.industry).to.eql('construction');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "PATCH",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"companyName\": \"NoaSign Demo LLC\",\r\n  \"industry\": \"construction\",\r\n  \"website\": \"https://noasign.com\",\r\n  \"phone\": \"510-000-0000\",\r\n  \"city\": \"Richmond\",\r\n  \"state\": \"CA\",\r\n  \"country\": \"USA\",\r\n  \"contactFirstName\": \"Israel\",\r\n  \"contactLastName\": \"Esparza\",\r\n  \"contactTitle\": \"Founder\",\r\n  \"contactEmail\": \"admin2@noasign.com\"\r\n}",
+              "raw": "{\n  \"companyName\": \"NoaSign Demo LLC\",\n  \"industry\": \"construction\",\n  \"website\": \"https://noasign.com\",\n  \"phone\": \"510-000-0000\",\n  \"city\": \"Richmond\",\n  \"state\": \"CA\",\n  \"country\": \"USA\",\n  \"contactFirstName\": \"Israel\",\n  \"contactLastName\": \"Esparza\",\n  \"contactTitle\": \"Founder\",\n  \"contactEmail\": \"{{user_email}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "{{base_url}}company-profile/me",
-              "host": [
-                "{{base_url}}company-profile"
-              ],
-              "path": [
-                "me"
-              ]
+            "url": "{{base_url}}company-profile/me"
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Billing Fields In Company Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('company-profile rejects commercial plan fields', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
             }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planName\": \"PRO_UNLIMITED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}company-profile/me"
           },
           "response": []
         }
@@ -165,378 +329,425 @@
       "item": [
         {
           "name": "Get Document Types",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('documents/types returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('documents/types returns data', function () {",
+                  "  pm.expect(body.length).to.be.greaterThan(0);",
+                  "});",
+                  "const contractType = body.find((item) => item.formDefinitions?.length && item.pandaTemplates?.length);",
+                  "if (contractType) {",
+                  "  pm.collectionVariables.set('document_type_id', contractType.id);",
+                  "  pm.collectionVariables.set('form_definition_id', contractType.formDefinitions[0].id);",
+                  "  pm.collectionVariables.set('pandadoc_template_id', contractType.pandaTemplates[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}documents/types",
-              "host": [
-                "{{base_url}}documents"
-              ],
-              "path": [
-                "types"
-              ]
-            }
+            "url": "{{base_url}}documents/types"
           },
           "response": []
         },
         {
           "name": "Create Draft Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('create draft returns 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('document_id', body.document.id);",
+                  "pm.test('created document is DRAFT', function () {",
+                  "  pm.expect(body.document.status).to.eql('DRAFT');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"documentTypeId\": \"d175ede8-f244-46f2-974e-3ecd09184827\",\r\n  \"formDefinitionId\": \"55bf672d-f307-46df-abe7-f2f7b9ca653c\",\r\n  \"pandadocTemplateId\": \"2b549fa1-82a5-41b2-87ad-45796a3626f6\",\r\n  \"contractDate\": \"2026-03-19\",\r\n  \"dataJson\": {\r\n    \"owner_name\": \"John Doe\",\r\n    \"owner_email\": \"john@example.com\",\r\n    \"job_address\": \"123 Main St\",\r\n    \"job_city\": \"Richmond\",\r\n    \"job_state\": \"CA\",\r\n    \"contract_price\": \"15000\",\r\n    \"project_description\": \"Concrete and paver installation\"\r\n  }\r\n}",
+              "raw": "{\n  \"documentTypeId\": \"{{document_type_id}}\",\n  \"formDefinitionId\": \"{{form_definition_id}}\",\n  \"pandadocTemplateId\": \"{{pandadoc_template_id}}\",\n  \"contractDate\": \"2026-03-19\",\n  \"dataJson\": {\n    \"owner_name\": \"John Doe\",\n    \"owner_email\": \"john@example.com\",\n    \"job_address\": \"123 Main St\",\n    \"job_city\": \"Richmond\",\n    \"job_state\": \"CA\",\n    \"contract_price\": \"15000\",\n    \"project_description\": \"Concrete and paver installation\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "{{base_url}}/documents/draft",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "draft"
-              ]
-            }
+            "url": "{{base_url}}documents/draft"
           },
           "response": []
         },
         {
           "name": "Get My Documents",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('my-documents returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('created document appears in list', function () {",
+                  "  pm.expect(body.some((item) => item.id === pm.collectionVariables.get('document_id'))).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/documents/my-documents",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "my-documents"
-              ]
-            }
+            "url": "{{base_url}}documents/my-documents"
           },
           "response": []
         },
         {
           "name": "Get Document Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('document detail returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('detail returns selected document', function () {",
+                  "  pm.expect(body.id).to.eql(pm.collectionVariables.get('document_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/documents/ad3273de-ffe8-4d2c-8a7c-490026e2e290",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "ad3273de-ffe8-4d2c-8a7c-490026e2e290"
-              ]
-            }
+            "url": "{{base_url}}documents/{{document_id}}"
           },
           "response": []
         },
         {
           "name": "Update Draft Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('update draft returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('updated document remains DRAFT', function () {",
+                  "  pm.expect(body.document.status).to.eql('DRAFT');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "PATCH",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"contractDate\": \"2026-03-20\",\r\n  \"dataJson\": {\r\n    \"owner_name\": \"John Doe Updated\",\r\n    \"owner_email\": \"john.updated@example.com\",\r\n    \"job_address\": \"456 Market St\",\r\n    \"job_city\": \"Richmond\",\r\n    \"job_state\": \"CA\",\r\n    \"contract_price\": \"18000\",\r\n    \"project_description\": \"Concrete, pavers and drainage installation\"\r\n  }\r\n}",
+              "raw": "{\n  \"contractDate\": \"2026-03-20\",\n  \"dataJson\": {\n    \"owner_name\": \"John Doe Updated\",\n    \"owner_email\": \"john.updated@example.com\",\n    \"job_address\": \"456 Market St\",\n    \"job_city\": \"Richmond\",\n    \"job_state\": \"CA\",\n    \"contract_price\": \"18000\",\n    \"project_description\": \"Concrete, pavers and drainage installation\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "url": {
-              "raw": "{{base_url}}/documents/ad3273de-ffe8-4d2c-8a7c-490026e2e290/draft",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "ad3273de-ffe8-4d2c-8a7c-490026e2e290",
-                "draft"
-              ]
-            }
+            "url": "{{base_url}}documents/{{document_id}}/draft"
           },
           "response": []
         },
         {
           "name": "Send Draft Document",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('send draft returns 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('document moves to SENT', function () {",
+                  "  pm.expect(body.document.status).to.eql('SENT');",
+                  "  pm.expect(body.document.countedInBilling).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/documents/ad3273de-ffe8-4d2c-8a7c-490026e2e290/send",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "ad3273de-ffe8-4d2c-8a7c-490026e2e290",
-                "send"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Cancel Document",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/documents/ad3273de-ffe8-4d2c-8a7c-490026e2e290/cancel",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "ad3273de-ffe8-4d2c-8a7c-490026e2e290",
-                "cancel"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Reactivate Document",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/documents/ad3273de-ffe8-4d2c-8a7c-490026e2e290/reactivate",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "ad3273de-ffe8-4d2c-8a7c-490026e2e290",
-                "reactivate"
-              ]
-            }
+            "url": "{{base_url}}documents/{{document_id}}/send"
           },
           "response": []
         },
         {
           "name": "Simulate Document Viewed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('simulate-viewed returns 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('document moves to VIEWED', function () {",
+                  "  pm.expect(pm.response.json().document.status).to.eql('VIEWED');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/documents/ad3273de-ffe8-4d2c-8a7c-490026e2e290/simulate-viewed",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "ad3273de-ffe8-4d2c-8a7c-490026e2e290",
-                "simulate-viewed"
-              ]
-            }
+            "url": "{{base_url}}documents/{{document_id}}/simulate-viewed"
           },
           "response": []
         },
         {
           "name": "Simulate Document Signed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('simulate-signed returns 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('document moves to SIGNED', function () {",
+                  "  pm.expect(pm.response.json().document.status).to.eql('SIGNED');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/documents/ad3273de-ffe8-4d2c-8a7c-490026e2e290/simulate-signed",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "ad3273de-ffe8-4d2c-8a7c-490026e2e290",
-                "simulate-signed"
-              ]
-            }
+            "url": "{{base_url}}documents/{{document_id}}/simulate-signed"
           },
           "response": []
         },
         {
           "name": "Simulate Document Completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('simulate-completed returns 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('document moves to COMPLETED', function () {",
+                  "  pm.expect(pm.response.json().document.status).to.eql('COMPLETED');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/documents/ad3273de-ffe8-4d2c-8a7c-490026e2e290/simulate-completed",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "documents",
-                "ad3273de-ffe8-4d2c-8a7c-490026e2e290",
-                "simulate-completed"
-              ]
-            }
+            "url": "{{base_url}}documents/{{document_id}}/simulate-completed"
           },
           "response": []
         }
       ]
     },
     {
-      "name": "Admin",
-      "item": []
-    },
-    {
       "name": "Billing",
       "item": [
         {
-          "name": "New Request",
+          "name": "Get Current Usage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('billing/current-usage returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('documentsUsed is numeric', function () {",
+                  "  pm.expect(pm.response.json().documentsUsed).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxODBjNzhiNy05OGY3LTQ4ZGEtYjJlOS1iNTBmM2JmZmIxOTEiLCJlbWFpbCI6ImFkbWluMkBub2FzaWduLmNvbSIsInJvbGUiOiJBRE1JTiIsImNvbXBhbnlQcm9maWxlSWQiOiJjZDFiOGYxYy1lZWI2LTQyOTctOWQxMi0zNGYyZGRjYmQ2ZDMiLCJpYXQiOjE3NzM4OTc3MDEsImV4cCI6MTc3Mzk4NDEwMX0.eYhyNrc2ozWT6YGOrL0N6eCzn8BfR6nzK2o7lWsGYTc",
+                  "value": "{{auth_token}}",
                   "type": "string"
                 }
               ]
             },
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/billing/current-usage",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "billing",
-                "current-usage"
-              ]
-            }
+            "url": "{{base_url}}billing/current-usage"
           },
           "response": []
         },
         {
           "name": "Get Monthly Summary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('billing/summary returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('billing summary month matches variable', function () {",
+                  "  pm.expect(body.month).to.eql(pm.collectionVariables.get('billing_month'));",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "GET",
-            "header": []
+            "url": "{{base_url}}billing/summary?month={{billing_month}}"
           },
           "response": []
         }

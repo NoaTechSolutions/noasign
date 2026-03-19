@@ -14,6 +14,24 @@ export class DocumentsService {
 
   async getDocumentTypes() {
     return this.prisma.documentType.findMany({
+      include: {
+        formDefinitions: {
+          where: {
+            isActive: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+        pandaTemplates: {
+          where: {
+            isActive: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
       orderBy: { name: 'asc' },
     });
   }
