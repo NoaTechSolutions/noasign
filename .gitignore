@@ -4,6 +4,8 @@ dist/
 build/
 coverage/
 .nyc_output/
+*.lcov
+*.tsbuildinfo
 
 # Monorepo app outputs
 apps/*/node_modules/
@@ -13,10 +15,20 @@ packages/*/node_modules/
 packages/*/dist/
 packages/*/build/
 
+# Frontend framework outputs
+.next/
+out/
+.nuxt/
+.svelte-kit/
+.cache/
+.parcel-cache/
+web_modules/
+
 # Environment files
 .env
 .env.*
 *.local
+!.env.example
 
 # Logs
 logs/
@@ -26,18 +38,34 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
 
 # Runtime data
 pids/
 *.pid
 *.seed
 *.pid.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Temp files
 .temp/
 .tmp/
 tmp/
 temp/
+
+# Package manager and tool caches
+.npm/
+.pnpm-store/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+.eslintcache
+.stylelintcache
 
 # IDE / editor
 .idea/
@@ -46,6 +74,7 @@ temp/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+.vscode-test/
 *.sublime-workspace
 .project
 .classpath
