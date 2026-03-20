@@ -19,6 +19,7 @@ import {
   Search,
   Send,
   Settings2,
+  SlidersHorizontal,
   Undo2,
   UserRound,
   WalletCards,
@@ -469,7 +470,10 @@ function DocumentsPanel(props: {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
+  const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
+  const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const totalDocuments = props.documents?.length ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalDocuments / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -496,6 +500,24 @@ function DocumentsPanel(props: {
     };
   }, [pageSizeMenuOpen]);
 
+  useEffect(() => {
+    if (!filterMenuOpen) return;
+
+    function handlePointerDown(event: MouseEvent | TouchEvent | PointerEvent) {
+      if (!filterMenuRef.current?.contains(event.target as Node)) {
+        setFilterMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [filterMenuOpen]);
+
   return (
     <section className="grid gap-4">
       <div className="rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
@@ -505,7 +527,15 @@ function DocumentsPanel(props: {
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Contracts workspace</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">Review all documents, filter by status, inspect detail and trigger allowed lifecycle actions.</p>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => setMobileStatsOpen((current) => !current)}
+            className="inline-flex h-11 items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5 md:hidden"
+          >
+            <span>Workspace metrics</span>
+            <ChevronRight className={cn("h-4 w-4 text-slate-400 transition-transform dark:text-slate-500", mobileStatsOpen && "rotate-90")} />
+          </button>
+          <div className={cn("grid grid-cols-2 gap-3 md:grid-cols-4", mobileStatsOpen ? "grid" : "hidden md:grid")}>
             <StatPill label="Total" value={String(props.allDocuments.length)} />
             <StatPill label="Draft" value={String(props.allDocuments.filter((item) => item.status === "DRAFT").length)} />
             <StatPill label="In progress" value={String(props.allDocuments.filter((item) => ["SENT", "VIEWED", "SIGNED"].includes(item.status)).length)} />
@@ -520,7 +550,44 @@ function DocumentsPanel(props: {
               props.onSearchQueryChange(event.target.value);
             }} placeholder="Search by number, status or type" className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900 dark:focus:text-white" />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div ref={filterMenuRef} className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setFilterMenuOpen((current) => !current)}
+              className="inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              <span>Filter</span>
+              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                {props.statusFilter === "ALL" ? "All" : props.statusFilter.toLowerCase()}
+              </span>
+            </button>
+            {filterMenuOpen ? (
+              <div className="absolute left-0 top-[calc(100%+0.35rem)] z-20 min-w-44 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+                {(["ALL", "DRAFT", "SENT", "VIEWED", "SIGNED", "COMPLETED", "CANCELLED"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      setCurrentPage(1);
+                      props.onStatusFilterChange(option);
+                      setFilterMenuOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                      props.statusFilter === option
+                        ? "bg-blue-600 text-white"
+                        : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                    )}
+                  >
+                    <span>{option === "ALL" ? "All" : option.toLowerCase()}</span>
+                    {props.statusFilter === option ? <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span> : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <div className="hidden flex-wrap gap-2 md:flex">
             {(["ALL", "DRAFT", "SENT", "VIEWED", "SIGNED", "COMPLETED", "CANCELLED"] as const).map((option) => (
               <button key={option} type="button" onClick={() => {
                 setCurrentPage(1);
@@ -584,7 +651,7 @@ function DocumentsPanel(props: {
           </div>
         ) : props.documents && props.documents.length > 0 ? (
           <>
-            <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 lg:grid">
+            <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 md:grid">
               <div>Client</div>
               <div>Document</div>
               <div>Date</div>
@@ -592,13 +659,65 @@ function DocumentsPanel(props: {
               <div className="text-right">Actions</div>
             </div>
 
-            <div className="divide-y divide-slate-200 dark:divide-white/10">
+            <div className="divide-y divide-slate-200 dark:divide-white/10 md:hidden">
+              {paginatedDocuments.map((document) => (
+                <div
+                  key={`${document.id}-mobile`}
+                  className={cn(
+                    "px-4 py-3 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]",
+                    props.selectedDocumentId === document.id && "bg-blue-50/60 dark:bg-blue-500/10",
+                  )}
+                >
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                        {getFinalCustomerName(document)}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => props.onSelectDocument(document.id)}
+                        className="mt-1 block text-left"
+                      >
+                        <div className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                          {document.documentNumber}
+                        </div>
+                        <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+                          {document.documentType?.name ?? "Untyped document"}
+                        </div>
+                      </button>
+                    </div>
+                    <div className="flex justify-end">
+                      <DocumentListActions
+                        document={document}
+                        actionInFlight={props.documentActionId === document.id}
+                        onView={() => props.onSelectDocument(document.id)}
+                        onAction={props.onDocumentAction}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-[112px_minmax(0,1fr)] items-center gap-3">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {formatDate(document.contractDate)}
+                    </div>
+                    <div className="flex justify-start">
+                      <StatusBadge status={document.status} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden divide-y divide-slate-200 dark:divide-white/10 md:block">
               {paginatedDocuments.map((document) => (
                 <div key={document.id} className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedDocumentId === document.id && "bg-blue-50/60 dark:bg-blue-500/10")}>
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] lg:items-center">
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] md:items-center">
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getFinalCustomerName(document)}</div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 lg:hidden">Created {formatDate(document.createdAt)} | Contract {formatDate(document.contractDate)}</div>
+                      {getFinalCustomerEmail(document) ? (
+                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 lg:hidden">
+                          {getFinalCustomerEmail(document)}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="min-w-0">
@@ -951,6 +1070,24 @@ function getFinalCustomerName(document: Doc) {
   }
 
   return "Final customer not provided";
+}
+
+function getFinalCustomerEmail(document: Doc) {
+  const data = document.data?.dataJson ?? {};
+  const candidates = [
+    data.customer_email,
+    data.client_email,
+    data.owner_email,
+    data.email,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
 }
 
 function formatBillingMonthShort(billingPeriod?: string) {
