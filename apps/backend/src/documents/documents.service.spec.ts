@@ -100,7 +100,7 @@ describe('DocumentsService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('sendDraftDocument marks overage when monthly limit is already reached', async () => {
+  it('sendDraftDocument no longer counts billing on SENT', async () => {
     prismaMock.document.findFirst.mockResolvedValue({
       id: 'doc-1',
       status: DocumentStatus.DRAFT,
@@ -114,9 +114,9 @@ describe('DocumentsService', () => {
     prismaMock.document.update.mockResolvedValue({
       id: 'doc-1',
       status: DocumentStatus.SENT,
-      countedInBilling: true,
-      isOverage: true,
-      billingPeriod: '2026-03',
+      countedInBilling: false,
+      isOverage: false,
+      billingPeriod: null,
       pandadocDocumentId: 'pd-123',
     });
 
@@ -126,8 +126,9 @@ describe('DocumentsService', () => {
       where: { id: 'doc-1' },
       data: expect.objectContaining({
         status: DocumentStatus.SENT,
-        countedInBilling: true,
-        isOverage: true,
+        countedInBilling: false,
+        isOverage: false,
+        billingPeriod: null,
       }),
       include: {
         documentType: true,
@@ -136,37 +137,41 @@ describe('DocumentsService', () => {
         data: true,
       },
     });
-    expect(result.isOverage).toBe(true);
+    expect(result.isOverage).toBe(false);
     expect(result.document.status).toBe(DocumentStatus.SENT);
   });
 
-  it('sendDraftDocument does not mark overage for unlimited plans', async () => {
+  it('simulateDocumentViewed starts billing count and marks overage when limit is reached', async () => {
     prismaMock.document.findFirst.mockResolvedValue({
       id: 'doc-2',
-      status: DocumentStatus.DRAFT,
+      status: DocumentStatus.SENT,
+      countedInBilling: false,
+      isOverage: false,
+      billingPeriod: null,
       companyProfile: {
         id: 'company-1',
-        isUnlimited: true,
-        monthlyDocLimit: 5,
+        isUnlimited: false,
+        monthlyDocLimit: 1,
       },
     });
-    prismaMock.document.count.mockResolvedValue(99);
+    prismaMock.document.count.mockResolvedValue(1);
     prismaMock.document.update.mockResolvedValue({
       id: 'doc-2',
-      status: DocumentStatus.SENT,
+      status: DocumentStatus.VIEWED,
       countedInBilling: true,
-      isOverage: false,
+      isOverage: true,
       billingPeriod: '2026-03',
-      pandadocDocumentId: 'pd-456',
     });
 
-    const result = await service.sendDraftDocument('user-1', 'doc-2');
+    const result = await service.simulateDocumentViewed('user-1', 'doc-2');
 
-    expect(result.isOverage).toBe(false);
     expect(prismaMock.document.update).toHaveBeenCalledWith({
       where: { id: 'doc-2' },
       data: expect.objectContaining({
-        isOverage: false,
+        status: DocumentStatus.VIEWED,
+        countedInBilling: true,
+        isOverage: true,
+        billingPeriod: expect.any(String),
       }),
       include: {
         documentType: true,
@@ -175,6 +180,7 @@ describe('DocumentsService', () => {
         data: true,
       },
     });
+    expect(result.document.status).toBe(DocumentStatus.VIEWED);
   });
 
   it('reactivateDocument resets send and billing fields back to draft defaults', async () => {
@@ -236,6 +242,14 @@ describe('DocumentsService', () => {
       id: 'doc-4',
       status: DocumentStatus.VIEWED,
       viewedAt,
+      countedInBilling: true,
+      isOverage: false,
+      billingPeriod: '2026-03',
+      companyProfile: {
+        id: 'company-1',
+        isUnlimited: false,
+        monthlyDocLimit: 5,
+      },
     });
     prismaMock.document.update.mockResolvedValue({
       id: 'doc-4',
@@ -260,5 +274,20 @@ describe('DocumentsService', () => {
       },
     });
     expect(result.document.status).toBe(DocumentStatus.SIGNED);
+  });
+
+  it('cancelDocument accepts VIEWED documents', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-5',
+      status: DocumentStatus.VIEWED,
+    });
+    prismaMock.document.update.mockResolvedValue({
+      id: 'doc-5',
+      status: DocumentStatus.CANCELLED,
+    });
+
+    const result = await service.cancelDocument('user-1', 'doc-5');
+
+    expect(result.document.status).toBe(DocumentStatus.CANCELLED);
   });
 });

@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { API_URL } from "../lib/api";
 import { getStoredToken, persistSession } from "../lib/auth-storage";
 
 type LoginResponse = {
@@ -15,9 +16,6 @@ type LoginResponse = {
   };
   message: string;
 };
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 
 export function LoginForm() {
   const router = useRouter();
@@ -76,22 +74,21 @@ export function LoginForm() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="mx-auto grid w-full max-w-md gap-6">
       <div className="grid gap-2">
-        <span className="inline-flex w-fit items-center rounded-full border border-[color:var(--border-strong)] bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--ink-soft)]">
+        <span className="inline-flex w-fit items-center rounded-full border border-[#dce8ff] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d7391] shadow-[0_10px_24px_rgba(54,102,181,0.08)]">
           NoaSign Access
         </span>
-        <h1 className="max-w-md text-balance text-4xl font-semibold tracking-[-0.04em] text-[color:var(--ink)] sm:text-5xl">
-          Sign in and keep document operations under control.
+        <h1 className="text-3xl font-semibold tracking-[-0.05em] text-[color:var(--ink)] sm:text-4xl">
+          Log in
         </h1>
-        <p className="max-w-lg text-base leading-7 text-[color:var(--ink-soft)] sm:text-lg">
-          Start with contracts, quotes, invoices and billing visibility in one
-          clean workspace built for service businesses in the U.S.
+        <p className="max-w-sm text-sm leading-6 text-[color:var(--ink-soft)]">
+          Sign in to continue to your workspace.
         </p>
       </div>
 
       <form
-        className="grid gap-4 rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--panel)] p-5 shadow-[0_24px_80px_rgba(13,26,38,0.10)] backdrop-blur sm:p-7"
+        className="grid gap-4 rounded-[2rem] border border-[#e2ebff] bg-white p-5 shadow-[0_24px_80px_rgba(59,100,176,0.12)] sm:p-7"
         onSubmit={handleSubmit}
       >
         <div className="grid gap-1">
@@ -99,7 +96,7 @@ export function LoginForm() {
             className="text-sm font-medium text-[color:var(--ink)]"
             htmlFor="email"
           >
-            Work email
+            Email
           </label>
           <input
             id="email"
@@ -108,7 +105,7 @@ export function LoginForm() {
             placeholder="owner@company.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="h-13 rounded-2xl border border-[color:var(--border)] bg-white px-4 text-base text-[color:var(--ink)] outline-none transition focus:border-[color:var(--accent)] focus:ring-4 focus:ring-[color:var(--accent-soft)]"
+            className="h-13 rounded-2xl border border-[#dbe5f8] bg-[#fbfdff] px-4 text-base text-[color:var(--ink)] outline-none transition focus:border-[#2a6af2] focus:ring-4 focus:ring-[#d8e6ff]"
             required
           />
         </div>
@@ -127,34 +124,42 @@ export function LoginForm() {
             placeholder="Enter your password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="h-13 rounded-2xl border border-[color:var(--border)] bg-white px-4 text-base text-[color:var(--ink)] outline-none transition focus:border-[color:var(--accent)] focus:ring-4 focus:ring-[color:var(--accent-soft)]"
+            className="h-13 rounded-2xl border border-[#dbe5f8] bg-[#fbfdff] px-4 text-base text-[color:var(--ink)] outline-none transition focus:border-[#2a6af2] focus:ring-4 focus:ring-[#d8e6ff]"
             required
           />
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-[#f2b79e] bg-[#fff1ea] px-4 py-3 text-sm text-[#8c3d1b]">
+          <div className="rounded-2xl border border-[#ffd2c1] bg-[#fff4ef] px-4 py-3 text-sm text-[#9b4620]">
             {error}
           </div>
         ) : null}
 
+        <div className="flex items-center justify-between gap-4 text-sm text-[#7b8ea8]">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-[#c9d8f5] text-[#2a6af2] focus:ring-[#d8e6ff]"
+            />
+            <span>Remember me</span>
+          </label>
+          <span className="text-[#2a6af2]">Need help?</span>
+        </div>
+
         <button
           type="submit"
           disabled={isSubmitting}
-          className="group inline-flex h-13 items-center justify-center rounded-2xl bg-[color:var(--accent)] px-5 text-sm font-semibold text-white transition hover:bg-[color:var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="group inline-flex h-13 items-center justify-center rounded-2xl bg-[#1d62f0] px-5 text-sm font-semibold text-white shadow-[0_18px_34px_rgba(29,98,240,0.22)] transition hover:bg-[#1252d9] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting ? "Signing in..." : "Sign in to NoaSign"}
+          {isSubmitting ? "Signing in..." : "Sign in"}
         </button>
 
-        <div className="grid gap-3 rounded-2xl border border-dashed border-[color:var(--border)] bg-white/65 p-4 text-sm text-[color:var(--ink-soft)]">
+        <div className="grid gap-2 rounded-2xl border border-dashed border-[#dce6f7] bg-[#f8fbff] p-4 text-sm text-[#6e7f95]">
           <div className="flex items-center justify-between gap-4">
-            <span>Backend URL</span>
+            <span>API</span>
             <span className="font-medium text-[color:var(--ink)]">{API_URL}</span>
           </div>
-          <p>
-            Use an existing account from the backend. Registration flow and role
-            management will follow in the next frontend pass.
-          </p>
+          <p>Use an existing backend account to enter the app.</p>
         </div>
       </form>
     </div>

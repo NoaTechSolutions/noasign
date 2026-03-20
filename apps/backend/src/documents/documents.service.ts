@@ -12,6 +12,32 @@ import { DocumentStatus } from '@prisma/client';
 export class DocumentsService {
   constructor(private prisma: PrismaService) {}
 
+  private getCurrentBillingPeriod(date = new Date()): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private async getBillingState(companyId: string, isUnlimited: boolean, monthlyDocLimit: number) {
+    const now = new Date();
+    const billingPeriod = this.getCurrentBillingPeriod(now);
+
+    const countedDocuments = await this.prisma.document.count({
+      where: {
+        companyProfileId: companyId,
+        countedInBilling: true,
+        billingPeriod,
+      },
+    });
+
+    const isOverage =
+      !isUnlimited && countedDocuments >= monthlyDocLimit;
+
+    return {
+      now,
+      billingPeriod,
+      isOverage,
+    };
+  }
+
   async getDocumentTypes() {
     return this.prisma.documentType.findMany({
       include: {
@@ -154,6 +180,7 @@ export class DocumentsService {
       include: {
         documentType: true,
         formDefinition: true,
+        data: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -269,36 +296,16 @@ export class DocumentsService {
       throw new BadRequestException('Company profile not found');
     }
 
-    const company = document.companyProfile;
-    const now = new Date();
-    const billingPeriod = `${now.getFullYear()}-${String(
-      now.getMonth() + 1,
-    ).padStart(2, '0')}`;
-
-    const sentCount = await this.prisma.document.count({
-      where: {
-        companyProfileId: company.id,
-        countedInBilling: true,
-        billingPeriod,
-      },
-    });
-
-    let isOverage = false;
-
-    if (!company.isUnlimited && sentCount >= company.monthlyDocLimit) {
-      isOverage = true;
-    }
-
     const fakePandaDocId = `pd-${Date.now()}`;
 
     const updatedDocument = await this.prisma.document.update({
       where: { id: documentId },
       data: {
         status: DocumentStatus.SENT,
-        sentAt: now,
-        countedInBilling: true,
-        isOverage,
-        billingPeriod,
+        sentAt: new Date(),
+        countedInBilling: false,
+        isOverage: false,
+        billingPeriod: null,
         pandadocDocumentId: fakePandaDocId,
       },
       include: {
@@ -311,8 +318,8 @@ export class DocumentsService {
 
     return {
       message: 'Document sent successfully',
-      isOverage,
-      billingPeriod,
+      isOverage: false,
+      billingPeriod: null,
       document: updatedDocument,
     };
   }
@@ -331,10 +338,11 @@ export class DocumentsService {
 
     if (
       document.status !== DocumentStatus.DRAFT &&
-      document.status !== DocumentStatus.SENT
+      document.status !== DocumentStatus.SENT &&
+      document.status !== DocumentStatus.VIEWED
     ) {
       throw new BadRequestException(
-        'Only draft or sent documents can be cancelled',
+        'Only draft, sent or viewed documents can be cancelled',
       );
     }
 
@@ -425,6 +433,9 @@ export class DocumentsService {
         id: documentId,
         userId,
       },
+      include: {
+        companyProfile: true,
+      },
     });
 
     if (!document) {
@@ -437,11 +448,26 @@ export class DocumentsService {
       );
     }
 
+    if (!document.companyProfile) {
+      throw new BadRequestException('Company profile not found');
+    }
+
+    const billingState = document.countedInBilling
+      ? null
+      : await this.getBillingState(
+          document.companyProfile.id,
+          document.companyProfile.isUnlimited,
+          document.companyProfile.monthlyDocLimit,
+        );
+
     const updatedDocument = await this.prisma.document.update({
       where: { id: documentId },
       data: {
         status: DocumentStatus.VIEWED,
         viewedAt: new Date(),
+        countedInBilling: true,
+        isOverage: billingState?.isOverage ?? document.isOverage,
+        billingPeriod: billingState?.billingPeriod ?? document.billingPeriod,
       },
       include: {
         documentType: true,
@@ -463,6 +489,9 @@ export class DocumentsService {
         id: documentId,
         userId,
       },
+      include: {
+        companyProfile: true,
+      },
     });
 
     if (!document) {
@@ -478,7 +507,18 @@ export class DocumentsService {
       );
     }
 
+    if (!document.companyProfile) {
+      throw new BadRequestException('Company profile not found');
+    }
+
     const now = new Date();
+    const billingState = document.countedInBilling
+      ? null
+      : await this.getBillingState(
+          document.companyProfile.id,
+          document.companyProfile.isUnlimited,
+          document.companyProfile.monthlyDocLimit,
+        );
 
     const updatedDocument = await this.prisma.document.update({
       where: { id: documentId },
@@ -486,6 +526,9 @@ export class DocumentsService {
         status: DocumentStatus.SIGNED,
         viewedAt: document.viewedAt ?? now,
         signedAt: now,
+        countedInBilling: true,
+        isOverage: billingState?.isOverage ?? document.isOverage,
+        billingPeriod: billingState?.billingPeriod ?? document.billingPeriod,
       },
       include: {
         documentType: true,
@@ -507,6 +550,9 @@ export class DocumentsService {
         id: documentId,
         userId,
       },
+      include: {
+        companyProfile: true,
+      },
     });
 
     if (!document) {
@@ -519,11 +565,26 @@ export class DocumentsService {
       );
     }
 
+    if (!document.companyProfile) {
+      throw new BadRequestException('Company profile not found');
+    }
+
+    const billingState = document.countedInBilling
+      ? null
+      : await this.getBillingState(
+          document.companyProfile.id,
+          document.companyProfile.isUnlimited,
+          document.companyProfile.monthlyDocLimit,
+        );
+
     const updatedDocument = await this.prisma.document.update({
       where: { id: documentId },
       data: {
         status: DocumentStatus.COMPLETED,
         completedAt: new Date(),
+        countedInBilling: true,
+        isOverage: billingState?.isOverage ?? document.isOverage,
+        billingPeriod: billingState?.billingPeriod ?? document.billingPeriod,
       },
       include: {
         documentType: true,

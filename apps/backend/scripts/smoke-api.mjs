@@ -251,7 +251,7 @@ async function main() {
   });
 
   assert(sendResult.data.document.status === 'SENT', 'Send status mismatch');
-  assert(sendResult.data.document.countedInBilling === true, 'Billing flag should be true');
+  assert(sendResult.data.document.countedInBilling === false, 'Billing should start after VIEWED');
 
   const viewedResult = await request(
     'POST',
@@ -337,6 +337,20 @@ async function main() {
 
   assert(resendResult.data.document.status === 'SENT', 'Resend status mismatch');
 
+  const secondViewedResult = await request(
+    'POST',
+    `/documents/${secondDocumentId}/simulate-viewed`,
+    {
+      token,
+      expectedStatus: 201,
+    },
+  );
+
+  assert(
+    secondViewedResult.data.document.status === 'VIEWED',
+    'Second viewed status mismatch',
+  );
+
   const currentUsageResult = await request('GET', '/billing/current-usage', {
     token,
     expectedStatus: 200,
@@ -348,7 +362,7 @@ async function main() {
   );
   assert(
     currentUsageResult.data.documentsUsed >= 2,
-    'Current usage should reflect sent documents',
+    'Current usage should reflect viewed or completed documents',
   );
 
   const summaryResult = await request('GET', `/billing/summary?month=${billingMonth}`, {

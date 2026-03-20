@@ -1,124 +1,334 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearSession, getStoredToken, getStoredUser, type StoredUser } from "../../lib/auth-storage";
+import { apiRequest } from "../../lib/api";
+import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
+import {
+  clearSession,
+  getStoredToken,
+  getStoredUser,
+  type StoredUser,
+} from "../../lib/auth-storage";
+
+type DashboardUser = {
+  id: string;
+  companyProfileId: string | null;
+  email: string;
+  role: string;
+  status: string;
+  companyProfile?: {
+    id: string;
+    companyName: string;
+    planName: string;
+    industry: string | null;
+  } | null;
+};
+
+type CompanyProfile = {
+  id: string;
+  companyName: string;
+  contactEmail: string | null;
+  industry: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  planName: string;
+  monthlyDocLimit: number;
+  isUnlimited: boolean;
+};
+
+type CurrentUsage = {
+  billingPeriod: string;
+  planName: string;
+  monthlyDocLimit: number;
+  isUnlimited: boolean;
+  overagePrice: string | number;
+  documentsUsed: number;
+  remainingDocuments: number | null;
+  overageDocuments: number;
+};
+
+type MonthlySummary = {
+  month: string;
+  planName: string;
+  monthlyDocLimit: number;
+  isUnlimited: boolean;
+  overagePrice: string | number;
+  documentsSent: number;
+  overageDocuments: number;
+  estimatedOverageCost: number;
+};
+
+type DashboardDocument = {
+  id: string;
+  documentNumber: string;
+  status: string;
+  contractDate: string;
+  createdAt: string;
+  billingPeriod?: string | null;
+  sentAt?: string | null;
+  cancelledAt?: string | null;
+  viewedAt?: string | null;
+  signedAt?: string | null;
+  completedAt?: string | null;
+  countedInBilling: boolean;
+  isOverage: boolean;
+  documentType?: {
+    name: string;
+    code: string;
+  } | null;
+  formDefinition?: {
+    name: string;
+    key: string;
+  } | null;
+  data?: {
+    dataJson: Record<string, unknown>;
+  } | null;
+};
+
+type DocumentDetail = DashboardDocument & {
+  pandadocTemplate?: {
+    name: string;
+    templateKey: string;
+  } | null;
+  data?: {
+    dataJson: Record<string, unknown>;
+  } | null;
+  versions?: Array<{
+    id: string;
+    versionNumber: number;
+    createdAt: string;
+  }>;
+};
+
+type DocumentAction = "send" | "cancel" | "reactivate";
+
+type DocumentActionResponse = {
+  message: string;
+  document: DocumentDetail;
+};
 
 export default function DashboardPage() {
   const router = useRouter();
-  const user = useStoredUser();
+  const [user, setUser] = useState<StoredUser | null>(null);
+  const [dashboardUser, setDashboardUser] = useState<DashboardUser | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [usage, setUsage] = useState<CurrentUsage | null>(null);
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [documents, setDocuments] = useState<DashboardDocument[] | null>(null);
+  const [documentDetail, setDocumentDetail] = useState<DocumentDetail | null>(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [isDocumentDetailLoading, setIsDocumentDetailLoading] = useState(false);
+  const [documentActionId, setDocumentActionId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadWorkspace = useCallback(
+    async (accessToken: string, currentSelectedId?: string | null) => {
+    const [me, profile, currentUsage, summary, myDocuments] = await Promise.all([
+      apiRequest<DashboardUser>("/users/me", { token: accessToken }),
+      apiRequest<CompanyProfile>("/company-profile/me", { token: accessToken }),
+      apiRequest<CurrentUsage>("/billing/current-usage", { token: accessToken }),
+      apiRequest<MonthlySummary>("/billing/summary", { token: accessToken }),
+      apiRequest<DashboardDocument[]>("/documents/my-documents", {
+        token: accessToken,
+      }),
+    ]);
+
+    setDashboardUser(me);
+    setCompanyProfile(profile);
+    setUsage(currentUsage);
+    setMonthlySummary(summary);
+    setDocuments(myDocuments);
+
+    const nextSelectedId =
+      currentSelectedId && myDocuments.some((document) => document.id === currentSelectedId)
+        ? currentSelectedId
+        : myDocuments[0]?.id ?? null;
+
+    setSelectedDocumentId(nextSelectedId);
+
+    return {
+      myDocuments,
+      nextSelectedId,
+    };
+    },
+    [],
+  );
+
+  const loadDocumentDetail = useCallback(async (accessToken: string, documentId: string) => {
+    setIsDocumentDetailLoading(true);
+
+    try {
+      const detail = await apiRequest<DocumentDetail>(`/documents/${documentId}`, {
+        token: accessToken,
+      });
+
+      setDocumentDetail(detail);
+      setSelectedDocumentId(documentId);
+    } finally {
+      setIsDocumentDetailLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    function syncUser() {
+      setUser(getStoredUser());
+    }
+
+    syncUser();
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("noasign-auth-change", syncUser);
+
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("noasign-auth-change", syncUser);
+    };
+  }, []);
 
   useEffect(() => {
     const accessToken = getStoredToken();
 
-    if (!accessToken || !user) {
+    if (typeof accessToken !== "string" || !user) {
       router.replace("/");
+      return;
     }
-  }, [router, user]);
+
+    const token = accessToken;
+
+    let isMounted = true;
+
+    async function loadDashboard() {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const { nextSelectedId } = await loadWorkspace(token);
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (nextSelectedId) {
+          await loadDocumentDetail(token, nextSelectedId);
+        } else {
+          setDocumentDetail(null);
+        }
+      } catch (loadError) {
+        if (!isMounted) {
+          return;
+        }
+
+        clearSession();
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load workspace",
+        );
+        router.replace("/");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadDocumentDetail, loadWorkspace, router, user]);
 
   function handleSignOut() {
     clearSession();
+    setUser(null);
     router.replace("/");
   }
 
+  async function handleSelectDocument(documentId: string) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      await loadDocumentDetail(accessToken, documentId);
+    } catch (detailError) {
+      setError(
+        detailError instanceof Error
+          ? detailError.message
+          : "Unable to load document detail",
+      );
+    }
+  }
+
+  async function handleDocumentAction(documentId: string, action: DocumentAction) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setDocumentActionId(documentId);
+    setError("");
+
+    try {
+      await apiRequest<DocumentActionResponse>(`/documents/${documentId}/${action}`, {
+        token: accessToken,
+        method: "POST",
+      });
+
+      const { nextSelectedId } = await loadWorkspace(accessToken, selectedDocumentId);
+      const detailTarget =
+        documentId === selectedDocumentId ? documentId : nextSelectedId;
+
+      if (detailTarget) {
+        await loadDocumentDetail(accessToken, detailTarget);
+      } else {
+        setDocumentDetail(null);
+      }
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Unable to update document",
+      );
+    } finally {
+      setDocumentActionId(null);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-[color:var(--background)] px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl gap-6 rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--panel)] p-5 shadow-[0_30px_90px_rgba(13,26,38,0.12)] sm:p-8">
-        <div className="flex flex-col gap-4 rounded-[1.75rem] bg-[linear-gradient(135deg,#16344c_0%,#0f2538_100%)] p-6 text-white sm:p-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="grid gap-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.3em] text-white/65">
-                NoaSign Workspace
-              </span>
-              <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
-                Login is working. Dashboard comes next.
-              </h1>
-            </div>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/20 px-4 text-sm font-medium text-white transition hover:bg-white/10"
-            >
-              Sign out
-            </button>
-          </div>
-          <p className="max-w-2xl text-sm leading-7 text-white/78 sm:text-base">
-            This placeholder confirms the frontend login flow, local session
-            handling, and responsive shell are ready before we move into the
-            full dashboard and modules.
-          </p>
+    <main className="min-h-screen bg-[color:var(--background)]">
+      {error ? (
+        <div className="border-b border-[#ffd2c1] bg-[#fff4ef] px-4 py-3 text-sm text-[#9b4620]">
+          {error}
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <section className="grid gap-4 rounded-[1.75rem] border border-[color:var(--border)] bg-white p-5 sm:p-6">
-            <div className="grid gap-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--ink-soft)]">
-                Session
-              </span>
-              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--ink)]">
-                Auth bridge is ready.
-              </h2>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <InfoCard label="Email" value={user?.email ?? "..."} />
-              <InfoCard label="Role" value={user?.role ?? "..."} />
-              <InfoCard label="Status" value={user?.status ?? "..."} />
-              <InfoCard
-                label="Company Profile"
-                value={user?.companyProfileId ?? "Not available"}
-              />
-            </div>
-          </section>
-
-          <section className="grid gap-4 rounded-[1.75rem] border border-[color:var(--border)] bg-[color:var(--surface-strong)] p-5 sm:p-6">
-            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--ink-soft)]">
-              Next block
-            </span>
-            <ul className="grid gap-3 text-sm leading-7 text-[color:var(--ink-soft)]">
-              <li>Billing overview and current usage cards</li>
-              <li>Documents table with lifecycle status</li>
-              <li>Company profile summary and quick actions</li>
-              <li>Protected app shell for future modules</li>
-            </ul>
-          </section>
-        </div>
-      </div>
+      ) : null}
+      <DashboardSidebarDemo
+        user={dashboardUser ?? user}
+        companyProfile={companyProfile}
+        usage={usage}
+        monthlySummary={monthlySummary}
+        documents={documents}
+        documentDetail={documentDetail}
+        selectedDocumentId={selectedDocumentId}
+        isDocumentDetailLoading={isDocumentDetailLoading}
+        documentActionId={documentActionId}
+        isLoading={isLoading}
+        onSelectDocument={handleSelectDocument}
+        onDocumentAction={handleDocumentAction}
+        onSignOut={handleSignOut}
+      />
     </main>
   );
-}
-
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-      <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--ink-soft)]">
-        {label}
-      </div>
-      <div className="mt-2 break-all text-sm font-medium text-[color:var(--ink)]">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function subscribe(onStoreChange: () => void) {
-  window.addEventListener("storage", onStoreChange);
-  window.addEventListener("noasign-auth-change", onStoreChange);
-
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener("noasign-auth-change", onStoreChange);
-  };
-}
-
-function getStoredUserSnapshot(): StoredUser | null {
-  return getStoredUser();
-}
-
-function getServerSnapshot(): StoredUser | null {
-  return null;
-}
-
-function useStoredUser() {
-  return useSyncExternalStore(subscribe, getStoredUserSnapshot, getServerSnapshot);
 }
