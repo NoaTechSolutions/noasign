@@ -109,6 +109,32 @@ type DocumentActionResponse = {
   document: DocumentDetail;
 };
 
+type UpdateDraftResponse = {
+  message: string;
+  document: DocumentDetail;
+};
+
+type DocumentTypeCatalogItem = {
+  id: string;
+  name: string;
+  code: string;
+  formDefinitions: Array<{
+    id: string;
+    name: string;
+    key: string;
+  }>;
+  pandaTemplates: Array<{
+    id: string;
+    name: string;
+    templateKey: string;
+  }>;
+};
+
+type CreateDraftResponse = {
+  message: string;
+  document: DocumentDetail;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -117,6 +143,7 @@ export default function DashboardPage() {
   const [usage, setUsage] = useState<CurrentUsage | null>(null);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [documents, setDocuments] = useState<DashboardDocument[] | null>(null);
+  const [documentTypes, setDocumentTypes] = useState<DocumentTypeCatalogItem[]>([]);
   const [documentDetail, setDocumentDetail] = useState<DocumentDetail | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [isDocumentDetailLoading, setIsDocumentDetailLoading] = useState(false);
@@ -126,12 +153,15 @@ export default function DashboardPage() {
 
   const loadWorkspace = useCallback(
     async (accessToken: string, currentSelectedId?: string | null) => {
-    const [me, profile, currentUsage, summary, myDocuments] = await Promise.all([
+    const [me, profile, currentUsage, summary, myDocuments, availableDocumentTypes] = await Promise.all([
       apiRequest<DashboardUser>("/users/me", { token: accessToken }),
       apiRequest<CompanyProfile>("/company-profile/me", { token: accessToken }),
       apiRequest<CurrentUsage>("/billing/current-usage", { token: accessToken }),
       apiRequest<MonthlySummary>("/billing/summary", { token: accessToken }),
       apiRequest<DashboardDocument[]>("/documents/my-documents", {
+        token: accessToken,
+      }),
+      apiRequest<DocumentTypeCatalogItem[]>("/documents/types", {
         token: accessToken,
       }),
     ]);
@@ -141,6 +171,7 @@ export default function DashboardPage() {
     setUsage(currentUsage);
     setMonthlySummary(summary);
     setDocuments(myDocuments);
+    setDocumentTypes(availableDocumentTypes);
 
     const nextSelectedId =
       currentSelectedId && myDocuments.some((document) => document.id === currentSelectedId)
@@ -307,6 +338,79 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleUpdateDraft(
+    documentId: string,
+    payload: { contractDate: string; dataJson: Record<string, unknown> },
+  ) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setDocumentActionId(documentId);
+    setError("");
+
+    try {
+      await apiRequest<UpdateDraftResponse>(`/documents/${documentId}/draft`, {
+        token: accessToken,
+        method: "PATCH",
+        body: payload,
+      });
+
+      await loadWorkspace(accessToken, documentId);
+      await loadDocumentDetail(accessToken, documentId);
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Unable to update draft document",
+      );
+      throw updateError;
+    } finally {
+      setDocumentActionId(null);
+    }
+  }
+
+  async function handleCreateDraft(payload: {
+    documentTypeId: string;
+    formDefinitionId: string;
+    pandadocTemplateId: string;
+    contractDate: string;
+    dataJson: Record<string, unknown>;
+  }) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      const response = await apiRequest<CreateDraftResponse>("/documents/draft", {
+        token: accessToken,
+        method: "POST",
+        body: payload,
+      });
+
+      await loadWorkspace(accessToken, response.document.id);
+      await loadDocumentDetail(accessToken, response.document.id);
+      return response.document;
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "Unable to create draft document",
+      );
+      throw createError;
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[color:var(--background)]">
       {error ? (
@@ -320,6 +424,7 @@ export default function DashboardPage() {
         usage={usage}
         monthlySummary={monthlySummary}
         documents={documents}
+        documentTypes={documentTypes}
         documentDetail={documentDetail}
         selectedDocumentId={selectedDocumentId}
         isDocumentDetailLoading={isDocumentDetailLoading}
@@ -327,6 +432,8 @@ export default function DashboardPage() {
         isLoading={isLoading}
         onSelectDocument={handleSelectDocument}
         onDocumentAction={handleDocumentAction}
+        onUpdateDraft={handleUpdateDraft}
+        onCreateDraft={handleCreateDraft}
         onSignOut={handleSignOut}
       />
     </main>

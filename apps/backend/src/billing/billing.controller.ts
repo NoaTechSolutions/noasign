@@ -13,10 +13,7 @@ export class BillingController {
   }
 
   @Get('summary')
-  async getMonthlySummary(
-    @Req() req: any,
-    @Query('month') month?: string,
-  ) {
+  async getMonthlySummary(@Req() req: any, @Query('month') month?: string) {
     return this.billingService.getMonthlySummary(req.user.id, month);
   }
 }

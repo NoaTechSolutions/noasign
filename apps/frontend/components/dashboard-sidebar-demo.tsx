@@ -11,6 +11,8 @@ import {
   ChevronsUpDown,
   CircleHelp,
   CreditCard,
+  Download,
+  FileJson,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -23,6 +25,7 @@ import {
   Undo2,
   UserRound,
   WalletCards,
+  X,
 } from "lucide-react";
 import { Sidebar, SidebarBody, SidebarLink } from "./ui/sidebar";
 import { ThemeToggle } from "./theme-toggle";
@@ -53,6 +56,22 @@ type DocDetail = Doc & {
   versions?: Array<{ id: string; versionNumber: number; createdAt: string }>;
 };
 
+type DocumentTypeCatalogItem = {
+  id: string;
+  name: string;
+  code: string;
+  formDefinitions: Array<{
+    id: string;
+    name: string;
+    key: string;
+  }>;
+  pandaTemplates: Array<{
+    id: string;
+    name: string;
+    templateKey: string;
+  }>;
+};
+
 type Props = {
   user: { email: string; role: string; status: string } | null;
   companyProfile: {
@@ -77,6 +96,7 @@ type Props = {
     overagePrice: string | number;
   } | null;
   documents: Doc[] | null;
+  documentTypes: DocumentTypeCatalogItem[];
   documentDetail: DocDetail | null;
   selectedDocumentId: string | null;
   isDocumentDetailLoading: boolean;
@@ -87,6 +107,17 @@ type Props = {
     documentId: string,
     action: "send" | "cancel" | "reactivate",
   ) => void;
+  onUpdateDraft: (
+    documentId: string,
+    payload: { contractDate: string; dataJson: Record<string, unknown> },
+  ) => Promise<void>;
+  onCreateDraft: (payload: {
+    documentTypeId: string;
+    formDefinitionId: string;
+    pandadocTemplateId: string;
+    contractDate: string;
+    dataJson: Record<string, unknown>;
+  }) => Promise<DocDetail | void>;
   onSignOut: () => void;
 };
 
@@ -106,6 +137,7 @@ export function DashboardSidebarDemo({
   usage,
   monthlySummary,
   documents,
+  documentTypes,
   documentDetail,
   selectedDocumentId,
   isDocumentDetailLoading,
@@ -113,10 +145,16 @@ export function DashboardSidebarDemo({
   isLoading,
   onSelectDocument,
   onDocumentAction,
+  onUpdateDraft,
+  onCreateDraft,
   onSignOut,
 }: Props) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth >= 1280;
+  });
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionKey>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
@@ -312,6 +350,7 @@ export function DashboardSidebarDemo({
             <DocumentsPanel
               documents={filteredDocuments}
               allDocuments={documents ?? []}
+              documentTypes={documentTypes}
               usage={usage}
               documentDetail={documentDetail}
               selectedDocumentId={selectedDocumentId}
@@ -323,7 +362,12 @@ export function DashboardSidebarDemo({
               onSearchQueryChange={setSearchQuery}
               onStatusFilterChange={setStatusFilter}
               onSelectDocument={onSelectDocument}
+              onOpenDocumentView={(documentId) => {
+                setDocumentViewerOpen(true);
+                onSelectDocument(documentId);
+              }}
               onDocumentAction={onDocumentAction}
+              onCreateDraft={onCreateDraft}
             />
           ) : null}
 
@@ -355,6 +399,17 @@ export function DashboardSidebarDemo({
           ) : null}
         </div>
       </div>
+
+      <DocumentViewer
+        key={`${documentDetail?.id ?? "empty"}-${documentViewerOpen ? "open" : "closed"}`}
+        open={documentViewerOpen}
+        document={documentDetail}
+        isLoading={isDocumentDetailLoading}
+        actionInFlight={documentActionId}
+        onClose={() => setDocumentViewerOpen(false)}
+        onAction={onDocumentAction}
+        onUpdateDraft={onUpdateDraft}
+      />
     </div>
   );
 }
@@ -454,6 +509,7 @@ function DashboardOverview({
 function DocumentsPanel(props: {
   documents: Doc[] | null;
   allDocuments: Doc[];
+  documentTypes: DocumentTypeCatalogItem[];
   usage: Props["usage"];
   documentDetail: DocDetail | null;
   selectedDocumentId: string | null;
@@ -465,13 +521,22 @@ function DocumentsPanel(props: {
   onSearchQueryChange: (value: string) => void;
   onStatusFilterChange: (value: StatusFilter) => void;
   onSelectDocument: (documentId: string) => void;
+  onOpenDocumentView: (documentId: string) => void;
   onDocumentAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
+  onCreateDraft: (payload: {
+    documentTypeId: string;
+    formDefinitionId: string;
+    pandadocTemplateId: string;
+    contractDate: string;
+    dataJson: Record<string, unknown>;
+  }) => Promise<DocDetail | void>;
 }) {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const totalDocuments = props.documents?.length ?? 0;
@@ -527,6 +592,7 @@ function DocumentsPanel(props: {
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Contracts workspace</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">Review all documents, filter by status, inspect detail and trigger allowed lifecycle actions.</p>
           </div>
+          <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setMobileStatsOpen((current) => !current)}
@@ -535,6 +601,7 @@ function DocumentsPanel(props: {
             <span>Workspace metrics</span>
             <ChevronRight className={cn("h-4 w-4 text-slate-400 transition-transform dark:text-slate-500", mobileStatsOpen && "rotate-90")} />
           </button>
+          </div>
           <div className={cn("grid grid-cols-2 gap-3 md:grid-cols-4", mobileStatsOpen ? "grid" : "hidden md:grid")}>
             <StatPill label="Total" value={String(props.allDocuments.length)} />
             <StatPill label="Draft" value={String(props.allDocuments.filter((item) => item.status === "DRAFT").length)} />
@@ -587,6 +654,13 @@ function DocumentsPanel(props: {
               </div>
             ) : null}
           </div>
+          <button
+            type="button"
+            onClick={() => setCreateDrawerOpen(true)}
+            className="inline-flex h-12 items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:hidden"
+          >
+            New contract
+          </button>
           <div className="hidden flex-wrap gap-2 md:flex">
             {(["ALL", "DRAFT", "SENT", "VIEWED", "SIGNED", "COMPLETED", "CANCELLED"] as const).map((option) => (
               <button key={option} type="button" onClick={() => {
@@ -600,13 +674,21 @@ function DocumentsPanel(props: {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
+      <div className="overflow-visible rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Results</div>
             <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{props.isLoading ? "Loading..." : `${totalDocuments} contracts`}</div>
           </div>
-          <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCreateDrawerOpen(true)}
+              className="hidden h-9 items-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:inline-flex"
+            >
+              New contract
+            </button>
+            <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
             <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">
               Rows
             </label>
@@ -642,6 +724,7 @@ function DocumentsPanel(props: {
                 ))}
               </div>
             ) : null}
+            </div>
           </div>
         </div>
 
@@ -690,7 +773,7 @@ function DocumentsPanel(props: {
                       <DocumentListActions
                         document={document}
                         actionInFlight={props.documentActionId === document.id}
-                        onView={() => props.onSelectDocument(document.id)}
+                        onView={() => props.onOpenDocumentView(document.id)}
                         onAction={props.onDocumentAction}
                       />
                     </div>
@@ -740,7 +823,7 @@ function DocumentsPanel(props: {
                       <DocumentListActions
                         document={document}
                         actionInFlight={props.documentActionId === document.id}
-                        onView={() => props.onSelectDocument(document.id)}
+                        onView={() => props.onOpenDocumentView(document.id)}
                         onAction={props.onDocumentAction}
                       />
                     </div>
@@ -795,9 +878,17 @@ function DocumentsPanel(props: {
           </div>
         )}
       </div>
+      <CreateDraftDrawer
+        open={createDrawerOpen}
+        documentTypes={props.documentTypes}
+        onClose={() => setCreateDrawerOpen(false)}
+        onCreateDraft={props.onCreateDraft}
+        onOpenDocumentView={(documentId) => props.onOpenDocumentView(documentId)}
+      />
     </section>
   );
 }
+
 function PlaceholderPanel({
   title,
   description,
@@ -824,6 +915,786 @@ function PlaceholderPanel({
   );
 }
 
+function CreateDraftDrawer({
+  open,
+  documentTypes,
+  onClose,
+  onCreateDraft,
+  onOpenDocumentView,
+}: {
+  open: boolean;
+  documentTypes: DocumentTypeCatalogItem[];
+  onClose: () => void;
+  onCreateDraft: (payload: {
+    documentTypeId: string;
+    formDefinitionId: string;
+    pandadocTemplateId: string;
+    contractDate: string;
+    dataJson: Record<string, unknown>;
+  }) => Promise<DocDetail | void>;
+  onOpenDocumentView: (documentId: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing">("client");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState("");
+  const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [contractDate, setContractDate] = useState(toDateInputValue(new Date().toISOString()));
+  const [fields, setFields] = useState<Record<string, string>>({
+    customer_name: "",
+    customer_phone: "",
+    customer_email: "",
+    customer_address: "",
+    city: "",
+    state: "",
+    zip: "",
+    project_address: "",
+    project_city: "",
+    project_state: "",
+    project_zip: "",
+    start_date: "",
+    estimated_completion_date: "",
+    project_name: "",
+    contract_scope: "",
+    contract_amount: "",
+    deposit_amount: "",
+    payment_schedule: "",
+    notes: "",
+  });
+
+  const selectedDocumentType = useMemo(
+    () => documentTypes.find((item) => item.id === selectedDocumentTypeId) ?? null,
+    [documentTypes, selectedDocumentTypeId],
+  );
+  useEffect(() => {
+    if (!open) return;
+    const firstType = documentTypes[0] ?? null;
+    setSelectedDocumentTypeId(firstType?.id ?? "");
+  }, [documentTypes, open]);
+
+  useEffect(() => {
+    if (!selectedDocumentType) {
+      setSelectedFormDefinitionId("");
+      setSelectedTemplateId("");
+      return;
+    }
+    setSelectedFormDefinitionId(selectedDocumentType.formDefinitions[0]?.id ?? "");
+    setSelectedTemplateId(selectedDocumentType.pandaTemplates[0]?.id ?? "");
+  }, [selectedDocumentType]);
+
+  if (!open) {
+    return null;
+  }
+
+  function requestClose() {
+    if (isSubmitting) return;
+    setConfirmCloseOpen(true);
+  }
+
+  async function handleSubmit() {
+    if (!selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const document = await onCreateDraft({
+        documentTypeId: selectedDocumentTypeId,
+        formDefinitionId: selectedFormDefinitionId,
+        pandadocTemplateId: selectedTemplateId,
+        contractDate,
+        dataJson: buildCreateDraftPayload(fields),
+      });
+
+      onClose();
+
+      if (document?.id) {
+        onOpenDocumentView(document.id);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex min-h-screen items-start justify-center bg-slate-950/45 p-2 pt-1 backdrop-blur-sm md:items-center md:p-4">
+      <button type="button" aria-label="Close draft creator" onClick={requestClose} className="absolute inset-0" />
+      <aside className="relative z-10 flex max-h-[98vh] w-full max-w-[90vw] flex-col overflow-y-auto rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 md:h-[96vh] md:max-h-[96vh] md:max-w-[96vw]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 dark:border-white/10">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Create draft</div>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">New contract</h2>
+            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Create a draft, then continue editing it in the document viewer.</div>
+          </div>
+          <button
+            type="button"
+            onClick={requestClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
+          <div className="grid gap-3 md:grid-cols-2">
+            <SelectField
+              label="Document type"
+              value={selectedDocumentTypeId}
+              onChange={setSelectedDocumentTypeId}
+              options={documentTypes.map((item) => ({ value: item.id, label: item.name }))}
+            />
+            <EditableField
+              icon={<FileJson className="h-4 w-4" />}
+              label="Contract date"
+              type="date"
+              value={contractDate}
+              onChange={setContractDate}
+            />
+            <SelectField
+              label="Form"
+              value={selectedFormDefinitionId}
+              onChange={setSelectedFormDefinitionId}
+              options={(selectedDocumentType?.formDefinitions ?? []).map((item) => ({ value: item.id, label: item.name }))}
+            />
+            <SelectField
+              label="Template"
+              value={selectedTemplateId}
+              onChange={setSelectedTemplateId}
+              options={(selectedDocumentType?.pandaTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
+            />
+          </div>
+        </div>
+
+        <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: "client", label: "Client" },
+              { key: "project", label: "Project" },
+              { key: "pricing", label: "Pricing" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key as "client" | "project" | "pricing")}
+                className={cn(
+                  "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
+                  activeTab === tab.key
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-5 py-5">
+          {activeTab === "client" ? (
+            <div className="grid gap-3">
+              <EditableField icon={<UserRound className="h-4 w-4" />} label="Customer name" value={fields.customer_name} placeholder="Full name" onChange={(value) => setFields((current) => ({ ...current, customer_name: value }))} />
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="Phone" value={fields.customer_phone} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_phone: value }))} />
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="Email" value={fields.customer_email} placeholder="Email address" onChange={(value) => setFields((current) => ({ ...current, customer_email: value }))} />
+              </div>
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address" value={fields.customer_address} placeholder="Street address" onChange={(value) => setFields((current) => ({ ...current, customer_address: value }))} />
+              <div className="grid gap-3 md:grid-cols-3">
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="City" value={fields.city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, city: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="State" value={fields.state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, state: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="Zip code" value={fields.zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, zip: value }))} />
+              </div>
+            </div>
+          ) : activeTab === "project" ? (
+            <div className="grid gap-3">
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Project name" value={fields.project_name} placeholder="Project name" onChange={(value) => setFields((current) => ({ ...current, project_name: value }))} />
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Project address" value={fields.project_address} placeholder="Project address" onChange={(value) => setFields((current) => ({ ...current, project_address: value }))} />
+              <div className="grid gap-3 md:grid-cols-3">
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="City" value={fields.project_city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, project_city: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="State" value={fields.project_state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, project_state: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="Zip code" value={fields.project_zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, project_zip: value }))} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<FileJson className="h-4 w-4" />} type="date" label="Start date" value={fields.start_date} onChange={(value) => setFields((current) => ({ ...current, start_date: value }))} />
+                <EditableField icon={<FileJson className="h-4 w-4" />} type="date" label="Estimated completion date" value={fields.estimated_completion_date} onChange={(value) => setFields((current) => ({ ...current, estimated_completion_date: value }))} />
+              </div>
+              <EditableField icon={<FileJson className="h-4 w-4" />} label="Contract scope" value={fields.contract_scope} placeholder="Scope of work" onChange={(value) => setFields((current) => ({ ...current, contract_scope: value }))} />
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<WalletCards className="h-4 w-4" />} label="Contract amount" value={fields.contract_amount} placeholder="Contract amount" onChange={(value) => setFields((current) => ({ ...current, contract_amount: value }))} />
+                <EditableField icon={<WalletCards className="h-4 w-4" />} label="Deposit amount" value={fields.deposit_amount} placeholder="Deposit amount" onChange={(value) => setFields((current) => ({ ...current, deposit_amount: value }))} />
+              </div>
+              <EditableField icon={<WalletCards className="h-4 w-4" />} label="Payment schedule" value={fields.payment_schedule} placeholder="Payment schedule" onChange={(value) => setFields((current) => ({ ...current, payment_schedule: value }))} />
+              <EditableField icon={<FileJson className="h-4 w-4" />} label="Notes" value={fields.notes} placeholder="Notes" onChange={(value) => setFields((current) => ({ ...current, notes: value }))} />
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={requestClose}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSubmit()}
+              disabled={isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate}
+              className={cn(
+                "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
+                (isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) && "cursor-not-allowed opacity-60",
+              )}
+            >
+              {isSubmitting ? "Creating..." : "Create draft"}
+            </button>
+          </div>
+        </div>
+      </aside>
+      {confirmCloseOpen ? (
+        <div className="absolute inset-0 z-[60] flex min-h-full items-center justify-center bg-slate-950/30 p-4">
+          <div className="w-full max-w-sm -translate-y-[50%] rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 md:translate-y-0">
+            <div className="text-lg font-semibold text-slate-950 dark:text-white">Cancel draft?</div>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              If you close this popup now, the information entered here will be discarded.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmCloseOpen(false)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmCloseOpen(false);
+                  onClose();
+                }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DocumentViewer({
+  open,
+  document,
+  isLoading,
+  actionInFlight,
+  onClose,
+  onAction,
+  onUpdateDraft,
+}: {
+  open: boolean;
+  document: DocDetail | null;
+  isLoading: boolean;
+  actionInFlight: string | null;
+  onClose: () => void;
+  onAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
+  onUpdateDraft: (
+    documentId: string,
+    payload: { contractDate: string; dataJson: Record<string, unknown> },
+  ) => Promise<void>;
+}) {
+  const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing" | "timeline" | "pdf">("client");
+  const [editingTab, setEditingTab] = useState<"client" | "project" | "pricing" | null>(null);
+  const [draftFields, setDraftFields] = useState<Record<string, string>>({});
+  const [isSavingTab, setIsSavingTab] = useState(false);
+  const actionButtons = getDocumentActions(document?.status);
+  const clientProfile = useMemo(() => getClientProfile(document), [document]);
+  const projectProfile = useMemo(() => getProjectProfile(document), [document]);
+  const clientEntries = useMemo(() => getClientEntries(document), [document]);
+  const projectEntries = useMemo(() => getProjectEntries(document), [document]);
+  const pricingEntries = useMemo(() => getPricingEntries(document), [document]);
+  const hasPdfStage = document?.status === "SIGNED" || document?.status === "COMPLETED";
+  const isDraft = document?.status === "DRAFT";
+
+  useEffect(() => {
+    if (!document) return;
+    setDraftFields(buildDraftFieldMap(document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile));
+    setEditingTab(null);
+    setIsSavingTab(false);
+  }, [document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile]);
+
+  async function saveEditingTab() {
+    if (!document || !editingTab) return;
+
+    const nextDataJson = { ...(document.data?.dataJson ?? {}) } as Record<string, unknown>;
+    const nextContractDate = document.contractDate ? toDateInputValue(document.contractDate) : "";
+
+    if (editingTab === "client") {
+      for (const key of [
+        clientProfile.nameKey,
+        clientProfile.phoneKey,
+        clientProfile.emailKey,
+        clientProfile.addressKey,
+        clientProfile.cityKey,
+        clientProfile.stateKey,
+        clientProfile.zipKey,
+      ]) {
+        if (key) {
+          nextDataJson[key] = draftFields[key] ?? "";
+        }
+      }
+    } else if (editingTab === "project") {
+      for (const key of [
+        projectProfile.addressKey,
+        projectProfile.cityKey,
+        projectProfile.stateKey,
+        projectProfile.zipKey,
+        projectProfile.startDateKey,
+        projectProfile.estimatedCompletionDateKey,
+      ]) {
+        if (key) {
+          nextDataJson[key] = draftFields[key] ?? "";
+        }
+      }
+      for (const [label] of projectEntries) {
+        const key = findOriginalKeyByLabel(document, label);
+        if (key) {
+          nextDataJson[key] = draftFields[key] ?? "";
+        }
+      }
+    } else {
+      for (const [label] of pricingEntries) {
+        const key = findOriginalKeyByLabel(document, label);
+        if (key) {
+          nextDataJson[key] = draftFields[key] ?? "";
+        }
+      }
+    }
+
+    setIsSavingTab(true);
+    try {
+      await onUpdateDraft(document.id, {
+        contractDate: nextContractDate,
+        dataJson: nextDataJson,
+      });
+      setEditingTab(null);
+    } finally {
+      setIsSavingTab(false);
+    }
+  }
+
+  function cancelEditingTab() {
+    if (!document) return;
+    setDraftFields(buildDraftFieldMap(document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile));
+    setEditingTab(null);
+  }
+
+  async function handleTabChange(nextTab: typeof activeTab) {
+    if (editingTab && nextTab !== editingTab) {
+      await saveEditingTab();
+    }
+    setActiveTab(nextTab);
+  }
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-sm">
+      <button type="button" aria-label="Close document viewer" onClick={onClose} className="absolute inset-0" />
+      <aside className="relative z-10 flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 dark:border-white/10">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Document view</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
+                {isLoading ? "Loading..." : document?.documentNumber ?? "Document detail"}
+              </h2>
+              {document ? <StatusBadge status={document.status} /> : null}
+            </div>
+            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              {isLoading ? "Preparing detail..." : document?.documentType?.name ?? "Contract"}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: "client", label: "Client" },
+              { key: "project", label: "Project" },
+              { key: "pricing", label: "Pricing" },
+              { key: "timeline", label: "Timeline" },
+              ...(hasPdfStage ? [{ key: "pdf", label: "Final PDF" }] : []),
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => void handleTabChange(tab.key as typeof activeTab)}
+                className={cn(
+                  "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
+                  activeTab === tab.key
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {isLoading ? (
+            <EmptyBlock text="Loading document detail..." />
+          ) : !document ? (
+            <EmptyBlock text="Select a document to inspect its detail." />
+          ) : activeTab === "client" ? (
+            clientProfile.name || clientProfile.email || clientProfile.phone || clientProfile.address || clientProfile.city || clientProfile.state || clientProfile.zip ? (
+              <div className="grid gap-4">
+                <TabEditorToolbar
+                  canEdit={Boolean(isDraft)}
+                  isEditing={editingTab === "client"}
+                  isSaving={isSavingTab}
+                  editLabel="Edit client"
+                  onEdit={() => setEditingTab("client")}
+                  onSave={() => void saveEditingTab()}
+                  onCancel={cancelEditingTab}
+                />
+                <div className="grid gap-3">
+                  {editingTab === "client" ? (
+                    <EditableField
+                      icon={<UserRound className="h-4 w-4" />}
+                      label="Customer name"
+                      value={clientProfile.nameKey ? draftFields[clientProfile.nameKey] ?? clientProfile.name : clientProfile.name}
+                      onChange={(nextValue) => {
+                        if (!clientProfile.nameKey) return;
+                        setDraftFields((current) => ({ ...current, [clientProfile.nameKey!]: nextValue }));
+                      }}
+                    />
+                  ) : (
+                    <DetailRow icon={<UserRound className="h-4 w-4" />} label="Customer name" value={clientProfile.name || "Not provided"} />
+                  )}
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {editingTab === "client" ? (
+                      <EditableField
+                        icon={<UserRound className="h-4 w-4" />}
+                        label="Phone"
+                        value={clientProfile.phoneKey ? draftFields[clientProfile.phoneKey] ?? clientProfile.phone : clientProfile.phone}
+                        onChange={(nextValue) => {
+                          if (!clientProfile.phoneKey) return;
+                          setDraftFields((current) => ({ ...current, [clientProfile.phoneKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<UserRound className="h-4 w-4" />} label="Phone" value={clientProfile.phone || "Not provided"} />
+                    )}
+
+                    {editingTab === "client" ? (
+                      <EditableField
+                        icon={<UserRound className="h-4 w-4" />}
+                        label="Email"
+                        value={clientProfile.emailKey ? draftFields[clientProfile.emailKey] ?? clientProfile.email : clientProfile.email}
+                        onChange={(nextValue) => {
+                          if (!clientProfile.emailKey) return;
+                          setDraftFields((current) => ({ ...current, [clientProfile.emailKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<UserRound className="h-4 w-4" />} label="Email" value={clientProfile.email || "Not provided"} />
+                    )}
+                  </div>
+
+                  {editingTab === "client" ? (
+                    <EditableField
+                      icon={<Building2 className="h-4 w-4" />}
+                      label="Address"
+                      value={clientProfile.addressKey ? draftFields[clientProfile.addressKey] ?? clientProfile.address : clientProfile.address}
+                      onChange={(nextValue) => {
+                        if (!clientProfile.addressKey) return;
+                        setDraftFields((current) => ({ ...current, [clientProfile.addressKey!]: nextValue }));
+                      }}
+                    />
+                  ) : (
+                    <DetailRow icon={<Building2 className="h-4 w-4" />} label="Address" value={clientProfile.address || "Not provided"} />
+                  )}
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {editingTab === "client" ? (
+                      <EditableField
+                        icon={<Building2 className="h-4 w-4" />}
+                        label="City"
+                        value={clientProfile.cityKey ? draftFields[clientProfile.cityKey] ?? clientProfile.city : clientProfile.city}
+                        onChange={(nextValue) => {
+                          if (!clientProfile.cityKey) return;
+                          setDraftFields((current) => ({ ...current, [clientProfile.cityKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<Building2 className="h-4 w-4" />} label="City" value={clientProfile.city || "Not provided"} />
+                    )}
+
+                    {editingTab === "client" ? (
+                      <EditableField
+                        icon={<Building2 className="h-4 w-4" />}
+                        label="State"
+                        value={clientProfile.stateKey ? draftFields[clientProfile.stateKey] ?? clientProfile.state : clientProfile.state}
+                        onChange={(nextValue) => {
+                          if (!clientProfile.stateKey) return;
+                          setDraftFields((current) => ({ ...current, [clientProfile.stateKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<Building2 className="h-4 w-4" />} label="State" value={clientProfile.state || "Not provided"} />
+                    )}
+
+                    {editingTab === "client" ? (
+                      <EditableField
+                        icon={<Building2 className="h-4 w-4" />}
+                        label="Zip code"
+                        value={clientProfile.zipKey ? draftFields[clientProfile.zipKey] ?? clientProfile.zip : clientProfile.zip}
+                        onChange={(nextValue) => {
+                          if (!clientProfile.zipKey) return;
+                          setDraftFields((current) => ({ ...current, [clientProfile.zipKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<Building2 className="h-4 w-4" />} label="Zip code" value={clientProfile.zip || "Not provided"} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <EmptyBlock text="No client-specific fields were found in this document payload." />
+            )
+          ) : activeTab === "project" ? (
+            projectProfile.address || projectProfile.city || projectProfile.state || projectProfile.zip || projectProfile.startDate || projectProfile.estimatedCompletionDate || projectEntries.length > 0 ? (
+              <div className="grid gap-4">
+                <TabEditorToolbar
+                  canEdit={Boolean(isDraft)}
+                  isEditing={editingTab === "project"}
+                  isSaving={isSavingTab}
+                  editLabel="Edit project"
+                  onEdit={() => setEditingTab("project")}
+                  onSave={() => void saveEditingTab()}
+                  onCancel={cancelEditingTab}
+                />
+                <div className="grid gap-3">
+                  {editingTab === "project" ? (
+                    <EditableField
+                      icon={<Building2 className="h-4 w-4" />}
+                      label="Project address"
+                      value={projectProfile.addressKey ? draftFields[projectProfile.addressKey] ?? projectProfile.address : projectProfile.address}
+                      onChange={(nextValue) => {
+                        if (!projectProfile.addressKey) return;
+                        setDraftFields((current) => ({ ...current, [projectProfile.addressKey!]: nextValue }));
+                      }}
+                    />
+                  ) : (
+                    <DetailRow icon={<Building2 className="h-4 w-4" />} label="Project address" value={projectProfile.address || "Not provided"} />
+                  )}
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {editingTab === "project" ? (
+                      <EditableField
+                        icon={<Building2 className="h-4 w-4" />}
+                        label="City"
+                        value={projectProfile.cityKey ? draftFields[projectProfile.cityKey] ?? projectProfile.city : projectProfile.city}
+                        onChange={(nextValue) => {
+                          if (!projectProfile.cityKey) return;
+                          setDraftFields((current) => ({ ...current, [projectProfile.cityKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<Building2 className="h-4 w-4" />} label="City" value={projectProfile.city || "Not provided"} />
+                    )}
+
+                    {editingTab === "project" ? (
+                      <EditableField
+                        icon={<Building2 className="h-4 w-4" />}
+                        label="State"
+                        value={projectProfile.stateKey ? draftFields[projectProfile.stateKey] ?? projectProfile.state : projectProfile.state}
+                        onChange={(nextValue) => {
+                          if (!projectProfile.stateKey) return;
+                          setDraftFields((current) => ({ ...current, [projectProfile.stateKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<Building2 className="h-4 w-4" />} label="State" value={projectProfile.state || "Not provided"} />
+                    )}
+
+                    {editingTab === "project" ? (
+                      <EditableField
+                        icon={<Building2 className="h-4 w-4" />}
+                        label="Zip code"
+                        value={projectProfile.zipKey ? draftFields[projectProfile.zipKey] ?? projectProfile.zip : projectProfile.zip}
+                        onChange={(nextValue) => {
+                          if (!projectProfile.zipKey) return;
+                          setDraftFields((current) => ({ ...current, [projectProfile.zipKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<Building2 className="h-4 w-4" />} label="Zip code" value={projectProfile.zip || "Not provided"} />
+                    )}
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {editingTab === "project" ? (
+                      <EditableField
+                        icon={<FileJson className="h-4 w-4" />}
+                        label="Start date"
+                        type="date"
+                        value={projectProfile.startDateKey ? draftFields[projectProfile.startDateKey] ?? toDateInputValue(projectProfile.startDate) : toDateInputValue(projectProfile.startDate)}
+                        onChange={(nextValue) => {
+                          if (!projectProfile.startDateKey) return;
+                          setDraftFields((current) => ({ ...current, [projectProfile.startDateKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<FileJson className="h-4 w-4" />} label="Start date" value={formatDate(projectProfile.startDate)} />
+                    )}
+
+                    {editingTab === "project" ? (
+                      <EditableField
+                        icon={<FileJson className="h-4 w-4" />}
+                        label="Estimated completion date"
+                        type="date"
+                        value={projectProfile.estimatedCompletionDateKey ? draftFields[projectProfile.estimatedCompletionDateKey] ?? toDateInputValue(projectProfile.estimatedCompletionDate) : toDateInputValue(projectProfile.estimatedCompletionDate)}
+                        onChange={(nextValue) => {
+                          if (!projectProfile.estimatedCompletionDateKey) return;
+                          setDraftFields((current) => ({ ...current, [projectProfile.estimatedCompletionDateKey!]: nextValue }));
+                        }}
+                      />
+                    ) : (
+                      <DetailRow icon={<FileJson className="h-4 w-4" />} label="Estimated completion date" value={formatDate(projectProfile.estimatedCompletionDate)} />
+                    )}
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {projectEntries.filter(([label]) => !["Project Address", "City", "State", "Zip", "Zip Code", "Start Date", "Estimated Completion Date", "Completion Date"].includes(label)).map(([label, value]) => {
+                    const key = findOriginalKeyByLabel(document, label) ?? label;
+                    return editingTab === "project" ? (
+                      <EditableField
+                        key={label}
+                        icon={<FileJson className="h-4 w-4" />}
+                        label={label}
+                        value={draftFields[key] ?? value}
+                        onChange={(nextValue) => setDraftFields((current) => ({ ...current, [key]: nextValue }))}
+                      />
+                    ) : (
+                        <DetailRow key={label} icon={<FileJson className="h-4 w-4" />} label={label} value={value} />
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <EmptyBlock text="No project-specific fields were found in this document payload." />
+            )
+          ) : activeTab === "pricing" ? (
+            pricingEntries.length > 0 ? (
+              <div className="grid gap-4">
+                <TabEditorToolbar
+                  canEdit={Boolean(isDraft)}
+                  isEditing={editingTab === "pricing"}
+                  isSaving={isSavingTab}
+                  editLabel="Edit pricing"
+                  onEdit={() => setEditingTab("pricing")}
+                  onSave={() => void saveEditingTab()}
+                  onCancel={cancelEditingTab}
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  {pricingEntries.map(([label, value]) => {
+                    const key = findOriginalKeyByLabel(document, label) ?? label;
+                    return editingTab === "pricing" ? (
+                      <EditableField
+                        key={label}
+                        icon={<WalletCards className="h-4 w-4" />}
+                        label={label}
+                        value={draftFields[key] ?? value}
+                        onChange={(nextValue) => setDraftFields((current) => ({ ...current, [key]: nextValue }))}
+                      />
+                    ) : (
+                      <DetailRow key={label} icon={<WalletCards className="h-4 w-4" />} label={label} value={value} />
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <EmptyBlock text="No pricing fields were found in this document payload." />
+            )
+          ) : activeTab === "timeline" ? (
+            <div className="grid gap-3">
+              {buildTimeline(document).map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-white/10 dark:bg-white/[0.04]">
+                  <span className="text-slate-500 dark:text-slate-400">{item.label}</span>
+                  <span className="font-medium text-slate-900 dark:text-white">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-12 text-center dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="text-lg font-semibold text-slate-900 dark:text-white">Final signed PDF</div>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  The final PDF viewer and download will be connected when signed file storage is enabled.
+                </p>
+                <button
+                  type="button"
+                  disabled
+                  className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
+                >
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {document && !editingTab ? (
+          <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
+            <div className="flex flex-wrap gap-3">
+              {actionButtons.length > 0 ? actionButtons.map((action) => (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={() => onAction(document.id, action.key)}
+                  disabled={actionInFlight === document.id}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition",
+                    action.tone,
+                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  {action.icon}
+                  <span>{actionInFlight === document.id ? "Processing..." : action.label}</span>
+                </button>
+              )) : (
+                <div className="text-sm text-slate-500 dark:text-slate-400">No direct actions available for this status.</div>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </aside>
+    </div>
+  );
+}
+
 function InfoCard({ label, title, subtitle, accent = false }: { label: string; title: string; subtitle: string; accent?: boolean }) {
   return (
     <div className={cn("rounded-[1.5rem] border p-4 shadow-[0_12px_30px_rgba(48,88,160,0.08)] dark:border-white/10 dark:shadow-none", accent ? "border-slate-200 bg-[linear-gradient(135deg,#eff6ff_0%,#dbeafe_100%)] dark:bg-[linear-gradient(135deg,#111827_0%,#172036_100%)]" : "border-slate-200 bg-white/85 dark:bg-white/5")}>
@@ -840,6 +1711,130 @@ function StatPill({ label, value }: { label: string; value: string }) {
 
 function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400"><span className="text-slate-400 dark:text-slate-500">{icon}</span>{label}</div><div className="mt-3 text-sm font-medium text-slate-950 dark:text-white">{value}</div></div>;
+}
+
+function EditableField({
+  icon,
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: "text" | "date";
+  placeholder?: string;
+}) {
+  return (
+    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+        <span className="text-slate-400 dark:text-slate-500">{icon}</span>
+        {label}
+      </div>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-3 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-300 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+      />
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+        <span className="text-slate-400 dark:text-slate-500">
+          <FileJson className="h-4 w-4" />
+        </span>
+        {label}
+      </div>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-3 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-300 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+      >
+        <option value="">Select</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function TabEditorToolbar({
+  canEdit,
+  isEditing,
+  isSaving,
+  editLabel,
+  onEdit,
+  onSave,
+  onCancel,
+}: {
+  canEdit: boolean;
+  isEditing: boolean;
+  isSaving: boolean;
+  editLabel: string;
+  onEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  if (!canEdit) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {isEditing ? (
+        <>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={isSaving}
+            className={cn(
+              "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
+              isSaving && "cursor-not-allowed opacity-60",
+            )}
+          >
+            {isSaving ? "Saving..." : "Save tab"}
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+        >
+          {editLabel}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function EmptyBlock({ text }: { text: string }) {
@@ -875,8 +1870,10 @@ function DocumentListActions({
   onAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const workflowActions = getDocumentActions(rowDocument.status);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -897,9 +1894,15 @@ function DocumentListActions({
   return (
     <div ref={menuRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={(event) => {
           event.stopPropagation();
+          if (!open && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const estimatedMenuHeight = 180;
+            setOpenUpward(window.innerHeight - rect.bottom < estimatedMenuHeight);
+          }
           setOpen((current) => !current);
         }}
         className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
@@ -910,7 +1913,10 @@ function DocumentListActions({
 
       {open ? (
         <div
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]"
+          className={cn(
+            "absolute right-0 z-20 min-w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]",
+            openUpward ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]",
+          )}
           onClick={(event) => event.stopPropagation()}
         >
           <button
@@ -1058,7 +2064,6 @@ function getFinalCustomerName(document: Doc) {
   const data = document.data?.dataJson ?? {};
   const candidates = [
     data.customer_name,
-    data.owner_name,
     data.client_name,
     data.customer_full_name,
   ];
@@ -1077,8 +2082,6 @@ function getFinalCustomerEmail(document: Doc) {
   const candidates = [
     data.customer_email,
     data.client_email,
-    data.owner_email,
-    data.email,
   ];
 
   for (const candidate of candidates) {
@@ -1088,6 +2091,200 @@ function getFinalCustomerEmail(document: Doc) {
   }
 
   return null;
+}
+
+function getClientProfile(document: DocDetail | null) {
+  const data = document?.data?.dataJson ?? {};
+
+  const nameKey = pickFirstExistingKey(data, ["customer_full_name", "customer_name", "client_name"]);
+  const phoneKey = pickFirstExistingKey(data, ["customer_phone", "client_phone"]);
+  const emailKey = pickFirstExistingKey(data, ["customer_email", "client_email"]);
+  const addressKey = pickFirstExistingKey(data, ["customer_address", "client_address"]);
+  const cityKey = pickFirstExistingKey(data, ["customer_city", "client_city", "city"]);
+  const stateKey = pickFirstExistingKey(data, ["customer_state", "client_state", "state"]);
+  const zipKey = pickFirstExistingKey(data, ["customer_zip", "client_zip", "zip", "zip_code", "zipcode"]);
+
+  return {
+    nameKey,
+    phoneKey,
+    emailKey,
+    addressKey,
+    cityKey,
+    stateKey,
+    zipKey,
+    name: nameKey ? formatFieldValue(data[nameKey]) : "",
+    phone: phoneKey ? formatFieldValue(data[phoneKey]) : "",
+    email: emailKey ? formatFieldValue(data[emailKey]) : "",
+    address: addressKey ? formatFieldValue(data[addressKey]) : "",
+    city: cityKey ? formatFieldValue(data[cityKey]) : "",
+    state: stateKey ? formatFieldValue(data[stateKey]) : "",
+    zip: zipKey ? formatFieldValue(data[zipKey]) : "",
+  };
+}
+
+function getProjectProfile(document: DocDetail | null) {
+  const data = document?.data?.dataJson ?? {};
+
+  const addressKey = pickFirstExistingKey(data, ["project_address", "job_address", "service_address", "site_address", "address"]);
+  const cityKey = pickFirstExistingKey(data, ["project_city", "job_city"]);
+  const stateKey = pickFirstExistingKey(data, ["project_state", "job_state"]);
+  const zipKey = pickFirstExistingKey(data, ["project_zip", "project_zip_code", "job_zip", "job_zip_code"]);
+  const startDateKey = pickFirstExistingKey(data, ["start_date", "project_start_date"]);
+  const estimatedCompletionDateKey = pickFirstExistingKey(data, ["estimated_completion_date", "completion_date", "project_completion_date"]);
+
+  return {
+    addressKey,
+    cityKey,
+    stateKey,
+    zipKey,
+    startDateKey,
+    estimatedCompletionDateKey,
+    address: addressKey ? formatFieldValue(data[addressKey]) : "",
+    city: cityKey ? formatFieldValue(data[cityKey]) : "",
+    state: stateKey ? formatFieldValue(data[stateKey]) : "",
+    zip: zipKey ? formatFieldValue(data[zipKey]) : "",
+    startDate: startDateKey ? formatFieldValue(data[startDateKey]) : "",
+    estimatedCompletionDate: estimatedCompletionDateKey ? formatFieldValue(data[estimatedCompletionDateKey]) : "",
+  };
+}
+
+function getClientEntries(document: DocDetail | null) {
+  if (!document?.data?.dataJson) return [];
+  return Object.entries(document.data.dataJson)
+    .filter(([key, value]) => isClientKey(key) && value != null && String(value).trim() !== "")
+    .map(([key, value]) => [formatFieldLabel(key), formatFieldValue(value)] as [string, string]);
+}
+
+function buildDraftFieldMap(
+  document: DocDetail,
+  clientEntries: Array<[string, string]>,
+  projectEntries: Array<[string, string]>,
+  pricingEntries: Array<[string, string]>,
+  clientProfile: ReturnType<typeof getClientProfile>,
+  projectProfile: ReturnType<typeof getProjectProfile>,
+) {
+  const fields: Record<string, string> = {
+    contractDate: toDateInputValue(document.contractDate),
+  };
+
+  for (const key of [
+    clientProfile.nameKey,
+    clientProfile.phoneKey,
+    clientProfile.emailKey,
+    clientProfile.addressKey,
+    clientProfile.cityKey,
+    clientProfile.stateKey,
+    clientProfile.zipKey,
+  ]) {
+    if (key) {
+      fields[key] = formatFieldValue(document.data?.dataJson?.[key]);
+    }
+  }
+
+  for (const key of [
+    projectProfile.addressKey,
+    projectProfile.cityKey,
+    projectProfile.stateKey,
+    projectProfile.zipKey,
+    projectProfile.startDateKey,
+    projectProfile.estimatedCompletionDateKey,
+  ]) {
+    if (key) {
+      fields[key] = formatFieldValue(document.data?.dataJson?.[key]);
+    }
+  }
+
+  for (const [label] of [...clientEntries, ...projectEntries, ...pricingEntries]) {
+    const key = findOriginalKeyByLabel(document, label);
+    if (key) {
+      fields[key] = formatFieldValue(document.data?.dataJson?.[key]);
+    }
+  }
+
+  return fields;
+}
+
+function findOriginalKeyByLabel(document: DocDetail | null, label: string) {
+  if (!document?.data?.dataJson) return null;
+  const match = Object.keys(document.data.dataJson).find(
+    (key) => formatFieldLabel(key) === label,
+  );
+  return match ?? null;
+}
+
+function getProjectEntries(document: DocDetail | null) {
+  if (!document?.data?.dataJson) return [];
+  return Object.entries(document.data.dataJson)
+    .filter(([key, value]) => !isClientKey(key) && !isPricingKey(key) && !isInternalKey(key) && value != null && String(value).trim() !== "")
+    .map(([key, value]) => [formatFieldLabel(key), formatFieldValue(value)] as [string, string]);
+}
+
+function getPricingEntries(document: DocDetail | null) {
+  if (!document?.data?.dataJson) return [];
+  return Object.entries(document.data.dataJson)
+    .filter(([key, value]) => isPricingKey(key) && value != null && String(value).trim() !== "")
+    .map(([key, value]) => [formatFieldLabel(key), formatFieldValue(value)] as [string, string]);
+}
+
+function isClientKey(key: string) {
+  const normalized = key.toLowerCase();
+  return normalized.includes("customer") || normalized.includes("client");
+}
+
+function isPricingKey(key: string) {
+  const normalized = key.toLowerCase();
+  return normalized.includes("price")
+    || normalized.includes("amount")
+    || normalized.includes("deposit")
+    || normalized.includes("payment")
+    || normalized.includes("subtotal")
+    || normalized.includes("total")
+    || normalized.includes("tax")
+    || normalized.includes("fee")
+    || normalized.includes("discount")
+    || normalized.includes("balance");
+}
+
+function isInternalKey(key: string) {
+  const normalized = key.toLowerCase();
+  return normalized.includes("owner")
+    || normalized.includes("sales_rep")
+    || normalized.includes("internal")
+    || normalized.includes("user");
+}
+
+function pickFirstExistingKey(
+  data: Record<string, unknown>,
+  keys: string[],
+) {
+  return keys.find((key) => typeof data[key] === "string" && String(data[key]).trim() !== "") ?? null;
+}
+
+function formatFieldLabel(key: string) {
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatFieldValue(value: unknown) {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+function buildCreateDraftPayload(fields: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value.trim() !== ""),
+  );
+}
+
+function toDateInputValue(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function formatBillingMonthShort(billingPeriod?: string) {

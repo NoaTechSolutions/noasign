@@ -16,7 +16,11 @@ export class DocumentsService {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  private async getBillingState(companyId: string, isUnlimited: boolean, monthlyDocLimit: number) {
+  private async getBillingState(
+    companyId: string,
+    isUnlimited: boolean,
+    monthlyDocLimit: number,
+  ) {
     const now = new Date();
     const billingPeriod = this.getCurrentBillingPeriod(now);
 
@@ -28,8 +32,7 @@ export class DocumentsService {
       },
     });
 
-    const isOverage =
-      !isUnlimited && countedDocuments >= monthlyDocLimit;
+    const isOverage = !isUnlimited && countedDocuments >= monthlyDocLimit;
 
     return {
       now,
@@ -62,7 +65,9 @@ export class DocumentsService {
     });
   }
 
-  private async generateDocumentNumber(documentTypeId: string): Promise<string> {
+  private async generateDocumentNumber(
+    documentTypeId: string,
+  ): Promise<string> {
     const documentType = await this.prisma.documentType.findUnique({
       where: { id: documentTypeId },
     });
@@ -131,7 +136,9 @@ export class DocumentsService {
       );
     }
 
-    const documentNumber = await this.generateDocumentNumber(body.documentTypeId);
+    const documentNumber = await this.generateDocumentNumber(
+      body.documentTypeId,
+    );
 
     const document = await this.prisma.document.create({
       data: {

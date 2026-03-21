@@ -45,9 +45,7 @@ describe('BillingService', () => {
         overagePrice: 5,
       },
     });
-    prismaMock.document.count
-      .mockResolvedValueOnce(3)
-      .mockResolvedValueOnce(1);
+    prismaMock.document.count.mockResolvedValueOnce(3).mockResolvedValueOnce(1);
 
     const result = await service.getCurrentUsage('user-1');
 
