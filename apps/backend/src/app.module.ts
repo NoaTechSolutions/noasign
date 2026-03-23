@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { CompanyProfileModule } from './company-profile/company-profile.module';
 import { DocumentsModule } from './documents/documents.module';
 import { BillingModule } from './billing/billing.module';
+import { PandaDocModule } from './pandadoc/pandadoc.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BillingModule } from './billing/billing.module';
     CompanyProfileModule,
     DocumentsModule,
     BillingModule,
+    PandaDocModule,
   ],
 })
 export class AppModule {}

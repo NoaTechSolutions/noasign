@@ -143,6 +143,11 @@ model PandaDocTemplate {
   name              String
   documentTypeId    String
   pandadocTemplateId String
+  recipientRole     String   @default("Client")
+  tokenMappingJson  Json?
+  fieldMappingJson  Json?
+  sendSubjectTemplate String?
+  sendMessageTemplate String?
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
 
@@ -183,6 +188,8 @@ model Document {
   formDefinitionId   String
   pandadocTemplateId String
   pandadocDocumentId String?
+  pandadocStatus     String?
+  pandadocLastSyncedAt DateTime?
   status             DocumentStatus
 
   contractDate       DateTime?

@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { DocumentStatus } from '@prisma/client';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PandaDocService } from '../pandadoc/pandadoc.service';
 
 const prismaMock = {
   documentType: {
@@ -23,6 +24,7 @@ const prismaMock = {
     create: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     update: jest.fn(),
   },
   documentVersion: {
@@ -30,11 +32,19 @@ const prismaMock = {
   },
 };
 
+const pandaDocServiceMock = {
+  createDocumentFromTemplate: jest.fn(),
+  getDocumentStatus: jest.fn(),
+  waitForDocumentDraft: jest.fn(),
+  sendDocument: jest.fn(),
+};
+
 describe('DocumentsService', () => {
   let service: DocumentsService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    Object.values(pandaDocServiceMock).forEach((mockFn) => mockFn.mockReset());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,6 +52,10 @@ describe('DocumentsService', () => {
         {
           provide: PrismaService,
           useValue: prismaMock,
+        },
+        {
+          provide: PandaDocService,
+          useValue: pandaDocServiceMock,
         },
       ],
     }).compile();
@@ -103,14 +117,74 @@ describe('DocumentsService', () => {
   it('sendDraftDocument no longer counts billing on SENT', async () => {
     prismaMock.document.findFirst.mockResolvedValue({
       id: 'doc-1',
+      userId: 'user-1',
+      companyProfileId: 'company-1',
+      documentNumber: 'CON-000001',
       status: DocumentStatus.DRAFT,
+      data: {
+        dataJson: {
+          customer_email: 'client@example.com',
+          customer_name: 'Jane Doe',
+        },
+      },
+      user: {
+        email: 'owner@noasign.test',
+        role: 'MASTER',
+      },
+      documentType: {
+        name: 'Contract',
+        code: 'CON',
+      },
+      formDefinition: {
+        id: 'form-1',
+      },
+      pandadocTemplate: {
+        pandadocTemplateId: 'tpl-1',
+        recipientRole: 'Client',
+        tokenMappingJson: null,
+        fieldMappingJson: null,
+        sendSubjectTemplate: null,
+        sendMessageTemplate: null,
+      },
+      versions: [],
       companyProfile: {
         id: 'company-1',
+        companyName: 'Noa Company',
+        legalName: null,
+        email: 'office@noa.test',
+        phone: null,
+        website: null,
+        addressLine1: null,
+        addressLine2: null,
+        city: null,
+        state: null,
+        zipCode: null,
+        country: null,
+        licenseNumber: null,
+        contactFirstName: null,
+        contactLastName: null,
+        contactTitle: null,
+        contactEmail: null,
+        contactPhone: null,
+        contactAddressLine1: null,
+        contactAddressLine2: null,
+        contactCity: null,
+        contactState: null,
+        contactZipCode: null,
+        contactCountry: null,
         isUnlimited: false,
         monthlyDocLimit: 1,
       },
     });
-    prismaMock.document.count.mockResolvedValue(1);
+    pandaDocServiceMock.createDocumentFromTemplate.mockResolvedValue({
+      id: 'pd-123',
+      status: 'document.uploaded',
+    });
+    pandaDocServiceMock.waitForDocumentDraft.mockResolvedValue({
+      id: 'pd-123',
+      status: 'document.draft',
+    });
+    pandaDocServiceMock.sendDocument.mockResolvedValue(undefined);
     prismaMock.document.update.mockResolvedValue({
       id: 'doc-1',
       status: DocumentStatus.SENT,
@@ -129,6 +203,7 @@ describe('DocumentsService', () => {
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
+        pandadocStatus: 'document.sent',
       }),
       include: {
         documentType: true,
@@ -213,6 +288,8 @@ describe('DocumentsService', () => {
         signedAt: null,
         completedAt: null,
         pandadocDocumentId: null,
+        pandadocStatus: null,
+        pandadocLastSyncedAt: null,
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
