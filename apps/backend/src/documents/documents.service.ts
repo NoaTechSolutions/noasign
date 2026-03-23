@@ -932,6 +932,31 @@ export class DocumentsService {
     context: ReturnType<typeof this.buildMappingContext>,
   ) {
     const fallback: Record<string, ScalarValue> = {};
+    const contactFullName = [context.contact.firstName, context.contact.lastName]
+      .filter((value) => value.trim().length > 0)
+      .join(' ')
+      .trim();
+    const companyFullAddress = [
+      context.company.addressLine1,
+      context.company.addressLine2,
+    ]
+      .filter((value) => value.trim().length > 0)
+      .join(', ')
+      .trim();
+    const companyCityStateZip = this.formatCityStateZip(
+      context.company.city,
+      context.company.state,
+      context.company.zipCode,
+    );
+    const customerFullAddress = this.firstNonEmptyString(
+      this.readScalarString(context.data.customer_full_address),
+      this.readScalarString(context.data.customer_address),
+    );
+    const customerCityStateZip = this.formatCityStateZip(
+      this.readScalarString(context.data.city),
+      this.readScalarString(context.data.state),
+      this.readScalarString(context.data.zip),
+    );
 
     this.assignScalarValue(
       fallback,
@@ -948,11 +973,28 @@ export class DocumentsService {
       'company_license_number',
       context.company.licenseNumber,
     );
+    this.assignScalarValue(fallback, 'company_full_address', companyFullAddress);
+    this.assignScalarValue(
+      fallback,
+      'company_city_state_zip',
+      companyCityStateZip,
+    );
     this.assignScalarValue(fallback, 'contact_first_name', context.contact.firstName);
     this.assignScalarValue(fallback, 'contact_last_name', context.contact.lastName);
+    this.assignScalarValue(fallback, 'contact_full_name', contactFullName);
     this.assignScalarValue(fallback, 'contact_title', context.contact.title);
     this.assignScalarValue(fallback, 'contact_email', context.contact.email);
     this.assignScalarValue(fallback, 'contact_phone', context.contact.phone);
+    this.assignScalarValue(
+      fallback,
+      'customer_full_address',
+      customerFullAddress,
+    );
+    this.assignScalarValue(
+      fallback,
+      'customer_city_state_zip',
+      customerCityStateZip,
+    );
 
     for (const [key, value] of Object.entries(context.data)) {
       this.assignScalarValue(fallback, key, value);
@@ -1089,6 +1131,18 @@ export class DocumentsService {
   ) {
     const scalarValue = this.coerceScalar(value);
     if (scalarValue != null) target[key] = scalarValue;
+  }
+
+  private formatCityStateZip(
+    city: string | null | undefined,
+    state: string | null | undefined,
+    zipCode: string | null | undefined,
+  ) {
+    const cityValue = city?.trim() ?? '';
+    const stateValue = state?.trim() ?? '';
+    const zipValue = zipCode?.trim() ?? '';
+    const cityState = [cityValue, stateValue].filter(Boolean).join(', ');
+    return [cityState, zipValue].filter(Boolean).join(' ').trim();
   }
 
   private coerceScalar(value: unknown): ScalarValue | null {
