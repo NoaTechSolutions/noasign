@@ -76,4 +76,28 @@ export class UpdateCompanyProfileDto {
   @IsOptional()
   @IsString()
   contactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  contactAddressLine1?: string;
+
+  @IsOptional()
+  @IsString()
+  contactAddressLine2?: string;
+
+  @IsOptional()
+  @IsString()
+  contactCity?: string;
+
+  @IsOptional()
+  @IsString()
+  contactState?: string;
+
+  @IsOptional()
+  @IsString()
+  contactZipCode?: string;
+
+  @IsOptional()
+  @IsString()
+  contactCountry?: string;
 }

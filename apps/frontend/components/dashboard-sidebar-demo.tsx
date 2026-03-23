@@ -18,6 +18,7 @@ import {
   LogOut,
   Menu,
   MoreHorizontal,
+  Pencil,
   Search,
   Send,
   Settings2,
@@ -73,11 +74,41 @@ type DocumentTypeCatalogItem = {
 };
 
 type Props = {
-  user: { email: string; role: string; status: string } | null;
+  user: {
+    id?: string | null;
+    companyProfileId?: string | null;
+    email: string;
+    role: string;
+    status: string;
+  } | null;
   companyProfile: {
+    id: string;
     companyName: string;
+    legalName: string | null;
     industry: string | null;
+    website: string | null;
+    email: string | null;
+    phone: string | null;
     contactEmail: string | null;
+    contactFirstName: string | null;
+    contactLastName: string | null;
+    contactTitle: string | null;
+    contactPhone: string | null;
+    contactAddressLine1: string | null;
+    contactAddressLine2: string | null;
+    contactCity: string | null;
+    contactState: string | null;
+    contactZipCode: string | null;
+    contactCountry: string | null;
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    state: string | null;
+    zipCode: string | null;
+    country: string | null;
+    logoUrl: string | null;
+    licenseNumber: string | null;
+    planName: string;
   } | null;
   usage: {
     planName: string;
@@ -86,15 +117,29 @@ type Props = {
     documentsUsed: number;
     remainingDocuments: number | null;
     isUnlimited: boolean;
+    overagePrice: string | number;
     overageDocuments: number;
   } | null;
   monthlySummary: {
     month: string;
+    planName: string;
+    monthlyDocLimit: number;
+    isUnlimited: boolean;
     documentsSent: number;
     overageDocuments: number;
     estimatedOverageCost: number;
     overagePrice: string | number;
   } | null;
+  billingHistory: Array<{
+    month: string;
+    planName: string;
+    monthlyDocLimit: number;
+    isUnlimited: boolean;
+    overagePrice: string | number;
+    documentsSent: number;
+    overageDocuments: number;
+    estimatedOverageCost: number;
+  }>;
   documents: Doc[] | null;
   documentTypes: DocumentTypeCatalogItem[];
   documentDetail: DocDetail | null;
@@ -118,10 +163,36 @@ type Props = {
     contractDate: string;
     dataJson: Record<string, unknown>;
   }) => Promise<DocDetail | void>;
+  onUpdateCompanyProfile: (payload: {
+    companyName?: string;
+    legalName?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    logoUrl?: string;
+    contactFirstName?: string;
+    contactLastName?: string;
+    contactTitle?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    contactAddressLine1?: string;
+    contactAddressLine2?: string;
+    contactCity?: string;
+    contactState?: string;
+    contactZipCode?: string;
+    contactCountry?: string;
+  }) => Promise<unknown>;
   onSignOut: () => void;
 };
 
-type SectionKey = "dashboard" | "documents" | "company" | "billing";
+type ViewerTabKey = "client" | "project" | "pricing" | "timeline" | "pdf";
+type EditableViewerTabKey = "client" | "project" | "pricing";
+type SectionKey = "dashboard" | "documents" | "profile" | "billing";
 type StatusFilter =
   | "ALL"
   | "DRAFT"
@@ -136,6 +207,7 @@ export function DashboardSidebarDemo({
   companyProfile,
   usage,
   monthlySummary,
+  billingHistory,
   documents,
   documentTypes,
   documentDetail,
@@ -147,14 +219,16 @@ export function DashboardSidebarDemo({
   onDocumentAction,
   onUpdateDraft,
   onCreateDraft,
+  onUpdateCompanyProfile,
   onSignOut,
 }: Props) {
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth >= 1280;
-  });
+  const [open, setOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
+  const [documentViewerInitialTab, setDocumentViewerInitialTab] =
+    useState<ViewerTabKey>("client");
+  const [documentViewerInitialEditingTab, setDocumentViewerInitialEditingTab] =
+    useState<EditableViewerTabKey | null>(null);
   const [activeSection, setActiveSection] = useState<SectionKey>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
@@ -196,12 +270,42 @@ export function DashboardSidebarDemo({
     });
   }, [documents, searchQuery, statusFilter]);
 
+  useEffect(() => {
+    function syncSidebarState() {
+      setOpen(window.innerWidth >= 1280);
+    }
+
+    syncSidebarState();
+    window.addEventListener("resize", syncSidebarState);
+
+    return () => {
+      window.removeEventListener("resize", syncSidebarState);
+    };
+  }, []);
+
   const links = [
     { key: "dashboard" as const, label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5 shrink-0" /> },
     { key: "documents" as const, label: "Documents", icon: <FileText className="h-5 w-5 shrink-0" /> },
-    { key: "company" as const, label: "Company", icon: <Building2 className="h-5 w-5 shrink-0" /> },
+    { key: "profile" as const, label: "Profile", icon: <UserRound className="h-5 w-5 shrink-0" /> },
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
   ];
+
+  function closeDocumentViewer() {
+    setDocumentViewerOpen(false);
+    setDocumentViewerInitialTab("client");
+    setDocumentViewerInitialEditingTab(null);
+  }
+
+  function openDocumentViewer(options: {
+    documentId: string;
+    tab?: ViewerTabKey;
+    editingTab?: EditableViewerTabKey | null;
+  }) {
+    setDocumentViewerInitialTab(options.tab ?? "client");
+    setDocumentViewerInitialEditingTab(options.editingTab ?? null);
+    setDocumentViewerOpen(true);
+    onSelectDocument(options.documentId);
+  }
 
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-white/70 backdrop-blur dark:bg-slate-950/65 md:flex-row">
@@ -234,6 +338,7 @@ export function DashboardSidebarDemo({
                     active={activeSection === link.key}
                     onClick={() => {
                       setActiveSection(link.key);
+                      setAccountMenuOpen(false);
                       if (window.innerWidth < 1280) {
                         setOpen(false);
                       }
@@ -257,7 +362,7 @@ export function DashboardSidebarDemo({
           <div className="rounded-[1.5rem] border border-slate-200 bg-white/85 p-3 shadow-[0_12px_30px_rgba(48,88,160,0.08)] dark:border-white/10 dark:bg-[#101826] dark:shadow-none">
             <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">Account</div>
             <div className="rounded-2xl bg-slate-50 p-1 dark:bg-white/[0.03]">
-              <SidebarLink link={{ label: isLoading ? "Loading..." : displayName, icon: <UserRound className="h-5 w-5 shrink-0" /> }} className="pointer-events-none" />
+              <SidebarLink link={{ label: isLoading ? "Loading..." : displayName, icon: <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-9 w-9 rounded-2xl text-sm" /> }} className="pointer-events-none" />
             </div>
             <div className="mt-3 px-1">
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-300">
@@ -299,9 +404,7 @@ export function DashboardSidebarDemo({
                   onClick={() => setAccountMenuOpen((current) => !current)}
                   className="inline-flex items-center gap-3 rounded-2xl px-1 py-1 transition hover:bg-slate-100/80 dark:hover:bg-white/6"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2563eb] text-white shadow-[0_10px_24px_rgba(37,99,235,0.28)]">
-                    <UserRound className="h-5 w-5" />
-                  </div>
+                  <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-2xl text-sm shadow-[0_10px_24px_rgba(37,99,235,0.28)]" />
                   <div className="hidden text-left sm:block">
                     <div className="text-sm font-semibold text-slate-900 dark:text-white">{isLoading ? "Loading..." : displayName}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">{isLoading ? "..." : user?.role ?? "Member"}</div>
@@ -318,9 +421,22 @@ export function DashboardSidebarDemo({
                     <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{isLoading ? "..." : `${user?.role ?? "Member"} | ${user?.status ?? "ACTIVE"}`}</div>
                   </div>
                   <div className="mt-3 grid gap-1">
-                    <AccountMenuButton label="Profile" icon={<UserRound className="h-4 w-4" />} />
-                    <AccountMenuButton label="Company settings" icon={<Settings2 className="h-4 w-4" />} />
-                    <AccountMenuButton label="Billing history" icon={<WalletCards className="h-4 w-4" />} />
+                    <AccountMenuButton
+                      label="Profile"
+                      icon={<UserRound className="h-4 w-4" />}
+                      onClick={() => {
+                        setActiveSection("profile");
+                        setAccountMenuOpen(false);
+                      }}
+                    />
+                    <AccountMenuButton
+                      label="Billing history"
+                      icon={<WalletCards className="h-4 w-4" />}
+                      onClick={() => {
+                        setActiveSection("billing");
+                        setAccountMenuOpen(false);
+                      }}
+                    />
                     <AccountMenuButton label="Help & support" icon={<CircleHelp className="h-4 w-4" />} />
                   </div>
                   <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
@@ -363,50 +479,52 @@ export function DashboardSidebarDemo({
               onStatusFilterChange={setStatusFilter}
               onSelectDocument={onSelectDocument}
               onOpenDocumentView={(documentId) => {
-                setDocumentViewerOpen(true);
-                onSelectDocument(documentId);
+                openDocumentViewer({
+                  documentId,
+                  tab: "client",
+                  editingTab: null,
+                });
+              }}
+              onOpenDocumentEdit={(documentId) => {
+                openDocumentViewer({
+                  documentId,
+                  tab: "client",
+                  editingTab: "client",
+                });
               }}
               onDocumentAction={onDocumentAction}
               onCreateDraft={onCreateDraft}
             />
           ) : null}
 
-          {activeSection === "company" ? (
-            <PlaceholderPanel
-              title={companyProfile?.companyName ?? "Company profile"}
-              description="Next step: company profile view and editing."
-              rows={[
-                ["Industry", companyProfile?.industry ?? "Not defined"],
-                ["Contact", companyProfile?.contactEmail ?? "Not defined"],
-              ]}
+          {activeSection === "profile" ? (
+            <ProfilePanel
+              user={user}
+              companyProfile={companyProfile}
+              usage={usage}
+              onUpdateCompanyProfile={onUpdateCompanyProfile}
             />
           ) : null}
 
           {activeSection === "billing" ? (
-            <PlaceholderPanel
-              title={usage?.planName ?? "Billing overview"}
-              description="Next step: billing and monthly history view."
-              rows={[
-                ["Used", String(usage?.documentsUsed ?? 0)],
-                [
-                  "Remaining",
-                  usage?.remainingDocuments === null
-                    ? "Unlimited"
-                    : String(usage?.remainingDocuments ?? 0),
-                ],
-              ]}
+            <BillingPanel
+              usage={usage}
+              monthlySummary={monthlySummary}
+              billingHistory={billingHistory}
             />
           ) : null}
         </div>
       </div>
 
       <DocumentViewer
-        key={`${documentDetail?.id ?? "empty"}-${documentViewerOpen ? "open" : "closed"}`}
+        key={`${documentDetail?.id ?? "empty"}-${documentViewerOpen ? "open" : "closed"}-${documentViewerInitialTab}-${documentViewerInitialEditingTab ?? "view"}`}
         open={documentViewerOpen}
         document={documentDetail}
         isLoading={isDocumentDetailLoading}
         actionInFlight={documentActionId}
-        onClose={() => setDocumentViewerOpen(false)}
+        initialActiveTab={documentViewerInitialTab}
+        initialEditingTab={documentViewerInitialEditingTab}
+        onClose={closeDocumentViewer}
         onAction={onDocumentAction}
         onUpdateDraft={onUpdateDraft}
       />
@@ -522,6 +640,7 @@ function DocumentsPanel(props: {
   onStatusFilterChange: (value: StatusFilter) => void;
   onSelectDocument: (documentId: string) => void;
   onOpenDocumentView: (documentId: string) => void;
+  onOpenDocumentEdit: (documentId: string) => void;
   onDocumentAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
   onCreateDraft: (payload: {
     documentTypeId: string;
@@ -774,6 +893,7 @@ function DocumentsPanel(props: {
                         document={document}
                         actionInFlight={props.documentActionId === document.id}
                         onView={() => props.onOpenDocumentView(document.id)}
+                        onEdit={() => props.onOpenDocumentEdit(document.id)}
                         onAction={props.onDocumentAction}
                       />
                     </div>
@@ -824,6 +944,7 @@ function DocumentsPanel(props: {
                         document={document}
                         actionInFlight={props.documentActionId === document.id}
                         onView={() => props.onOpenDocumentView(document.id)}
+                        onEdit={() => props.onOpenDocumentEdit(document.id)}
                         onAction={props.onDocumentAction}
                       />
                     </div>
@@ -915,6 +1036,626 @@ function PlaceholderPanel({
   );
 }
 
+function BillingPanel({
+  usage,
+  monthlySummary,
+  billingHistory,
+}: {
+  usage: Props["usage"];
+  monthlySummary: Props["monthlySummary"];
+  billingHistory: Props["billingHistory"];
+}) {
+  const [plansModalOpen, setPlansModalOpen] = useState(false);
+  const currentPlan = usage?.planName ?? monthlySummary?.planName ?? "LAUNCH";
+  const documentsUsed = usage?.documentsUsed ?? 0;
+  const monthlyLimit = usage?.monthlyDocLimit ?? monthlySummary?.monthlyDocLimit ?? 0;
+  const remaining = usage?.remainingDocuments;
+  const overageDocuments = usage?.overageDocuments ?? monthlySummary?.overageDocuments ?? 0;
+  const overagePrice = Number(usage?.overagePrice ?? monthlySummary?.overagePrice ?? 0);
+  const nextInvoiceOverage = overageDocuments * overagePrice;
+  const usagePercent = usage?.isUnlimited || monthlyLimit <= 0 ? 0 : Math.min((documentsUsed / monthlyLimit) * 100, 100);
+  const maxHistoryValue = Math.max(...billingHistory.map((item) => item.documentsSent), 1);
+  const currentMonthSummary = billingHistory[billingHistory.length - 1] ?? null;
+  const previousMonthSummary = billingHistory[billingHistory.length - 2] ?? null;
+  const compareMaxValue = Math.max(
+    currentMonthSummary?.documentsSent ?? 0,
+    previousMonthSummary?.documentsSent ?? 0,
+    1,
+  );
+  const planCards = [
+    {
+      name: "LAUNCH",
+      limit: "5 docs / month",
+      accent: "border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-white",
+    },
+    {
+      name: "SCALE",
+      limit: "25 docs / month",
+      accent: "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100",
+    },
+    {
+      name: "PRO_UNLIMITED",
+      limit: "Unlimited volume",
+      accent: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100",
+    },
+  ];
+
+  return (
+    <section className="grid gap-4">
+      <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef5ff_40%,#dbeafe_100%)] p-5 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-600/70 dark:text-white/65">Billing</div>
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">Understand your plan in seconds</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700 dark:text-white/88 md:text-base">
+              See how many documents you used this month, how close you are to your limit, and what would be charged on your next payment if you go over.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <div className="rounded-[1.35rem] border border-white/70 bg-white/90 px-4 py-3 shadow-[0_12px_30px_rgba(37,99,235,0.10)] dark:border-white/10 dark:bg-white/10 dark:shadow-none">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/60">Used this month</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{documentsUsed}</div>
+              </div>
+              <div className="rounded-[1.35rem] border border-white/70 bg-white/90 px-4 py-3 shadow-[0_12px_30px_rgba(37,99,235,0.10)] dark:border-white/10 dark:bg-white/10 dark:shadow-none">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/60">Still available</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{remaining === null ? "Unlimited" : remaining}</div>
+              </div>
+              <div className="rounded-[1.35rem] border border-white/70 bg-white/90 px-4 py-3 shadow-[0_12px_30px_rgba(37,99,235,0.10)] dark:border-white/10 dark:bg-white/10 dark:shadow-none">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/60">Next extra charge</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{formatCurrency(nextInvoiceOverage)}</div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-start gap-3 xl:items-end">
+            <div className="inline-flex items-center gap-3 rounded-full border border-blue-100 bg-white/90 px-4 py-3 text-slate-900 shadow-[0_10px_30px_rgba(37,99,235,0.10)] backdrop-blur dark:border-white/14 dark:bg-white/10 dark:text-white dark:shadow-none">
+              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/60">Current plan</span>
+              <span className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">{currentPlan}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPlansModalOpen(true)}
+              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+            >
+              Need more documents?
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid gap-4">
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Current month</div>
+                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
+                  {usage?.billingPeriod ? `Usage for ${usage.billingPeriod}` : "Usage overview"}
+                </h3>
+              </div>
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                {usage?.isUnlimited ? "Unlimited plan" : `${documentsUsed} of ${monthlyLimit} docs used`}
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <StatPill label="Documents used" value={String(documentsUsed)} />
+              <StatPill label="Remaining" value={remaining === null ? "Unlimited" : String(remaining)} />
+              <StatPill label="Overage docs" value={String(overageDocuments)} />
+              <StatPill label="Next invoice overage" value={formatCurrency(nextInvoiceOverage)} />
+            </div>
+
+            <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-medium text-slate-600 dark:text-slate-300">Plan usage progress</div>
+                <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  {usage?.isUnlimited ? "Unlimited" : `${Math.round(usagePercent)}%`}
+                </div>
+              </div>
+              <div className="mt-4 h-4 rounded-full bg-white dark:bg-slate-950/70">
+                <div
+                  className={cn(
+                    "h-4 rounded-full transition-all",
+                    overageDocuments > 0 ? "bg-rose-500" : usagePercent > 75 ? "bg-amber-500" : "bg-[#2563eb]",
+                  )}
+                  style={{ width: `${usage?.isUnlimited ? 100 : Math.max(usagePercent, documentsUsed > 0 ? 10 : 0)}%` }}
+                />
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MiniMetric label="Monthly limit" value={usage?.isUnlimited ? "Unlimited" : String(monthlyLimit)} />
+                <MiniMetric label="Per overage doc" value={formatCurrency(overagePrice)} />
+                <MiniMetric label="Charge next cycle" value={formatCurrency(nextInvoiceOverage)} />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">3-month trend</div>
+                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Documents used recently</h3>
+              </div>
+              <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">Live data</div>
+            </div>
+            <div className="mt-6 grid gap-4">
+              {billingHistory.map((item) => (
+                <BillingHistoryRow
+                  key={item.month}
+                  month={item.month}
+                  documentsSent={item.documentsSent}
+                  overageDocuments={item.overageDocuments}
+                  maxValue={maxHistoryValue}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4">
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Month vs month</div>
+                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Current month compared to last month</h3>
+              </div>
+              <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">Comparison</div>
+            </div>
+            <div className="mt-6 grid gap-5">
+              {previousMonthSummary ? (
+                <>
+                  <MonthCompareBar
+                    label={formatBillingMonthLabel(previousMonthSummary.month)}
+                    documentsSent={previousMonthSummary.documentsSent}
+                    overageDocuments={previousMonthSummary.overageDocuments}
+                    maxValue={compareMaxValue}
+                    tone="slate"
+                  />
+                  <MonthCompareBar
+                    label={formatBillingMonthLabel(currentMonthSummary?.month)}
+                    documentsSent={currentMonthSummary?.documentsSent ?? documentsUsed}
+                    overageDocuments={currentMonthSummary?.overageDocuments ?? overageDocuments}
+                    maxValue={compareMaxValue}
+                    tone="blue"
+                  />
+                </>
+              ) : (
+                <EmptyBlock text="A comparison chart will appear once at least two billing months are available." />
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[1.8rem] border border-slate-200 bg-slate-50 p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Overage visibility</div>
+            <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">What happens next</h3>
+            <div className="mt-5 grid gap-3">
+              <DetailRow icon={<CreditCard className="h-4 w-4" />} label="Current plan" value={currentPlan} />
+              <DetailRow icon={<FileText className="h-4 w-4" />} label="Docs above plan" value={String(overageDocuments)} />
+              <DetailRow icon={<WalletCards className="h-4 w-4" />} label="Price per extra doc" value={formatCurrency(overagePrice)} />
+              <DetailRow icon={<WalletCards className="h-4 w-4" />} label="Estimated next charge" value={formatCurrency(nextInvoiceOverage)} />
+            </div>
+            <div className={cn(
+              "mt-5 rounded-[1.35rem] border p-4 text-sm",
+              overageDocuments > 0
+                ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100",
+            )}>
+              {overageDocuments > 0
+                ? `You are currently ${overageDocuments} document(s) above your monthly plan. This estimated overage will be included on the next invoice.`
+                : "You are still within plan limits for the current billing month."}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {plansModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+          <button type="button" aria-label="Close plans modal" onClick={() => setPlansModalOpen(false)} className="absolute inset-0" />
+          <div className="relative z-10 w-full max-w-4xl rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900 md:p-7">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Need more documents?</div>
+                <h3 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Upgrade your plan before you hit the limit</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  Your current plan is <span className="font-semibold text-slate-900 dark:text-white">{currentPlan}</span>. Compare the next plans and choose the one that fits your monthly document volume.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlansModalOpen(false)}
+                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {planCards.map((plan) => (
+                <div
+                  key={plan.name}
+                  className={cn(
+                    "rounded-[1.6rem] border p-5",
+                    plan.accent,
+                    plan.name === currentPlan && "ring-2 ring-[#2563eb]/30",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] opacity-70">
+                        {plan.name === currentPlan ? "Current plan" : "Available plan"}
+                      </div>
+                      <div className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{plan.name}</div>
+                    </div>
+                    <span className={cn(
+                      "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
+                      plan.name === currentPlan ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950" : "bg-[#2563eb] text-white",
+                    )}>
+                      {plan.name === currentPlan ? "Current" : "Upgrade"}
+                    </span>
+                  </div>
+                  <div className="mt-4 text-sm opacity-85">{plan.limit}</div>
+                  <div className="mt-6 rounded-[1.2rem] bg-white/70 p-4 text-sm shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] dark:bg-slate-950/40 dark:shadow-none">
+                    {plan.name === "LAUNCH" ? "Best for early-stage teams with low monthly volume." : null}
+                    {plan.name === "SCALE" ? "Best if you are growing and need more room before overage charges kick in." : null}
+                    {plan.name === "PRO_UNLIMITED" ? "Best for teams that send documents constantly and want predictable billing." : null}
+                  </div>
+                  <button
+                    type="button"
+                    className={cn(
+                      "mt-6 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition",
+                      plan.name === currentPlan
+                        ? "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400"
+                        : "bg-[#2563eb] text-white hover:bg-blue-700",
+                    )}
+                  >
+                    {plan.name === currentPlan ? "You are on this plan" : `Choose ${plan.name}`}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ProfilePanel({
+  user,
+  companyProfile,
+  usage,
+  onUpdateCompanyProfile,
+}: {
+  user: Props["user"];
+  companyProfile: Props["companyProfile"];
+  usage: Props["usage"];
+  onUpdateCompanyProfile: Props["onUpdateCompanyProfile"];
+}) {
+  const companyName = companyProfile?.companyName ?? "Company not defined";
+  const contactName = [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const primaryContact = contactName || companyProfile?.contactEmail || "Contact not defined";
+  const location = [companyProfile?.city, companyProfile?.state, companyProfile?.country]
+    .filter(Boolean)
+    .join(", ");
+  const primaryContactAddress = joinDefined(
+    [companyProfile?.contactAddressLine1, companyProfile?.contactAddressLine2],
+    ", ",
+  );
+  const logoFallback = getCompanyInitials(companyProfile?.companyName);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const [isEditingCompanyDetails, setIsEditingCompanyDetails] = useState(false);
+  const [isEditingPrimaryContact, setIsEditingPrimaryContact] = useState(false);
+  const [isSavingCompanyDetails, setIsSavingCompanyDetails] = useState(false);
+  const [isSavingPrimaryContact, setIsSavingPrimaryContact] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [companyDetailsForm, setCompanyDetailsForm] = useState({
+    companyName: "",
+    legalName: "",
+    email: "",
+    phone: "",
+    website: "",
+    addressLine1: "",
+    addressLine2: "",
+    state: "",
+    city: "",
+    zipCode: "",
+  });
+  const [primaryContactForm, setPrimaryContactForm] = useState({
+    contactFirstName: "",
+    contactLastName: "",
+    contactTitle: "",
+    contactEmail: "",
+    contactPhone: "",
+    contactAddressLine1: "",
+    contactAddressLine2: "",
+    contactState: "",
+    contactCity: "",
+    contactZipCode: "",
+  });
+
+  useEffect(() => {
+    setCompanyDetailsForm({
+      companyName: companyProfile?.companyName ?? "",
+      legalName: companyProfile?.legalName ?? "",
+      email: companyProfile?.email ?? "",
+      phone: companyProfile?.phone ?? "",
+      website: companyProfile?.website ?? "",
+      addressLine1: companyProfile?.addressLine1 ?? "",
+      addressLine2: companyProfile?.addressLine2 ?? "",
+      state: companyProfile?.state ?? "",
+      city: companyProfile?.city ?? "",
+      zipCode: companyProfile?.zipCode ?? "",
+    });
+    setPrimaryContactForm({
+      contactFirstName: companyProfile?.contactFirstName ?? "",
+      contactLastName: companyProfile?.contactLastName ?? "",
+      contactTitle: companyProfile?.contactTitle ?? "",
+      contactEmail: companyProfile?.contactEmail ?? "",
+      contactPhone: companyProfile?.contactPhone ?? "",
+      contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
+      contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
+      contactState: companyProfile?.contactState ?? "",
+      contactCity: companyProfile?.contactCity ?? "",
+      contactZipCode: companyProfile?.contactZipCode ?? "",
+    });
+  }, [companyProfile]);
+
+  async function saveCompanyDetails() {
+    setIsSavingCompanyDetails(true);
+    try {
+      await onUpdateCompanyProfile(companyDetailsForm);
+      setIsEditingCompanyDetails(false);
+    } finally {
+      setIsSavingCompanyDetails(false);
+    }
+  }
+
+  async function savePrimaryContact() {
+    setIsSavingPrimaryContact(true);
+    try {
+      await onUpdateCompanyProfile(primaryContactForm);
+      setIsEditingPrimaryContact(false);
+    } finally {
+      setIsSavingPrimaryContact(false);
+    }
+  }
+
+  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      event.target.value = "";
+      return;
+    }
+
+    // Keep uploads lightweight enough to store in the existing logoUrl string field.
+    const maxFileSizeBytes = 3 * 1024 * 1024;
+    if (file.size > maxFileSizeBytes) {
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploadingLogo(true);
+
+    try {
+      const logoUrl = await resizeImageFile(file, 512);
+      await onUpdateCompanyProfile({ logoUrl });
+    } finally {
+      setIsUploadingLogo(false);
+      event.target.value = "";
+    }
+  }
+
+  return (
+    <section className="grid gap-4">
+      <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
+            <div className="relative h-24 w-24 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
+                {companyProfile?.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={companyProfile.logoUrl}
+                    alt={`${companyName} logo`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{logoFallback}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={isUploadingLogo}
+                className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-950"
+                aria-label="Upload company logo"
+                title="Upload logo"
+              >
+                {isUploadingLogo ? (
+                  <span className="text-[10px] font-semibold">...</span>
+                ) : (
+                  <Pencil className="h-4 w-4" />
+                )}
+              </button>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                capture="environment"
+                className="hidden"
+                onChange={(event) => void handleLogoUpload(event)}
+              />
+            </div>
+            <div className="text-center sm:text-left">
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
+                {companyName}
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-700 dark:text-white/88 md:text-base">
+                Customer company information used across workspace, billing, documents and account ownership.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <ProfileChip label={companyProfile?.industry ?? "Industry not defined"} />
+                <ProfileChip label={location || "Location not defined"} />
+                <ProfileChip label={primaryContact} />
+              </div>
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-3 rounded-full border border-blue-100 bg-white/90 px-4 py-3 text-slate-900 shadow-[0_10px_30px_rgba(37,99,235,0.10)] backdrop-blur dark:border-white/14 dark:bg-white/10 dark:text-white dark:shadow-none">
+            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/60">Current plan</span>
+            <span className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">
+              {usage?.planName ?? companyProfile?.planName ?? "-"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4">
+        <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              Company details
+            </div>
+            <ProfileEditActions
+              isEditing={isEditingCompanyDetails}
+              isSaving={isSavingCompanyDetails}
+              onEdit={() => setIsEditingCompanyDetails(true)}
+              onCancel={() => {
+                setIsEditingCompanyDetails(false);
+                setCompanyDetailsForm({
+                  companyName: companyProfile?.companyName ?? "",
+                  legalName: companyProfile?.legalName ?? "",
+                  email: companyProfile?.email ?? "",
+                  phone: companyProfile?.phone ?? "",
+                  website: companyProfile?.website ?? "",
+                  addressLine1: companyProfile?.addressLine1 ?? "",
+                  addressLine2: companyProfile?.addressLine2 ?? "",
+                  state: companyProfile?.state ?? "",
+                  city: companyProfile?.city ?? "",
+                  zipCode: companyProfile?.zipCode ?? "",
+                });
+              }}
+              onSave={() => void saveCompanyDetails()}
+            />
+          </div>
+          {isEditingCompanyDetails ? (
+            <div className="mt-5 grid gap-3">
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: value }))} />
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Legal name" value={companyDetailsForm.legalName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, legalName: value }))} />
+              <EditableField icon={<UserRound className="h-4 w-4" />} label="Company email" value={companyDetailsForm.email} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, email: value }))} />
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="Company phone" value={companyDetailsForm.phone} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, phone: value }))} />
+                <EditableField icon={<FileText className="h-4 w-4" />} label="Website" value={companyDetailsForm.website} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, website: value }))} />
+              </div>
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address line 1" value={companyDetailsForm.addressLine1} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine1: value }))} />
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address line 2" value={companyDetailsForm.addressLine2} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine2: value }))} />
+              <div className="grid gap-3 md:grid-cols-3">
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="State" value={companyDetailsForm.state} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, state: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="City" value={companyDetailsForm.city} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, city: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="ZIP" value={companyDetailsForm.zipCode} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, zipCode: value }))} />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-3">
+              <StatPill label="Company name" value={companyName} />
+              <StatPill label="Legal name" value={companyProfile?.legalName ?? "Not defined"} />
+              <StatPill label="Company email" value={companyProfile?.email ?? "Not defined"} />
+              <div className="grid gap-3 md:grid-cols-2">
+                <StatPill label="Company phone" value={companyProfile?.phone ?? "Not defined"} />
+                <StatPill label="Website" value={companyProfile?.website ?? "Not defined"} />
+              </div>
+              <StatPill
+                label="Address"
+                value={joinDefined([companyProfile?.addressLine1, companyProfile?.addressLine2], ", ") || "Not defined"}
+              />
+              <div className="grid gap-3 md:grid-cols-3">
+                <StatPill label="State" value={companyProfile?.state ?? "Not defined"} />
+                <StatPill label="City" value={companyProfile?.city ?? "Not defined"} />
+                <StatPill label="ZIP" value={companyProfile?.zipCode ?? "Not defined"} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+              Primary contact
+            </div>
+            <ProfileEditActions
+              isEditing={isEditingPrimaryContact}
+              isSaving={isSavingPrimaryContact}
+              onEdit={() => setIsEditingPrimaryContact(true)}
+              onCancel={() => {
+                setIsEditingPrimaryContact(false);
+                setPrimaryContactForm({
+                  contactFirstName: companyProfile?.contactFirstName ?? "",
+                  contactLastName: companyProfile?.contactLastName ?? "",
+                  contactTitle: companyProfile?.contactTitle ?? "",
+                  contactEmail: companyProfile?.contactEmail ?? "",
+                  contactPhone: companyProfile?.contactPhone ?? "",
+                  contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
+                  contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
+                  contactState: companyProfile?.contactState ?? "",
+                  contactCity: companyProfile?.contactCity ?? "",
+                  contactZipCode: companyProfile?.contactZipCode ?? "",
+                });
+              }}
+              onSave={() => void savePrimaryContact()}
+            />
+          </div>
+          {isEditingPrimaryContact ? (
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="First name" value={primaryContactForm.contactFirstName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFirstName: value }))} />
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="Last name" value={primaryContactForm.contactLastName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactLastName: value }))} />
+              </div>
+              <EditableField icon={<UserRound className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: value }))} />
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactEmail: value }))} />
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactPhone: value }))} />
+              </div>
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine1: value }))} />
+              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address line 2" value={primaryContactForm.contactAddressLine2} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine2: value }))} />
+              <div className="grid gap-3 md:grid-cols-3">
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value }))} />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Contact" value={contactName || "Not defined"} />
+                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? "Not defined"} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? "Not defined"} />
+                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Phone" value={companyProfile?.contactPhone ?? "Not defined"} />
+              </div>
+              <DetailRow
+                icon={<Building2 className="h-4 w-4" />}
+                label="Address"
+                value={primaryContactAddress || "Not defined"}
+              />
+              <div className="grid gap-3 md:grid-cols-3">
+                <DetailRow icon={<Building2 className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? "Not defined"} />
+                <DetailRow icon={<Building2 className="h-4 w-4" />} label="City" value={companyProfile?.contactCity ?? "Not defined"} />
+                <DetailRow icon={<Building2 className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? "Not defined"} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function CreateDraftDrawer({
   open,
   documentTypes,
@@ -940,7 +1681,7 @@ function CreateDraftDrawer({
   const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState("");
   const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [contractDate, setContractDate] = useState(toDateInputValue(new Date().toISOString()));
+  const [contractDate, setContractDate] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({
     customer_name: "",
     customer_phone: "",
@@ -967,6 +1708,11 @@ function CreateDraftDrawer({
     () => documentTypes.find((item) => item.id === selectedDocumentTypeId) ?? null,
     [documentTypes, selectedDocumentTypeId],
   );
+
+  useEffect(() => {
+    setContractDate((current) => current || toDateInputValue(new Date().toISOString()));
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const firstType = documentTypes[0] ?? null;
@@ -1193,6 +1939,8 @@ function DocumentViewer({
   document,
   isLoading,
   actionInFlight,
+  initialActiveTab,
+  initialEditingTab,
   onClose,
   onAction,
   onUpdateDraft,
@@ -1201,6 +1949,8 @@ function DocumentViewer({
   document: DocDetail | null;
   isLoading: boolean;
   actionInFlight: string | null;
+  initialActiveTab: ViewerTabKey;
+  initialEditingTab: EditableViewerTabKey | null;
   onClose: () => void;
   onAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
   onUpdateDraft: (
@@ -1208,8 +1958,8 @@ function DocumentViewer({
     payload: { contractDate: string; dataJson: Record<string, unknown> },
   ) => Promise<void>;
 }) {
-  const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing" | "timeline" | "pdf">("client");
-  const [editingTab, setEditingTab] = useState<"client" | "project" | "pricing" | null>(null);
+  const [activeTab, setActiveTab] = useState<ViewerTabKey>("client");
+  const [editingTab, setEditingTab] = useState<EditableViewerTabKey | null>(null);
   const [draftFields, setDraftFields] = useState<Record<string, string>>({});
   const [isSavingTab, setIsSavingTab] = useState(false);
   const actionButtons = getDocumentActions(document?.status);
@@ -1222,9 +1972,19 @@ function DocumentViewer({
   const isDraft = document?.status === "DRAFT";
 
   useEffect(() => {
+    if (!open) {
+      setActiveTab("client");
+      setEditingTab(null);
+      return;
+    }
+
+    setActiveTab(initialActiveTab);
+    setEditingTab(isDraft ? initialEditingTab ?? null : null);
+  }, [open, initialActiveTab, initialEditingTab, isDraft, document?.id]);
+
+  useEffect(() => {
     if (!document) return;
     setDraftFields(buildDraftFieldMap(document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile));
-    setEditingTab(null);
     setIsSavingTab(false);
   }, [document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile]);
 
@@ -1706,11 +2466,89 @@ function InfoCard({ label, title, subtitle, accent = false }: { label: string; t
 }
 
 function StatPill({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]"><div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{label}</div><div className="mt-2 text-xl font-semibold text-slate-950 dark:text-white">{value}</div></div>;
+  return <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"><div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{label}</div><div className="mt-3 text-sm font-medium leading-5 text-slate-950 dark:text-white">{value}</div></div>;
 }
 
 function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400"><span className="text-slate-400 dark:text-slate-500">{icon}</span>{label}</div><div className="mt-3 text-sm font-medium text-slate-950 dark:text-white">{value}</div></div>;
+  return <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"><div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400"><span className="text-slate-400 dark:text-slate-500">{icon}</span>{label}</div><div className="mt-3 text-sm font-medium leading-5 text-slate-950 dark:text-white">{value}</div></div>;
+}
+
+function ProfileChip({ label }: { label: string }) {
+  return (
+    <div className="rounded-full border border-blue-100 bg-white/88 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600 shadow-[0_10px_24px_rgba(37,99,235,0.08)] dark:border-white/10 dark:bg-white/10 dark:text-white/75 dark:shadow-none">
+      {label}
+    </div>
+  );
+}
+
+function CompanyAvatar({
+  companyName,
+  logoUrl,
+  className,
+}: {
+  companyName?: string | null;
+  logoUrl?: string | null;
+  className?: string;
+}) {
+  const fallback = getCompanyInitials(companyName);
+
+  return (
+    <div className={cn("flex items-center justify-center overflow-hidden bg-[#2563eb] font-semibold text-white", className)}>
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt={`${companyName ?? "Company"} logo`} className="h-full w-full object-cover" />
+      ) : (
+        <span>{fallback}</span>
+      )}
+    </div>
+  );
+}
+
+function ProfileEditActions({
+  isEditing,
+  isSaving,
+  onEdit,
+  onCancel,
+  onSave,
+}: {
+  isEditing: boolean;
+  isSaving: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  if (!isEditing) {
+    return (
+      <button
+        type="button"
+        onClick={onEdit}
+        className="rounded-full border border-blue-500 bg-blue-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-[0_10px_24px_rgba(37,99,235,0.24)] transition hover:bg-blue-700 dark:border-blue-400/30 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500"
+      >
+        Edit
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={isSaving}
+        className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition hover:border-slate-300 hover:bg-white disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={isSaving}
+        className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-blue-700 disabled:opacity-60"
+      >
+        {isSaving ? "Saving..." : "Save"}
+      </button>
+    </div>
+  );
 }
 
 function EditableField({
@@ -1862,11 +2700,13 @@ function DocumentListActions({
   document: rowDocument,
   actionInFlight,
   onView,
+  onEdit,
   onAction,
 }: {
   document: Doc;
   actionInFlight: boolean;
   onView: () => void;
+  onEdit: () => void;
   onAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -1934,7 +2774,7 @@ function DocumentListActions({
             <button
               type="button"
               onClick={() => {
-                onView();
+                onEdit();
                 setOpen(false);
               }}
               className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-blue-700 transition hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
@@ -2006,6 +2846,80 @@ function ChartRow({ label, value, total, color }: { label: string; value: number
   return <div className="grid gap-2"><div className="flex items-center justify-between gap-4 text-sm"><span className="font-medium text-slate-600 dark:text-slate-300">{label}</span><span className="font-semibold text-slate-950 dark:text-white">{value}</span></div><div className="h-3 rounded-full bg-white dark:bg-slate-950/70"><div className={cn("h-3 rounded-full transition-all", color)} style={{ width: `${width}%` }} /></div></div>;
 }
 
+function BillingHistoryRow({
+  month,
+  documentsSent,
+  overageDocuments,
+  maxValue,
+}: {
+  month: string;
+  documentsSent: number;
+  overageDocuments: number;
+  maxValue: number;
+}) {
+  const width = Math.max((documentsSent / maxValue) * 100, documentsSent > 0 ? 10 : 0);
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">{formatBillingMonthLabel(month)}</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            {overageDocuments > 0 ? `${overageDocuments} overage doc(s)` : "Within plan limit"}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-lg font-semibold text-slate-950 dark:text-white">{documentsSent}</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">docs</div>
+        </div>
+      </div>
+      <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-950/70">
+        <div
+          className={cn("h-3 rounded-full transition-all", overageDocuments > 0 ? "bg-rose-500" : "bg-[#2563eb]")}
+          style={{ width: `${width}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MonthCompareBar({
+  label,
+  documentsSent,
+  overageDocuments,
+  maxValue,
+  tone,
+}: {
+  label?: string | null;
+  documentsSent: number;
+  overageDocuments: number;
+  maxValue: number;
+  tone: "slate" | "blue";
+}) {
+  const width = Math.max((documentsSent / maxValue) * 100, documentsSent > 0 ? 10 : 0);
+  const color = tone === "blue" ? "bg-[#2563eb]" : "bg-slate-400";
+
+  return (
+    <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold text-slate-950 dark:text-white">{label ?? "Current month"}</div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {overageDocuments > 0 ? `${overageDocuments} overage doc(s)` : "No overage"}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">{documentsSent}</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">docs</div>
+        </div>
+      </div>
+      <div className="mt-4 h-4 rounded-full bg-white dark:bg-slate-950/70">
+        <div className={cn("h-4 rounded-full transition-all", color)} style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function StatusCard({ label, value, detail, tone }: { label: string; value: number; detail: string; tone: "slate" | "blue" | "cyan" | "green" | "forest" | "rose" }) {
   const tones = { slate: "bg-slate-50 border-slate-200 text-slate-900 dark:bg-slate-900/80 dark:border-white/10 dark:text-slate-100", blue: "bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-100", cyan: "bg-cyan-50 border-cyan-200 text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-900 dark:text-cyan-100", green: "bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-900 dark:text-emerald-100", forest: "bg-green-50 border-green-200 text-green-900 dark:bg-green-950/40 dark:border-green-900 dark:text-green-100", rose: "bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-900 dark:text-rose-100" };
   return <div className={cn("rounded-[1.5rem] border p-4", tones[tone])}><div className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">{label}</div><div className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</div><div className="mt-2 text-sm opacity-80">{detail}</div></div>;
@@ -2015,8 +2929,16 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
   return <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950/70"><span className="text-sm text-slate-500 dark:text-slate-400">{label}</span><span className="text-sm font-semibold text-slate-950 dark:text-white">{value}</span></div>;
 }
 
-function AccountMenuButton({ label, icon }: { label: string; icon: ReactNode }) {
-  return <button type="button" className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/6"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400">{icon}</span><span>{label}</span></button>;
+function AccountMenuButton({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick?: () => void;
+}) {
+  return <button type="button" onClick={onClick} className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/6"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400">{icon}</span><span>{label}</span></button>;
 }
 
 function buildContractStats(documents: Doc[] | null) {
@@ -2295,6 +3217,14 @@ function formatBillingMonthShort(billingPeriod?: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date);
 }
 
+function formatBillingMonthLabel(billingPeriod?: string) {
+  if (!billingPeriod) return "Unknown month";
+  const [year, month] = billingPeriod.split("-");
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  if (Number.isNaN(date.getTime())) return billingPeriod;
+  return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(date);
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "Not available";
   const date = new Date(value);
@@ -2302,18 +3232,80 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function sectionEyebrow(section: SectionKey) {
+  if (section === "profile") return "Profile";
   if (section === "documents") return "Documents";
-  if (section === "company") return "Company";
   if (section === "billing") return "Billing";
   return "Workspace";
 }
 
 function sectionTitle(section: SectionKey, companyName?: string | null) {
+  if (section === "profile") return "User profile";
   if (section === "documents") return "Contract lifecycle";
-  if (section === "company") return companyName ?? "Company profile";
   if (section === "billing") return "Usage and limits";
   return companyName ?? "NoaSign";
+}
+
+function joinDefined(values: Array<string | null | undefined>, separator: string) {
+  return values.filter((value): value is string => Boolean(value && value.trim())).join(separator);
+}
+
+function getCompanyInitials(companyName?: string | null) {
+  if (!companyName) return "NS";
+  const words = companyName
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+
+  if (words.length === 0) return "NS";
+  return words.map((word) => word[0]?.toUpperCase() ?? "").join("");
+}
+
+async function resizeImageFile(file: File, maxDimension: number) {
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImageElement(source);
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return source;
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/webp", 0.88);
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(reader.error ?? new Error("Unable to read image file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageElement(source: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to load image preview"));
+    image.src = source;
+  });
 }
 
 function getDocumentActions(status?: string | null) {

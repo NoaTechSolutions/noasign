@@ -28,11 +28,30 @@ type DashboardUser = {
 type CompanyProfile = {
   id: string;
   companyName: string;
+  legalName: string | null;
+  website: string | null;
+  email: string | null;
+  phone: string | null;
   contactEmail: string | null;
+  contactFirstName: string | null;
+  contactLastName: string | null;
+  contactTitle: string | null;
+  contactPhone: string | null;
+  contactAddressLine1: string | null;
+  contactAddressLine2: string | null;
+  contactCity: string | null;
+  contactState: string | null;
+  contactZipCode: string | null;
+  contactCountry: string | null;
   industry: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
+  zipCode: string | null;
+  logoUrl: string | null;
+  licenseNumber: string | null;
   planName: string;
   monthlyDocLimit: number;
   isUnlimited: boolean;
@@ -135,6 +154,34 @@ type CreateDraftResponse = {
   document: DocumentDetail;
 };
 
+type UpdateCompanyProfilePayload = Partial<
+  Pick<
+    CompanyProfile,
+    | "companyName"
+    | "legalName"
+    | "email"
+    | "phone"
+    | "website"
+    | "addressLine1"
+    | "addressLine2"
+    | "city"
+    | "state"
+    | "zipCode"
+    | "logoUrl"
+    | "contactFirstName"
+    | "contactLastName"
+    | "contactTitle"
+    | "contactEmail"
+    | "contactPhone"
+    | "contactAddressLine1"
+    | "contactAddressLine2"
+    | "contactCity"
+    | "contactState"
+    | "contactZipCode"
+    | "contactCountry"
+  >
+>;
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -142,6 +189,7 @@ export default function DashboardPage() {
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const [usage, setUsage] = useState<CurrentUsage | null>(null);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [billingHistory, setBillingHistory] = useState<MonthlySummary[]>([]);
   const [documents, setDocuments] = useState<DashboardDocument[] | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeCatalogItem[]>([]);
   const [documentDetail, setDocumentDetail] = useState<DocumentDetail | null>(null);
@@ -153,7 +201,8 @@ export default function DashboardPage() {
 
   const loadWorkspace = useCallback(
     async (accessToken: string, currentSelectedId?: string | null) => {
-    const [me, profile, currentUsage, summary, myDocuments, availableDocumentTypes] = await Promise.all([
+    const recentMonths = getRecentBillingMonths(3);
+    const [me, profile, currentUsage, summary, myDocuments, availableDocumentTypes, summaryHistory] = await Promise.all([
       apiRequest<DashboardUser>("/users/me", { token: accessToken }),
       apiRequest<CompanyProfile>("/company-profile/me", { token: accessToken }),
       apiRequest<CurrentUsage>("/billing/current-usage", { token: accessToken }),
@@ -164,12 +213,20 @@ export default function DashboardPage() {
       apiRequest<DocumentTypeCatalogItem[]>("/documents/types", {
         token: accessToken,
       }),
+      Promise.all(
+        recentMonths.map((month) =>
+          apiRequest<MonthlySummary>(`/billing/summary?month=${month}`, {
+            token: accessToken,
+          }),
+        ),
+      ),
     ]);
 
     setDashboardUser(me);
     setCompanyProfile(profile);
     setUsage(currentUsage);
     setMonthlySummary(summary);
+    setBillingHistory(summaryHistory);
     setDocuments(myDocuments);
     setDocumentTypes(availableDocumentTypes);
 
@@ -411,6 +468,36 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleUpdateCompanyProfile(payload: UpdateCompanyProfilePayload) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      const updatedProfile = await apiRequest<CompanyProfile>("/company-profile/me", {
+        token: accessToken,
+        method: "PATCH",
+        body: payload,
+      });
+
+      setCompanyProfile(updatedProfile);
+      return updatedProfile;
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Unable to update company profile",
+      );
+      throw updateError;
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[color:var(--background)]">
       {error ? (
@@ -423,6 +510,7 @@ export default function DashboardPage() {
         companyProfile={companyProfile}
         usage={usage}
         monthlySummary={monthlySummary}
+        billingHistory={billingHistory}
         documents={documents}
         documentTypes={documentTypes}
         documentDetail={documentDetail}
@@ -434,8 +522,21 @@ export default function DashboardPage() {
         onDocumentAction={handleDocumentAction}
         onUpdateDraft={handleUpdateDraft}
         onCreateDraft={handleCreateDraft}
+        onUpdateCompanyProfile={handleUpdateCompanyProfile}
         onSignOut={handleSignOut}
       />
     </main>
   );
+}
+
+function getRecentBillingMonths(count: number) {
+  const now = new Date();
+  const months: string[] = [];
+
+  for (let index = count - 1; index >= 0; index -= 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+    months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+  }
+
+  return months;
 }

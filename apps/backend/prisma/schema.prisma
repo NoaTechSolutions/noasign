@@ -68,6 +68,12 @@ model CompanyProfile {
   contactTitle      String?
   contactEmail      String?
   contactPhone      String?
+  contactAddressLine1 String?
+  contactAddressLine2 String?
+  contactCity       String?
+  contactState      String?
+  contactZipCode    String?
+  contactCountry    String?
 
   planName          PlanName @default(LAUNCH)
   monthlyDocLimit   Int      @default(5)
