@@ -155,10 +155,6 @@ export function LoginForm() {
         </button>
 
         <div className="grid gap-2 rounded-2xl border border-dashed border-[#dce6f7] bg-[#f8fbff] p-4 text-sm text-[#6e7f95]">
-          <div className="flex items-center justify-between gap-4">
-            <span>API</span>
-            <span className="font-medium text-[color:var(--ink)]">{API_URL}</span>
-          </div>
           <p>Use an existing backend account to enter the app.</p>
         </div>
       </form>

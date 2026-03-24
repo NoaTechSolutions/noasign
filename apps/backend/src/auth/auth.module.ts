@@ -4,6 +4,7 @@ import { AuthController } from './auth.controller';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { getRequiredEnv } from '../config/get-required-env';
 
 @Module({
   imports: [
@@ -12,10 +13,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService): JwtModuleOptions => ({
-        secret:
-          configService.get<string>('JWT_SECRET') || 'NoaSignDefaultSecret',
+        secret: getRequiredEnv(
+          configService.get<string>('JWT_SECRET'),
+          'JWT_SECRET',
+        ),
         signOptions: {
-          expiresIn: 86400,
+          expiresIn: configService.get('JWT_EXPIRES_IN') || '86400',
         },
       }),
     }),
