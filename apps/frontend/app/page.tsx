@@ -6,8 +6,8 @@ export default function Home() {
     <main className="relative min-h-screen overflow-hidden bg-[color:var(--background)] px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6">
       <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,var(--bg-page)_0%,var(--bg-page-subtle)_52%,var(--bg-surface)_100%)]" />
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,_rgba(5,165,255,0.08),_transparent_24%),radial-gradient(circle_at_80%_20%,_rgba(2,41,119,0.06),_transparent_18%),linear-gradient(135deg,rgba(5,165,255,0.02),transparent_35%)]" />
-      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] w-full max-w-7xl items-center justify-center bg-transparent p-0 sm:rounded-[2rem] sm:bg-[image:var(--bg-shell)] sm:p-3 sm:shadow-[var(--shadow-strong)] sm:backdrop-blur lg:min-h-[calc(100vh-3rem)] lg:rounded-[2.4rem] lg:p-5">
-        <div className="relative grid w-full overflow-hidden bg-transparent shadow-none sm:rounded-[1.6rem] sm:bg-[image:var(--bg-shell-inner)] md:grid-cols-[0.95fr_1.05fr] xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] w-full max-w-7xl items-center justify-center bg-transparent p-0 sm:p-3 lg:min-h-[calc(100vh-3rem)] lg:p-5">
+        <div className="relative grid w-full overflow-hidden bg-transparent shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--shell-border)] sm:bg-[image:var(--bg-shell-inner)] sm:shadow-[var(--shadow-strong)] md:grid-cols-[0.95fr_1.05fr] xl:grid-cols-[1.1fr_0.9fr] dark:sm:border-[color:var(--border-strong)]">
           <div className="absolute right-4 top-4 z-20 md:right-5 md:top-5">
             <ThemeToggle />
           </div>

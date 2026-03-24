@@ -48,6 +48,7 @@
   --border: rgba(2, 41, 119, 0.24);
   --border-strong: rgba(2, 41, 119, 0.34);
   --border-subtle: rgba(2, 41, 119, 0.18);
+  --shell-border: rgba(2, 41, 119, 0.56);
   --divider: rgba(2, 41, 119, 0.2);
   --focus-ring: rgba(5, 165, 255, 0.18);
   --focus-ring-danger: rgba(194, 65, 12, 0.18);
@@ -171,10 +172,10 @@
   --brand-accent-strong: #2563eb;
   --brand-accent-soft: rgba(59, 130, 246, 0.2);
   --brand-highlight: #ff9900;
-  --border: rgba(203, 213, 225, 0.26);
-  --border-strong: rgba(226, 232, 240, 0.38);
-  --border-subtle: rgba(203, 213, 225, 0.18);
-  --divider: rgba(203, 213, 225, 0.22);
+  --border: rgba(203, 213, 225, 0.14);
+  --border-strong: rgba(226, 232, 240, 0.22);
+  --border-subtle: rgba(203, 213, 225, 0.1);
+  --divider: rgba(203, 213, 225, 0.14);
   --focus-ring: rgba(59, 130, 246, 0.24);
   --button-primary: #3b82f6;
   --button-primary-hover: #2563eb;
