@@ -1,3 +1,5 @@
+import { clearSession } from "./auth-storage";
+
 function resolveApiUrl() {
   const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
 
@@ -13,6 +15,18 @@ function resolveApiUrl() {
 }
 
 export const API_URL = resolveApiUrl();
+
+function handleUnauthorized() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  clearSession();
+
+  if (window.location.pathname !== "/") {
+    window.location.replace("/");
+  }
+}
 
 type RequestOptions = {
   token?: string;
@@ -42,6 +56,10 @@ export async function apiRequest<T>(
   const data = text ? (JSON.parse(text) as T | { message?: string }) : null;
 
   if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized();
+    }
+
     const message =
       data && typeof data === "object" && "message" in data
         ? data.message
