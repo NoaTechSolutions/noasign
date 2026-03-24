@@ -1,63 +1,117 @@
+import { ThemeToggle } from "../components/theme-toggle";
 import { LoginForm } from "./login-form";
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[color:var(--background)] px-3 py-3 sm:px-5 sm:py-5">
-      <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,#f8fbff_0%,#eef4ff_28%,#e6f0ff_100%)]" />
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,_rgba(78,146,255,0.24),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(16,96,255,0.26),_transparent_28%),radial-gradient(circle_at_center,_rgba(255,255,255,0.72),_transparent_44%)]" />
-      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] w-full max-w-6xl items-center justify-center rounded-[2rem] border border-white/55 bg-white/34 p-2 shadow-[0_32px_110px_rgba(47,96,176,0.16)] backdrop-blur sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[2.25rem] sm:p-4">
-        <div className="grid w-full overflow-hidden rounded-[1.7rem] border border-white/70 bg-white shadow-[0_22px_80px_rgba(53,105,193,0.16)] lg:grid-cols-[1.08fr_0.92fr]">
-          <section className="relative flex min-h-[23rem] flex-col justify-between overflow-hidden bg-[linear-gradient(155deg,#1767ff_0%,#0f4ddf_44%,#0a37bc_100%)] p-5 text-white sm:min-h-[28rem] sm:p-7 lg:min-h-[40rem] lg:p-10">
-            <div className="absolute inset-x-[-8%] top-[-12%] h-40 rounded-full bg-white/16 blur-3xl sm:h-56" />
-            <div className="absolute bottom-[-18%] left-[-8%] h-44 w-44 rounded-full border border-white/16 bg-white/8 blur-2xl sm:h-64 sm:w-64" />
-            <div className="relative z-10 flex items-center justify-between gap-4">
-              <div className="inline-flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-base font-bold tracking-[-0.04em] text-[#0f4ddf] shadow-[0_10px_25px_rgba(7,33,98,0.2)]">
-                  N
+    <main className="relative min-h-screen overflow-hidden bg-[color:var(--background)] px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6">
+      <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,var(--bg-page)_0%,var(--bg-page-subtle)_52%,var(--bg-surface)_100%)]" />
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,_rgba(5,165,255,0.08),_transparent_24%),radial-gradient(circle_at_80%_20%,_rgba(2,41,119,0.06),_transparent_18%),linear-gradient(135deg,rgba(5,165,255,0.02),transparent_35%)]" />
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] w-full max-w-7xl items-center justify-center bg-transparent p-0 sm:rounded-[2rem] sm:bg-[image:var(--bg-shell)] sm:p-3 sm:shadow-[var(--shadow-strong)] sm:backdrop-blur lg:min-h-[calc(100vh-3rem)] lg:rounded-[2.4rem] lg:p-5">
+        <div className="relative grid w-full overflow-hidden bg-transparent shadow-none sm:rounded-[1.6rem] sm:bg-[image:var(--bg-shell-inner)] md:grid-cols-[0.95fr_1.05fr] xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="absolute right-4 top-4 z-20 md:right-5 md:top-5">
+            <ThemeToggle />
+          </div>
+
+          <section className="relative hidden min-h-[24rem] border-r border-[color:var(--border)] bg-[image:var(--bg-panel-soft)] p-6 md:block md:min-h-[38rem] md:p-7 lg:min-h-[42rem] lg:p-10">
+            <div className="absolute left-[-6%] top-[-4%] h-40 w-40 rounded-full bg-[rgba(5,165,255,0.08)] blur-3xl sm:h-56 sm:w-56" />
+            <div className="absolute bottom-[-10%] right-[-4%] h-52 w-52 rounded-full bg-[rgba(2,41,119,0.06)] blur-3xl sm:h-72 sm:w-72" />
+
+            <div className="relative z-10 grid h-full gap-6">
+              <div className="grid gap-3">
+                <span className="inline-flex w-fit items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--brand-secondary)] shadow-[var(--shadow-soft)]">
+                  Product preview
                 </span>
-                <div>
-                  <div className="text-lg font-semibold tracking-[-0.04em]">
-                    NoaSign
-                  </div>
-                  <div className="text-xs text-white/72 sm:text-sm">
-                    Document workflow
-                  </div>
-                </div>
-              </div>
-              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-white/76 sm:text-[11px]">
-                SaaS
-              </span>
-            </div>
-
-            <div className="relative z-10 grid gap-6">
-              <div className="mx-auto grid h-40 w-full max-w-[19rem] place-items-center rounded-[2rem] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] sm:h-52 sm:max-w-[22rem]">
-                <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-white shadow-[0_16px_50px_rgba(7,33,98,0.28)] sm:h-36 sm:w-36">
-                  <div className="absolute h-20 w-20 rounded-full border-[10px] border-[#1560f6] bg-white sm:h-24 sm:w-24" />
-                  <div className="absolute h-5 w-5 rounded-full bg-[#ff8d58] shadow-[0_0_0_8px_rgba(255,141,88,0.18)]" />
-                  <div className="absolute left-1/2 top-1/2 h-1 w-16 origin-left -translate-y-1/2 rotate-[-35deg] rounded-full bg-[#1560f6] sm:w-20" />
-                  <div className="absolute left-[66%] top-[32%] h-3 w-3 rounded-full bg-[#7fd0ff]" />
+                <div className="max-w-lg">
+                  <h2 className="text-[2.2rem] font-semibold tracking-[-0.05em] text-[color:var(--brand-secondary)] md:text-[2.6rem] lg:text-[3.2rem] lg:leading-[0.98]">
+                    Show the product with images or video.
+                  </h2>
+                  <p className="mt-3 max-w-md text-sm leading-6 text-[color:var(--text-secondary)]">
+                    This area is reserved for product screenshots, workflow visuals, client proof, or a short demo video.
+                  </p>
                 </div>
               </div>
 
-              <div className="grid gap-3 text-center lg:text-left">
-                <h2 className="text-3xl font-semibold tracking-[-0.05em] sm:text-[3rem] sm:leading-[1.02]">
-                  Keep signing ops clear.
-                </h2>
-                <p className="mx-auto max-w-sm text-sm leading-6 text-white/76 lg:mx-0">
-                  Contracts, quotes and invoices in one controlled flow.
-                </p>
-              </div>
-            </div>
+              <div className="grid flex-1 gap-4 lg:grid-rows-[1fr_auto]">
+                <div className="grid min-h-[20rem] overflow-hidden rounded-[2rem] border border-[color:var(--border-strong)] bg-[image:var(--bg-card-elevated)] shadow-[var(--shadow-medium)]">
+                  <div className="grid gap-4 bg-[linear-gradient(145deg,rgba(5,165,255,0.08),rgba(2,41,119,0.04))] p-4 sm:p-5">
+                    <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                      <div className="rounded-[1.5rem] border border-[color:var(--border-strong)] bg-[image:var(--bg-shell-inner)] p-5 shadow-[var(--shadow-soft)]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                            Dashboard
+                          </span>
+                          <span className="rounded-full bg-[color:var(--badge-primary-bg)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--badge-primary-text)]">
+                            Live flow
+                          </span>
+                        </div>
+                        <div className="mt-5 grid gap-3">
+                          <div className="h-4 w-30 rounded-full bg-[color:var(--brand-secondary)]/12" />
+                          <div className="grid gap-2">
+                            <div className="h-14 rounded-2xl bg-[color:var(--bg-surface)]" />
+                            <div className="h-24 rounded-2xl bg-[linear-gradient(135deg,rgba(5,165,255,0.16),rgba(4,0,240,0.06))]" />
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="h-18 rounded-2xl bg-[color:var(--bg-surface)]" />
+                              <div className="h-18 rounded-2xl bg-[color:var(--bg-surface)]" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
-            <div className="relative z-10 flex items-center justify-center gap-3 lg:justify-start">
-              <span className="h-2.5 w-2.5 rounded-full bg-white/42" />
-              <span className="h-2.5 w-2.5 rounded-full bg-white/42" />
-              <span className="h-2.5 w-2.5 rounded-full bg-white" />
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
+                        <div className="rounded-[1.5rem] border border-[color:var(--border-strong)] bg-[image:var(--bg-card-elevated-strong)] p-4 shadow-[var(--shadow-soft)]">
+                          <div className="h-24 rounded-[1.2rem] bg-[linear-gradient(135deg,var(--brand-secondary),var(--brand-accent-strong))]" />
+                          <div className="mt-4 h-3 w-24 rounded-full bg-[color:var(--brand-secondary)]/12" />
+                          <div className="mt-2 h-3 w-full rounded-full bg-[color:var(--bg-surface)]" />
+                          <div className="mt-2 h-3 w-4/5 rounded-full bg-[color:var(--bg-surface)]" />
+                        </div>
+                        <div className="rounded-[1.5rem] border border-[color:var(--border-strong)] bg-[image:var(--bg-card-elevated-strong)] p-4 shadow-[var(--shadow-soft)]">
+                          <div className="flex items-center justify-between">
+                            <div className="h-3 w-20 rounded-full bg-[color:var(--brand-secondary)]/12" />
+                            <div className="h-8 w-8 rounded-full bg-[color:var(--brand-highlight)]/18" />
+                          </div>
+                          <div className="mt-4 h-10 rounded-2xl bg-[color:var(--bg-surface)]" />
+                          <div className="mt-3 h-10 rounded-2xl bg-[color:var(--bg-surface)]" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[1.4rem] border border-[color:var(--border-strong)] bg-[color:var(--bg-elevated)] px-4 py-4 shadow-[var(--shadow-soft)]">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                      Media slot
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-[color:var(--text-primary)]">
+                      Product image
+                    </div>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-[color:var(--border-strong)] bg-[color:var(--bg-elevated)] px-4 py-4 shadow-[var(--shadow-soft)]">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                      Media slot
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-[color:var(--text-primary)]">
+                      Product gallery
+                    </div>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-[color:var(--border-strong)] bg-[color:var(--bg-elevated)] px-4 py-4 shadow-[var(--shadow-soft)]">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                      Media slot
+                    </div>
+                    <div className="mt-2 text-sm font-medium text-[color:var(--text-primary)]">
+                      Demo video
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
-          <section className="flex items-center bg-[linear-gradient(180deg,#ffffff_0%,#f7faff_100%)] p-4 sm:p-6 lg:p-8">
-            <LoginForm />
+          <section className="relative flex min-h-screen items-center bg-transparent p-4 sm:min-h-0 sm:bg-[image:var(--bg-form)] sm:p-5 md:p-6 lg:p-10">
+            <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(5,165,255,0.03),transparent)]" />
+            <div className="mx-auto grid w-full max-w-md gap-5 md:max-w-none md:gap-6">
+              <LoginForm />
+            </div>
           </section>
         </div>
       </div>

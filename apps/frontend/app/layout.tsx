@@ -3,8 +3,8 @@ import { ThemeProvider } from "../components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NoaSign",
-  description: "NoaSign SaaS workspace for documents, workflows and billing.",
+  title: "NTSsign",
+  description: "NTSsign workspace for documents, workflows and billing.",
 };
 
 export default function RootLayout({

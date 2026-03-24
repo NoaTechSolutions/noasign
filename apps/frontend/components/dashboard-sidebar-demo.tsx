@@ -308,7 +308,7 @@ export function DashboardSidebarDemo({
   }
 
   return (
-    <div className="relative flex min-h-screen w-full overflow-hidden bg-white/70 backdrop-blur dark:bg-slate-950/65 md:flex-row">
+    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row">
       <Sidebar open={open} setOpen={setOpen}>
         <SidebarBody className="justify-between gap-8">
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
@@ -319,7 +319,7 @@ export function DashboardSidebarDemo({
                   type="button"
                   aria-label="Close sidebar"
                   onClick={() => setOpen(false)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.10)] dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)]"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -327,7 +327,7 @@ export function DashboardSidebarDemo({
             </div>
 
             <div className="mt-8">
-              <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">
+              <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">
                 Main menu
               </div>
               <div className="mt-3 flex flex-col gap-2">
@@ -349,7 +349,7 @@ export function DashboardSidebarDemo({
             </div>
 
             <div className="mt-8">
-              <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">
+              <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">
                 Workspace
               </div>
               <div className="mt-3 grid gap-3">
@@ -359,40 +359,40 @@ export function DashboardSidebarDemo({
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white/85 p-3 shadow-[0_12px_30px_rgba(48,88,160,0.08)] dark:border-white/10 dark:bg-[#101826] dark:shadow-none">
-            <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400 dark:text-slate-500">Account</div>
-            <div className="rounded-2xl bg-slate-50 p-1 dark:bg-white/[0.03]">
+          <div className="rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)]/85 p-3 shadow-[var(--shadow-soft)]">
+            <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">Account</div>
+            <div className="rounded-2xl bg-[color:var(--bg-surface)] p-1">
               <SidebarLink link={{ label: isLoading ? "Loading..." : displayName, icon: <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-9 w-9 rounded-2xl text-sm" /> }} className="pointer-events-none" />
             </div>
             <div className="mt-3 px-1">
-              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-300">
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3 text-sm text-[color:var(--text-secondary)]">
                 {isLoading ? "Loading..." : `${usage?.documentsUsed ?? 0} docs counted this month`}
               </div>
             </div>
-            <div className="mt-3 px-3 text-left text-[11px] font-medium tracking-[0.18em] text-slate-400 dark:text-slate-500">
-              Powered by <span className="font-semibold text-slate-500 dark:text-slate-300">NoaTechSolutions</span>
+            <div className="mt-3 px-3 text-left text-[11px] font-medium tracking-[0.18em] text-[color:var(--text-muted)]">
+              Powered by <span className="font-semibold text-[color:var(--text-secondary)]">NoaTechSolutions</span>
             </div>
           </div>
         </SidebarBody>
       </Sidebar>
 
       <div className="flex min-w-0 flex-1">
-        <div className="flex h-full w-full flex-1 flex-col gap-4 bg-transparent p-4 pt-4 md:border-l md:border-slate-200/80 md:p-6 md:pt-6 dark:md:border-white/10">
-          <div className="-mx-4 flex min-h-12 items-center justify-between gap-3 border-b border-slate-200/90 px-4 py-2 md:-mx-6 md:px-6 md:py-3 dark:border-white/10">
+        <div className="flex h-full w-full flex-1 flex-col gap-4 bg-transparent p-4 pt-4 md:border-l md:border-[color:var(--topbar-border)] md:p-6 md:pt-6">
+          <div className="-mx-4 flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--topbar-border)] px-4 py-2 md:-mx-6 md:px-6 md:py-3">
             <div className="flex min-w-0 flex-1 items-center justify-start gap-3">
               {!open ? (
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--button-neutral-hover)] hover:text-[color:var(--text-primary)]"
                   aria-label="Toggle sidebar"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
               ) : null}
               <div className="hidden min-w-0 flex-col items-start text-left sm:flex">
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">{sectionEyebrow(activeSection)}</div>
-                <div className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{sectionTitle(activeSection, companyProfile?.companyName)}</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">{sectionEyebrow(activeSection)}</div>
+                <div className="truncate text-sm font-medium text-[color:var(--text-primary)]">{sectionTitle(activeSection, companyProfile?.companyName)}</div>
               </div>
             </div>
 
@@ -402,23 +402,23 @@ export function DashboardSidebarDemo({
                 <button
                   type="button"
                   onClick={() => setAccountMenuOpen((current) => !current)}
-                  className="inline-flex items-center gap-3 rounded-2xl px-1 py-1 transition hover:bg-slate-100/80 dark:hover:bg-white/6"
+                  className="inline-flex items-center gap-3 rounded-2xl px-1 py-1 transition hover:bg-[color:var(--bg-surface)]"
                 >
-                  <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-2xl text-sm shadow-[0_10px_24px_rgba(37,99,235,0.28)]" />
+                  <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-2xl text-sm shadow-[var(--shadow-soft)]" />
                   <div className="hidden text-left sm:block">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-white">{isLoading ? "Loading..." : displayName}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{isLoading ? "..." : user?.role ?? "Member"}</div>
+                    <div className="text-sm font-semibold text-[color:var(--text-primary)]">{isLoading ? "Loading..." : displayName}</div>
+                    <div className="text-xs text-[color:var(--text-muted)]">{isLoading ? "..." : user?.role ?? "Member"}</div>
                   </div>
-                  <ChevronRight className={cn("h-4 w-4 rotate-90 text-slate-400 transition-transform dark:text-slate-500", accountMenuOpen && "rotate-180")} />
+                  <ChevronRight className={cn("h-4 w-4 rotate-90 text-[color:var(--text-muted)] transition-transform", accountMenuOpen && "rotate-180")} />
                 </button>
               </div>
 
               {accountMenuOpen ? (
-                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-30 w-72 rounded-[1.4rem] border border-slate-200 bg-white p-3 shadow-[0_22px_60px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_22px_60px_rgba(2,6,23,0.45)]">
-                  <div className="rounded-[1.1rem] bg-slate-50 p-3 dark:bg-white/[0.04]">
-                    <div className="text-sm font-semibold text-slate-950 dark:text-white">{isLoading ? "Loading..." : displayName}</div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{isLoading ? "..." : user?.email ?? "No email"}</div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{isLoading ? "..." : `${user?.role ?? "Member"} | ${user?.status ?? "ACTIVE"}`}</div>
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-30 w-72 rounded-[1.4rem] border border-[color:var(--menu-border)] bg-[color:var(--menu-bg)] p-3 shadow-[var(--shadow-dropdown)]">
+                  <div className="rounded-[1.1rem] bg-[color:var(--bg-surface)] p-3">
+                    <div className="text-sm font-semibold text-[color:var(--text-primary)]">{isLoading ? "Loading..." : displayName}</div>
+                    <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{isLoading ? "..." : user?.email ?? "No email"}</div>
+                    <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{isLoading ? "..." : `${user?.role ?? "Member"} | ${user?.status ?? "ACTIVE"}`}</div>
                   </div>
                   <div className="mt-3 grid gap-1">
                     <AccountMenuButton
@@ -439,8 +439,8 @@ export function DashboardSidebarDemo({
                     />
                     <AccountMenuButton label="Help & support" icon={<CircleHelp className="h-4 w-4" />} />
                   </div>
-                  <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
-                    <button type="button" onClick={onSignOut} className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10">
+                  <div className="mt-3 border-t border-[color:var(--divider)] pt-3">
+                    <button type="button" onClick={onSignOut} className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-[color:var(--danger-text)] transition hover:bg-[color:var(--danger-bg)]">
                       <LogOut className="h-4 w-4" />
                       <span>Log out</span>
                     </button>
@@ -2457,25 +2457,25 @@ function DocumentViewer({
 
 function InfoCard({ label, title, subtitle, accent = false }: { label: string; title: string; subtitle: string; accent?: boolean }) {
   return (
-    <div className={cn("rounded-[1.5rem] border p-4 shadow-[0_12px_30px_rgba(48,88,160,0.08)] dark:border-white/10 dark:shadow-none", accent ? "border-slate-200 bg-[linear-gradient(135deg,#eff6ff_0%,#dbeafe_100%)] dark:bg-[linear-gradient(135deg,#111827_0%,#172036_100%)]" : "border-slate-200 bg-white/85 dark:bg-white/5")}>
-      <div className={cn("text-[11px] font-semibold uppercase tracking-[0.28em]", accent ? "text-blue-600 dark:text-slate-400" : "text-slate-400 dark:text-slate-500")}>{label}</div>
-      <div className="mt-3 text-sm font-semibold text-slate-950 dark:text-white">{title}</div>
-      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</div>
+    <div className={cn("rounded-[1.5rem] border p-4 shadow-[var(--shadow-soft)]", accent ? "border-[color:var(--border)] bg-[linear-gradient(135deg,var(--badge-primary-bg)_0%,var(--bg-surface-strong)_100%)]" : "border-[color:var(--border)] bg-[color:var(--bg-elevated)]/85")}>
+      <div className={cn("text-[11px] font-semibold uppercase tracking-[0.28em]", accent ? "text-[color:var(--brand-accent-strong)]" : "text-[color:var(--text-muted)]")}>{label}</div>
+      <div className="mt-3 text-sm font-semibold text-[color:var(--text-primary)]">{title}</div>
+      <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{subtitle}</div>
     </div>
   );
 }
 
 function StatPill({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"><div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{label}</div><div className="mt-3 text-sm font-medium leading-5 text-slate-950 dark:text-white">{value}</div></div>;
+  return <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">{label}</div><div className="mt-3 text-sm font-medium leading-5 text-[color:var(--text-primary)]">{value}</div></div>;
 }
 
 function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]"><div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400"><span className="text-slate-400 dark:text-slate-500">{icon}</span>{label}</div><div className="mt-3 text-sm font-medium leading-5 text-slate-950 dark:text-white">{value}</div></div>;
+  return <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"><div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]"><span className="text-[color:var(--text-muted)]">{icon}</span>{label}</div><div className="mt-3 text-sm font-medium leading-5 text-[color:var(--text-primary)]">{value}</div></div>;
 }
 
 function ProfileChip({ label }: { label: string }) {
   return (
-    <div className="rounded-full border border-blue-100 bg-white/88 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600 shadow-[0_10px_24px_rgba(37,99,235,0.08)] dark:border-white/10 dark:bg-white/10 dark:text-white/75 dark:shadow-none">
+    <div className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg-elevated)]/88 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)]">
       {label}
     </div>
   );
@@ -2493,7 +2493,7 @@ function CompanyAvatar({
   const fallback = getCompanyInitials(companyName);
 
   return (
-    <div className={cn("flex items-center justify-center overflow-hidden bg-[#2563eb] font-semibold text-white", className)}>
+    <div className={cn("flex items-center justify-center overflow-hidden bg-[color:var(--brand-secondary)] font-semibold text-white", className)}>
       {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={logoUrl} alt={`${companyName ?? "Company"} logo`} className="h-full w-full object-cover" />
@@ -2522,7 +2522,7 @@ function ProfileEditActions({
       <button
         type="button"
         onClick={onEdit}
-        className="rounded-full border border-blue-500 bg-blue-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-[0_10px_24px_rgba(37,99,235,0.24)] transition hover:bg-blue-700 dark:border-blue-400/30 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500"
+        className="rounded-full border border-transparent bg-[color:var(--button-primary)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--button-primary-hover)]"
       >
         Edit
       </button>
@@ -2535,7 +2535,7 @@ function ProfileEditActions({
         type="button"
         onClick={onCancel}
         disabled={isSaving}
-        className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition hover:border-slate-300 hover:bg-white disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+        className="rounded-full border border-[color:var(--border)] bg-[color:var(--button-neutral-hover)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral)] disabled:opacity-60"
       >
         Cancel
       </button>
@@ -2543,7 +2543,7 @@ function ProfileEditActions({
         type="button"
         onClick={onSave}
         disabled={isSaving}
-        className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-blue-700 disabled:opacity-60"
+        className="rounded-full bg-[color:var(--button-success)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[color:var(--button-success-hover)] disabled:opacity-60"
       >
         {isSaving ? "Saving..." : "Save"}
       </button>
@@ -2567,9 +2567,9 @@ function EditableField({
   placeholder?: string;
 }) {
   return (
-    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-        <span className="text-slate-400 dark:text-slate-500">{icon}</span>
+    <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
+        <span className="text-[color:var(--text-muted)]">{icon}</span>
         {label}
       </div>
       <input
@@ -2577,7 +2577,7 @@ function EditableField({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-3 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-300 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+        className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]"
       />
     </div>
   );
@@ -2595,9 +2595,9 @@ function SelectField({
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-        <span className="text-slate-400 dark:text-slate-500">
+    <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
+        <span className="text-[color:var(--text-muted)]">
           <FileJson className="h-4 w-4" />
         </span>
         {label}
@@ -2605,7 +2605,7 @@ function SelectField({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-3 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-300 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+        className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]"
       >
         <option value="">Select</option>
         {options.map((option) => (
@@ -2646,7 +2646,7 @@ function TabEditorToolbar({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+            className="rounded-xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-2 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
           >
             Cancel
           </button>
@@ -2655,7 +2655,7 @@ function TabEditorToolbar({
             onClick={onSave}
             disabled={isSaving}
             className={cn(
-              "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
+              "rounded-xl bg-[color:var(--button-success)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-success-hover)]",
               isSaving && "cursor-not-allowed opacity-60",
             )}
           >
@@ -2666,7 +2666,7 @@ function TabEditorToolbar({
         <button
           type="button"
           onClick={onEdit}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+          className="rounded-xl bg-[color:var(--button-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)]"
         >
           {editLabel}
         </button>
@@ -2676,23 +2676,23 @@ function TabEditorToolbar({
 }
 
 function EmptyBlock({ text }: { text: string }) {
-  return <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">{text}</div>;
+  return <div className="rounded-[1.5rem] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--bg-surface)] px-5 py-8 text-center text-sm text-[color:var(--text-secondary)]">{text}</div>;
 }
 
 function StatusBadge({ status }: { status: string }) {
   const tones: Record<string, string> = {
-    DRAFT: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-    SENT: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
-    VIEWED: "bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300",
-    SIGNED: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-    COMPLETED: "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300",
-    CANCELLED: "bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+    DRAFT: "bg-[color:var(--badge-neutral-bg)] text-[color:var(--badge-neutral-text)]",
+    SENT: "bg-[color:var(--badge-primary-bg)] text-[color:var(--badge-primary-text)]",
+    VIEWED: "bg-[color:var(--info-bg)] text-[color:var(--info-text)]",
+    SIGNED: "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
+    COMPLETED: "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
+    CANCELLED: "bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]",
   };
-  return <span className={cn("rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]", tones[status] ?? "bg-slate-100 text-slate-700")}>{status}</span>;
+  return <span className={cn("rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]", tones[status] ?? "bg-[color:var(--badge-neutral-bg)] text-[color:var(--badge-neutral-text)]")}>{status}</span>;
 }
 
 function InlineBadge({ children, tone }: { children: ReactNode; tone: "blue" | "rose" }) {
-  const styles = { blue: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300", rose: "bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300" };
+  const styles = { blue: "bg-[color:var(--badge-primary-bg)] text-[color:var(--badge-primary-text)]", rose: "bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]" };
   return <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]", styles[tone])}>{children}</span>;
 }
 
@@ -2745,7 +2745,7 @@ function DocumentListActions({
           }
           setOpen((current) => !current);
         }}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)] hover:text-[color:var(--text-primary)]"
         aria-label="Open document actions"
       >
         <MoreHorizontal className="h-4 w-4" />
@@ -2754,7 +2754,7 @@ function DocumentListActions({
       {open ? (
         <div
           className={cn(
-            "absolute right-0 z-20 min-w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.16)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]",
+            "absolute right-0 z-20 min-w-44 rounded-2xl border border-[color:var(--menu-border)] bg-[color:var(--menu-bg)] p-2 shadow-[var(--shadow-dropdown)]",
             openUpward ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]",
           )}
           onClick={(event) => event.stopPropagation()}
@@ -2765,7 +2765,7 @@ function DocumentListActions({
               onView();
               setOpen(false);
             }}
-            className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/6"
+            className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"
           >
             View
           </button>
@@ -2777,7 +2777,7 @@ function DocumentListActions({
                 onEdit();
                 setOpen(false);
               }}
-              className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-blue-700 transition hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
+              className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--brand-accent-strong)] transition hover:bg-[color:var(--badge-primary-bg)]"
             >
               Edit
             </button>
@@ -2808,21 +2808,21 @@ function DocumentListActions({
 }
 
 function Logo() {
-  return <Link href="/dashboard" className="relative z-20 flex items-center space-x-3 py-1 text-sm font-normal text-slate-950 dark:text-white"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#2563eb] text-base font-bold text-white shadow-[0_14px_28px_rgba(37,99,235,0.28)]">N</div><motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid whitespace-pre text-left"><span className="text-base font-semibold">NoaSign</span><span className="text-[8px] font-medium uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">by NoaTechSolutions</span></motion.span></Link>;
+  return <Link href="/dashboard" className="relative z-20 flex items-center space-x-3 py-1 text-sm font-normal text-[color:var(--text-primary)]"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--brand-secondary)] text-base font-bold text-white shadow-[var(--shadow-medium)]">N</div><motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid whitespace-pre text-left"><span className="text-base font-semibold">NoaSign</span><span className="text-[8px] font-medium uppercase tracking-[0.2em] text-[color:var(--text-muted)]">by NoaTechSolutions</span></motion.span></Link>;
 }
 
 function LogoIcon() {
-  return <Link href="/dashboard" className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-black"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#2563eb] text-base font-bold text-white shadow-[0_14px_28px_rgba(37,99,235,0.28)]">N</div></Link>;
+  return <Link href="/dashboard" className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-[color:var(--text-primary)]"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--brand-secondary)] text-base font-bold text-white shadow-[var(--shadow-medium)]">N</div></Link>;
 }
 
 function DonutChart({ stats, billingPeriod }: { stats: ReturnType<typeof buildContractStats>; billingPeriod?: string }) {
   const total = Math.max(stats.total, 1);
-  const segments = [{ value: stats.draft, color: "#94a3b8" }, { value: stats.sent, color: "#2563eb" }, { value: stats.viewed, color: "#06b6d4" }, { value: stats.signed, color: "#10b981" }, { value: stats.completed, color: "#166534" }, { value: stats.cancelled, color: "#f43f5e" }];
+  const segments = [{ value: stats.draft, color: "#8a9bb8" }, { value: stats.sent, color: "#05a5ff" }, { value: stats.viewed, color: "#0400f0" }, { value: stats.signed, color: "#0f9f6e" }, { value: stats.completed, color: "#022977" }, { value: stats.cancelled, color: "#c2410c" }];
   let cumulative = 0;
   return (
     <div className="relative h-28 w-28 shrink-0">
       <svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
-        <circle cx="60" cy="60" r="42" fill="none" stroke="#e2e8f0" strokeWidth="12" />
+        <circle cx="60" cy="60" r="42" fill="none" stroke="rgba(2,41,119,0.12)" strokeWidth="12" />
         {segments.map((segment, index) => {
           const fraction = segment.value / total;
           const dash = fraction * 264;
@@ -2834,8 +2834,8 @@ function DonutChart({ stats, billingPeriod }: { stats: ReturnType<typeof buildCo
         })}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">{formatBillingMonthShort(billingPeriod)}</div>
-        <div className="text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">{stats.total}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">{formatBillingMonthShort(billingPeriod)}</div>
+        <div className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)]">{stats.total}</div>
       </div>
     </div>
   );
@@ -2843,7 +2843,7 @@ function DonutChart({ stats, billingPeriod }: { stats: ReturnType<typeof buildCo
 
 function ChartRow({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
   const width = total > 0 ? Math.max((value / total) * 100, value > 0 ? 8 : 0) : 0;
-  return <div className="grid gap-2"><div className="flex items-center justify-between gap-4 text-sm"><span className="font-medium text-slate-600 dark:text-slate-300">{label}</span><span className="font-semibold text-slate-950 dark:text-white">{value}</span></div><div className="h-3 rounded-full bg-white dark:bg-slate-950/70"><div className={cn("h-3 rounded-full transition-all", color)} style={{ width: `${width}%` }} /></div></div>;
+  return <div className="grid gap-2"><div className="flex items-center justify-between gap-4 text-sm"><span className="font-medium text-[color:var(--text-secondary)]">{label}</span><span className="font-semibold text-[color:var(--text-primary)]">{value}</span></div><div className="h-3 rounded-full bg-[color:var(--bg-elevated)]"><div className={cn("h-3 rounded-full transition-all", color)} style={{ width: `${width}%` }} /></div></div>;
 }
 
 function BillingHistoryRow({
@@ -2863,19 +2863,19 @@ function BillingHistoryRow({
     <div className="grid gap-2">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="text-sm font-semibold text-slate-950 dark:text-white">{formatBillingMonthLabel(month)}</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">
+          <div className="text-sm font-semibold text-[color:var(--text-primary)]">{formatBillingMonthLabel(month)}</div>
+          <div className="text-xs text-[color:var(--text-secondary)]">
             {overageDocuments > 0 ? `${overageDocuments} overage doc(s)` : "Within plan limit"}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-lg font-semibold text-slate-950 dark:text-white">{documentsSent}</div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">docs</div>
+          <div className="text-lg font-semibold text-[color:var(--text-primary)]">{documentsSent}</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-secondary)]">docs</div>
         </div>
       </div>
-      <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-950/70">
+      <div className="h-3 rounded-full bg-[color:var(--bg-surface)]">
         <div
-          className={cn("h-3 rounded-full transition-all", overageDocuments > 0 ? "bg-rose-500" : "bg-[#2563eb]")}
+          className={cn("h-3 rounded-full transition-all", overageDocuments > 0 ? "bg-[color:var(--button-danger)]" : "bg-[color:var(--brand-accent)]")}
           style={{ width: `${width}%` }}
         />
       </div>
@@ -2897,23 +2897,23 @@ function MonthCompareBar({
   tone: "slate" | "blue";
 }) {
   const width = Math.max((documentsSent / maxValue) * 100, documentsSent > 0 ? 10 : 0);
-  const color = tone === "blue" ? "bg-[#2563eb]" : "bg-slate-400";
+  const color = tone === "blue" ? "bg-[color:var(--brand-accent)]" : "bg-[color:var(--text-muted)]";
 
   return (
-    <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+    <div className="rounded-[1.4rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="text-sm font-semibold text-slate-950 dark:text-white">{label ?? "Current month"}</div>
-          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <div className="text-sm font-semibold text-[color:var(--text-primary)]">{label ?? "Current month"}</div>
+          <div className="mt-1 text-xs text-[color:var(--text-secondary)]">
             {overageDocuments > 0 ? `${overageDocuments} overage doc(s)` : "No overage"}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">{documentsSent}</div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">docs</div>
+          <div className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)]">{documentsSent}</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-secondary)]">docs</div>
         </div>
       </div>
-      <div className="mt-4 h-4 rounded-full bg-white dark:bg-slate-950/70">
+      <div className="mt-4 h-4 rounded-full bg-[color:var(--bg-elevated)]">
         <div className={cn("h-4 rounded-full transition-all", color)} style={{ width: `${width}%` }} />
       </div>
     </div>
@@ -2921,12 +2921,12 @@ function MonthCompareBar({
 }
 
 function StatusCard({ label, value, detail, tone }: { label: string; value: number; detail: string; tone: "slate" | "blue" | "cyan" | "green" | "forest" | "rose" }) {
-  const tones = { slate: "bg-slate-50 border-slate-200 text-slate-900 dark:bg-slate-900/80 dark:border-white/10 dark:text-slate-100", blue: "bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-100", cyan: "bg-cyan-50 border-cyan-200 text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-900 dark:text-cyan-100", green: "bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-900 dark:text-emerald-100", forest: "bg-green-50 border-green-200 text-green-900 dark:bg-green-950/40 dark:border-green-900 dark:text-green-100", rose: "bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-900 dark:text-rose-100" };
+  const tones = { slate: "bg-[color:var(--badge-neutral-bg)] border-[color:var(--border)] text-[color:var(--text-primary)]", blue: "bg-[color:var(--badge-primary-bg)] border-[color:var(--info-border)] text-[color:var(--badge-primary-text)]", cyan: "bg-[color:var(--info-bg)] border-[color:var(--info-border)] text-[color:var(--info-text)]", green: "bg-[color:var(--success-bg)] border-[color:var(--success-border)] text-[color:var(--success-text)]", forest: "bg-[color:var(--success-bg)] border-[color:var(--success-border)] text-[color:var(--success-text)]", rose: "bg-[color:var(--danger-bg)] border-[color:var(--danger-border)] text-[color:var(--danger-text)]" };
   return <div className={cn("rounded-[1.5rem] border p-4", tones[tone])}><div className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">{label}</div><div className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</div><div className="mt-2 text-sm opacity-80">{detail}</div></div>;
 }
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
-  return <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950/70"><span className="text-sm text-slate-500 dark:text-slate-400">{label}</span><span className="text-sm font-semibold text-slate-950 dark:text-white">{value}</span></div>;
+  return <div className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3"><span className="text-sm text-[color:var(--text-secondary)]">{label}</span><span className="text-sm font-semibold text-[color:var(--text-primary)]">{value}</span></div>;
 }
 
 function AccountMenuButton({
@@ -2938,7 +2938,7 @@ function AccountMenuButton({
   icon: ReactNode;
   onClick?: () => void;
 }) {
-  return <button type="button" onClick={onClick} className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/6"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400">{icon}</span><span>{label}</span></button>;
+  return <button type="button" onClick={onClick} className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)]">{icon}</span><span>{label}</span></button>;
 }
 
 function buildContractStats(documents: Doc[] | null) {
@@ -3309,9 +3309,9 @@ function loadImageElement(source: string) {
 }
 
 function getDocumentActions(status?: string | null) {
-  if (status === "DRAFT") return [{ key: "send" as const, label: "Send document", icon: <Send className="h-4 w-4" />, tone: "bg-blue-600 text-white hover:bg-blue-700" }, { key: "cancel" as const, label: "Cancel draft", icon: <Ban className="h-4 w-4" />, tone: "bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20" }];
-  if (status === "SENT") return [{ key: "cancel" as const, label: "Cancel document", icon: <Ban className="h-4 w-4" />, tone: "bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20" }];
-  if (status === "CANCELLED") return [{ key: "reactivate" as const, label: "Reactivate draft", icon: <Undo2 className="h-4 w-4" />, tone: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20" }];
+  if (status === "DRAFT") return [{ key: "send" as const, label: "Send document", icon: <Send className="h-4 w-4" />, tone: "bg-[color:var(--button-primary)] text-white hover:bg-[color:var(--button-primary-hover)]" }, { key: "cancel" as const, label: "Cancel draft", icon: <Ban className="h-4 w-4" />, tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]" }];
+  if (status === "SENT") return [{ key: "cancel" as const, label: "Cancel document", icon: <Ban className="h-4 w-4" />, tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]" }];
+  if (status === "CANCELLED") return [{ key: "reactivate" as const, label: "Reactivate draft", icon: <Undo2 className="h-4 w-4" />, tone: "bg-[color:var(--success-bg)] text-[color:var(--success-text)] hover:bg-[color:var(--badge-success-bg)]" }];
   return [];
 }
 

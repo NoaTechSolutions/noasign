@@ -501,7 +501,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-[color:var(--background)]">
       {error ? (
-        <div className="border-b border-[#ffd2c1] bg-[#fff4ef] px-4 py-3 text-sm text-[#9b4620]">
+        <div className="border-b border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
           {error}
         </div>
       ) : null}

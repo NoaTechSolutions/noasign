@@ -1,0 +1,203 @@
+const { PrismaClient, UserRole, UserStatus } = require('@prisma/client');
+const bcrypt = require('bcrypt');
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const companyProfileId =
+    process.env.LOCAL_COMPANY_PROFILE_ID ||
+    '7aaad16a-6d76-4c36-97c7-b9ce3e45b801';
+  const masterEmail =
+    process.env.LOCAL_MASTER_EMAIL || 'master@ntssign.test';
+  const userEmail = process.env.LOCAL_USER_EMAIL || 'user@ntssign.test';
+  const defaultPassword =
+    process.env.LOCAL_USER_PASSWORD || 'secret123';
+  const passwordHash = await bcrypt.hash(defaultPassword, 10);
+  const pandadocTemplateId =
+    process.env.LOCAL_PANDADOC_TEMPLATE_ID || '785fbGUeefKB63YeEybrsf';
+  const recipientRole = process.env.LOCAL_PANDADOC_RECIPIENT_ROLE || 'Client';
+  const templateName =
+    process.env.LOCAL_PANDADOC_TEMPLATE_NAME ||
+    'WorldPaversCO - Home Improvement Contract v1';
+
+  const companyProfile = await prisma.companyProfile.upsert({
+    where: { id: companyProfileId },
+    update: {
+      companyName: 'WorldPaversCO',
+      legalName: 'WorldPaversCO LLC',
+      email: masterEmail,
+      phone: '(619) 555-1000',
+      website: 'https://worldpaversco.com',
+      addressLine1: '123 Contractor Ave',
+      addressLine2: 'Suite 200',
+      city: 'San Diego',
+      state: 'CA',
+      zipCode: '92101',
+      country: 'USA',
+      licenseNumber: 'LIC-123456',
+      contactFirstName: 'Carlos',
+      contactLastName: 'Lopez',
+      contactTitle: 'Owner',
+      contactEmail: masterEmail,
+      contactPhone: '(619) 555-1001',
+    },
+    create: {
+      id: companyProfileId,
+      companyName: 'WorldPaversCO',
+      legalName: 'WorldPaversCO LLC',
+      email: masterEmail,
+      phone: '(619) 555-1000',
+      website: 'https://worldpaversco.com',
+      addressLine1: '123 Contractor Ave',
+      addressLine2: 'Suite 200',
+      city: 'San Diego',
+      state: 'CA',
+      zipCode: '92101',
+      country: 'USA',
+      licenseNumber: 'LIC-123456',
+      contactFirstName: 'Carlos',
+      contactLastName: 'Lopez',
+      contactTitle: 'Owner',
+      contactEmail: masterEmail,
+      contactPhone: '(619) 555-1001',
+    },
+  });
+
+  const contractType = await prisma.documentType.upsert({
+    where: { code: 'CON' },
+    update: {
+      name: 'Contract',
+    },
+    create: {
+      name: 'Contract',
+      code: 'CON',
+    },
+  });
+
+  const formDefinition = await prisma.formDefinition.upsert({
+    where: { id: '55bf672d-f307-46df-abe7-f2f7b9ca653c' },
+    update: {
+      name: 'Construction Contract Form A',
+      description: 'Base form for construction contracts',
+      isActive: true,
+      documentTypeId: contractType.id,
+    },
+    create: {
+      id: '55bf672d-f307-46df-abe7-f2f7b9ca653c',
+      name: 'Construction Contract Form A',
+      description: 'Base form for construction contracts',
+      isActive: true,
+      documentTypeId: contractType.id,
+    },
+  });
+
+  const pandaTemplate = await prisma.pandaDocTemplate.upsert({
+    where: { id: '2b549fa1-82a5-41b2-87ad-45796a3626f6' },
+    update: {
+      name: templateName,
+      documentTypeId: contractType.id,
+      pandadocTemplateId,
+      recipientRole,
+      tokenMappingJson: null,
+      fieldMappingJson: null,
+      isActive: true,
+    },
+    create: {
+      id: '2b549fa1-82a5-41b2-87ad-45796a3626f6',
+      name: templateName,
+      documentTypeId: contractType.id,
+      pandadocTemplateId,
+      recipientRole,
+      tokenMappingJson: null,
+      fieldMappingJson: null,
+      isActive: true,
+    },
+  });
+
+  const masterUser = await prisma.user.upsert({
+    where: { email: masterEmail },
+    update: {
+      companyProfileId: companyProfile.id,
+      passwordHash,
+      role: UserRole.MASTER,
+      status: UserStatus.ACTIVE,
+    },
+    create: {
+      email: masterEmail,
+      companyProfileId: companyProfile.id,
+      passwordHash,
+      role: UserRole.MASTER,
+      status: UserStatus.ACTIVE,
+    },
+  });
+
+  const normalUser = await prisma.user.upsert({
+    where: { email: userEmail },
+    update: {
+      companyProfileId: companyProfile.id,
+      passwordHash,
+      role: UserRole.USER,
+      status: UserStatus.ACTIVE,
+    },
+    create: {
+      email: userEmail,
+      companyProfileId: companyProfile.id,
+      passwordHash,
+      role: UserRole.USER,
+      status: UserStatus.ACTIVE,
+    },
+  });
+
+  const documentConfigWhere = {
+    userId_documentTypeId_formDefinitionId_pandadocTemplateId: {
+      userId: normalUser.id,
+      documentTypeId: contractType.id,
+      formDefinitionId: formDefinition.id,
+      pandadocTemplateId: pandaTemplate.id,
+    },
+  };
+
+  await prisma.userDocumentConfig.upsert({
+    where: documentConfigWhere,
+    update: {
+      isActive: true,
+    },
+    create: {
+      userId: normalUser.id,
+      documentTypeId: contractType.id,
+      formDefinitionId: formDefinition.id,
+      pandadocTemplateId: pandaTemplate.id,
+      isActive: true,
+    },
+  });
+
+  console.log({
+    companyProfileId: companyProfile.id,
+    contractTypeId: contractType.id,
+    formDefinitionId: formDefinition.id,
+    pandaTemplateId: pandaTemplate.id,
+    pandadocTemplateId: pandaTemplate.pandadocTemplateId,
+    recipientRole: pandaTemplate.recipientRole,
+    credentials: {
+      master: {
+        email: masterEmail,
+        password: defaultPassword,
+        role: masterUser.role,
+      },
+      user: {
+        email: userEmail,
+        password: defaultPassword,
+        role: normalUser.role,
+      },
+    },
+  });
+}
+
+main()
+  .catch(async (error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

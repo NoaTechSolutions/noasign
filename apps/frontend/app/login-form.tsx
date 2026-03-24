@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { API_URL } from "../lib/api";
 import { getStoredToken, persistSession } from "../lib/auth-storage";
 
@@ -21,6 +22,8 @@ export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -74,21 +77,25 @@ export function LoginForm() {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-md gap-6">
-      <div className="grid gap-2">
-        <span className="inline-flex w-fit items-center rounded-full border border-[#dce8ff] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#5d7391] shadow-[0_10px_24px_rgba(54,102,181,0.08)]">
-          NoaSign Access
-        </span>
-        <h1 className="text-3xl font-semibold tracking-[-0.05em] text-[color:var(--ink)] sm:text-4xl">
-          Log in
-        </h1>
-        <p className="max-w-sm text-sm leading-6 text-[color:var(--ink-soft)]">
-          Sign in to continue to your workspace.
-        </p>
+    <div className="mx-auto grid w-full max-w-md gap-6 md:max-w-[30rem] md:gap-8 xl:max-w-md">
+      <div className="grid justify-items-center gap-3 text-center md:gap-4">
+        <div className="inline-flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:var(--brand-secondary)] text-base font-bold tracking-[-0.04em] text-white shadow-[var(--shadow-medium)]">
+            N
+          </span>
+          <div>
+            <div className="text-xl font-semibold tracking-[-0.04em] text-[color:var(--brand-secondary)]">
+              NTSsign
+            </div>
+            <div className="text-sm text-[color:var(--text-secondary)]">
+              Contract workflow platform
+            </div>
+          </div>
+        </div>
       </div>
 
       <form
-        className="grid gap-4 rounded-[2rem] border border-[#e2ebff] bg-white p-5 shadow-[0_24px_80px_rgba(59,100,176,0.12)] sm:p-7"
+        className="grid gap-5 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--border-strong)] sm:bg-[image:var(--bg-form)] sm:p-6 sm:shadow-[var(--shadow-medium)] md:p-7 lg:p-8"
         onSubmit={handleSubmit}
       >
         <div className="grid gap-1">
@@ -105,7 +112,7 @@ export function LoginForm() {
             placeholder="owner@company.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="h-13 rounded-2xl border border-[#dbe5f8] bg-[#fbfdff] px-4 text-base text-[color:var(--ink)] outline-none transition focus:border-[#2a6af2] focus:ring-4 focus:ring-[#d8e6ff]"
+            className="h-13 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-base text-[color:var(--ink)] outline-none transition focus:border-[color:var(--brand-accent)] focus:ring-4 focus:ring-[color:var(--brand-accent-soft)]"
             required
           />
         </div>
@@ -117,46 +124,82 @@ export function LoginForm() {
           >
             Password
           </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="h-13 rounded-2xl border border-[#dbe5f8] bg-[#fbfdff] px-4 text-base text-[color:var(--ink)] outline-none transition focus:border-[#2a6af2] focus:ring-4 focus:ring-[#d8e6ff]"
-            required
-          />
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="h-13 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 pr-12 text-base text-[color:var(--ink)] outline-none transition focus:border-[color:var(--brand-accent)] focus:ring-4 focus:ring-[color:var(--brand-accent-soft)]"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              className="absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-surface)] hover:text-[color:var(--text-primary)]"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4.5 w-4.5" />
+              ) : (
+                <Eye className="h-4.5 w-4.5" />
+              )}
+            </button>
+          </div>
         </div>
 
         {error ? (
-          <div className="rounded-2xl border border-[#ffd2c1] bg-[#fff4ef] px-4 py-3 text-sm text-[#9b4620]">
+          <div className="rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
             {error}
           </div>
         ) : null}
 
-        <div className="flex items-center justify-between gap-4 text-sm text-[#7b8ea8]">
+        <div className="flex flex-col gap-3 text-sm text-[color:var(--ink-soft)] sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <label className="inline-flex items-center gap-2">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-[#c9d8f5] text-[#2a6af2] focus:ring-[#d8e6ff]"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+              className="h-4 w-4 rounded border-[color:var(--border-strong)] text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent-soft)]"
             />
             <span>Remember me</span>
           </label>
-          <span className="text-[#2a6af2]">Need help?</span>
+          <button
+            type="button"
+            className="text-left font-medium text-[color:var(--brand-accent)] hover:text-[color:var(--brand-accent-strong)] sm:text-right"
+          >
+            Forgot password?
+          </button>
         </div>
 
         <button
           type="submit"
           disabled={isSubmitting}
-          className="group inline-flex h-13 items-center justify-center rounded-2xl bg-[#1d62f0] px-5 text-sm font-semibold text-white shadow-[0_18px_34px_rgba(29,98,240,0.22)] transition hover:bg-[#1252d9] disabled:cursor-not-allowed disabled:opacity-70"
+          className="group inline-flex h-13 items-center justify-center rounded-2xl bg-[color:var(--button-primary)] px-5 text-sm font-semibold text-white shadow-[var(--shadow-strong)] transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isSubmitting ? "Signing in..." : "Sign in"}
         </button>
 
-        <div className="grid gap-2 rounded-2xl border border-dashed border-[#dce6f7] bg-[#f8fbff] p-4 text-sm text-[#6e7f95]">
-          <p>Use an existing backend account to enter the app.</p>
-        </div>
+        <button
+          type="button"
+          className="inline-flex h-13 items-center justify-center rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--button-neutral)] px-5 text-sm font-semibold text-[color:var(--brand-secondary)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--button-neutral-hover)]"
+        >
+          Create account
+        </button>
+
+        <a
+          href="https://noatechsolutions.com/"
+          target="_blank"
+          rel="noreferrer"
+          className="text-center text-xs font-medium uppercase tracking-[0.18em] text-[color:var(--text-muted)] hover:text-[color:var(--brand-secondary)]"
+        >
+          Created by{" "}
+          <span className="text-[color:var(--brand-secondary)]">
+            NoaTechSolutions
+          </span>
+        </a>
       </form>
     </div>
   );
