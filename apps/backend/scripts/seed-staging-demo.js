@@ -322,6 +322,19 @@ async function main() {
   ];
 
   for (const item of documents) {
+    const existingByNumber = await prisma.document.findUnique({
+      where: { documentNumber: item.documentNumber },
+    });
+
+    if (existingByNumber) {
+      console.log({
+        skipped: item.documentNumber,
+        status: item.status,
+        reason: 'document number already exists',
+      });
+      continue;
+    }
+
     const existingDocument = await prisma.document.findFirst({
       where: {
         userId: item.userId,
