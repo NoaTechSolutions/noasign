@@ -535,6 +535,63 @@ export default function DashboardPage() {
     }
   }
 
+  async function handlePreviewFinalPdf(documentId: string) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return "";
+    }
+
+    setDocumentActionId(documentId);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_URL}/documents/${documentId}/final-pdf`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let message = `Request failed with status ${response.status}`;
+
+        if (response.status === 401) {
+          clearSession();
+          router.replace("/");
+          return "";
+        }
+
+        try {
+          const data = text ? (JSON.parse(text) as { message?: string }) : null;
+          if (data?.message) {
+            message = data.message;
+          }
+        } catch {
+          if (text.trim()) {
+            message = text.trim();
+          }
+        }
+
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      return window.URL.createObjectURL(blob);
+    } catch (previewError) {
+      setError(
+        previewError instanceof Error
+          ? previewError.message
+          : "Unable to preview signed PDF",
+      );
+      throw previewError;
+    } finally {
+      setDocumentActionId(null);
+    }
+  }
+
   async function handleUpdateDraft(
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -776,6 +833,7 @@ export default function DashboardPage() {
         onDocumentAction={handleDocumentAction}
         onUpdateDraft={handleUpdateDraft}
         onSyncDocumentStatus={handleSyncDocumentStatus}
+        onPreviewFinalPdf={handlePreviewFinalPdf}
         onDownloadFinalPdf={handleDownloadFinalPdf}
         onCreateDraft={handleCreateDraft}
         onUpdateCompanyProfile={handleUpdateCompanyProfile}

@@ -186,6 +186,7 @@ type Props = {
     payload: { contractDate: string; dataJson: Record<string, unknown> },
   ) => Promise<void>;
   onSyncDocumentStatus: (documentId: string) => Promise<void>;
+  onPreviewFinalPdf: (documentId: string) => Promise<string>;
   onDownloadFinalPdf: (documentId: string) => Promise<void>;
   onCreateDraft: (payload: {
     documentTypeId: string;
@@ -262,6 +263,7 @@ export function DashboardSidebarDemo({
   onDocumentAction,
   onUpdateDraft,
   onSyncDocumentStatus,
+  onPreviewFinalPdf,
   onDownloadFinalPdf,
   onCreateDraft,
   onUpdateCompanyProfile,
@@ -597,6 +599,7 @@ export function DashboardSidebarDemo({
         onAction={onDocumentAction}
         onUpdateDraft={onUpdateDraft}
         onSyncDocumentStatus={onSyncDocumentStatus}
+        onPreviewFinalPdf={onPreviewFinalPdf}
         onDownloadFinalPdf={onDownloadFinalPdf}
       />
     </div>
@@ -2470,6 +2473,7 @@ function DocumentViewer({
   onAction,
   onUpdateDraft,
   onSyncDocumentStatus,
+  onPreviewFinalPdf,
   onDownloadFinalPdf,
 }: {
   open: boolean;
@@ -2485,12 +2489,15 @@ function DocumentViewer({
     payload: { contractDate: string; dataJson: Record<string, unknown> },
   ) => Promise<void>;
   onSyncDocumentStatus: (documentId: string) => Promise<void>;
+  onPreviewFinalPdf: (documentId: string) => Promise<string>;
   onDownloadFinalPdf: (documentId: string) => Promise<void>;
 }) {
   const [activeTab, setActiveTab] = useState<ViewerTabKey>("client");
   const [editingTab, setEditingTab] = useState<EditableViewerTabKey | null>(null);
   const [draftFields, setDraftFields] = useState<Record<string, string>>({});
   const [isSavingTab, setIsSavingTab] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
   const actionButtons = getDocumentActions(document?.status);
   const clientProfile = useMemo(() => getClientProfile(document), [document]);
   const projectProfile = useMemo(() => getProjectProfile(document), [document]);
@@ -2520,6 +2527,32 @@ function DocumentViewer({
     setDraftFields(buildDraftFieldMap(document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile));
     setIsSavingTab(false);
   }, [document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfPreviewUrl) {
+        window.URL.revokeObjectURL(pdfPreviewUrl);
+      }
+    };
+  }, [pdfPreviewUrl]);
+
+  async function openPdfPreview() {
+    if (!document) return;
+
+    const nextUrl = await onPreviewFinalPdf(document.id);
+    if (!nextUrl) return;
+
+    if (pdfPreviewUrl) {
+      window.URL.revokeObjectURL(pdfPreviewUrl);
+    }
+
+    setPdfPreviewUrl(nextUrl);
+    setIsPdfPreviewOpen(true);
+  }
+
+  function closePdfPreview() {
+    setIsPdfPreviewOpen(false);
+  }
 
   async function saveEditingTab() {
     if (!document || !editingTab) return;
@@ -2994,16 +3027,30 @@ function DocumentViewer({
                 </p>
                 <button
                   type="button"
-                  onClick={() => document && void onDownloadFinalPdf(document.id)}
+                  onClick={() => void openPdfPreview()}
                   disabled={!document || actionInFlight === document.id}
                   className={cn(
                     "mt-5 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/10",
                     (!document || actionInFlight === document.id) && "cursor-not-allowed opacity-60",
                   )}
                 >
-                  <Download className="h-4 w-4" />
-                  {actionInFlight === document?.id ? "Preparing..." : "Download PDF"}
+                  <FileText className="h-4 w-4" />
+                  {actionInFlight === document?.id ? "Opening..." : "View PDF"}
                 </button>
+                {document ? (
+                  <button
+                    type="button"
+                    onClick={() => void onDownloadFinalPdf(document.id)}
+                    disabled={actionInFlight === document.id}
+                    className={cn(
+                      "mt-3 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/10",
+                      actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                    )}
+                  >
+                    <Download className="h-4 w-4" />
+                    {actionInFlight === document.id ? "Preparing..." : "Download PDF"}
+                  </button>
+                ) : null}
               </div>
             </div>
           )}
@@ -3024,6 +3071,20 @@ function DocumentViewer({
                 >
                   <Undo2 className="h-4 w-4" />
                   <span>{actionInFlight === document.id ? "Syncing..." : "Sync status"}</span>
+                </button>
+              ) : null}
+              {canDownloadPdf ? (
+                <button
+                  type="button"
+                  onClick={() => void openPdfPreview()}
+                  disabled={actionInFlight === document.id}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]",
+                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>{actionInFlight === document.id ? "Opening..." : "View PDF"}</span>
                 </button>
               ) : null}
               {canDownloadPdf ? (
@@ -3062,6 +3123,47 @@ function DocumentViewer({
           </div>
         ) : null}
       </aside>
+
+      {isPdfPreviewOpen && pdfPreviewUrl ? (
+        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950 shadow-[0_28px_80px_rgba(10,18,32,0.55)]">
+            <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+              <div>
+                <div className="text-sm font-semibold text-white">Signed PDF preview</div>
+                <div className="text-xs text-slate-400">
+                  {document?.documentNumber ?? "Document"}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {document ? (
+                  <button
+                    type="button"
+                    onClick={() => void onDownloadFinalPdf(document.id)}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Download PDF</span>
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={closePdfPreview}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 bg-slate-900">
+              <iframe
+                title="Signed PDF preview"
+                src={pdfPreviewUrl}
+                className="h-full w-full"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
