@@ -6,6 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { DocumentStatus, Prisma } from '@prisma/client';
+import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { PandaDocService } from '../pandadoc/pandadoc.service';
 import { CreateDraftDocumentDto } from './dto/create-draft-document.dto';
@@ -124,8 +125,15 @@ export class DocumentsService {
       throw new NotFoundException('Document type not found');
     }
 
-    const count = await this.prisma.document.count({ where: { documentTypeId } });
-    const nextNumber = count + 1;
+    const latestDocument = await this.prisma.document.findFirst({
+      where: { documentTypeId },
+      select: { documentNumber: true },
+      orderBy: { documentNumber: 'desc' },
+    });
+
+    const latestMatch = latestDocument?.documentNumber.match(/-(\d+)$/);
+    const currentNumber = latestMatch ? Number(latestMatch[1]) : 0;
+    const nextNumber = currentNumber + 1;
     return `${documentType.code}-${String(nextNumber).padStart(6, '0')}`;
   }
 
@@ -637,6 +645,94 @@ export class DocumentsService {
     };
   }
 
+  async syncDocumentStatus(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, ...scope },
+      include: documentDetailInclude,
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (!document.pandadocDocumentId) {
+      throw new BadRequestException('Document is not linked to PandaDoc');
+    }
+
+    const remoteStatus = await this.pandaDocService.getDocumentStatus(
+      document.pandadocDocumentId,
+    );
+    const syncedAt = new Date();
+
+    await this.syncDocumentFromPandaDocStatus(
+      document.id,
+      remoteStatus.status,
+      syncedAt,
+    );
+
+    const updatedDocument = await this.prisma.document.findUnique({
+      where: { id: document.id },
+      include: documentDetailInclude,
+    });
+
+    if (!updatedDocument) {
+      throw new NotFoundException('Document not found after sync');
+    }
+
+    return {
+      message: 'Document status synced successfully',
+      document: updatedDocument,
+    };
+  }
+
+  async streamFinalPdf(userId: string, documentId: string, res: Response) {
+    const scope = await this.getDocumentAccessScope(userId);
+
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, ...scope },
+      include: documentDetailInclude,
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (!document.pandadocDocumentId) {
+      throw new BadRequestException('Document is not linked to PandaDoc');
+    }
+
+    const remoteStatus = await this.pandaDocService.getDocumentStatus(
+      document.pandadocDocumentId,
+    );
+    const syncedAt = new Date();
+
+    await this.syncDocumentFromPandaDocStatus(
+      document.id,
+      remoteStatus.status,
+      syncedAt,
+    );
+
+    if (remoteStatus.status !== 'document.completed') {
+      throw new BadRequestException(
+        'Signed PDF is not available until PandaDoc marks the document as completed',
+      );
+    }
+
+    const pdf = await this.pandaDocService.downloadDocumentPdf(
+      document.pandadocDocumentId,
+    );
+    const safeFileName = `${document.documentNumber}.pdf`;
+
+    res.setHeader('Content-Type', pdf.contentType ?? 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      pdf.contentDisposition ?? `attachment; filename="${safeFileName}"`,
+    );
+    res.send(pdf.buffer);
+  }
+
   async handlePandaDocWebhook(payload: unknown) {
     const events = Array.isArray(payload) ? payload : payload ? [payload] : [];
 
@@ -920,7 +1016,14 @@ export class DocumentsService {
   }
 
   private buildPandaDocDocumentName(document: LoadedDocument) {
-    return `${document.documentNumber} - ${document.documentType.name}`;
+    const data = this.normalizeJsonObject(document.data?.dataJson);
+    const customerName = this.firstNonEmptyString(
+      this.readScalarString(data.customer_full_name),
+      this.readScalarString(data.customer_name),
+      this.readScalarString(data.client_name),
+    );
+
+    return `${document.documentNumber} - ${customerName ?? document.documentType.name}`;
   }
 
   private buildMappingContext(document: LoadedDocument) {

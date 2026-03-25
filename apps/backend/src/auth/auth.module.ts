@@ -5,6 +5,7 @@ import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { getRequiredEnv } from '../config/get-required-env';
+import type { StringValue } from 'ms';
 
 @Module({
   imports: [
@@ -18,7 +19,9 @@ import { getRequiredEnv } from '../config/get-required-env';
           'JWT_SECRET',
         ),
         signOptions: {
-          expiresIn: configService.get('JWT_EXPIRES_IN') || '86400',
+          expiresIn: normalizeJwtExpiresIn(
+            configService.get<string>('JWT_EXPIRES_IN'),
+          ),
         },
       }),
     }),
@@ -28,3 +31,17 @@ import { getRequiredEnv } from '../config/get-required-env';
   exports: [AuthService],
 })
 export class AuthModule {}
+
+function normalizeJwtExpiresIn(value?: string): number | StringValue {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return 86400;
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized);
+  }
+
+  return normalized as StringValue;
+}

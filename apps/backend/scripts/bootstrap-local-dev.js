@@ -16,55 +16,59 @@ async function main() {
     process.env.LOCAL_USER_PASSWORD || 'secret123';
   const passwordHash = await bcrypt.hash(defaultPassword, 10);
   const pandadocTemplateId =
-    process.env.LOCAL_PANDADOC_TEMPLATE_ID || '785fbGUeefKB63YeEybrsf';
+    process.env.LOCAL_PANDADOC_TEMPLATE_ID || 'DhBwzpbNdESYiCnPmjDLT9';
   const recipientRole = process.env.LOCAL_PANDADOC_RECIPIENT_ROLE || 'Client';
   const templateName =
     process.env.LOCAL_PANDADOC_TEMPLATE_NAME ||
-    'WorldPaversCO - Home Improvement Contract v1';
+    'World Pavers Company - Home Improvement Contract';
   const logoUrl = buildWorldPaversLogoDataUrl();
 
   const companyProfile = await prisma.companyProfile.upsert({
     where: { id: companyProfileId },
     update: {
-      companyName: 'WorldPaversCO',
-      legalName: 'WorldPaversCO LLC',
-      email: masterEmail,
-      phone: '(619) 555-1000',
-      website: 'https://worldpaversco.com',
-      addressLine1: '123 Contractor Ave',
-      addressLine2: 'Suite 200',
-      city: 'San Diego',
+      companyName: 'World Pavers Company',
+      legalName: 'World Pavers Company',
+      industry: 'Construction company',
+      email: 'noatechsolutions@gmail.com',
+      phone: '(510) 883-4283',
+      phone2: '',
+      website: '',
+      addressLine1: '371 Laure Ave Apt 7',
+      addressLine2: '',
+      city: 'Hayward',
       state: 'CA',
-      zipCode: '92101',
+      zipCode: '94541',
       country: 'USA',
       logoUrl,
-      licenseNumber: 'LIC-123456',
-      contactFirstName: 'Carlos',
-      contactLastName: 'Lopez',
-      contactTitle: 'Owner',
-      contactEmail: masterEmail,
-      contactPhone: '(619) 555-1001',
+      licenseNumber: '#1136332',
+      contactFirstName: 'Miguel Angel',
+      contactLastName: 'Hernandez',
+      contactTitle: 'Company Representative',
+      contactEmail: 'noatechsolutions@gmail.com',
+      contactPhone: '(510) 883-4283',
     },
     create: {
       id: companyProfileId,
-      companyName: 'WorldPaversCO',
-      legalName: 'WorldPaversCO LLC',
-      email: masterEmail,
-      phone: '(619) 555-1000',
-      website: 'https://worldpaversco.com',
-      addressLine1: '123 Contractor Ave',
-      addressLine2: 'Suite 200',
-      city: 'San Diego',
+      companyName: 'World Pavers Company',
+      legalName: 'World Pavers Company',
+      industry: 'Construction company',
+      email: 'noatechsolutions@gmail.com',
+      phone: '(510) 883-4283',
+      phone2: '',
+      website: '',
+      addressLine1: '371 Laure Ave Apt 7',
+      addressLine2: '',
+      city: 'Hayward',
       state: 'CA',
-      zipCode: '92101',
+      zipCode: '94541',
       country: 'USA',
       logoUrl,
-      licenseNumber: 'LIC-123456',
-      contactFirstName: 'Carlos',
-      contactLastName: 'Lopez',
-      contactTitle: 'Owner',
-      contactEmail: masterEmail,
-      contactPhone: '(619) 555-1001',
+      licenseNumber: '#1136332',
+      contactFirstName: 'Miguel Angel',
+      contactLastName: 'Hernandez',
+      contactTitle: 'Company Representative',
+      contactEmail: 'noatechsolutions@gmail.com',
+      contactPhone: '(510) 883-4283',
     },
   });
 

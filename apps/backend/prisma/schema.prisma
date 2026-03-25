@@ -54,6 +54,7 @@ model CompanyProfile {
   website           String?
   email             String?
   phone             String?
+  phone2            String?
   addressLine1      String?
   addressLine2      String?
   city              String?

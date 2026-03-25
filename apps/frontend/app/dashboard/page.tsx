@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiRequest } from "../../lib/api";
+import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import {
   clearSession,
@@ -32,6 +32,7 @@ type CompanyProfile = {
   website: string | null;
   email: string | null;
   phone: string | null;
+  phone2: string | null;
   contactEmail: string | null;
   contactFirstName: string | null;
   contactLastName: string | null;
@@ -85,6 +86,9 @@ type DashboardDocument = {
   status: string;
   contractDate: string;
   createdAt: string;
+  pandadocDocumentId?: string | null;
+  pandadocStatus?: string | null;
+  pandadocLastSyncedAt?: string | null;
   billingPeriod?: string | null;
   sentAt?: string | null;
   cancelledAt?: string | null;
@@ -176,7 +180,10 @@ type UpdateCompanyProfilePayload = Partial<
     | "legalName"
     | "email"
     | "phone"
+    | "phone2"
     | "website"
+    | "industry"
+    | "licenseNumber"
     | "addressLine1"
     | "addressLine2"
     | "city"
@@ -427,6 +434,107 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleSyncDocumentStatus(documentId: string) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setDocumentActionId(documentId);
+    setError("");
+
+    try {
+      await apiRequest<DocumentActionResponse>(`/documents/${documentId}/sync-status`, {
+        token: accessToken,
+        method: "POST",
+      });
+
+      await loadWorkspace(accessToken, documentId);
+      await loadDocumentDetail(accessToken, documentId);
+    } catch (syncError) {
+      setError(
+        syncError instanceof Error
+          ? syncError.message
+          : "Unable to sync document status",
+      );
+      throw syncError;
+    } finally {
+      setDocumentActionId(null);
+    }
+  }
+
+  async function handleDownloadFinalPdf(documentId: string) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setDocumentActionId(documentId);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_URL}/documents/${documentId}/final-pdf`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let message = `Request failed with status ${response.status}`;
+
+        if (response.status === 401) {
+          clearSession();
+          router.replace("/");
+          return;
+        }
+
+        try {
+          const data = text ? (JSON.parse(text) as { message?: string }) : null;
+          if (data?.message) {
+            message = data.message;
+          }
+        } catch {
+          if (text.trim()) {
+            message = text.trim();
+          }
+        }
+
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const fileName =
+        documentDetail?.documentNumber && selectedDocumentId === documentId
+          ? `${documentDetail.documentNumber}.pdf`
+          : "signed-document.pdf";
+
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (downloadError) {
+      setError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "Unable to download signed PDF",
+      );
+      throw downloadError;
+    } finally {
+      setDocumentActionId(null);
+    }
+  }
+
   async function handleUpdateDraft(
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -667,6 +775,8 @@ export default function DashboardPage() {
         onSelectDocument={handleSelectDocument}
         onDocumentAction={handleDocumentAction}
         onUpdateDraft={handleUpdateDraft}
+        onSyncDocumentStatus={handleSyncDocumentStatus}
+        onDownloadFinalPdf={handleDownloadFinalPdf}
         onCreateDraft={handleCreateDraft}
         onUpdateCompanyProfile={handleUpdateCompanyProfile}
         onCreateUser={handleCreateUser}

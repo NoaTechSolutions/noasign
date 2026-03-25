@@ -6,8 +6,10 @@ import {
   Patch,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { DocumentsService } from './documents.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateDraftDocumentDto } from './dto/create-draft-document.dto';
@@ -53,6 +55,20 @@ export class DocumentsController {
   @Post(':id/send')
   async sendDocument(@Req() req: any, @Param('id') id: string) {
     return this.documentsService.sendDraftDocument(req.user.id, id);
+  }
+
+  @Post(':id/sync-status')
+  async syncDocumentStatus(@Req() req: any, @Param('id') id: string) {
+    return this.documentsService.syncDocumentStatus(req.user.id, id);
+  }
+
+  @Get(':id/final-pdf')
+  async downloadFinalPdf(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    await this.documentsService.streamFinalPdf(req.user.id, id, res);
   }
 
   @Post(':id/cancel')

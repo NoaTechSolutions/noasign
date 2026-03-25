@@ -27,6 +27,10 @@ export class UpdateCompanyProfileDto {
 
   @IsOptional()
   @IsString()
+  phone2?: string;
+
+  @IsOptional()
+  @IsString()
   addressLine1?: string;
 
   @IsOptional()

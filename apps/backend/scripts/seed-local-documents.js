@@ -4,13 +4,8 @@ const prisma = new PrismaClient();
 
 async function main() {
   const masterEmail = process.env.LOCAL_MASTER_EMAIL || 'master@ntssign.test';
-  const userEmail = process.env.LOCAL_USER_EMAIL || 'user@ntssign.test';
-
-  const existingDocuments = await prisma.document.count();
-  if (existingDocuments > 0) {
-    console.log({ message: 'Local documents already exist', count: existingDocuments });
-    return;
-  }
+  const userEmail =
+    process.env.LOCAL_USER_EMAIL || 'ana.martinez@worldpaversco.test';
 
   const [masterUser, normalUser, contractType, formDefinition, pandaTemplate] =
     await Promise.all([
@@ -47,7 +42,23 @@ async function main() {
       },
     },
     {
-      documentNumber: 'CON-000002',
+      documentNumber: 'CON-000009',
+      userId: normalUser.id,
+      companyProfileId: normalUser.companyProfileId,
+      status: DocumentStatus.DRAFT,
+      contractDate: new Date('2026-03-22'),
+      dataJson: {
+        customer_name: 'Julia Romero',
+        customer_email: 'julia.romero@example.com',
+        customer_phone: '(619) 555-2050',
+        customer_address: '515 Coastal Blvd',
+        city: 'La Jolla',
+        state: 'CA',
+        zip: '92037',
+      },
+    },
+    {
+      documentNumber: 'CON-000010',
       userId: normalUser.id,
       companyProfileId: normalUser.companyProfileId,
       status: DocumentStatus.SENT,
@@ -64,15 +75,52 @@ async function main() {
       },
     },
     {
-      documentNumber: 'CON-000003',
+      documentNumber: 'CON-000011',
       userId: normalUser.id,
       companyProfileId: normalUser.companyProfileId,
-      status: DocumentStatus.COMPLETED,
+      status: DocumentStatus.VIEWED,
+      contractDate: new Date('2026-03-19'),
+      sentAt: new Date('2026-03-19T09:00:00.000Z'),
+      viewedAt: new Date('2026-03-19T14:20:00.000Z'),
+      dataJson: {
+        customer_name: 'Elena Chavez',
+        customer_email: 'elena.chavez@example.com',
+        customer_phone: '(619) 555-2030',
+        customer_address: '241 Harbor Point',
+        city: 'Carlsbad',
+        state: 'CA',
+        zip: '92008',
+      },
+    },
+    {
+      documentNumber: 'CON-000012',
+      userId: normalUser.id,
+      companyProfileId: normalUser.companyProfileId,
+      status: DocumentStatus.SIGNED,
       contractDate: new Date('2026-03-18'),
       sentAt: new Date('2026-03-18T09:00:00.000Z'),
       viewedAt: new Date('2026-03-18T12:00:00.000Z'),
       signedAt: new Date('2026-03-18T15:00:00.000Z'),
-      completedAt: new Date('2026-03-19T09:15:00.000Z'),
+      dataJson: {
+        customer_name: 'Marco Diaz',
+        customer_email: 'marco.diaz@example.com',
+        customer_phone: '(760) 555-2210',
+        customer_address: '765 Canyon Crest',
+        city: 'Escondido',
+        state: 'CA',
+        zip: '92025',
+      },
+    },
+    {
+      documentNumber: 'CON-000013',
+      userId: normalUser.id,
+      companyProfileId: normalUser.companyProfileId,
+      status: DocumentStatus.COMPLETED,
+      contractDate: new Date('2026-03-17'),
+      sentAt: new Date('2026-03-17T09:00:00.000Z'),
+      viewedAt: new Date('2026-03-17T12:00:00.000Z'),
+      signedAt: new Date('2026-03-17T15:00:00.000Z'),
+      completedAt: new Date('2026-03-18T09:15:00.000Z'),
       countedInBilling: true,
       billingPeriod: '2026-03',
       dataJson: {
@@ -86,7 +134,25 @@ async function main() {
       },
     },
     {
-      documentNumber: 'CON-000004',
+      documentNumber: 'CON-000014',
+      userId: normalUser.id,
+      companyProfileId: normalUser.companyProfileId,
+      status: DocumentStatus.CANCELLED,
+      contractDate: new Date('2026-03-16'),
+      sentAt: new Date('2026-03-16T11:30:00.000Z'),
+      cancelledAt: new Date('2026-03-16T18:45:00.000Z'),
+      dataJson: {
+        customer_name: 'Sofia Martinez',
+        customer_email: 'sofia.martinez@example.com',
+        customer_phone: '(442) 555-2400',
+        customer_address: '88 Mission Rd',
+        city: 'Oceanside',
+        state: 'CA',
+        zip: '92054',
+      },
+    },
+    {
+      documentNumber: 'CON-000015',
       userId: masterUser.id,
       companyProfileId: masterUser.companyProfileId,
       status: DocumentStatus.CANCELLED,
@@ -106,6 +172,23 @@ async function main() {
 
   for (let index = 0; index < documents.length; index += 1) {
     const item = documents[index];
+
+    const existingDocument = await prisma.document.findFirst({
+      where: {
+        userId: item.userId,
+        status: item.status,
+      },
+    });
+
+    if (existingDocument) {
+      console.log({
+        skipped: item.documentNumber,
+        status: item.status,
+        reason: 'status already exists for owner',
+      });
+      continue;
+    }
+
     const document = await prisma.document.create({
       data: {
         documentNumber: item.documentNumber,

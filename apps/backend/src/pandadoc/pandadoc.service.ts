@@ -44,6 +44,12 @@ type PandaDocStatusResponse = {
   status: string;
 };
 
+type PandaDocBinaryResponse = {
+  buffer: Buffer;
+  contentType: string | null;
+  contentDisposition: string | null;
+};
+
 type PandaDocSendDocumentRequest = {
   subject: string;
   message: string;
@@ -85,6 +91,12 @@ export class PandaDocService {
         message: payload.message,
       }),
     });
+  }
+
+  async downloadDocumentPdf(
+    documentId: string,
+  ): Promise<PandaDocBinaryResponse> {
+    return this.requestBinary(`/documents/${documentId}/download`);
   }
 
   async waitForDocumentDraft(
@@ -198,6 +210,52 @@ export class PandaDocService {
       }
 
       return (await response.json()) as T;
+    } catch (error) {
+      if (error instanceof BadGatewayException) {
+        throw error;
+      }
+
+      throw new BadGatewayException(
+        error instanceof Error
+          ? `PandaDoc request failed: ${error.message}`
+          : 'PandaDoc request failed',
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private async requestBinary(
+    path: string,
+    init?: RequestInit,
+  ): Promise<PandaDocBinaryResponse> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const response = await fetch(`${this.getBaseUrl()}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          Authorization: `API-Key ${this.getApiKey()}`,
+          ...(init?.headers ?? {}),
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new BadGatewayException(
+          `PandaDoc request failed (${response.status}): ${errorText || response.statusText}`,
+        );
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+
+      return {
+        buffer: Buffer.from(arrayBuffer),
+        contentType: response.headers.get('content-type'),
+        contentDisposition: response.headers.get('content-disposition'),
+      };
     } catch (error) {
       if (error instanceof BadGatewayException) {
         throw error;

@@ -4,21 +4,33 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
+  BadgeCheck,
   Ban,
+  Briefcase,
   Building2,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
   CircleHelp,
+  Compass,
   CreditCard,
   Download,
+  Factory,
   FileJson,
   FileText,
+  Globe,
   LayoutDashboard,
+  Landmark,
   LogOut,
+  Mail,
   Menu,
   MoreHorizontal,
+  MapPinned,
+  MapPlus,
   Pencil,
+  Phone,
+  Pin,
+  ScanText,
   Search,
   Send,
   Settings2,
@@ -40,6 +52,9 @@ type Doc = {
   status: string;
   contractDate: string;
   createdAt: string;
+  pandadocDocumentId?: string | null;
+  pandadocStatus?: string | null;
+  pandadocLastSyncedAt?: string | null;
   billingPeriod?: string | null;
   sentAt?: string | null;
   cancelledAt?: string | null;
@@ -93,6 +108,7 @@ type Props = {
     website: string | null;
     email: string | null;
     phone: string | null;
+    phone2: string | null;
     contactEmail: string | null;
     contactFirstName: string | null;
     contactLastName: string | null;
@@ -169,6 +185,8 @@ type Props = {
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
   ) => Promise<void>;
+  onSyncDocumentStatus: (documentId: string) => Promise<void>;
+  onDownloadFinalPdf: (documentId: string) => Promise<void>;
   onCreateDraft: (payload: {
     documentTypeId: string;
     formDefinitionId: string;
@@ -243,6 +261,8 @@ export function DashboardSidebarDemo({
   onSelectDocument,
   onDocumentAction,
   onUpdateDraft,
+  onSyncDocumentStatus,
+  onDownloadFinalPdf,
   onCreateDraft,
   onUpdateCompanyProfile,
   onCreateUser,
@@ -262,7 +282,10 @@ export function DashboardSidebarDemo({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
-  const displayName = getDisplayName(user?.email);
+  const displayName =
+    companyProfile?.companyName?.trim() || getDisplayName(user?.email);
+  const accountSubtitle =
+    companyProfile?.email?.trim() || user?.email || "No email";
   const monthDocuments = useMemo(
     () => filterCurrentMonthDocuments(documents, usage?.billingPeriod),
     [documents, usage?.billingPeriod],
@@ -440,7 +463,7 @@ export function DashboardSidebarDemo({
                   <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-2xl text-sm shadow-[var(--shadow-soft)]" />
                   <div className="hidden text-left sm:block">
                     <div className="text-sm font-semibold text-[color:var(--text-primary)]">{isLoading ? "Loading..." : displayName}</div>
-                    <div className="text-xs text-[color:var(--text-muted)]">{isLoading ? "..." : user?.role ?? "Member"}</div>
+                    <div className="text-xs text-[color:var(--text-muted)]">{isLoading ? "..." : accountSubtitle}</div>
                   </div>
                   <ChevronRight className={cn("h-4 w-4 rotate-90 text-[color:var(--text-muted)] transition-transform", accountMenuOpen && "rotate-180")} />
                 </button>
@@ -450,7 +473,7 @@ export function DashboardSidebarDemo({
                 <div className="absolute right-0 top-[calc(100%+0.75rem)] z-30 w-72 rounded-[1.4rem] border border-[color:var(--menu-border)] bg-[color:var(--menu-bg)] p-3 shadow-[var(--shadow-dropdown)]">
                   <div className="rounded-[1.1rem] bg-[color:var(--bg-surface)] p-3">
                     <div className="text-sm font-semibold text-[color:var(--text-primary)]">{isLoading ? "Loading..." : displayName}</div>
-                    <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{isLoading ? "..." : user?.email ?? "No email"}</div>
+                    <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{isLoading ? "..." : accountSubtitle}</div>
                     <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{isLoading ? "..." : `${user?.role ?? "Member"} | ${user?.status ?? "ACTIVE"}`}</div>
                   </div>
                   <div className="mt-3 grid gap-1">
@@ -573,6 +596,8 @@ export function DashboardSidebarDemo({
         onClose={closeDocumentViewer}
         onAction={onDocumentAction}
         onUpdateDraft={onUpdateDraft}
+        onSyncDocumentStatus={onSyncDocumentStatus}
+        onDownloadFinalPdf={onDownloadFinalPdf}
       />
     </div>
   );
@@ -697,23 +722,117 @@ function DocumentsPanel(props: {
     dataJson: Record<string, unknown>;
   }) => Promise<DocDetail | void>;
 }) {
+  type MasterSortKey = "user" | "company" | "client" | "document" | "status" | "created";
+  type UserSortKey = "client" | "document" | "date" | "status";
+  type SortKey = MasterSortKey | UserSortKey;
+  type SortDirection = "asc" | "desc";
+
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("created");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
-  const totalDocuments = props.documents?.length ?? 0;
+  const sortedDocuments = useMemo(() => {
+    const items = [...(props.documents ?? [])];
+
+    const compareText = (left: string, right: string) =>
+      left.localeCompare(right, undefined, { sensitivity: "base", numeric: true });
+
+    const compareDate = (left: string | null | undefined, right: string | null | undefined) =>
+      new Date(left ?? 0).getTime() - new Date(right ?? 0).getTime();
+
+    items.sort((left, right) => {
+      let result = 0;
+
+      switch (sortKey) {
+        case "user":
+          result = compareText(getDisplayName(left.user?.email), getDisplayName(right.user?.email));
+          break;
+        case "company":
+          result = compareText(left.companyProfile?.companyName ?? "", right.companyProfile?.companyName ?? "");
+          break;
+        case "client":
+          result = compareText(getFinalCustomerName(left), getFinalCustomerName(right));
+          break;
+        case "document":
+          result = compareText(left.documentNumber, right.documentNumber);
+          break;
+        case "status":
+          result = compareText(left.status, right.status);
+          break;
+        case "date":
+          result = compareDate(left.contractDate, right.contractDate);
+          break;
+        case "created":
+          result = compareDate(left.createdAt, right.createdAt);
+          break;
+        default:
+          result = 0;
+      }
+
+      return sortDirection === "asc" ? result : result * -1;
+    });
+
+    return items;
+  }, [props.documents, sortDirection, sortKey]);
+  const totalDocuments = sortedDocuments.length;
   const totalPages = Math.max(1, Math.ceil(totalDocuments / pageSize));
   const safePage = Math.min(currentPage, totalPages);
   const pageStart = totalDocuments === 0 ? 0 : (safePage - 1) * pageSize;
   const pageEnd = Math.min(pageStart + pageSize, totalDocuments);
   const paginatedDocuments = useMemo(
-    () => (props.documents ?? []).slice(pageStart, pageEnd),
-    [pageEnd, pageStart, props.documents],
+    () => sortedDocuments.slice(pageStart, pageEnd),
+    [pageEnd, pageStart, sortedDocuments],
   );
+
+  function toggleSort(nextKey: SortKey) {
+    setCurrentPage(1);
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection(nextKey === "created" || nextKey === "date" ? "desc" : "asc");
+  }
+
+  function SortHeader({
+    label,
+    columnKey,
+    align = "left",
+  }: {
+    label: string;
+    columnKey: SortKey;
+    align?: "left" | "right";
+  }) {
+    const isActive = sortKey === columnKey;
+
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(columnKey)}
+        className={cn(
+          "inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] transition hover:text-slate-700 dark:hover:text-slate-200",
+          align === "right" && "ml-auto",
+          isActive ? "text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400",
+        )}
+      >
+        <span>{label}</span>
+        <span
+          className={cn(
+            "text-[10px] tracking-normal",
+            isActive ? "opacity-100" : "opacity-45",
+          )}
+        >
+          {isActive ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    );
+  }
 
   useEffect(() => {
     if (!pageSizeMenuOpen) return;
@@ -754,9 +873,10 @@ function DocumentsPanel(props: {
       <div className="rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Documents</div>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Contracts workspace</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">Review all documents, filter by status, inspect detail and trigger allowed lifecycle actions.</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Documents workspace</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Review documents, apply filters and manage lifecycle actions.
+            </p>
           </div>
           <div className="flex items-center gap-3">
           <button
@@ -775,7 +895,7 @@ function DocumentsPanel(props: {
             <StatPill label="Billing counted" value={props.usage?.isUnlimited ? `${props.usage.documentsUsed} counted` : `${props.usage?.documentsUsed ?? 0} of ${props.usage?.monthlyDocLimit ?? 0}`} />
           </div>
         </div>
-        <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
           <div className="relative">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input value={props.searchQuery} onChange={(event) => {
@@ -783,59 +903,53 @@ function DocumentsPanel(props: {
               props.onSearchQueryChange(event.target.value);
             }} placeholder="Search by number, status or type" className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900 dark:focus:text-white" />
           </div>
-          <div ref={filterMenuRef} className="relative md:hidden">
+          <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-3 md:contents">
+            <div ref={filterMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setFilterMenuOpen((current) => !current)}
+                className="inline-flex h-12 w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5 md:w-auto"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span>Filter</span>
+                </span>
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                  {props.statusFilter === "ALL" ? "All" : props.statusFilter.toLowerCase()}
+                </span>
+              </button>
+              {filterMenuOpen ? (
+                <div className="absolute left-0 top-[calc(100%+0.35rem)] z-20 min-w-44 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+                  {(["ALL", "DRAFT", "SENT", "VIEWED", "SIGNED", "COMPLETED", "CANCELLED"] as const).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => {
+                        setCurrentPage(1);
+                        props.onStatusFilterChange(option);
+                        setFilterMenuOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                        props.statusFilter === option
+                          ? "bg-blue-600 text-white"
+                          : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                      )}
+                    >
+                      <span>{option === "ALL" ? "All" : option.toLowerCase()}</span>
+                      {props.statusFilter === option ? <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
-              onClick={() => setFilterMenuOpen((current) => !current)}
-              className="inline-flex h-12 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5"
+              onClick={() => setCreateDrawerOpen(true)}
+              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
             >
-              <SlidersHorizontal className="h-4 w-4" />
-              <span>Filter</span>
-              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                {props.statusFilter === "ALL" ? "All" : props.statusFilter.toLowerCase()}
-              </span>
+              New document
             </button>
-            {filterMenuOpen ? (
-              <div className="absolute left-0 top-[calc(100%+0.35rem)] z-20 min-w-44 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
-                {(["ALL", "DRAFT", "SENT", "VIEWED", "SIGNED", "COMPLETED", "CANCELLED"] as const).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => {
-                      setCurrentPage(1);
-                      props.onStatusFilterChange(option);
-                      setFilterMenuOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
-                      props.statusFilter === option
-                        ? "bg-blue-600 text-white"
-                        : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
-                    )}
-                  >
-                    <span>{option === "ALL" ? "All" : option.toLowerCase()}</span>
-                    {props.statusFilter === option ? <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span> : null}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={() => setCreateDrawerOpen(true)}
-            className="inline-flex h-12 items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:hidden"
-          >
-            New contract
-          </button>
-          <div className="hidden flex-wrap gap-2 md:flex">
-            {(["ALL", "DRAFT", "SENT", "VIEWED", "SIGNED", "COMPLETED", "CANCELLED"] as const).map((option) => (
-              <button key={option} type="button" onClick={() => {
-                setCurrentPage(1);
-                props.onStatusFilterChange(option);
-              }} className={cn("rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] transition", props.statusFilter === option ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10")}>
-                {option === "ALL" ? "All" : option.toLowerCase()}
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -847,13 +961,6 @@ function DocumentsPanel(props: {
             <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{props.isLoading ? "Loading..." : `${totalDocuments} contracts`}</div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCreateDrawerOpen(true)}
-              className="hidden h-9 items-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:inline-flex"
-            >
-              New contract
-            </button>
             <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
             <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">
               Rows
@@ -901,21 +1008,21 @@ function DocumentsPanel(props: {
         ) : props.documents && props.documents.length > 0 ? (
           <>
             {props.currentUserRole === "MASTER" ? (
-              <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 md:grid">
-                <div>User</div>
-                <div>Company</div>
-                <div>Client</div>
-                <div>Document</div>
-                <div>Status</div>
-                <div>Created</div>
+              <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
+                <SortHeader label="User" columnKey="user" />
+                <SortHeader label="Company" columnKey="company" />
+                <SortHeader label="Client" columnKey="client" />
+                <SortHeader label="Document" columnKey="document" />
+                <SortHeader label="Status" columnKey="status" />
+                <SortHeader label="Created" columnKey="created" />
                 <div className="text-right">Actions</div>
               </div>
             ) : (
-              <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 md:grid">
-                <div>Client</div>
-                <div>Document</div>
-                <div>Date</div>
-                <div>Status</div>
+              <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
+                <SortHeader label="Client" columnKey="client" />
+                <SortHeader label="Document" columnKey="document" />
+                <SortHeader label="Date" columnKey="date" />
+                <SortHeader label="Status" columnKey="status" />
                 <div className="text-right">Actions</div>
               </div>
             )}
@@ -1456,11 +1563,16 @@ function ProfilePanel({
   const [isSavingCompanyDetails, setIsSavingCompanyDetails] = useState(false);
   const [isSavingPrimaryContact, setIsSavingPrimaryContact] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [profileErrorMessage, setProfileErrorMessage] = useState("");
+  const [profileSuccessMessage, setProfileSuccessMessage] = useState("");
   const [companyDetailsForm, setCompanyDetailsForm] = useState({
     companyName: "",
     legalName: "",
-    email: "",
+    industry: "",
+    licenseNumber: "",
     phone: "",
+    phone2: "",
+    email: "",
     website: "",
     addressLine1: "",
     addressLine2: "",
@@ -1469,8 +1581,7 @@ function ProfilePanel({
     zipCode: "",
   });
   const [primaryContactForm, setPrimaryContactForm] = useState({
-    contactFirstName: "",
-    contactLastName: "",
+    contactFullName: "",
     contactTitle: "",
     contactEmail: "",
     contactPhone: "",
@@ -1485,8 +1596,11 @@ function ProfilePanel({
     setCompanyDetailsForm({
       companyName: companyProfile?.companyName ?? "",
       legalName: companyProfile?.legalName ?? "",
+      industry: companyProfile?.industry ?? "",
+      licenseNumber: companyProfile?.licenseNumber ?? "",
+      phone: formatUsPhone(companyProfile?.phone ?? ""),
+      phone2: formatUsPhone(companyProfile?.phone2 ?? ""),
       email: companyProfile?.email ?? "",
-      phone: companyProfile?.phone ?? "",
       website: companyProfile?.website ?? "",
       addressLine1: companyProfile?.addressLine1 ?? "",
       addressLine2: companyProfile?.addressLine2 ?? "",
@@ -1495,11 +1609,13 @@ function ProfilePanel({
       zipCode: companyProfile?.zipCode ?? "",
     });
     setPrimaryContactForm({
-      contactFirstName: companyProfile?.contactFirstName ?? "",
-      contactLastName: companyProfile?.contactLastName ?? "",
+      contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
       contactTitle: companyProfile?.contactTitle ?? "",
       contactEmail: companyProfile?.contactEmail ?? "",
-      contactPhone: companyProfile?.contactPhone ?? "",
+      contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
       contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
       contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
       contactState: companyProfile?.contactState ?? "",
@@ -1509,20 +1625,94 @@ function ProfilePanel({
   }, [companyProfile]);
 
   async function saveCompanyDetails() {
+    if (companyDetailsForm.email.trim() && !isValidEmail(companyDetailsForm.email)) {
+      setProfileErrorMessage("Enter a valid company email address");
+      return;
+    }
+
+    const payload = buildChangedProfilePayload(
+      {
+        companyName: companyProfile?.companyName ?? "",
+        legalName: companyProfile?.legalName ?? "",
+        industry: companyProfile?.industry ?? "",
+        licenseNumber: companyProfile?.licenseNumber ?? "",
+        phone: formatUsPhone(companyProfile?.phone ?? ""),
+        phone2: formatUsPhone(companyProfile?.phone2 ?? ""),
+        email: companyProfile?.email ?? "",
+        website: companyProfile?.website ?? "",
+        addressLine1: companyProfile?.addressLine1 ?? "",
+        addressLine2: companyProfile?.addressLine2 ?? "",
+        state: companyProfile?.state ?? "",
+        city: companyProfile?.city ?? "",
+        zipCode: companyProfile?.zipCode ?? "",
+      },
+      {
+        ...companyDetailsForm,
+        phone: formatUsPhone(companyDetailsForm.phone),
+        phone2: formatUsPhone(companyDetailsForm.phone2),
+      },
+    );
+
+    if (Object.keys(payload).length === 0) {
+      setIsEditingCompanyDetails(false);
+      return;
+    }
+
     setIsSavingCompanyDetails(true);
     try {
-      await onUpdateCompanyProfile(companyDetailsForm);
+      await onUpdateCompanyProfile(payload);
       setIsEditingCompanyDetails(false);
+      setProfileSuccessMessage("Changes saved successfully");
     } finally {
       setIsSavingCompanyDetails(false);
     }
   }
 
   async function savePrimaryContact() {
+    const { firstName, lastName } = splitFullName(primaryContactForm.contactFullName);
+
+    if (primaryContactForm.contactEmail.trim() && !isValidEmail(primaryContactForm.contactEmail)) {
+      setProfileErrorMessage("Enter a valid primary contact email address");
+      return;
+    }
+
+    const payload = buildChangedProfilePayload(
+      {
+        contactFirstName: companyProfile?.contactFirstName ?? "",
+        contactLastName: companyProfile?.contactLastName ?? "",
+        contactTitle: companyProfile?.contactTitle ?? "",
+        contactEmail: companyProfile?.contactEmail ?? "",
+        contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
+        contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
+        contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
+        contactState: companyProfile?.contactState ?? "",
+        contactCity: companyProfile?.contactCity ?? "",
+        contactZipCode: companyProfile?.contactZipCode ?? "",
+      },
+      {
+        contactFirstName: firstName,
+        contactLastName: lastName,
+        contactTitle: primaryContactForm.contactTitle,
+        contactEmail: primaryContactForm.contactEmail,
+        contactPhone: formatUsPhone(primaryContactForm.contactPhone),
+        contactAddressLine1: primaryContactForm.contactAddressLine1,
+        contactAddressLine2: primaryContactForm.contactAddressLine2,
+        contactState: primaryContactForm.contactState,
+        contactCity: primaryContactForm.contactCity,
+        contactZipCode: primaryContactForm.contactZipCode,
+      },
+    );
+
+    if (Object.keys(payload).length === 0) {
+      setIsEditingPrimaryContact(false);
+      return;
+    }
+
     setIsSavingPrimaryContact(true);
     try {
-      await onUpdateCompanyProfile(primaryContactForm);
+      await onUpdateCompanyProfile(payload);
       setIsEditingPrimaryContact(false);
+      setProfileSuccessMessage("Changes saved successfully");
     } finally {
       setIsSavingPrimaryContact(false);
     }
@@ -1553,6 +1743,7 @@ function ProfilePanel({
     try {
       const logoUrl = await resizeImageFile(file, 512);
       await onUpdateCompanyProfile({ logoUrl });
+      setProfileSuccessMessage("Changes saved successfully");
     } finally {
       setIsUploadingLogo(false);
       event.target.value = "";
@@ -1561,6 +1752,56 @@ function ProfilePanel({
 
   return (
     <section className="grid gap-4">
+      {profileErrorMessage ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+          <button
+            type="button"
+            aria-label="Close error popup"
+            className="absolute inset-0"
+            onClick={() => setProfileErrorMessage("")}
+          />
+          <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--danger-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
+            <div className="text-lg font-semibold text-[color:var(--text-primary)]">Validation error</div>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">
+              {profileErrorMessage}
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setProfileErrorMessage("")}
+                className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {profileSuccessMessage ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+          <button
+            type="button"
+            aria-label="Close success popup"
+            className="absolute inset-0"
+            onClick={() => setProfileSuccessMessage("")}
+          />
+          <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--success-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
+            <div className="text-lg font-semibold text-[color:var(--text-primary)]">Saved</div>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">
+              {profileSuccessMessage}
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setProfileSuccessMessage("")}
+                className="rounded-xl bg-[color:var(--button-success)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-success-hover)]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
@@ -1605,7 +1846,7 @@ function ProfilePanel({
                 {companyName}
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-700 dark:text-white/88 md:text-base">
-                Customer company information used across workspace, billing, documents and account ownership.
+                {companyProfile?.email ?? ""}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <ProfileChip label={companyProfile?.industry ?? "Industry not defined"} />
@@ -1638,8 +1879,11 @@ function ProfilePanel({
                 setCompanyDetailsForm({
                   companyName: companyProfile?.companyName ?? "",
                   legalName: companyProfile?.legalName ?? "",
+                  industry: companyProfile?.industry ?? "",
+                  licenseNumber: companyProfile?.licenseNumber ?? "",
+                  phone: formatUsPhone(companyProfile?.phone ?? ""),
+                  phone2: formatUsPhone(companyProfile?.phone2 ?? ""),
                   email: companyProfile?.email ?? "",
-                  phone: companyProfile?.phone ?? "",
                   website: companyProfile?.website ?? "",
                   addressLine1: companyProfile?.addressLine1 ?? "",
                   addressLine2: companyProfile?.addressLine2 ?? "",
@@ -1653,38 +1897,64 @@ function ProfilePanel({
           </div>
           {isEditingCompanyDetails ? (
             <div className="mt-5 grid gap-3">
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: value }))} />
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Legal name" value={companyDetailsForm.legalName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, legalName: value }))} />
-              <EditableField icon={<UserRound className="h-4 w-4" />} label="Company email" value={companyDetailsForm.email} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, email: value }))} />
               <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Company phone" value={companyDetailsForm.phone} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, phone: value }))} />
-                <EditableField icon={<FileText className="h-4 w-4" />} label="Website" value={companyDetailsForm.website} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, website: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: value }))} />
+                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyDetailsForm.legalName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, legalName: value }))} />
               </div>
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address line 1" value={companyDetailsForm.addressLine1} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine1: value }))} />
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address line 2" value={companyDetailsForm.addressLine2} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine2: value }))} />
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<Factory className="h-4 w-4" />} label="Industry" value={companyDetailsForm.industry} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, industry: value }))} />
+                <EditableField icon={<FileText className="h-4 w-4" />} label="License number" value={companyDetailsForm.licenseNumber} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, licenseNumber: value }))} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={companyDetailsForm.phone} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, phone: formatUsPhone(value) }))} />
+                <EditableField icon={<Phone className="h-4 w-4" />} label="Fax" value={companyDetailsForm.phone2} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, phone2: formatUsPhone(value) }))} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<Mail className="h-4 w-4" />} label="Company email" value={companyDetailsForm.email} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, email: value }))} />
+                <EditableField icon={<Globe className="h-4 w-4" />} label="Website" value={companyDetailsForm.website} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, website: value }))} />
+              </div>
+              <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={companyDetailsForm.addressLine1} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine1: value }))} />
+              <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={companyDetailsForm.addressLine2} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine2: value }))} />
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="State" value={companyDetailsForm.state} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, state: value }))} />
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="City" value={companyDetailsForm.city} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, city: value }))} />
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="ZIP" value={companyDetailsForm.zipCode} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, zipCode: value }))} />
+                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={companyDetailsForm.state} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, state: value }))} />
+                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={companyDetailsForm.city} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, city: value }))} />
+                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyDetailsForm.zipCode} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, zipCode: value }))} />
               </div>
             </div>
           ) : (
             <div className="mt-5 grid gap-3">
-              <StatPill label="Company name" value={companyName} />
-              <StatPill label="Legal name" value={companyProfile?.legalName ?? "Not defined"} />
-              <StatPill label="Company email" value={companyProfile?.email ?? "Not defined"} />
               <div className="grid gap-3 md:grid-cols-2">
-                <StatPill label="Company phone" value={companyProfile?.phone ?? "Not defined"} />
-                <StatPill label="Website" value={companyProfile?.website ?? "Not defined"} />
+                <DetailRow icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyName} />
+                <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyProfile?.legalName ?? ""} />
               </div>
-              <StatPill
-                label="Address"
-                value={joinDefined([companyProfile?.addressLine1, companyProfile?.addressLine2], ", ") || "Not defined"}
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Factory className="h-4 w-4" />} label="Industry" value={companyProfile?.industry ?? ""} />
+                <DetailRow icon={<FileText className="h-4 w-4" />} label="License number" value={companyProfile?.licenseNumber ?? ""} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.phone ?? "")} />
+                <DetailRow icon={<Phone className="h-4 w-4" />} label="Fax" value={formatUsPhone(companyProfile?.phone2 ?? "")} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Mail className="h-4 w-4" />} label="Company email" value={companyProfile?.email ?? ""} />
+                <DetailRow icon={<Globe className="h-4 w-4" />} label="Website" value={companyProfile?.website ?? ""} />
+              </div>
+              <DetailRow
+                icon={<MapPlus className="h-4 w-4" />}
+                label="Address line 1"
+                value={companyProfile?.addressLine1 ?? ""}
               />
+              {companyProfile?.addressLine2?.trim() ? (
+                <DetailRow
+                  icon={<MapPinned className="h-4 w-4" />}
+                  label="Address line 2"
+                  value={companyProfile.addressLine2}
+                />
+              ) : null}
               <div className="grid gap-3 md:grid-cols-3">
-                <StatPill label="State" value={companyProfile?.state ?? "Not defined"} />
-                <StatPill label="City" value={companyProfile?.city ?? "Not defined"} />
-                <StatPill label="ZIP" value={companyProfile?.zipCode ?? "Not defined"} />
+                <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.state ?? ""} />
+                <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.city ?? ""} />
+                <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyProfile?.zipCode ?? ""} />
               </div>
             </div>
           )}
@@ -1702,11 +1972,13 @@ function ProfilePanel({
               onCancel={() => {
                 setIsEditingPrimaryContact(false);
                 setPrimaryContactForm({
-                  contactFirstName: companyProfile?.contactFirstName ?? "",
-                  contactLastName: companyProfile?.contactLastName ?? "",
+                  contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim(),
                   contactTitle: companyProfile?.contactTitle ?? "",
                   contactEmail: companyProfile?.contactEmail ?? "",
-                  contactPhone: companyProfile?.contactPhone ?? "",
+                  contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
                   contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
                   contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
                   contactState: companyProfile?.contactState ?? "",
@@ -1719,42 +1991,46 @@ function ProfilePanel({
           </div>
           {isEditingPrimaryContact ? (
             <div className="mt-4 grid gap-3">
+              <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: value }))} />
+              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: value }))} />
               <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="First name" value={primaryContactForm.contactFirstName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFirstName: value }))} />
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Last name" value={primaryContactForm.contactLastName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactLastName: value }))} />
+                <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactEmail: value }))} />
+                <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactPhone: formatUsPhone(value) }))} />
               </div>
-              <EditableField icon={<UserRound className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: value }))} />
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactEmail: value }))} />
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactPhone: value }))} />
-              </div>
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine1: value }))} />
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address line 2" value={primaryContactForm.contactAddressLine2} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine2: value }))} />
+              <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine1: value }))} />
+              <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={primaryContactForm.contactAddressLine2} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine2: value }))} />
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: value }))} />
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: value }))} />
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value }))} />
+                <EditableField icon={<MapPinned className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: value }))} />
+                <EditableField icon={<MapPinned className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: value }))} />
+                <EditableField icon={<MapPinned className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value }))} />
               </div>
             </div>
           ) : (
             <div className="mt-4 grid gap-3">
               <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Contact" value={contactName || "Not defined"} />
-                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? "Not defined"} />
+                <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={contactName || ""} />
+                <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? ""} />
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? "Not defined"} />
-                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Phone" value={companyProfile?.contactPhone ?? "Not defined"} />
+                <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? ""} />
+                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.contactPhone ?? "")} />
               </div>
               <DetailRow
-                icon={<Building2 className="h-4 w-4" />}
-                label="Address"
-                value={primaryContactAddress || "Not defined"}
+                icon={<MapPlus className="h-4 w-4" />}
+                label="Address line 1"
+                value={companyProfile?.contactAddressLine1 ?? ""}
               />
+              {companyProfile?.contactAddressLine2?.trim() ? (
+                <DetailRow
+                  icon={<MapPinned className="h-4 w-4" />}
+                  label="Address line 2"
+                  value={companyProfile.contactAddressLine2}
+                />
+              ) : null}
               <div className="grid gap-3 md:grid-cols-3">
-                <DetailRow icon={<Building2 className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? "Not defined"} />
-                <DetailRow icon={<Building2 className="h-4 w-4" />} label="City" value={companyProfile?.contactCity ?? "Not defined"} />
-                <DetailRow icon={<Building2 className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? "Not defined"} />
+                <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? ""} />
+                <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.contactCity ?? ""} />
+                <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? ""} />
               </div>
             </div>
           )}
@@ -1783,17 +2059,21 @@ function CreateDraftDrawer({
   }) => Promise<DocDetail | void>;
   onOpenDocumentView: (documentId: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing">("client");
+  const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing" | "others">("client");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [sameProjectAddressAsCustomer, setSameProjectAddressAsCustomer] = useState(true);
+  const [financeEnabled, setFinanceEnabled] = useState(false);
   const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState("");
   const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [contractDate, setContractDate] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({
     customer_name: "",
+    customer_age: "",
     customer_phone: "",
     customer_email: "",
+    customer_fax: "",
     customer_address: "",
     city: "",
     state: "",
@@ -1805,9 +2085,26 @@ function CreateDraftDrawer({
     start_date: "",
     estimated_completion_date: "",
     project_name: "",
+    project_description: "",
     contract_scope: "",
+    salesman_full_name: "",
+    state_registration_number: "",
+    warranty_years: "",
     contract_amount: "",
-    deposit_amount: "",
+    down_payment_amount: "",
+    finance_charge: "",
+    finance_1_amount: "",
+    finance_1_description: "",
+    finance_1_date: "",
+    finance_2_amount: "",
+    finance_2_description: "",
+    finance_2_date: "",
+    finance_3_amount: "",
+    finance_3_description: "",
+    finance_3_date: "",
+    finance_4_amount: "",
+    finance_4_description: "",
+    finance_4_date: "",
     payment_schedule: "",
     notes: "",
   });
@@ -1858,7 +2155,7 @@ function CreateDraftDrawer({
         formDefinitionId: selectedFormDefinitionId,
         pandadocTemplateId: selectedTemplateId,
         contractDate,
-        dataJson: buildCreateDraftPayload(fields),
+        dataJson: buildCreateDraftPayload(fields, sameProjectAddressAsCustomer, financeEnabled),
       });
 
       onClose();
@@ -1878,7 +2175,7 @@ function CreateDraftDrawer({
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 dark:border-white/10">
           <div className="min-w-0">
             <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Create draft</div>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">New contract</h2>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">New document</h2>
             <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Create a draft, then continue editing it in the document viewer.</div>
           </div>
           <button
@@ -1896,25 +2193,32 @@ function CreateDraftDrawer({
               label="Document type"
               value={selectedDocumentTypeId}
               onChange={setSelectedDocumentTypeId}
+              icon={<FileText className="h-4 w-4" />}
+              disabled
               options={documentTypes.map((item) => ({ value: item.id, label: item.name }))}
             />
             <EditableField
-              icon={<FileJson className="h-4 w-4" />}
+              icon={<ScanText className="h-4 w-4" />}
               label="Contract date"
               type="date"
               value={contractDate}
               onChange={setContractDate}
+              disabled
             />
             <SelectField
               label="Form"
               value={selectedFormDefinitionId}
               onChange={setSelectedFormDefinitionId}
+              icon={<FileJson className="h-4 w-4" />}
+              disabled
               options={(selectedDocumentType?.formDefinitions ?? []).map((item) => ({ value: item.id, label: item.name }))}
             />
             <SelectField
               label="Template"
               value={selectedTemplateId}
               onChange={setSelectedTemplateId}
+              icon={<LayoutDashboard className="h-4 w-4" />}
+              disabled
               options={(selectedDocumentType?.pandaTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
             />
           </div>
@@ -1926,11 +2230,12 @@ function CreateDraftDrawer({
               { key: "client", label: "Client" },
               { key: "project", label: "Project" },
               { key: "pricing", label: "Pricing" },
+              { key: "others", label: "Others" },
             ].map((tab) => (
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key as "client" | "project" | "pricing")}
+                onClick={() => setActiveTab(tab.key as "client" | "project" | "pricing" | "others")}
                 className={cn(
                   "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
                   activeTab === tab.key
@@ -1947,43 +2252,137 @@ function CreateDraftDrawer({
         <div className="px-5 py-5">
           {activeTab === "client" ? (
             <div className="grid gap-3">
-              <EditableField icon={<UserRound className="h-4 w-4" />} label="Customer name" value={fields.customer_name} placeholder="Full name" onChange={(value) => setFields((current) => ({ ...current, customer_name: value }))} />
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Phone" value={fields.customer_phone} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_phone: value }))} />
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Email" value={fields.customer_email} placeholder="Email address" onChange={(value) => setFields((current) => ({ ...current, customer_email: value }))} />
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="Customer name" value={fields.customer_name} placeholder="Full name" onChange={(value) => setFields((current) => ({ ...current, customer_name: value }))} />
+                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Age" value={fields.customer_age} placeholder="35" onChange={(value) => setFields((current) => ({ ...current, customer_age: value.replace(/\D/g, "").slice(0, 3) }))} />
               </div>
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Address" value={fields.customer_address} placeholder="Street address" onChange={(value) => setFields((current) => ({ ...current, customer_address: value }))} />
+              <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={fields.customer_email} placeholder="Email address" onChange={(value) => setFields((current) => ({ ...current, customer_email: value }))} />
+              <div className="grid gap-3 md:grid-cols-2">
+                <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={fields.customer_phone} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_phone: formatUsPhone(value) }))} />
+                <EditableField icon={<ScanText className="h-4 w-4" />} label="Fax" value={fields.customer_fax} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_fax: formatUsPhone(value) }))} />
+              </div>
+              <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address" value={fields.customer_address} placeholder="Street address" onChange={(value) => setFields((current) => ({ ...current, customer_address: value }))} />
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="City" value={fields.city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, city: value }))} />
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="State" value={fields.state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, state: value }))} />
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="Zip code" value={fields.zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, zip: value }))} />
+                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={fields.city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, city: value }))} />
+                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={fields.state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, state: value }))} />
+                <EditableField icon={<Pin className="h-4 w-4" />} label="Zip code" value={fields.zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, zip: value }))} />
               </div>
             </div>
           ) : activeTab === "project" ? (
             <div className="grid gap-3">
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Project name" value={fields.project_name} placeholder="Project name" onChange={(value) => setFields((current) => ({ ...current, project_name: value }))} />
-              <EditableField icon={<Building2 className="h-4 w-4" />} label="Project address" value={fields.project_address} placeholder="Project address" onChange={(value) => setFields((current) => ({ ...current, project_address: value }))} />
-              <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="City" value={fields.project_city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, project_city: value }))} />
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="State" value={fields.project_state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, project_state: value }))} />
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="Zip code" value={fields.project_zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, project_zip: value }))} />
-              </div>
+              <label className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  checked={sameProjectAddressAsCustomer}
+                  onChange={(event) => setSameProjectAddressAsCustomer(event.target.checked)}
+                  className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--brand-accent)] focus:ring-[color:var(--focus-ring)]"
+                />
+                <span>Same as client address</span>
+              </label>
+              {!sameProjectAddressAsCustomer ? (
+                <>
+                  <EditableField icon={<MapPlus className="h-4 w-4" />} label="Project address" value={fields.project_address} placeholder="Project address" onChange={(value) => setFields((current) => ({ ...current, project_address: value }))} />
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={fields.project_city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, project_city: value }))} />
+                    <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={fields.project_state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, project_state: value }))} />
+                    <EditableField icon={<Pin className="h-4 w-4" />} label="Zip code" value={fields.project_zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, project_zip: value }))} />
+                  </div>
+                </>
+              ) : null}
               <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<FileJson className="h-4 w-4" />} type="date" label="Start date" value={fields.start_date} onChange={(value) => setFields((current) => ({ ...current, start_date: value }))} />
-                <EditableField icon={<FileJson className="h-4 w-4" />} type="date" label="Estimated completion date" value={fields.estimated_completion_date} onChange={(value) => setFields((current) => ({ ...current, estimated_completion_date: value }))} />
+                <EditableField icon={<ScanText className="h-4 w-4" />} type="date" label="Start date" value={fields.start_date} onChange={(value) => setFields((current) => ({ ...current, start_date: value }))} />
+                <EditableField icon={<BadgeCheck className="h-4 w-4" />} type="date" label="Estimated completion date" value={fields.estimated_completion_date} onChange={(value) => setFields((current) => ({ ...current, estimated_completion_date: value }))} />
               </div>
-              <EditableField icon={<FileJson className="h-4 w-4" />} label="Contract scope" value={fields.contract_scope} placeholder="Scope of work" onChange={(value) => setFields((current) => ({ ...current, contract_scope: value }))} />
+              <EditableField icon={<FileText className="h-4 w-4" />} type="textarea" label="Project description" value={fields.project_description} placeholder="Project description" onChange={(value) => setFields((current) => ({ ...current, project_description: value }))} />
+              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Substantial commencement of work" value={fields.contract_scope} placeholder="Describe substantial commencement of work" onChange={(value) => setFields((current) => ({ ...current, contract_scope: value }))} />
             </div>
-          ) : (
+          ) : activeTab === "pricing" ? (
             <div className="grid gap-3">
               <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<WalletCards className="h-4 w-4" />} label="Contract amount" value={fields.contract_amount} placeholder="Contract amount" onChange={(value) => setFields((current) => ({ ...current, contract_amount: value }))} />
-                <EditableField icon={<WalletCards className="h-4 w-4" />} label="Deposit amount" value={fields.deposit_amount} placeholder="Deposit amount" onChange={(value) => setFields((current) => ({ ...current, deposit_amount: value }))} />
+                <CurrencyField icon={<WalletCards className="h-4 w-4" />} label="Contract price" value={fields.contract_amount} placeholder="12000.00" onChange={(value) => setFields((current) => ({ ...current, contract_amount: formatCurrencyInput(value) }))} />
+                <CurrencyField icon={<Download className="h-4 w-4" />} label="Down payment" value={fields.down_payment_amount} placeholder="2500.00" onChange={(value) => setFields((current) => ({ ...current, down_payment_amount: formatCurrencyInput(value) }))} />
               </div>
+              <label className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  checked={financeEnabled}
+                  onChange={(event) => setFinanceEnabled(event.target.checked)}
+                  className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--brand-accent)] focus:ring-[color:var(--focus-ring)]"
+                />
+                <span>Finance</span>
+              </label>
+              {financeEnabled ? (
+                <>
+                  <CurrencyField icon={<CreditCard className="h-4 w-4" />} label="Finance charge" value={fields.finance_charge} placeholder="350.00" onChange={(value) => setFields((current) => ({ ...current, finance_charge: formatCurrencyInput(value) }))} />
+                  {[1, 2, 3, 4].map((row) => (
+                    <div key={`finance-row-${row}`} className="grid gap-3 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_180px]">
+                      <CurrencyField
+                        icon={<WalletCards className="h-4 w-4" />}
+                        label={`Finance ${row}`}
+                        value={fields[`finance_${row}_amount`]}
+                        placeholder="1000.00"
+                        onChange={(value) =>
+                          setFields((current) => ({
+                            ...current,
+                            [`finance_${row}_amount`]: formatCurrencyInput(value),
+                          }))
+                        }
+                      />
+                      <EditableField
+                        icon={<FileText className="h-4 w-4" />}
+                        label="Description"
+                        value={fields[`finance_${row}_description`]}
+                        placeholder="Description"
+                        onChange={(value) =>
+                          setFields((current) => ({
+                            ...current,
+                            [`finance_${row}_description`]: value,
+                          }))
+                        }
+                      />
+                      <EditableField
+                        icon={<ScanText className="h-4 w-4" />}
+                        type="date"
+                        label="Date"
+                        value={fields[`finance_${row}_date`]}
+                        onChange={(value) =>
+                          setFields((current) => ({
+                            ...current,
+                            [`finance_${row}_date`]: value,
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </>
+              ) : null}
               <EditableField icon={<WalletCards className="h-4 w-4" />} label="Payment schedule" value={fields.payment_schedule} placeholder="Payment schedule" onChange={(value) => setFields((current) => ({ ...current, payment_schedule: value }))} />
-              <EditableField icon={<FileJson className="h-4 w-4" />} label="Notes" value={fields.notes} placeholder="Notes" onChange={(value) => setFields((current) => ({ ...current, notes: value }))} />
             </div>
-          )}
+          ) : activeTab === "others" ? (
+            <div className="grid gap-3">
+              <EditableField
+                icon={<UserRound className="h-4 w-4" />}
+                label="Salesman who solicited or negotiated contract"
+                value={fields.salesman_full_name}
+                placeholder="Full name"
+                onChange={(value) => setFields((current) => ({ ...current, salesman_full_name: value }))}
+              />
+              <EditableField
+                icon={<Landmark className="h-4 w-4" />}
+                label="State registration number"
+                value={fields.state_registration_number}
+                placeholder="Registration number"
+                onChange={(value) => setFields((current) => ({ ...current, state_registration_number: value }))}
+              />
+              <EditableField
+                icon={<BadgeCheck className="h-4 w-4" />}
+                label="Warranty year(s)"
+                value={fields.warranty_years}
+                placeholder="10"
+                onChange={(value) => setFields((current) => ({ ...current, warranty_years: value.replace(/\D/g, "").slice(0, 3) }))}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
@@ -1995,17 +2394,35 @@ function CreateDraftDrawer({
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={() => void handleSubmit()}
-              disabled={isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate}
-              className={cn(
-                "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
-                (isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) && "cursor-not-allowed opacity-60",
-              )}
-            >
-              {isSubmitting ? "Creating..." : "Create draft"}
-            </button>
+            {activeTab === "others" ? (
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate}
+                className={cn(
+                  "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
+                  (isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) && "cursor-not-allowed opacity-60",
+                )}
+              >
+                {isSubmitting ? "Creating..." : "Create draft"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveTab((current) =>
+                    current === "client"
+                      ? "project"
+                      : current === "project"
+                        ? "pricing"
+                        : "others",
+                  )
+                }
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                Continue
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -2052,6 +2469,8 @@ function DocumentViewer({
   onClose,
   onAction,
   onUpdateDraft,
+  onSyncDocumentStatus,
+  onDownloadFinalPdf,
 }: {
   open: boolean;
   document: DocDetail | null;
@@ -2065,6 +2484,8 @@ function DocumentViewer({
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
   ) => Promise<void>;
+  onSyncDocumentStatus: (documentId: string) => Promise<void>;
+  onDownloadFinalPdf: (documentId: string) => Promise<void>;
 }) {
   const [activeTab, setActiveTab] = useState<ViewerTabKey>("client");
   const [editingTab, setEditingTab] = useState<EditableViewerTabKey | null>(null);
@@ -2078,6 +2499,10 @@ function DocumentViewer({
   const pricingEntries = useMemo(() => getPricingEntries(document), [document]);
   const hasPdfStage = document?.status === "SIGNED" || document?.status === "COMPLETED";
   const isDraft = document?.status === "DRAFT";
+  const canSyncStatus =
+    Boolean(document?.pandadocDocumentId) &&
+    ["SENT", "VIEWED", "SIGNED"].includes(document?.status ?? "");
+  const canDownloadPdf = hasPdfStage && Boolean(document?.pandadocDocumentId);
 
   useEffect(() => {
     if (!open) {
@@ -2190,13 +2615,59 @@ function DocumentViewer({
               {isLoading ? "Preparing detail..." : document?.documentType?.name ?? "Contract"}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {document && !editingTab && canSyncStatus ? (
+              <button
+                type="button"
+                onClick={() => void onSyncDocumentStatus(document.id)}
+                disabled={actionInFlight === document.id}
+                className={cn(
+                  "hidden items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-2.5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] md:inline-flex",
+                  actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                )}
+              >
+                <Undo2 className="h-4 w-4" />
+                <span>{actionInFlight === document.id ? "Syncing..." : "Sync status"}</span>
+              </button>
+            ) : null}
+            {document && !editingTab && canDownloadPdf ? (
+              <button
+                type="button"
+                onClick={() => void onDownloadFinalPdf(document.id)}
+                disabled={actionInFlight === document.id}
+                className={cn(
+                  "hidden items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-2.5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] md:inline-flex",
+                  actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                )}
+              >
+                <Download className="h-4 w-4" />
+                <span>{actionInFlight === document.id ? "Preparing..." : "Download PDF"}</span>
+              </button>
+            ) : null}
+            {document && !editingTab && actionButtons.length > 0 ? actionButtons.map((action) => (
+              <button
+                key={`viewer-header-${action.key}`}
+                type="button"
+                onClick={() => onAction(document.id, action.key)}
+                disabled={actionInFlight === document.id}
+                className={cn(
+                  "hidden items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition md:inline-flex",
+                  action.tone,
+                  actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                )}
+              >
+                {action.icon}
+                <span>{actionInFlight === document.id ? "Processing..." : action.label}</span>
+              </button>
+            )) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
@@ -2519,15 +2990,19 @@ function DocumentViewer({
               <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-12 text-center dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="text-lg font-semibold text-slate-900 dark:text-white">Final signed PDF</div>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  The final PDF viewer and download will be connected when signed file storage is enabled.
+                  Download the signed PDF once PandaDoc confirms the document as completed.
                 </p>
                 <button
                   type="button"
-                  disabled
-                  className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
+                  onClick={() => document && void onDownloadFinalPdf(document.id)}
+                  disabled={!document || actionInFlight === document.id}
+                  className={cn(
+                    "mt-5 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/10",
+                    (!document || actionInFlight === document.id) && "cursor-not-allowed opacity-60",
+                  )}
                 >
                   <Download className="h-4 w-4" />
-                  Download PDF
+                  {actionInFlight === document?.id ? "Preparing..." : "Download PDF"}
                 </button>
               </div>
             </div>
@@ -2537,6 +3012,34 @@ function DocumentViewer({
         {document && !editingTab ? (
           <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
             <div className="flex flex-wrap gap-3">
+              {canSyncStatus ? (
+                <button
+                  type="button"
+                  onClick={() => void onSyncDocumentStatus(document.id)}
+                  disabled={actionInFlight === document.id}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]",
+                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <Undo2 className="h-4 w-4" />
+                  <span>{actionInFlight === document.id ? "Syncing..." : "Sync status"}</span>
+                </button>
+              ) : null}
+              {canDownloadPdf ? (
+                <button
+                  type="button"
+                  onClick={() => void onDownloadFinalPdf(document.id)}
+                  disabled={actionInFlight === document.id}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]",
+                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <Download className="h-4 w-4" />
+                  <span>{actionInFlight === document.id ? "Preparing..." : "Download PDF"}</span>
+                </button>
+              ) : null}
               {actionButtons.length > 0 ? actionButtons.map((action) => (
                 <button
                   key={action.key}
@@ -2666,27 +3169,46 @@ function EditableField({
   onChange,
   type = "text",
   placeholder,
+  disabled = false,
 }: {
-  icon: ReactNode;
+  icon?: ReactNode;
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "date";
+  type?: "text" | "date" | "textarea";
   placeholder?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
-        <span className="text-[color:var(--text-muted)]">{icon}</span>
+        {icon ? <span className="text-[color:var(--text-muted)]">{icon}</span> : null}
         {label}
       </div>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]"
-      />
+      {type === "textarea" ? (
+        <textarea
+          value={value}
+          placeholder={placeholder}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn(
+            "mt-3 min-h-28 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
+            disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
+          )}
+        />
+      ) : (
+        <input
+          type={type}
+          value={value}
+          placeholder={placeholder}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn(
+            "mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
+            disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
+          )}
+        />
+      )}
     </div>
   );
 }
@@ -2696,24 +3218,32 @@ function SelectField({
   value,
   onChange,
   options,
+  icon,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
+  icon?: ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
         <span className="text-[color:var(--text-muted)]">
-          <FileJson className="h-4 w-4" />
+          {icon ?? <FileJson className="h-4 w-4" />}
         </span>
         {label}
       </div>
       <select
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]"
+        className={cn(
+          "mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
+          disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
+        )}
       >
         <option value="">Select</option>
         {options.map((option) => (
@@ -2722,6 +3252,48 @@ function SelectField({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function CurrencyField({
+  icon,
+  label,
+  value,
+  onChange,
+  placeholder,
+  disabled = false,
+}: {
+  icon?: ReactNode;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
+        {icon ? <span className="text-[color:var(--text-muted)]">{icon}</span> : null}
+        {label}
+      </div>
+      <div
+        className={cn(
+          "mt-3 flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 transition focus-within:border-[color:var(--brand-accent)]",
+          disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] opacity-80",
+        )}
+      >
+        <span className="mr-3 text-sm font-semibold text-[color:var(--text-secondary)]">$</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          placeholder={placeholder}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-full w-full bg-transparent text-sm text-[color:var(--text-primary)] outline-none placeholder:text-[color:var(--text-muted)]"
+        />
+      </div>
     </div>
   );
 }
@@ -3304,9 +3876,34 @@ function formatFieldValue(value: unknown) {
   return JSON.stringify(value);
 }
 
-function buildCreateDraftPayload(fields: Record<string, string>) {
+function buildCreateDraftPayload(
+  fields: Record<string, string>,
+  sameProjectAddressAsCustomer = false,
+  financeEnabled = false,
+) {
+  const nextFields = { ...fields };
+  nextFields.insurance_name = "ACORD";
+  nextFields.insurance_phone = formatUsPhone("7146546824");
+  nextFields.insurance_policy_number = "10104196265";
+
+  if (sameProjectAddressAsCustomer) {
+    nextFields.project_address = fields.customer_address;
+    nextFields.project_city = fields.city;
+    nextFields.project_state = fields.state;
+    nextFields.project_zip = fields.zip;
+  }
+
+  if (!financeEnabled) {
+    nextFields.finance_charge = "";
+    for (const row of [1, 2, 3, 4]) {
+      nextFields[`finance_${row}_amount`] = "";
+      nextFields[`finance_${row}_description`] = "";
+      nextFields[`finance_${row}_date`] = "";
+    }
+  }
+
   return Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value.trim() !== ""),
+    Object.entries(nextFields).filter(([, value]) => value.trim() !== ""),
   );
 }
 
@@ -3366,6 +3963,70 @@ function sectionTitle(section: SectionKey, companyName?: string | null) {
 
 function joinDefined(values: Array<string | null | undefined>, separator: string) {
   return values.filter((value): value is string => Boolean(value && value.trim())).join(separator);
+}
+
+function buildChangedProfilePayload(
+  original: Record<string, string>,
+  current: Record<string, string>,
+) {
+  return Object.fromEntries(
+    Object.entries(current).filter(([key, value]) => {
+      const normalizedCurrent = value.trim();
+      const normalizedOriginal = (original[key] ?? "").trim();
+      return normalizedCurrent !== normalizedOriginal;
+    }),
+  );
+}
+
+function splitFullName(fullName: string) {
+  const normalized = fullName.trim().replace(/\s+/g, " ");
+
+  if (!normalized) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const parts = normalized.split(" ");
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: "" };
+  }
+
+  return {
+    firstName: parts.slice(0, -1).join(" "),
+    lastName: parts[parts.length - 1] ?? "",
+  };
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function formatUsPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function formatCurrencyInput(value: string) {
+  const normalized = value.replace(/[^\d.]/g, "");
+  if (!normalized) return "";
+
+  const [wholePart = "", ...decimalParts] = normalized.split(".");
+  const whole = wholePart.replace(/^0+(?=\d)/, "") || wholePart || "0";
+  const joinedDecimal = decimalParts.join("").slice(0, 2);
+
+  if (normalized.includes(".")) {
+    return `${whole}.${joinedDecimal}`;
+  }
+
+  return whole;
 }
 
 function getCompanyInitials(companyName?: string | null) {
