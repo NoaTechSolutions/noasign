@@ -106,6 +106,21 @@ type DashboardDocument = {
   } | null;
 };
 
+type ManagedUser = {
+  id: string;
+  companyProfileId: string | null;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  companyProfile?: {
+    id: string;
+    companyName: string;
+    planName: string;
+  } | null;
+};
+
 type DocumentDetail = DashboardDocument & {
   pandadocTemplate?: {
     name: string;
@@ -182,6 +197,16 @@ type UpdateCompanyProfilePayload = Partial<
   >
 >;
 
+type CreateUserResponse = {
+  message: string;
+  user: ManagedUser;
+};
+
+type UpdateUserResponse = {
+  message: string;
+  user: ManagedUser;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -191,6 +216,7 @@ export default function DashboardPage() {
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [billingHistory, setBillingHistory] = useState<MonthlySummary[]>([]);
   const [documents, setDocuments] = useState<DashboardDocument[] | null>(null);
+  const [managedUsers, setManagedUsers] = useState<ManagedUser[] | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeCatalogItem[]>([]);
   const [documentDetail, setDocumentDetail] = useState<DocumentDetail | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
@@ -222,6 +248,11 @@ export default function DashboardPage() {
       ),
     ]);
 
+    const workspaceUsers =
+      me.role === "MASTER"
+        ? await apiRequest<ManagedUser[]>("/users", { token: accessToken })
+        : [];
+
     setDashboardUser(me);
     setCompanyProfile(profile);
     setUsage(currentUsage);
@@ -229,6 +260,7 @@ export default function DashboardPage() {
     setBillingHistory(summaryHistory);
     setDocuments(myDocuments);
     setDocumentTypes(availableDocumentTypes);
+    setManagedUsers(workspaceUsers);
 
     const nextSelectedId =
       currentSelectedId && myDocuments.some((document) => document.id === currentSelectedId)
@@ -498,6 +530,119 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleCreateUser(payload: {
+    email: string;
+    password: string;
+    role: string;
+  }) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      await apiRequest<CreateUserResponse>("/users", {
+        token: accessToken,
+        method: "POST",
+        body: payload,
+      });
+
+      await loadWorkspace(accessToken, selectedDocumentId);
+    } catch (createError) {
+      setError(
+        createError instanceof Error ? createError.message : "Unable to create user",
+      );
+      throw createError;
+    }
+  }
+
+  async function handleUpdateUser(
+    userId: string,
+    payload: { email?: string; role?: string; status?: string },
+  ) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      await apiRequest<UpdateUserResponse>(`/users/${userId}`, {
+        token: accessToken,
+        method: "PATCH",
+        body: payload,
+      });
+
+      await loadWorkspace(accessToken, selectedDocumentId);
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error ? updateError.message : "Unable to update user",
+      );
+      throw updateError;
+    }
+  }
+
+  async function handleDeactivateUser(userId: string) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      await apiRequest<UpdateUserResponse>(`/users/${userId}/deactivate`, {
+        token: accessToken,
+        method: "POST",
+      });
+
+      await loadWorkspace(accessToken, selectedDocumentId);
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error ? actionError.message : "Unable to deactivate user",
+      );
+      throw actionError;
+    }
+  }
+
+  async function handleReactivateUser(userId: string) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      await apiRequest<UpdateUserResponse>(`/users/${userId}/reactivate`, {
+        token: accessToken,
+        method: "POST",
+      });
+
+      await loadWorkspace(accessToken, selectedDocumentId);
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error ? actionError.message : "Unable to reactivate user",
+      );
+      throw actionError;
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[color:var(--background)]">
       {error ? (
@@ -511,6 +656,7 @@ export default function DashboardPage() {
         usage={usage}
         monthlySummary={monthlySummary}
         billingHistory={billingHistory}
+        users={managedUsers}
         documents={documents}
         documentTypes={documentTypes}
         documentDetail={documentDetail}
@@ -523,6 +669,10 @@ export default function DashboardPage() {
         onUpdateDraft={handleUpdateDraft}
         onCreateDraft={handleCreateDraft}
         onUpdateCompanyProfile={handleUpdateCompanyProfile}
+        onCreateUser={handleCreateUser}
+        onUpdateUser={handleUpdateUser}
+        onDeactivateUser={handleDeactivateUser}
+        onReactivateUser={handleReactivateUser}
         onSignOut={handleSignOut}
       />
     </main>

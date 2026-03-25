@@ -51,6 +51,29 @@ export class DocumentsService {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   }
 
+  private async getDocumentAccessScope(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        companyProfileId: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.companyProfileId) {
+      throw new BadRequestException('User does not have a company profile');
+    }
+
+    return user.role === 'MASTER'
+      ? { companyProfileId: user.companyProfileId }
+      : { userId: user.id };
+  }
+
   private async getBillingState(
     companyId: string,
     isUnlimited: boolean,
@@ -173,9 +196,13 @@ export class DocumentsService {
   }
 
   async getMyDocuments(userId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     return this.prisma.document.findMany({
-      where: { userId },
+      where: scope,
       include: {
+        user: true,
+        companyProfile: true,
         documentType: true,
         formDefinition: true,
         data: true,
@@ -185,8 +212,10 @@ export class DocumentsService {
   }
 
   async getDocumentDetail(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, ...scope },
       include: {
         ...documentDetailInclude,
         versions: { orderBy: { versionNumber: 'desc' } },
@@ -202,8 +231,10 @@ export class DocumentsService {
     documentId: string,
     body: UpdateDraftDocumentDto,
   ) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, ...scope },
       include: { data: true, versions: true },
     });
 
@@ -237,8 +268,10 @@ export class DocumentsService {
   }
 
   async sendDraftDocument(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, ...scope },
       include: {
         companyProfile: true,
         user: true,
@@ -389,8 +422,10 @@ export class DocumentsService {
   }
 
   async cancelDocument(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, ...scope },
     });
 
     if (!document) throw new NotFoundException('Document not found');
@@ -417,8 +452,10 @@ export class DocumentsService {
   }
 
   async reactivateDocument(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, ...scope },
       include: { data: true, versions: true },
     });
 
@@ -464,8 +501,10 @@ export class DocumentsService {
   }
 
   async simulateDocumentViewed(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, ...scope },
       include: { companyProfile: true },
     });
 
@@ -506,8 +545,10 @@ export class DocumentsService {
   }
 
   async simulateDocumentSigned(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, ...scope },
       include: { companyProfile: true },
     });
 
@@ -553,8 +594,10 @@ export class DocumentsService {
   }
 
   async simulateDocumentCompleted(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, ...scope },
       include: { companyProfile: true },
     });
 

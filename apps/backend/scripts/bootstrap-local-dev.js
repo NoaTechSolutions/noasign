@@ -9,7 +9,9 @@ async function main() {
     '7aaad16a-6d76-4c36-97c7-b9ce3e45b801';
   const masterEmail =
     process.env.LOCAL_MASTER_EMAIL || 'master@ntssign.test';
-  const userEmail = process.env.LOCAL_USER_EMAIL || 'user@ntssign.test';
+  const legacyUserEmail = 'user@ntssign.test';
+  const userEmail =
+    process.env.LOCAL_USER_EMAIL || 'ana.martinez@worldpaversco.test';
   const defaultPassword =
     process.env.LOCAL_USER_PASSWORD || 'secret123';
   const passwordHash = await bcrypt.hash(defaultPassword, 10);
@@ -19,6 +21,7 @@ async function main() {
   const templateName =
     process.env.LOCAL_PANDADOC_TEMPLATE_NAME ||
     'WorldPaversCO - Home Improvement Contract v1';
+  const logoUrl = buildWorldPaversLogoDataUrl();
 
   const companyProfile = await prisma.companyProfile.upsert({
     where: { id: companyProfileId },
@@ -34,6 +37,7 @@ async function main() {
       state: 'CA',
       zipCode: '92101',
       country: 'USA',
+      logoUrl,
       licenseNumber: 'LIC-123456',
       contactFirstName: 'Carlos',
       contactLastName: 'Lopez',
@@ -54,6 +58,7 @@ async function main() {
       state: 'CA',
       zipCode: '92101',
       country: 'USA',
+      logoUrl,
       licenseNumber: 'LIC-123456',
       contactFirstName: 'Carlos',
       contactLastName: 'Lopez',
@@ -131,22 +136,32 @@ async function main() {
     },
   });
 
-  const normalUser = await prisma.user.upsert({
-    where: { email: userEmail },
-    update: {
-      companyProfileId: companyProfile.id,
-      passwordHash,
-      role: UserRole.USER,
-      status: UserStatus.ACTIVE,
-    },
-    create: {
-      email: userEmail,
-      companyProfileId: companyProfile.id,
-      passwordHash,
-      role: UserRole.USER,
-      status: UserStatus.ACTIVE,
+  const existingNormalUser = await prisma.user.findFirst({
+    where: {
+      email: { in: [userEmail, legacyUserEmail] },
     },
   });
+
+  const normalUser = existingNormalUser
+    ? await prisma.user.update({
+        where: { id: existingNormalUser.id },
+        data: {
+          email: userEmail,
+          companyProfileId: companyProfile.id,
+          passwordHash,
+          role: UserRole.USER,
+          status: UserStatus.ACTIVE,
+        },
+      })
+    : await prisma.user.create({
+        data: {
+          email: userEmail,
+          companyProfileId: companyProfile.id,
+          passwordHash,
+          role: UserRole.USER,
+          status: UserStatus.ACTIVE,
+        },
+      });
 
   const documentConfigWhere = {
     userId_documentTypeId_formDefinitionId_pandadocTemplateId: {
@@ -191,6 +206,19 @@ async function main() {
       },
     },
   });
+}
+
+function buildWorldPaversLogoDataUrl() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+      <rect width="256" height="256" rx="64" fill="#022977"/>
+      <path d="M52 176V72h36l40 62 40-62h36v104h-32v-52l-28 43h-32l-28-43v52H52z" fill="#ffffff"/>
+      <circle cx="196" cy="60" r="18" fill="#05A5FF"/>
+      <circle cx="60" cy="196" r="14" fill="#FF9900"/>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
 main()

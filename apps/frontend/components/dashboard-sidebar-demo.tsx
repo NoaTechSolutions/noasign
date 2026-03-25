@@ -25,12 +25,14 @@ import {
   SlidersHorizontal,
   Undo2,
   UserRound,
+  Users,
   WalletCards,
   X,
 } from "lucide-react";
 import { Sidebar, SidebarBody, SidebarLink } from "./ui/sidebar";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
+import { MasterUsersPanel } from "./master-users-panel";
 
 type Doc = {
   id: string;
@@ -46,6 +48,8 @@ type Doc = {
   completedAt?: string | null;
   countedInBilling: boolean;
   isOverage: boolean;
+  user?: { email: string; role?: string } | null;
+  companyProfile?: { companyName?: string | null } | null;
   documentType?: { name: string; code: string } | null;
   formDefinition?: { name: string; key: string } | null;
   data?: { dataJson: Record<string, unknown> } | null;
@@ -140,6 +144,15 @@ type Props = {
     overageDocuments: number;
     estimatedOverageCost: number;
   }>;
+  users: Array<{
+    id: string;
+    companyProfileId: string | null;
+    email: string;
+    role: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  }> | null;
   documents: Doc[] | null;
   documentTypes: DocumentTypeCatalogItem[];
   documentDetail: DocDetail | null;
@@ -187,12 +200,23 @@ type Props = {
     contactZipCode?: string;
     contactCountry?: string;
   }) => Promise<unknown>;
+  onCreateUser: (payload: {
+    email: string;
+    password: string;
+    role: string;
+  }) => Promise<void>;
+  onUpdateUser: (
+    userId: string,
+    payload: { email?: string; role?: string; status?: string },
+  ) => Promise<void>;
+  onDeactivateUser: (userId: string) => Promise<void>;
+  onReactivateUser: (userId: string) => Promise<void>;
   onSignOut: () => void;
 };
 
 type ViewerTabKey = "client" | "project" | "pricing" | "timeline" | "pdf";
 type EditableViewerTabKey = "client" | "project" | "pricing";
-type SectionKey = "dashboard" | "documents" | "profile" | "billing";
+type SectionKey = "dashboard" | "documents" | "users" | "profile" | "billing";
 type StatusFilter =
   | "ALL"
   | "DRAFT"
@@ -208,6 +232,7 @@ export function DashboardSidebarDemo({
   usage,
   monthlySummary,
   billingHistory,
+  users,
   documents,
   documentTypes,
   documentDetail,
@@ -220,6 +245,10 @@ export function DashboardSidebarDemo({
   onUpdateDraft,
   onCreateDraft,
   onUpdateCompanyProfile,
+  onCreateUser,
+  onUpdateUser,
+  onDeactivateUser,
+  onReactivateUser,
   onSignOut,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -285,6 +314,9 @@ export function DashboardSidebarDemo({
 
   const links = [
     { key: "dashboard" as const, label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5 shrink-0" /> },
+    ...(user?.role === "MASTER"
+      ? [{ key: "users" as const, label: "Users", icon: <Users className="h-5 w-5 shrink-0" /> }]
+      : []),
     { key: "documents" as const, label: "Documents", icon: <FileText className="h-5 w-5 shrink-0" /> },
     { key: "profile" as const, label: "Profile", icon: <UserRound className="h-5 w-5 shrink-0" /> },
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
@@ -359,18 +391,19 @@ export function DashboardSidebarDemo({
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)]/85 p-3 shadow-[var(--shadow-soft)]">
-            <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">Account</div>
-            <div className="rounded-2xl bg-[color:var(--bg-surface)] p-1">
-              <SidebarLink link={{ label: isLoading ? "Loading..." : displayName, icon: <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-9 w-9 rounded-2xl text-sm" /> }} className="pointer-events-none" />
-            </div>
-            <div className="mt-3 px-1">
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3 text-sm text-[color:var(--text-secondary)]">
-                {isLoading ? "Loading..." : `${usage?.documentsUsed ?? 0} docs counted this month`}
-              </div>
-            </div>
-            <div className="mt-3 px-3 text-left text-[11px] font-medium tracking-[0.18em] text-[color:var(--text-muted)]">
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm font-medium text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--danger-bg)]"
+            >
+              Sign out
+            </button>
+            <div className="px-3 text-left text-[11px] font-medium tracking-[0.18em] text-[color:var(--text-muted)]">
               Powered by <span className="font-semibold text-[color:var(--text-secondary)]">NoaTechSolutions</span>
+            </div>
+            <div className="px-3 text-center text-[11px] font-medium tracking-[0.18em] text-[color:var(--text-muted)]">
+              Version <span className="font-semibold text-[color:var(--text-secondary)]">1.0.0</span>
             </div>
           </div>
         </SidebarBody>
@@ -470,6 +503,7 @@ export function DashboardSidebarDemo({
               usage={usage}
               documentDetail={documentDetail}
               selectedDocumentId={selectedDocumentId}
+              currentUserRole={user?.role ?? null}
               isLoading={isLoading}
               isDetailLoading={isDocumentDetailLoading}
               documentActionId={documentActionId}
@@ -503,6 +537,18 @@ export function DashboardSidebarDemo({
               companyProfile={companyProfile}
               usage={usage}
               onUpdateCompanyProfile={onUpdateCompanyProfile}
+            />
+          ) : null}
+
+          {activeSection === "users" && user?.role === "MASTER" ? (
+            <MasterUsersPanel
+              users={users}
+              currentUserId={user.id}
+              isLoading={isLoading}
+              onCreateUser={onCreateUser}
+              onUpdateUser={onUpdateUser}
+              onDeactivateUser={onDeactivateUser}
+              onReactivateUser={onReactivateUser}
             />
           ) : null}
 
@@ -631,6 +677,7 @@ function DocumentsPanel(props: {
   usage: Props["usage"];
   documentDetail: DocDetail | null;
   selectedDocumentId: string | null;
+  currentUserRole: string | null;
   isLoading: boolean;
   isDetailLoading: boolean;
   documentActionId: string | null;
@@ -853,13 +900,25 @@ function DocumentsPanel(props: {
           </div>
         ) : props.documents && props.documents.length > 0 ? (
           <>
-            <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 md:grid">
-              <div>Client</div>
-              <div>Document</div>
-              <div>Date</div>
-              <div>Status</div>
-              <div className="text-right">Actions</div>
-            </div>
+            {props.currentUserRole === "MASTER" ? (
+              <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 md:grid">
+                <div>User</div>
+                <div>Company</div>
+                <div>Client</div>
+                <div>Document</div>
+                <div>Status</div>
+                <div>Created</div>
+                <div className="text-right">Actions</div>
+              </div>
+            ) : (
+              <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 md:grid">
+                <div>Client</div>
+                <div>Document</div>
+                <div>Date</div>
+                <div>Status</div>
+                <div className="text-right">Actions</div>
+              </div>
+            )}
 
             <div className="divide-y divide-slate-200 dark:divide-white/10 md:hidden">
               {paginatedDocuments.map((document) => (
@@ -873,7 +932,9 @@ function DocumentsPanel(props: {
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                        {getFinalCustomerName(document)}
+                        {props.currentUserRole === "MASTER"
+                          ? getDisplayName(document.user?.email)
+                          : getFinalCustomerName(document)}
                       </div>
                       <button
                         type="button"
@@ -884,7 +945,9 @@ function DocumentsPanel(props: {
                           {document.documentNumber}
                         </div>
                         <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                          {document.documentType?.name ?? "Untyped document"}
+                          {props.currentUserRole === "MASTER"
+                            ? getFinalCustomerName(document)
+                            : document.documentType?.name ?? "Untyped document"}
                         </div>
                       </button>
                     </div>
@@ -910,48 +973,93 @@ function DocumentsPanel(props: {
               ))}
             </div>
 
-            <div className="hidden divide-y divide-slate-200 dark:divide-white/10 md:block">
-              {paginatedDocuments.map((document) => (
-                <div key={document.id} className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedDocumentId === document.id && "bg-blue-50/60 dark:bg-blue-500/10")}>
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] md:items-center">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getFinalCustomerName(document)}</div>
-                      {getFinalCustomerEmail(document) ? (
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 lg:hidden">
-                          {getFinalCustomerEmail(document)}
+              <div className="hidden divide-y divide-slate-200 dark:divide-white/10 md:block">
+                {paginatedDocuments.map((document) => (
+                  <div key={document.id} className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedDocumentId === document.id && "bg-blue-50/60 dark:bg-blue-500/10")}>
+                    {props.currentUserRole === "MASTER" ? (
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] md:items-center">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getDisplayName(document.user?.email)}</div>
+                          {document.user?.email ? (
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.user.email}</div>
+                          ) : null}
                         </div>
-                      ) : null}
-                    </div>
 
-                    <div className="min-w-0">
-                      <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
-                          {document.isOverage ? <InlineBadge tone="rose">Overage</InlineBadge> : null}
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{document.companyProfile?.companyName ?? "No company"}</div>
                         </div>
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
-                      </button>
-                    </div>
 
-                    <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(document.contractDate)}</div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getFinalCustomerName(document)}</div>
+                        </div>
 
-                    <div className="flex items-center">
-                      <StatusBadge status={document.status} />
-                    </div>
+                        <div className="min-w-0">
+                          <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
+                              {document.isOverage ? <InlineBadge tone="rose">Overage</InlineBadge> : null}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
+                          </button>
+                        </div>
 
-                    <div className="flex justify-start lg:justify-end">
-                      <DocumentListActions
-                        document={document}
-                        actionInFlight={props.documentActionId === document.id}
-                        onView={() => props.onOpenDocumentView(document.id)}
-                        onEdit={() => props.onOpenDocumentEdit(document.id)}
-                        onAction={props.onDocumentAction}
-                      />
-                    </div>
+                        <div className="flex items-center">
+                          <StatusBadge status={document.status} />
+                        </div>
+
+                        <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(document.createdAt)}</div>
+
+                        <div className="flex justify-start lg:justify-end">
+                          <DocumentListActions
+                            document={document}
+                            actionInFlight={props.documentActionId === document.id}
+                            onView={() => props.onOpenDocumentView(document.id)}
+                            onEdit={() => props.onOpenDocumentEdit(document.id)}
+                            onAction={props.onDocumentAction}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] md:items-center">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getFinalCustomerName(document)}</div>
+                          {getFinalCustomerEmail(document) ? (
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 lg:hidden">
+                              {getFinalCustomerEmail(document)}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="min-w-0">
+                          <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
+                              {document.isOverage ? <InlineBadge tone="rose">Overage</InlineBadge> : null}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
+                          </button>
+                        </div>
+
+                        <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(document.contractDate)}</div>
+
+                        <div className="flex items-center">
+                          <StatusBadge status={document.status} />
+                        </div>
+
+                        <div className="flex justify-start lg:justify-end">
+                          <DocumentListActions
+                            document={document}
+                            actionInFlight={props.documentActionId === document.id}
+                            onView={() => props.onOpenDocumentView(document.id)}
+                            onEdit={() => props.onOpenDocumentEdit(document.id)}
+                            onAction={props.onDocumentAction}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
             <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-slate-500 dark:text-slate-400">
                 Showing <span className="font-semibold text-slate-900 dark:text-white">{pageStart + 1}</span>
@@ -3241,6 +3349,7 @@ function formatCurrency(value: number) {
 }
 
 function sectionEyebrow(section: SectionKey) {
+  if (section === "users") return "Users";
   if (section === "profile") return "Profile";
   if (section === "documents") return "Documents";
   if (section === "billing") return "Billing";
@@ -3248,6 +3357,7 @@ function sectionEyebrow(section: SectionKey) {
 }
 
 function sectionTitle(section: SectionKey, companyName?: string | null) {
+  if (section === "users") return "Workspace users";
   if (section === "profile") return "User profile";
   if (section === "documents") return "Contract lifecycle";
   if (section === "billing") return "Usage and limits";
