@@ -107,7 +107,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="relative flex min-h-screen items-center bg-transparent p-4 sm:min-h-0 sm:bg-[image:var(--bg-form)] sm:p-5 md:p-6 lg:p-10">
+          <section className="relative flex min-h-screen items-start bg-transparent px-4 pb-4 pt-[13vh] sm:min-h-0 sm:items-center sm:bg-[image:var(--bg-form)] sm:p-5 md:p-6 lg:p-10">
             <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(5,165,255,0.03),transparent)]" />
             <div className="mx-auto grid w-full max-w-md gap-5 md:max-w-none md:gap-6">
               <LoginForm />

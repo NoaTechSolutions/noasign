@@ -4,6 +4,7 @@ export type StoredUser = {
   role: string;
   status: string;
   companyProfileId: string | null;
+  mustChangePassword?: boolean;
 };
 
 export const AUTH_COOKIE = "noasign_access_token";

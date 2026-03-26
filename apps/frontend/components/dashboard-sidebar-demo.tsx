@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
+  ClipboardList,
+  AlertTriangle,
   BadgeCheck,
   Ban,
   Briefcase,
@@ -34,7 +36,9 @@ import {
   Search,
   Send,
   Settings2,
+  ShieldCheck,
   SlidersHorizontal,
+  UserCog,
   Undo2,
   UserRound,
   Users,
@@ -99,6 +103,7 @@ type Props = {
     email: string;
     role: string;
     status: string;
+    mustChangePassword?: boolean;
   } | null;
   companyProfile: {
     id: string;
@@ -109,6 +114,9 @@ type Props = {
     email: string | null;
     phone: string | null;
     phone2: string | null;
+    insuranceName: string | null;
+    insurancePhone: string | null;
+    insurancePolicyNumber: string | null;
     contactEmail: string | null;
     contactFirstName: string | null;
     contactLastName: string | null;
@@ -169,6 +177,16 @@ type Props = {
     createdAt: string;
     updatedAt: string;
   }> | null;
+  accountRequests: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    requestedDocumentTypes: string[];
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    processedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }> | null;
   documents: Doc[] | null;
   documentTypes: DocumentTypeCatalogItem[];
   documentDetail: DocDetail | null;
@@ -200,6 +218,10 @@ type Props = {
     legalName?: string;
     email?: string;
     phone?: string;
+    phone2?: string;
+    insuranceName?: string;
+    insurancePhone?: string;
+    insurancePolicyNumber?: string;
     website?: string;
     addressLine1?: string;
     addressLine2?: string;
@@ -224,18 +246,33 @@ type Props = {
     password: string;
     role: string;
   }) => Promise<void>;
+  onUpdateAccountRequestStatus: (
+    requestId: string,
+    status: "PENDING" | "APPROVED" | "REJECTED",
+  ) => Promise<void>;
   onUpdateUser: (
     userId: string,
     payload: { email?: string; role?: string; status?: string },
   ) => Promise<void>;
   onDeactivateUser: (userId: string) => Promise<void>;
   onReactivateUser: (userId: string) => Promise<void>;
+  onResetUserPassword: (
+    userId: string,
+    payload: { password: string; temporary: boolean },
+  ) => Promise<void>;
   onSignOut: () => void;
+  onChangeOwnPassword: (password: string) => Promise<void>;
 };
 
 type ViewerTabKey = "client" | "project" | "pricing" | "timeline" | "pdf";
 type EditableViewerTabKey = "client" | "project" | "pricing";
-type SectionKey = "dashboard" | "documents" | "users" | "profile" | "billing";
+type SectionKey =
+  | "dashboard"
+  | "documents"
+  | "users"
+  | "accountRequests"
+  | "profile"
+  | "billing";
 type StatusFilter =
   | "ALL"
   | "DRAFT"
@@ -252,6 +289,7 @@ export function DashboardSidebarDemo({
   monthlySummary,
   billingHistory,
   users,
+  accountRequests,
   documents,
   documentTypes,
   documentDetail,
@@ -268,13 +306,17 @@ export function DashboardSidebarDemo({
   onCreateDraft,
   onUpdateCompanyProfile,
   onCreateUser,
+  onUpdateAccountRequestStatus,
   onUpdateUser,
   onDeactivateUser,
   onReactivateUser,
+  onResetUserPassword,
   onSignOut,
+  onChangeOwnPassword,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [usersMenuOpen, setUsersMenuOpen] = useState(true);
   const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
   const [documentViewerInitialTab, setDocumentViewerInitialTab] =
     useState<ViewerTabKey>("client");
@@ -337,10 +379,16 @@ export function DashboardSidebarDemo({
     };
   }, []);
 
+  useEffect(() => {
+    if (activeSection === "users" || activeSection === "accountRequests") {
+      setUsersMenuOpen(true);
+    }
+  }, [activeSection]);
+
   const links = [
     { key: "dashboard" as const, label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5 shrink-0" /> },
     ...(user?.role === "MASTER"
-      ? [{ key: "users" as const, label: "Users", icon: <Users className="h-5 w-5 shrink-0" /> }]
+      ? [{ key: "users" as const, label: "User control", icon: <Users className="h-5 w-5 shrink-0" /> }]
       : []),
     { key: "documents" as const, label: "Documents", icon: <FileText className="h-5 w-5 shrink-0" /> },
     { key: "profile" as const, label: "Profile", icon: <UserRound className="h-5 w-5 shrink-0" /> },
@@ -389,18 +437,87 @@ export function DashboardSidebarDemo({
               </div>
               <div className="mt-3 flex flex-col gap-2">
                 {links.map((link) => (
-                  <SidebarLink
-                    key={link.key}
-                    link={{ label: link.label, icon: link.icon }}
-                    active={activeSection === link.key}
-                    onClick={() => {
-                      setActiveSection(link.key);
-                      setAccountMenuOpen(false);
-                      if (window.innerWidth < 1280) {
-                        setOpen(false);
-                      }
-                    }}
-                  />
+                  <div key={link.key}>
+                    {user?.role === "MASTER" && link.key === "users" ? (
+                      <div className="grid gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setUsersMenuOpen((current) => !current)}
+                          className={cn(
+                            "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[color:var(--menu-hover)] hover:text-[color:var(--menu-text)]",
+                            (activeSection === "users" || activeSection === "accountRequests") &&
+                              "bg-[color:var(--bg-elevated)] text-[color:var(--menu-text)] shadow-[var(--shadow-soft)]",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex h-9 w-9 items-center justify-center rounded-xl bg-[color:var(--bg-surface)] text-[color:var(--menu-text-muted)] transition group-hover:bg-[color:var(--bg-surface-strong)] group-hover:text-[color:var(--menu-text)]",
+                              (activeSection === "users" || activeSection === "accountRequests") &&
+                                "bg-[color:var(--badge-primary-bg)] text-[color:var(--brand-secondary)]",
+                            )}
+                          >
+                            {link.icon}
+                          </span>
+                          <span className="truncate">User control</span>
+                          <ChevronRight
+                            className={cn(
+                              "ml-auto h-4 w-4 shrink-0 transition-transform",
+                              usersMenuOpen && "rotate-90",
+                            )}
+                          />
+                        </button>
+                        {usersMenuOpen ? (
+                          <div className="ml-12 grid gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSection("users");
+                                if (window.innerWidth < 1280) {
+                                  setOpen(false);
+                                }
+                              }}
+                              className={cn(
+                                "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[color:var(--menu-hover)] hover:text-[color:var(--menu-text)]",
+                                activeSection === "users" &&
+                                  "bg-[color:var(--bg-elevated)] text-[color:var(--menu-text)] shadow-[var(--shadow-soft)]",
+                              )}
+                            >
+                              <UserCog className="h-4 w-4" />
+                              <span>Members</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveSection("accountRequests");
+                                if (window.innerWidth < 1280) {
+                                  setOpen(false);
+                                }
+                              }}
+                              className={cn(
+                                "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[color:var(--menu-hover)] hover:text-[color:var(--menu-text)]",
+                                activeSection === "accountRequests" &&
+                                  "bg-[color:var(--bg-elevated)] text-[color:var(--menu-text)] shadow-[var(--shadow-soft)]",
+                              )}
+                            >
+                              <ClipboardList className="h-4 w-4" />
+                              <span>Access requests</span>
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <SidebarLink
+                        link={{ label: link.label, icon: link.icon }}
+                        active={activeSection === link.key}
+                        onClick={() => {
+                          setActiveSection(link.key);
+                          if (window.innerWidth < 1280) {
+                            setOpen(false);
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -525,6 +642,7 @@ export function DashboardSidebarDemo({
               documents={filteredDocuments}
               allDocuments={documents ?? []}
               documentTypes={documentTypes}
+              companyProfile={companyProfile}
               usage={usage}
               documentDetail={documentDetail}
               selectedDocumentId={selectedDocumentId}
@@ -567,13 +685,33 @@ export function DashboardSidebarDemo({
 
           {activeSection === "users" && user?.role === "MASTER" ? (
             <MasterUsersPanel
+              mode="users"
               users={users}
+              accountRequests={accountRequests}
               currentUserId={user.id}
               isLoading={isLoading}
               onCreateUser={onCreateUser}
+              onUpdateAccountRequestStatus={onUpdateAccountRequestStatus}
               onUpdateUser={onUpdateUser}
               onDeactivateUser={onDeactivateUser}
               onReactivateUser={onReactivateUser}
+              onResetUserPassword={onResetUserPassword}
+            />
+          ) : null}
+
+          {activeSection === "accountRequests" && user?.role === "MASTER" ? (
+            <MasterUsersPanel
+              mode="accountRequests"
+              users={users}
+              accountRequests={accountRequests}
+              currentUserId={user.id}
+              isLoading={isLoading}
+              onCreateUser={onCreateUser}
+              onUpdateAccountRequestStatus={onUpdateAccountRequestStatus}
+              onUpdateUser={onUpdateUser}
+              onDeactivateUser={onDeactivateUser}
+              onReactivateUser={onReactivateUser}
+              onResetUserPassword={onResetUserPassword}
             />
           ) : null}
 
@@ -602,6 +740,9 @@ export function DashboardSidebarDemo({
         onPreviewFinalPdf={onPreviewFinalPdf}
         onDownloadFinalPdf={onDownloadFinalPdf}
       />
+      {user?.mustChangePassword ? (
+        <ForcePasswordChangeModal onSubmit={onChangeOwnPassword} />
+      ) : null}
     </div>
   );
 }
@@ -702,6 +843,7 @@ function DocumentsPanel(props: {
   documents: Doc[] | null;
   allDocuments: Doc[];
   documentTypes: DocumentTypeCatalogItem[];
+  companyProfile: Props["companyProfile"];
   usage: Props["usage"];
   documentDetail: DocDetail | null;
   selectedDocumentId: string | null;
@@ -1220,6 +1362,7 @@ function DocumentsPanel(props: {
       <CreateDraftDrawer
         open={createDrawerOpen}
         documentTypes={props.documentTypes}
+        companyProfile={props.companyProfile}
         onClose={() => setCreateDrawerOpen(false)}
         onCreateDraft={props.onCreateDraft}
         onOpenDocumentView={(documentId) => props.onOpenDocumentView(documentId)}
@@ -1251,6 +1394,118 @@ function PlaceholderPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function ForcePasswordChangeModal({
+  onSubmit,
+}: {
+  onSubmit: (password: string) => Promise<void>;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!password.trim()) {
+      setError("New password required");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must have at least 8 characters");
+      return;
+    }
+
+    if (!confirmPassword.trim()) {
+      setError("Confirm password required");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Both password fields must match");
+      return;
+    }
+
+    setIsSaving(true);
+    setError("");
+
+    try {
+      await onSubmit(password);
+      setPassword("");
+      setConfirmPassword("");
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Unable to update password",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
+          Security
+        </div>
+        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)]">
+          Change your temporary password
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">
+          Your account is using a temporary password. Before continuing, set a new personal password.
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-6 grid gap-4">
+          <label className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+              New password
+            </span>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="h-12 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]"
+            />
+          </label>
+          <label className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+              Confirm password
+            </span>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              onPaste={(event) => event.preventDefault()}
+              onCopy={(event) => event.preventDefault()}
+              onCut={(event) => event.preventDefault()}
+              className="h-12 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]"
+            />
+          </label>
+          {error ? (
+            <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          ) : null}
+          <button
+            type="submit"
+            disabled={isSaving}
+            className={cn(
+              "inline-flex h-12 items-center justify-center rounded-2xl bg-[color:var(--button-primary)] px-4 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)]",
+              isSaving && "cursor-not-allowed opacity-60",
+            )}
+          >
+            {isSaving ? "Saving..." : "Update password"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -1562,8 +1817,13 @@ function ProfilePanel({
   const logoFallback = getCompanyInitials(companyProfile?.companyName);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const [isEditingCompanyDetails, setIsEditingCompanyDetails] = useState(false);
+  const [isEditingInsurance, setIsEditingInsurance] = useState(false);
   const [isEditingPrimaryContact, setIsEditingPrimaryContact] = useState(false);
+  const [isCompanyDetailsOpen, setIsCompanyDetailsOpen] = useState(true);
+  const [isInsuranceOpen, setIsInsuranceOpen] = useState(false);
+  const [isPrimaryContactOpen, setIsPrimaryContactOpen] = useState(false);
   const [isSavingCompanyDetails, setIsSavingCompanyDetails] = useState(false);
+  const [isSavingInsurance, setIsSavingInsurance] = useState(false);
   const [isSavingPrimaryContact, setIsSavingPrimaryContact] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [profileErrorMessage, setProfileErrorMessage] = useState("");
@@ -1582,6 +1842,11 @@ function ProfilePanel({
     state: "",
     city: "",
     zipCode: "",
+  });
+  const [insuranceForm, setInsuranceForm] = useState({
+    insuranceName: "",
+    insurancePhone: "",
+    insurancePolicyNumber: "",
   });
   const [primaryContactForm, setPrimaryContactForm] = useState({
     contactFullName: "",
@@ -1610,6 +1875,11 @@ function ProfilePanel({
       state: companyProfile?.state ?? "",
       city: companyProfile?.city ?? "",
       zipCode: companyProfile?.zipCode ?? "",
+    });
+    setInsuranceForm({
+      insuranceName: companyProfile?.insuranceName ?? "",
+      insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""),
+      insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "",
     });
     setPrimaryContactForm({
       contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
@@ -1668,6 +1938,35 @@ function ProfilePanel({
       setProfileSuccessMessage("Changes saved successfully");
     } finally {
       setIsSavingCompanyDetails(false);
+    }
+  }
+
+  async function saveInsurance() {
+    const payload = buildChangedProfilePayload(
+      {
+        insuranceName: companyProfile?.insuranceName ?? "",
+        insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""),
+        insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "",
+      },
+      {
+        insuranceName: insuranceForm.insuranceName,
+        insurancePhone: formatUsPhone(insuranceForm.insurancePhone),
+        insurancePolicyNumber: insuranceForm.insurancePolicyNumber,
+      },
+    );
+
+    if (Object.keys(payload).length === 0) {
+      setIsEditingInsurance(false);
+      return;
+    }
+
+    setIsSavingInsurance(true);
+    try {
+      await onUpdateCompanyProfile(payload);
+      setIsEditingInsurance(false);
+      setProfileSuccessMessage("Changes saved successfully");
+    } finally {
+      setIsSavingInsurance(false);
     }
   }
 
@@ -1751,6 +2050,36 @@ function ProfilePanel({
       setIsUploadingLogo(false);
       event.target.value = "";
     }
+  }
+
+  function toggleCompanyDetailsOpen() {
+    setIsCompanyDetailsOpen((current) => {
+      const next = !current;
+      if (!next) {
+        setIsEditingCompanyDetails(false);
+      }
+      return next;
+    });
+  }
+
+  function toggleInsuranceOpen() {
+    setIsInsuranceOpen((current) => {
+      const next = !current;
+      if (!next) {
+        setIsEditingInsurance(false);
+      }
+      return next;
+    });
+  }
+
+  function togglePrimaryContactOpen() {
+    setIsPrimaryContactOpen((current) => {
+      const next = !current;
+      if (!next) {
+        setIsEditingPrimaryContact(false);
+      }
+      return next;
+    });
   }
 
   return (
@@ -1870,35 +2199,43 @@ function ProfilePanel({
       <div className="grid gap-4">
         <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-              Company details
-            </div>
-            <ProfileEditActions
-              isEditing={isEditingCompanyDetails}
-              isSaving={isSavingCompanyDetails}
-              onEdit={() => setIsEditingCompanyDetails(true)}
-              onCancel={() => {
-                setIsEditingCompanyDetails(false);
-                setCompanyDetailsForm({
-                  companyName: companyProfile?.companyName ?? "",
-                  legalName: companyProfile?.legalName ?? "",
-                  industry: companyProfile?.industry ?? "",
-                  licenseNumber: companyProfile?.licenseNumber ?? "",
-                  phone: formatUsPhone(companyProfile?.phone ?? ""),
-                  phone2: formatUsPhone(companyProfile?.phone2 ?? ""),
-                  email: companyProfile?.email ?? "",
-                  website: companyProfile?.website ?? "",
-                  addressLine1: companyProfile?.addressLine1 ?? "",
-                  addressLine2: companyProfile?.addressLine2 ?? "",
-                  state: companyProfile?.state ?? "",
-                  city: companyProfile?.city ?? "",
-                  zipCode: companyProfile?.zipCode ?? "",
-                });
-              }}
-              onSave={() => void saveCompanyDetails()}
-            />
+            <button
+              type="button"
+              onClick={toggleCompanyDetailsOpen}
+              className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              aria-expanded={isCompanyDetailsOpen}
+            >
+              <ChevronRight className={cn("h-4 w-4 transition-transform", isCompanyDetailsOpen && "rotate-90")} />
+              <span>Company details</span>
+            </button>
+            {isCompanyDetailsOpen ? (
+              <ProfileEditActions
+                isEditing={isEditingCompanyDetails}
+                isSaving={isSavingCompanyDetails}
+                onEdit={() => setIsEditingCompanyDetails(true)}
+                onCancel={() => {
+                  setIsEditingCompanyDetails(false);
+                  setCompanyDetailsForm({
+                    companyName: companyProfile?.companyName ?? "",
+                    legalName: companyProfile?.legalName ?? "",
+                    industry: companyProfile?.industry ?? "",
+                    licenseNumber: companyProfile?.licenseNumber ?? "",
+                    phone: formatUsPhone(companyProfile?.phone ?? ""),
+                    phone2: formatUsPhone(companyProfile?.phone2 ?? ""),
+                    email: companyProfile?.email ?? "",
+                    website: companyProfile?.website ?? "",
+                    addressLine1: companyProfile?.addressLine1 ?? "",
+                    addressLine2: companyProfile?.addressLine2 ?? "",
+                    state: companyProfile?.state ?? "",
+                    city: companyProfile?.city ?? "",
+                    zipCode: companyProfile?.zipCode ?? "",
+                  });
+                }}
+                onSave={() => void saveCompanyDetails()}
+              />
+            ) : null}
           </div>
-          {isEditingCompanyDetails ? (
+          {isCompanyDetailsOpen ? (isEditingCompanyDetails ? (
             <div className="mt-5 grid gap-3">
               <div className="grid gap-3 md:grid-cols-2">
                 <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: value }))} />
@@ -1960,39 +2297,90 @@ function ProfilePanel({
                 <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyProfile?.zipCode ?? ""} />
               </div>
             </div>
-          )}
+          )) : null}
+        </div>
+
+        <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={toggleInsuranceOpen}
+              className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              aria-expanded={isInsuranceOpen}
+            >
+              <ChevronRight className={cn("h-4 w-4 transition-transform", isInsuranceOpen && "rotate-90")} />
+              <span>Insurance</span>
+            </button>
+            {isInsuranceOpen ? (
+              <ProfileEditActions
+                isEditing={isEditingInsurance}
+                isSaving={isSavingInsurance}
+                onEdit={() => setIsEditingInsurance(true)}
+                onCancel={() => {
+                  setIsEditingInsurance(false);
+                  setInsuranceForm({
+                    insuranceName: companyProfile?.insuranceName ?? "",
+                    insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""),
+                    insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "",
+                  });
+                }}
+                onSave={() => void saveInsurance()}
+              />
+            ) : null}
+          </div>
+          {isInsuranceOpen ? (isEditingInsurance ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <EditableField icon={<ShieldCheck className="h-4 w-4" />} label="Insurance name" value={insuranceForm.insuranceName} onChange={(value) => setInsuranceForm((current) => ({ ...current, insuranceName: value }))} />
+              <EditableField icon={<Phone className="h-4 w-4" />} label="Insurance phone" value={insuranceForm.insurancePhone} onChange={(value) => setInsuranceForm((current) => ({ ...current, insurancePhone: formatUsPhone(value) }))} />
+              <EditableField icon={<FileText className="h-4 w-4" />} label="Policy number" value={insuranceForm.insurancePolicyNumber} onChange={(value) => setInsuranceForm((current) => ({ ...current, insurancePolicyNumber: value }))} />
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <DetailRow icon={<ShieldCheck className="h-4 w-4" />} label="Insurance name" value={companyProfile?.insuranceName ?? ""} />
+              <DetailRow icon={<Phone className="h-4 w-4" />} label="Insurance phone" value={formatUsPhone(companyProfile?.insurancePhone ?? "")} />
+              <DetailRow icon={<FileText className="h-4 w-4" />} label="Policy number" value={companyProfile?.insurancePolicyNumber ?? ""} />
+            </div>
+          )) : null}
         </div>
 
         <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-              Primary contact
-            </div>
-            <ProfileEditActions
-              isEditing={isEditingPrimaryContact}
-              isSaving={isSavingPrimaryContact}
-              onEdit={() => setIsEditingPrimaryContact(true)}
-              onCancel={() => {
-                setIsEditingPrimaryContact(false);
-                setPrimaryContactForm({
-                  contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
-                    .filter(Boolean)
-                    .join(" ")
-                    .trim(),
-                  contactTitle: companyProfile?.contactTitle ?? "",
-                  contactEmail: companyProfile?.contactEmail ?? "",
-                  contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
-                  contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
-                  contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
-                  contactState: companyProfile?.contactState ?? "",
-                  contactCity: companyProfile?.contactCity ?? "",
-                  contactZipCode: companyProfile?.contactZipCode ?? "",
-                });
-              }}
-              onSave={() => void savePrimaryContact()}
-            />
+            <button
+              type="button"
+              onClick={togglePrimaryContactOpen}
+              className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              aria-expanded={isPrimaryContactOpen}
+            >
+              <ChevronRight className={cn("h-4 w-4 transition-transform", isPrimaryContactOpen && "rotate-90")} />
+              <span>Primary contact</span>
+            </button>
+            {isPrimaryContactOpen ? (
+              <ProfileEditActions
+                isEditing={isEditingPrimaryContact}
+                isSaving={isSavingPrimaryContact}
+                onEdit={() => setIsEditingPrimaryContact(true)}
+                onCancel={() => {
+                  setIsEditingPrimaryContact(false);
+                  setPrimaryContactForm({
+                    contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim(),
+                    contactTitle: companyProfile?.contactTitle ?? "",
+                    contactEmail: companyProfile?.contactEmail ?? "",
+                    contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
+                    contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
+                    contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
+                    contactState: companyProfile?.contactState ?? "",
+                    contactCity: companyProfile?.contactCity ?? "",
+                    contactZipCode: companyProfile?.contactZipCode ?? "",
+                  });
+                }}
+                onSave={() => void savePrimaryContact()}
+              />
+            ) : null}
           </div>
-          {isEditingPrimaryContact ? (
+          {isPrimaryContactOpen ? (isEditingPrimaryContact ? (
             <div className="mt-4 grid gap-3">
               <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: value }))} />
               <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: value }))} />
@@ -2036,7 +2424,7 @@ function ProfilePanel({
                 <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? ""} />
               </div>
             </div>
-          )}
+          )) : null}
         </div>
       </div>
     </section>
@@ -2046,12 +2434,14 @@ function ProfilePanel({
 function CreateDraftDrawer({
   open,
   documentTypes,
+  companyProfile,
   onClose,
   onCreateDraft,
   onOpenDocumentView,
 }: {
   open: boolean;
   documentTypes: DocumentTypeCatalogItem[];
+  companyProfile: Props["companyProfile"];
   onClose: () => void;
   onCreateDraft: (payload: {
     documentTypeId: string;
@@ -2065,6 +2455,9 @@ function CreateDraftDrawer({
   const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing" | "others">("client");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [draftValidationMessage, setDraftValidationMessage] = useState("");
+  const [draftFieldErrors, setDraftFieldErrors] = useState<Record<string, string>>({});
   const [sameProjectAddressAsCustomer, setSameProjectAddressAsCustomer] = useState(true);
   const [financeEnabled, setFinanceEnabled] = useState(false);
   const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState("");
@@ -2122,6 +2515,14 @@ function CreateDraftDrawer({
   }, []);
 
   useEffect(() => {
+    if (fields.customer_address.trim()) {
+      setSameProjectAddressAsCustomer(true);
+    } else {
+      setSameProjectAddressAsCustomer(false);
+    }
+  }, [fields.customer_address]);
+
+  useEffect(() => {
     if (!open) return;
     const firstType = documentTypes[0] ?? null;
     setSelectedDocumentTypeId(firstType?.id ?? "");
@@ -2146,8 +2547,113 @@ function CreateDraftDrawer({
     setConfirmCloseOpen(true);
   }
 
+  const todayDate = toDateInputValue(new Date().toISOString());
+  const hasClientAddress = Boolean(fields.customer_address.trim());
+
+  function getCreateDraftFieldErrors(tab: "client" | "project" | "pricing" | "others") {
+    const errors: Record<string, string> = {};
+
+    if (tab === "client") {
+      if (!fields.customer_name.trim()) errors.customer_name = "Customer name required";
+      if (!fields.customer_age.trim()) {
+        errors.customer_age = "Age required";
+      } else if (Number(fields.customer_age) < 21) {
+        errors.customer_age = "Must be 21 or older";
+      }
+      if (!fields.customer_email.trim()) {
+        errors.customer_email = "Email required";
+      } else if (!isValidEmail(fields.customer_email.trim())) {
+        errors.customer_email = "Enter a valid email";
+      }
+    }
+
+    if (tab === "project") {
+      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_address.trim()) {
+        errors.project_address = "Project address required";
+      }
+      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_city.trim()) {
+        errors.project_city = "City required";
+      }
+      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_state.trim()) {
+        errors.project_state = "State required";
+      }
+      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_zip.trim()) {
+        errors.project_zip = "Zip code required";
+      }
+      if (!fields.start_date) {
+        errors.start_date = "Start date required";
+      } else if (fields.start_date < todayDate) {
+        errors.start_date = "Only today or future dates";
+      }
+      if (fields.estimated_completion_date && fields.start_date && fields.estimated_completion_date < fields.start_date) {
+        errors.estimated_completion_date = "Must be after start date";
+      }
+    }
+
+    if (tab === "pricing") {
+      if (!fields.contract_amount.trim()) {
+        errors.contract_amount = "Contract price required";
+      }
+    }
+
+    return errors;
+  }
+
+  function getCreateDraftTabError(tab: "client" | "project" | "pricing" | "others") {
+    const errors = getCreateDraftFieldErrors(tab);
+    return Object.keys(errors).length > 0 ? "Complete the required fields to continue." : null;
+  }
+
+  function canAccessCreateDraftTab(tab: "client" | "project" | "pricing" | "others") {
+    if (tab === "client") return true;
+    if (tab === "project") return Object.keys(getCreateDraftFieldErrors("client")).length === 0;
+    if (tab === "pricing") {
+      return (
+        Object.keys(getCreateDraftFieldErrors("client")).length === 0 &&
+        Object.keys(getCreateDraftFieldErrors("project")).length === 0
+      );
+    }
+
+    return (
+      Object.keys(getCreateDraftFieldErrors("client")).length === 0 &&
+      Object.keys(getCreateDraftFieldErrors("project")).length === 0 &&
+      Object.keys(getCreateDraftFieldErrors("pricing")).length === 0
+    );
+  }
+
+  function handleNextTab() {
+    const fieldErrors = getCreateDraftFieldErrors(activeTab);
+    const validationError = getCreateDraftTabError(activeTab);
+
+    if (validationError) {
+      setDraftFieldErrors((current) => ({ ...current, ...fieldErrors }));
+      setDraftValidationMessage(validationError);
+      return;
+    }
+
+    setDraftFieldErrors({});
+    setDraftValidationMessage("");
+    setActiveTab((current) =>
+      current === "client"
+        ? "project"
+        : current === "project"
+          ? "pricing"
+          : "others",
+    );
+  }
+
   async function handleSubmit() {
     if (!selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) {
+      return;
+    }
+
+    const clientErrors = getCreateDraftFieldErrors("client");
+    const projectErrors = getCreateDraftFieldErrors("project");
+    const pricingErrors = getCreateDraftFieldErrors("pricing");
+    const validationError = getCreateDraftTabError("client") ?? getCreateDraftTabError("project") ?? getCreateDraftTabError("pricing");
+    if (validationError) {
+      setDraftFieldErrors({ ...clientErrors, ...projectErrors, ...pricingErrors });
+      setDraftValidationMessage(validationError);
       return;
     }
 
@@ -2158,7 +2664,12 @@ function CreateDraftDrawer({
         formDefinitionId: selectedFormDefinitionId,
         pandadocTemplateId: selectedTemplateId,
         contractDate,
-        dataJson: buildCreateDraftPayload(fields, sameProjectAddressAsCustomer, financeEnabled),
+        dataJson: buildCreateDraftPayload(
+          fields,
+          sameProjectAddressAsCustomer,
+          financeEnabled,
+          companyProfile,
+        ),
       });
 
       onClose();
@@ -2191,39 +2702,54 @@ function CreateDraftDrawer({
         </div>
 
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
-          <div className="grid gap-3 md:grid-cols-2">
-            <SelectField
-              label="Document type"
-              value={selectedDocumentTypeId}
-              onChange={setSelectedDocumentTypeId}
-              icon={<FileText className="h-4 w-4" />}
-              disabled
-              options={documentTypes.map((item) => ({ value: item.id, label: item.name }))}
-            />
-            <EditableField
-              icon={<ScanText className="h-4 w-4" />}
-              label="Contract date"
-              type="date"
-              value={contractDate}
-              onChange={setContractDate}
-              disabled
-            />
-            <SelectField
-              label="Form"
-              value={selectedFormDefinitionId}
-              onChange={setSelectedFormDefinitionId}
-              icon={<FileJson className="h-4 w-4" />}
-              disabled
-              options={(selectedDocumentType?.formDefinitions ?? []).map((item) => ({ value: item.id, label: item.name }))}
-            />
-            <SelectField
-              label="Template"
-              value={selectedTemplateId}
-              onChange={setSelectedTemplateId}
-              icon={<LayoutDashboard className="h-4 w-4" />}
-              disabled
-              options={(selectedDocumentType?.pandaTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
-            />
+          <div className="rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsSetupOpen((current) => !current)}
+                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
+                aria-expanded={isSetupOpen}
+              >
+                <ChevronRight className={cn("h-4 w-4 transition-transform", isSetupOpen && "rotate-90")} />
+                <span>Document setup</span>
+              </button>
+            </div>
+            {isSetupOpen ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <SelectField
+                  label="Document type"
+                  value={selectedDocumentTypeId}
+                  onChange={setSelectedDocumentTypeId}
+                  icon={<FileText className="h-4 w-4" />}
+                  disabled
+                  options={documentTypes.map((item) => ({ value: item.id, label: item.name }))}
+                />
+                <EditableField
+                  icon={<ScanText className="h-4 w-4" />}
+                  label="Contract date"
+                  type="date"
+                  value={contractDate}
+                  onChange={setContractDate}
+                  disabled
+                />
+                <SelectField
+                  label="Form"
+                  value={selectedFormDefinitionId}
+                  onChange={setSelectedFormDefinitionId}
+                  icon={<FileJson className="h-4 w-4" />}
+                  disabled
+                  options={(selectedDocumentType?.formDefinitions ?? []).map((item) => ({ value: item.id, label: item.name }))}
+                />
+                <SelectField
+                  label="Template"
+                  value={selectedTemplateId}
+                  onChange={setSelectedTemplateId}
+                  icon={<LayoutDashboard className="h-4 w-4" />}
+                  disabled
+                  options={(selectedDocumentType?.pandaTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -2238,12 +2764,18 @@ function CreateDraftDrawer({
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key as "client" | "project" | "pricing" | "others")}
+                onClick={() => {
+                  const nextTab = tab.key as "client" | "project" | "pricing" | "others";
+                  if (!canAccessCreateDraftTab(nextTab)) return;
+                  setActiveTab(nextTab);
+                }}
+                disabled={!canAccessCreateDraftTab(tab.key as "client" | "project" | "pricing" | "others")}
                 className={cn(
                   "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
                   activeTab === tab.key
                     ? "border-blue-600 bg-blue-600 text-white"
                     : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
+                  !canAccessCreateDraftTab(tab.key as "client" | "project" | "pricing" | "others") && "cursor-not-allowed opacity-45 hover:bg-slate-50 dark:hover:bg-white/[0.04]",
                 )}
               >
                 {tab.label}
@@ -2256,10 +2788,10 @@ function CreateDraftDrawer({
           {activeTab === "client" ? (
             <div className="grid gap-3">
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Customer name" value={fields.customer_name} placeholder="Full name" onChange={(value) => setFields((current) => ({ ...current, customer_name: value }))} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Age" value={fields.customer_age} placeholder="35" onChange={(value) => setFields((current) => ({ ...current, customer_age: value.replace(/\D/g, "").slice(0, 3) }))} />
+                <EditableField icon={<UserRound className="h-4 w-4" />} label="Customer name" value={fields.customer_name} placeholder="Full name" error={draftFieldErrors.customer_name} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_name: "" })); setFields((current) => ({ ...current, customer_name: toTitleCase(value) })); }} />
+                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Age" value={fields.customer_age} placeholder="35" error={draftFieldErrors.customer_age} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_age: "" })); setFields((current) => ({ ...current, customer_age: value.replace(/\D/g, "").slice(0, 3) })); }} />
               </div>
-              <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={fields.customer_email} placeholder="Email address" onChange={(value) => setFields((current) => ({ ...current, customer_email: value }))} />
+              <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={fields.customer_email} placeholder="Email address" error={draftFieldErrors.customer_email} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_email: "" })); setFields((current) => ({ ...current, customer_email: value })); }} />
               <div className="grid gap-3 md:grid-cols-2">
                 <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={fields.customer_phone} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_phone: formatUsPhone(value) }))} />
                 <EditableField icon={<ScanText className="h-4 w-4" />} label="Fax" value={fields.customer_fax} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_fax: formatUsPhone(value) }))} />
@@ -2278,31 +2810,32 @@ function CreateDraftDrawer({
                   type="checkbox"
                   checked={sameProjectAddressAsCustomer}
                   onChange={(event) => setSameProjectAddressAsCustomer(event.target.checked)}
+                  disabled={!hasClientAddress}
                   className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--brand-accent)] focus:ring-[color:var(--focus-ring)]"
                 />
                 <span>Same as client address</span>
               </label>
               {!sameProjectAddressAsCustomer ? (
                 <>
-                  <EditableField icon={<MapPlus className="h-4 w-4" />} label="Project address" value={fields.project_address} placeholder="Project address" onChange={(value) => setFields((current) => ({ ...current, project_address: value }))} />
+                  <EditableField icon={<MapPlus className="h-4 w-4" />} label="Project address" value={fields.project_address} placeholder="Project address" error={draftFieldErrors.project_address} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_address: "" })); setFields((current) => ({ ...current, project_address: value })); }} />
                   <div className="grid gap-3 md:grid-cols-3">
-                    <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={fields.project_city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, project_city: value }))} />
-                    <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={fields.project_state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, project_state: value }))} />
-                    <EditableField icon={<Pin className="h-4 w-4" />} label="Zip code" value={fields.project_zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, project_zip: value }))} />
+                    <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={fields.project_city} placeholder="City" error={draftFieldErrors.project_city} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_city: "" })); setFields((current) => ({ ...current, project_city: value })); }} />
+                    <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={fields.project_state} placeholder="State" error={draftFieldErrors.project_state} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_state: "" })); setFields((current) => ({ ...current, project_state: value })); }} />
+                    <EditableField icon={<Pin className="h-4 w-4" />} label="Zip code" value={fields.project_zip} placeholder="Zip code" error={draftFieldErrors.project_zip} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_zip: "" })); setFields((current) => ({ ...current, project_zip: value })); }} />
                   </div>
                 </>
               ) : null}
               <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<ScanText className="h-4 w-4" />} type="date" label="Start date" value={fields.start_date} onChange={(value) => setFields((current) => ({ ...current, start_date: value }))} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} type="date" label="Estimated completion date" value={fields.estimated_completion_date} onChange={(value) => setFields((current) => ({ ...current, estimated_completion_date: value }))} />
+                <EditableField icon={<ScanText className="h-4 w-4" />} type="date" label="Start date" value={fields.start_date} min={todayDate} error={draftFieldErrors.start_date} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, start_date: "", estimated_completion_date: "" })); setFields((current) => ({ ...current, start_date: value })); }} />
+                <EditableField icon={<BadgeCheck className="h-4 w-4" />} type="date" label="Estimated completion date" value={fields.estimated_completion_date} min={fields.start_date || todayDate} error={draftFieldErrors.estimated_completion_date} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, estimated_completion_date: "" })); setFields((current) => ({ ...current, estimated_completion_date: value })); }} />
               </div>
               <EditableField icon={<FileText className="h-4 w-4" />} type="textarea" label="Project description" value={fields.project_description} placeholder="Project description" onChange={(value) => setFields((current) => ({ ...current, project_description: value }))} />
-              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Substantial commencement of work" value={fields.contract_scope} placeholder="Describe substantial commencement of work" onChange={(value) => setFields((current) => ({ ...current, contract_scope: value }))} />
+              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Internal notes (only you can see this, your customer will not)" value={fields.contract_scope} placeholder="Add internal notes" onChange={(value) => setFields((current) => ({ ...current, contract_scope: value }))} />
             </div>
           ) : activeTab === "pricing" ? (
             <div className="grid gap-3">
               <div className="grid gap-3 md:grid-cols-2">
-                <CurrencyField icon={<WalletCards className="h-4 w-4" />} label="Contract price" value={fields.contract_amount} placeholder="12000.00" onChange={(value) => setFields((current) => ({ ...current, contract_amount: formatCurrencyInput(value) }))} />
+                <CurrencyField icon={<WalletCards className="h-4 w-4" />} label="Contract price" value={fields.contract_amount} placeholder="12000.00" error={draftFieldErrors.contract_amount} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, contract_amount: "" })); setFields((current) => ({ ...current, contract_amount: formatCurrencyInput(value) })); }} />
                 <CurrencyField icon={<Download className="h-4 w-4" />} label="Down payment" value={fields.down_payment_amount} placeholder="2500.00" onChange={(value) => setFields((current) => ({ ...current, down_payment_amount: formatCurrencyInput(value) }))} />
               </div>
               <label className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)]">
@@ -2389,6 +2922,11 @@ function CreateDraftDrawer({
         </div>
 
         <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
+          {draftValidationMessage ? (
+            <div className="mb-3 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
+              {draftValidationMessage}
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center justify-end gap-3">
             <button
               type="button"
@@ -2412,15 +2950,7 @@ function CreateDraftDrawer({
             ) : (
               <button
                 type="button"
-                onClick={() =>
-                  setActiveTab((current) =>
-                    current === "client"
-                      ? "project"
-                      : current === "project"
-                        ? "pricing"
-                        : "others",
-                  )
-                }
+                onClick={handleNextTab}
                 className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
               >
                 Continue
@@ -3272,6 +3802,8 @@ function EditableField({
   type = "text",
   placeholder,
   disabled = false,
+  min,
+  error,
 }: {
   icon?: ReactNode;
   label: string;
@@ -3280,6 +3812,8 @@ function EditableField({
   type?: "text" | "date" | "textarea";
   placeholder?: string;
   disabled?: boolean;
+  min?: string;
+  error?: string;
 }) {
   return (
     <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
@@ -3295,6 +3829,7 @@ function EditableField({
           onChange={(event) => onChange(event.target.value)}
           className={cn(
             "mt-3 min-h-28 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
+            error && "border-[color:var(--danger-border)] focus:border-[color:var(--button-danger)]",
             disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
           )}
         />
@@ -3304,13 +3839,21 @@ function EditableField({
           value={value}
           placeholder={placeholder}
           disabled={disabled}
+          min={type === "date" ? min : undefined}
           onChange={(event) => onChange(event.target.value)}
           className={cn(
             "mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
+            error && "border-[color:var(--danger-border)] focus:border-[color:var(--button-danger)]",
             disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
           )}
         />
       )}
+      {error ? (
+        <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[color:var(--danger-text)]">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3365,6 +3908,7 @@ function CurrencyField({
   onChange,
   placeholder,
   disabled = false,
+  error,
 }: {
   icon?: ReactNode;
   label: string;
@@ -3372,6 +3916,7 @@ function CurrencyField({
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  error?: string;
 }) {
   return (
     <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
@@ -3382,6 +3927,7 @@ function CurrencyField({
       <div
         className={cn(
           "mt-3 flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 transition focus-within:border-[color:var(--brand-accent)]",
+          error && "border-[color:var(--danger-border)] focus-within:border-[color:var(--button-danger)]",
           disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] opacity-80",
         )}
       >
@@ -3396,6 +3942,12 @@ function CurrencyField({
           className="h-full w-full bg-transparent text-sm text-[color:var(--text-primary)] outline-none placeholder:text-[color:var(--text-muted)]"
         />
       </div>
+      {error ? (
+        <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[color:var(--danger-text)]">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3982,11 +4534,13 @@ function buildCreateDraftPayload(
   fields: Record<string, string>,
   sameProjectAddressAsCustomer = false,
   financeEnabled = false,
+  companyProfile: Props["companyProfile"] = null,
 ) {
   const nextFields = { ...fields };
-  nextFields.insurance_name = "ACORD";
-  nextFields.insurance_phone = formatUsPhone("7146546824");
-  nextFields.insurance_policy_number = "10104196265";
+  nextFields.insurance_name = companyProfile?.insuranceName?.trim() ?? "";
+  nextFields.insurance_phone = formatUsPhone(companyProfile?.insurancePhone ?? "");
+  nextFields.insurance_policy_number =
+    companyProfile?.insurancePolicyNumber?.trim() ?? "";
 
   if (sameProjectAddressAsCustomer) {
     nextFields.project_address = fields.customer_address;
@@ -4049,6 +4603,7 @@ function formatCurrency(value: number) {
 
 function sectionEyebrow(section: SectionKey) {
   if (section === "users") return "Users";
+  if (section === "accountRequests") return "Users";
   if (section === "profile") return "Profile";
   if (section === "documents") return "Documents";
   if (section === "billing") return "Billing";
@@ -4057,6 +4612,7 @@ function sectionEyebrow(section: SectionKey) {
 
 function sectionTitle(section: SectionKey, companyName?: string | null) {
   if (section === "users") return "Workspace users";
+  if (section === "accountRequests") return "Account requests";
   if (section === "profile") return "User profile";
   if (section === "documents") return "Contract lifecycle";
   if (section === "billing") return "Usage and limits";
@@ -4129,6 +4685,12 @@ function formatCurrencyInput(value: string) {
   }
 
   return whole;
+}
+
+function toTitleCase(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function getCompanyInitials(companyName?: string | null) {

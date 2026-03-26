@@ -17,6 +17,7 @@ type DashboardUser = {
   email: string;
   role: string;
   status: string;
+  mustChangePassword?: boolean;
   companyProfile?: {
     id: string;
     companyName: string;
@@ -33,6 +34,9 @@ type CompanyProfile = {
   email: string | null;
   phone: string | null;
   phone2: string | null;
+  insuranceName: string | null;
+  insurancePhone: string | null;
+  insurancePolicyNumber: string | null;
   contactEmail: string | null;
   contactFirstName: string | null;
   contactLastName: string | null;
@@ -122,7 +126,19 @@ type ManagedUser = {
     id: string;
     companyName: string;
     planName: string;
+    logoUrl?: string | null;
   } | null;
+};
+
+type AccountRequest = {
+  id: string;
+  fullName: string;
+  email: string;
+  requestedDocumentTypes: string[];
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  processedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type DocumentDetail = DashboardDocument & {
@@ -181,6 +197,9 @@ type UpdateCompanyProfilePayload = Partial<
     | "email"
     | "phone"
     | "phone2"
+    | "insuranceName"
+    | "insurancePhone"
+    | "insurancePolicyNumber"
     | "website"
     | "industry"
     | "licenseNumber"
@@ -214,6 +233,16 @@ type UpdateUserResponse = {
   user: ManagedUser;
 };
 
+type ResetUserPasswordResponse = {
+  message: string;
+  user: ManagedUser;
+};
+
+type UpdateAccountRequestResponse = {
+  message: string;
+  request: AccountRequest;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -224,6 +253,7 @@ export default function DashboardPage() {
   const [billingHistory, setBillingHistory] = useState<MonthlySummary[]>([]);
   const [documents, setDocuments] = useState<DashboardDocument[] | null>(null);
   const [managedUsers, setManagedUsers] = useState<ManagedUser[] | null>(null);
+  const [accountRequests, setAccountRequests] = useState<AccountRequest[] | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeCatalogItem[]>([]);
   const [documentDetail, setDocumentDetail] = useState<DocumentDetail | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
@@ -255,10 +285,15 @@ export default function DashboardPage() {
       ),
     ]);
 
-    const workspaceUsers =
+    const [workspaceUsers, workspaceAccountRequests] =
       me.role === "MASTER"
-        ? await apiRequest<ManagedUser[]>("/users", { token: accessToken })
-        : [];
+        ? await Promise.all([
+            apiRequest<ManagedUser[]>("/users", { token: accessToken }),
+            apiRequest<AccountRequest[]>("/users/account-requests", {
+              token: accessToken,
+            }),
+          ])
+        : [[], []];
 
     setDashboardUser(me);
     setCompanyProfile(profile);
@@ -268,6 +303,7 @@ export default function DashboardPage() {
     setDocuments(myDocuments);
     setDocumentTypes(availableDocumentTypes);
     setManagedUsers(workspaceUsers);
+    setAccountRequests(workspaceAccountRequests);
 
     const nextSelectedId =
       currentSelectedId && myDocuments.some((document) => document.id === currentSelectedId)
@@ -371,6 +407,17 @@ export default function DashboardPage() {
   function handleSignOut() {
     clearSession();
     setUser(null);
+    setDashboardUser(null);
+    setCompanyProfile(null);
+    setDocuments(null);
+    setManagedUsers(null);
+    setAccountRequests(null);
+    setDocumentDetail(null);
+    setSelectedDocumentId(null);
+    if (typeof window !== "undefined") {
+      window.location.replace("/");
+      return;
+    }
     router.replace("/");
   }
 
@@ -808,6 +855,116 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleResetUserPassword(
+    userId: string,
+    payload: { password: string; temporary: boolean },
+  ) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      await apiRequest<ResetUserPasswordResponse>(`/users/${userId}/password`, {
+        token: accessToken,
+        method: "POST",
+        body: payload,
+      });
+
+      await loadWorkspace(accessToken, selectedDocumentId);
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : "Unable to reset password",
+      );
+      throw resetError;
+    }
+  }
+
+  async function handleChangeOwnPassword(password: string) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      await apiRequest<{ message: string }>("/auth/change-password", {
+        token: accessToken,
+        method: "POST",
+        body: { password },
+      });
+
+      setDashboardUser((current) =>
+        current ? { ...current, mustChangePassword: false } : current,
+      );
+      setUser((current) =>
+        current ? { ...current, mustChangePassword: false } : current,
+      );
+
+      const storedUser = getStoredUser();
+      if (storedUser) {
+        window.localStorage.setItem(
+          "noasign.user",
+          JSON.stringify({ ...storedUser, mustChangePassword: false }),
+        );
+        window.dispatchEvent(new Event("noasign-auth-change"));
+      }
+    } catch (changeError) {
+      setError(
+        changeError instanceof Error
+          ? changeError.message
+          : "Unable to change password",
+      );
+      throw changeError;
+    }
+  }
+
+  async function handleUpdateAccountRequestStatus(
+    requestId: string,
+    status: "PENDING" | "APPROVED" | "REJECTED",
+  ) {
+    const accessToken = getStoredToken();
+
+    if (!accessToken) {
+      clearSession();
+      router.replace("/");
+      return;
+    }
+
+    setError("");
+
+    try {
+      await apiRequest<UpdateAccountRequestResponse>(
+        `/users/account-requests/${requestId}`,
+        {
+          token: accessToken,
+          method: "PATCH",
+          body: { status },
+        },
+      );
+
+      await loadWorkspace(accessToken, selectedDocumentId);
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Unable to update account request",
+      );
+      throw updateError;
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[color:var(--background)]">
       {error ? (
@@ -822,6 +979,7 @@ export default function DashboardPage() {
         monthlySummary={monthlySummary}
         billingHistory={billingHistory}
         users={managedUsers}
+        accountRequests={accountRequests}
         documents={documents}
         documentTypes={documentTypes}
         documentDetail={documentDetail}
@@ -841,7 +999,10 @@ export default function DashboardPage() {
         onUpdateUser={handleUpdateUser}
         onDeactivateUser={handleDeactivateUser}
         onReactivateUser={handleReactivateUser}
+        onResetUserPassword={handleResetUserPassword}
+        onUpdateAccountRequestStatus={handleUpdateAccountRequestStatus}
         onSignOut={handleSignOut}
+        onChangeOwnPassword={handleChangeOwnPassword}
       />
     </main>
   );

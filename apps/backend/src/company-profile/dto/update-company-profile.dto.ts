@@ -31,6 +31,18 @@ export class UpdateCompanyProfileDto {
 
   @IsOptional()
   @IsString()
+  insuranceName?: string;
+
+  @IsOptional()
+  @IsString()
+  insurancePhone?: string;
+
+  @IsOptional()
+  @IsString()
+  insurancePolicyNumber?: string;
+
+  @IsOptional()
+  @IsString()
   addressLine1?: string;
 
   @IsOptional()
