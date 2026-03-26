@@ -13,6 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "bootstrap:local": "node ./scripts/bootstrap-local-dev.js",
+    "bootstrap:prod-master": "node ./scripts/bootstrap-production-master.js",
     "seed:local-documents": "node ./scripts/seed-local-documents.js",
     "seed:staging-demo": "node ./scripts/seed-staging-demo.js",
     "test:smoke": "node ./scripts/smoke-api.mjs",
