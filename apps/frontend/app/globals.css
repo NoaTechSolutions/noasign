@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #0e1f3d;

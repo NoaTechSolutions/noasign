@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import NextImage from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useTheme } from "next-themes";
 import {
   ClipboardList,
   AlertTriangle,
@@ -417,14 +419,14 @@ export function DashboardSidebarDemo({
       <Sidebar open={open} setOpen={setOpen}>
         <SidebarBody className="justify-between gap-8">
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">{open ? <Logo /> : <LogoIcon />}</div>
+            <div className="relative flex items-start justify-center gap-3">
+              <div className="min-w-0 flex-1">{open ? <Logo /> : <LogoIcon />}</div>
               {open ? (
                 <button
                   type="button"
                   aria-label="Close sidebar"
                   onClick={() => setOpen(false)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)]"
+                  className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)]"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -527,7 +529,7 @@ export function DashboardSidebarDemo({
                 Workspace
               </div>
               <div className="mt-3 grid gap-3">
-                <InfoCard label="Company" title={isLoading ? "Loading..." : companyProfile?.companyName ?? "NoaSign"} subtitle={isLoading ? "..." : usage?.billingPeriod ?? "Current month"} />
+                <InfoCard label="Company" title={isLoading ? "Loading..." : companyProfile?.companyName ?? "NTSsign"} subtitle={isLoading ? "..." : usage?.billingPeriod ?? "Current month"} />
                 <InfoCard label="Plan" title={isLoading ? "Loading..." : usage?.planName ?? "-"} subtitle={isLoading ? "..." : usage?.isUnlimited ? "Unlimited documents" : `${usage?.documentsUsed ?? 0} used this month`} accent />
               </div>
             </div>
@@ -778,7 +780,7 @@ function DashboardOverview({
       <section className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef5ff_45%,#dbeafe_100%)] p-5 text-slate-950 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_40%,#1d4ed8_100%)] dark:text-white dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-600/70 dark:text-white/65">NoaSign</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-600/70 dark:text-white/65">NTSsign</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">{isLoading ? "Welcome" : "Welcome back"}</h1>
             <p className="mt-3 text-base text-slate-700 dark:text-white/88 md:text-lg">{isLoading ? "Loading user..." : displayName}</p>
             <div className="mt-3 text-xs font-medium uppercase tracking-[0.24em] text-slate-500 dark:text-white/55">Built by NoaTechSolutions</div>
@@ -4142,11 +4144,70 @@ function DocumentListActions({
 }
 
 function Logo() {
-  return <Link href="/dashboard" className="relative z-20 flex items-center space-x-3 py-1 text-sm font-normal text-[color:var(--text-primary)]"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--brand-secondary)] text-base font-bold text-white shadow-[var(--shadow-medium)]">N</div><motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid whitespace-pre text-left"><span className="text-base font-semibold">NoaSign</span><span className="text-[8px] font-medium uppercase tracking-[0.2em] text-[color:var(--text-muted)]">by NoaTechSolutions</span></motion.span></Link>;
+  const { resolvedTheme } = useTheme();
+  const [themeMounted, setThemeMounted] = useState(false);
+  const brandLogoSrc =
+    themeMounted && resolvedTheme === "dark"
+      ? "/ntssign-light.svg"
+      : "/ntssign-dark.svg";
+  const logoShellClass =
+    themeMounted && resolvedTheme === "dark"
+      ? "border-white/10 bg-white"
+      : "border-slate-200 bg-[#022977]";
+
+  useEffect(() => {
+    setThemeMounted(true);
+  }, []);
+
+  return (
+    <Link href="/dashboard" className="relative z-20 mx-auto flex w-full flex-col items-center justify-center gap-2 py-1 text-center text-sm font-normal text-[color:var(--text-primary)]">
+      <div className={`relative h-28 w-28 shrink-0 overflow-hidden rounded-full border shadow-[var(--shadow-medium)] ${logoShellClass}`}>
+        <NextImage
+          src={brandLogoSrc}
+          alt="NTSsign"
+          fill
+          className="object-contain p-1.5"
+          sizes="96px"
+          priority
+        />
+      </div>
+      <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid justify-items-center whitespace-pre text-center">
+        <span className="text-[8px] font-medium uppercase tracking-[0.2em] text-[color:var(--text-muted)]">by NoaTechSolutions</span>
+      </motion.span>
+    </Link>
+  );
 }
 
 function LogoIcon() {
-  return <Link href="/dashboard" className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal text-[color:var(--text-primary)]"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[color:var(--brand-secondary)] text-base font-bold text-white shadow-[var(--shadow-medium)]">N</div></Link>;
+  const { resolvedTheme } = useTheme();
+  const [themeMounted, setThemeMounted] = useState(false);
+  const brandLogoSrc =
+    themeMounted && resolvedTheme === "dark"
+      ? "/ntssign-light.svg"
+      : "/ntssign-dark.svg";
+  const logoShellClass =
+    themeMounted && resolvedTheme === "dark"
+      ? "border-white/10 bg-white"
+      : "border-slate-200 bg-[#022977]";
+
+  useEffect(() => {
+    setThemeMounted(true);
+  }, []);
+
+  return (
+    <Link href="/dashboard" className="relative z-20 mx-auto flex items-center justify-center py-1 text-sm font-normal text-[color:var(--text-primary)]">
+      <div className={`relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-full border shadow-[var(--shadow-medium)] ${logoShellClass}`}>
+        <NextImage
+          src={brandLogoSrc}
+          alt="NTSsign"
+          fill
+          className="object-contain p-1"
+          sizes="64px"
+          priority
+        />
+      </div>
+    </Link>
+  );
 }
 
 function DonutChart({ stats, billingPeriod }: { stats: ReturnType<typeof buildContractStats>; billingPeriod?: string }) {
@@ -4616,7 +4677,7 @@ function sectionTitle(section: SectionKey, companyName?: string | null) {
   if (section === "profile") return "User profile";
   if (section === "documents") return "Contract lifecycle";
   if (section === "billing") return "Usage and limits";
-  return companyName ?? "NoaSign";
+  return companyName ?? "NTSsign";
 }
 
 function joinDefined(values: Array<string | null | undefined>, separator: string) {
