@@ -48,7 +48,6 @@ import {
   X,
 } from "lucide-react";
 import { Sidebar, SidebarBody, SidebarLink } from "./ui/sidebar";
-import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 import { MasterUsersPanel } from "./master-users-panel";
 
@@ -318,6 +317,7 @@ export function DashboardSidebarDemo({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const [usersMenuOpen, setUsersMenuOpen] = useState(true);
   const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
   const [documentViewerInitialTab, setDocumentViewerInitialTab] =
@@ -387,6 +387,23 @@ export function DashboardSidebarDemo({
     }
   }, [activeSection]);
 
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!accountMenuRef.current) {
+        return;
+      }
+
+      if (!accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, []);
+
   const links = [
     { key: "dashboard" as const, label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5 shrink-0" /> },
     ...(user?.role === "MASTER"
@@ -426,7 +443,7 @@ export function DashboardSidebarDemo({
                   type="button"
                   aria-label="Close sidebar"
                   onClick={() => setOpen(false)}
-                  className="absolute right-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)]"
+                  className="absolute right-0 top-0 z-30 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#022977] bg-white text-[#022977] shadow-[0_10px_24px_rgba(2,41,119,0.12)] dark:border-[color:var(--border)] dark:bg-[color:var(--bg-elevated)] dark:text-[color:var(--text-secondary)] dark:shadow-[var(--shadow-soft)]"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -434,10 +451,7 @@ export function DashboardSidebarDemo({
             </div>
 
             <div className="mt-8">
-              <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">
-                Main menu
-              </div>
-              <div className="mt-3 flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 {links.map((link) => (
                   <div key={link.key}>
                     {user?.role === "MASTER" && link.key === "users" ? (
@@ -446,16 +460,16 @@ export function DashboardSidebarDemo({
                           type="button"
                           onClick={() => setUsersMenuOpen((current) => !current)}
                           className={cn(
-                            "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[color:var(--menu-hover)] hover:text-[color:var(--menu-text)]",
+                            "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]",
                             (activeSection === "users" || activeSection === "accountRequests") &&
-                              "bg-[color:var(--bg-elevated)] text-[color:var(--menu-text)] shadow-[var(--shadow-soft)]",
+                              "bg-[#bdd4ff] text-[#022977] shadow-[var(--shadow-soft)] dark:bg-[rgba(255,255,255,0.12)] dark:text-[color:var(--menu-text)]",
                           )}
                         >
                           <span
                             className={cn(
-                              "flex h-9 w-9 items-center justify-center rounded-xl bg-[color:var(--bg-surface)] text-[color:var(--menu-text-muted)] transition group-hover:bg-[color:var(--bg-surface-strong)] group-hover:text-[color:var(--menu-text)]",
+                              "flex h-9 w-9 items-center justify-center rounded-xl bg-[#e4efff] text-[#5574a6] transition group-hover:bg-[#bdd4ff] group-hover:text-[#022977] dark:bg-[color:var(--bg-surface)] dark:text-[color:var(--menu-text-muted)] dark:group-hover:bg-[rgba(255,255,255,0.08)] dark:group-hover:text-white",
                               (activeSection === "users" || activeSection === "accountRequests") &&
-                                "bg-[color:var(--badge-primary-bg)] text-[color:var(--brand-secondary)]",
+                                "bg-[#9fbeff] text-[#022977] dark:bg-[rgba(255,255,255,0.12)] dark:text-white",
                             )}
                           >
                             {link.icon}
@@ -479,9 +493,9 @@ export function DashboardSidebarDemo({
                                 }
                               }}
                               className={cn(
-                                "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[color:var(--menu-hover)] hover:text-[color:var(--menu-text)]",
+                                "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]",
                                 activeSection === "users" &&
-                                  "bg-[color:var(--bg-elevated)] text-[color:var(--menu-text)] shadow-[var(--shadow-soft)]",
+                                  "bg-[#bdd4ff] text-[#022977] shadow-[var(--shadow-soft)] dark:bg-[rgba(255,255,255,0.12)] dark:text-[color:var(--menu-text)]",
                               )}
                             >
                               <UserCog className="h-4 w-4" />
@@ -496,9 +510,9 @@ export function DashboardSidebarDemo({
                                 }
                               }}
                               className={cn(
-                                "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[color:var(--menu-hover)] hover:text-[color:var(--menu-text)]",
+                                "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]",
                                 activeSection === "accountRequests" &&
-                                  "bg-[color:var(--bg-elevated)] text-[color:var(--menu-text)] shadow-[var(--shadow-soft)]",
+                                  "bg-[#bdd4ff] text-[#022977] shadow-[var(--shadow-soft)] dark:bg-[rgba(255,255,255,0.12)] dark:text-[color:var(--menu-text)]",
                               )}
                             >
                               <ClipboardList className="h-4 w-4" />
@@ -529,8 +543,26 @@ export function DashboardSidebarDemo({
                 Workspace
               </div>
               <div className="mt-3 grid gap-3">
-                <InfoCard label="Company" title={isLoading ? "Loading..." : companyProfile?.companyName ?? "NTSsign"} subtitle={isLoading ? "..." : usage?.billingPeriod ?? "Current month"} />
-                <InfoCard label="Plan" title={isLoading ? "Loading..." : usage?.planName ?? "-"} subtitle={isLoading ? "..." : usage?.isUnlimited ? "Unlimited documents" : `${usage?.documentsUsed ?? 0} used this month`} accent />
+                <InfoCard
+                  label="Company"
+                  title={isLoading ? "Loading..." : companyProfile?.companyName ?? "NTSsign"}
+                  subtitle={
+                    isLoading
+                      ? "..."
+                      : [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+                          .filter(Boolean)
+                          .join(" ")
+                          .trim() || companyProfile?.contactEmail || "Primary contact not defined"
+                  }
+                />
+                <InfoCard
+                  label="Plan"
+                  title={isLoading ? "Loading..." : usage?.planName ?? "-"}
+                  subtitle={isLoading ? "..." : usage?.isUnlimited ? "Unlimited documents" : `${usage?.documentsUsed ?? 0} used this month`}
+                  accent
+                  actionLabel="Upgrade plan"
+                  onAction={() => setActiveSection("billing")}
+                />
               </div>
             </div>
           </div>
@@ -567,21 +599,17 @@ export function DashboardSidebarDemo({
                   <Menu className="h-5 w-5" />
                 </button>
               ) : null}
-              <div className="hidden min-w-0 flex-col items-start text-left sm:flex">
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">{sectionEyebrow(activeSection)}</div>
-                <div className="truncate text-sm font-medium text-[color:var(--text-primary)]">{sectionTitle(activeSection, companyProfile?.companyName)}</div>
-              </div>
+              <DashboardBreadcrumb activeSection={activeSection} className="hidden sm:flex" />
             </div>
 
-            <div className="relative shrink-0">
+            <div ref={accountMenuRef} className="relative shrink-0">
               <div className="flex items-center gap-2">
-                <ThemeToggle />
                 <button
                   type="button"
                   onClick={() => setAccountMenuOpen((current) => !current)}
                   className="inline-flex items-center gap-3 rounded-2xl px-1 py-1 transition hover:bg-[color:var(--bg-surface)]"
                 >
-                  <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-2xl text-sm shadow-[var(--shadow-soft)]" />
+                  <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-full text-sm shadow-[var(--shadow-soft)]" />
                   <div className="hidden text-left sm:block">
                     <div className="text-sm font-semibold text-[color:var(--text-primary)]">{isLoading ? "Loading..." : displayName}</div>
                     <div className="text-xs text-[color:var(--text-muted)]">{isLoading ? "..." : accountSubtitle}</div>
@@ -614,7 +642,6 @@ export function DashboardSidebarDemo({
                         setAccountMenuOpen(false);
                       }}
                     />
-                    <AccountMenuButton label="Help & support" icon={<CircleHelp className="h-4 w-4" />} />
                   </div>
                   <div className="mt-3 border-t border-[color:var(--divider)] pt-3">
                     <button type="button" onClick={onSignOut} className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-[color:var(--danger-text)] transition hover:bg-[color:var(--danger-bg)]">
@@ -766,6 +793,8 @@ function DashboardOverview({
   stats: ReturnType<typeof buildContractStats>;
   topStates: Array<{ label: string; value: number; tone: "slate" | "blue" | "cyan" | "green" | "forest" | "rose" }>;
 }) {
+  const { resolvedTheme } = useTheme();
+  const [themeMounted, setThemeMounted] = useState(false);
   const progressStates = [
     { label: "Draft", value: stats.draft, tone: "bg-slate-400" },
     { label: "Sent", value: stats.sent, tone: "bg-[#2563eb]" },
@@ -775,36 +804,54 @@ function DashboardOverview({
     { label: "Cancelled", value: stats.cancelled, tone: "bg-rose-500" },
   ] as const;
 
+  useEffect(() => {
+    setThemeMounted(true);
+  }, []);
+
+  const isDarkTheme = themeMounted && resolvedTheme === "dark";
+  const heroCardClassName = isDarkTheme
+    ? "rounded-[1.9rem] border border-white/10 bg-[linear-gradient(135deg,#0b1220_0%,#111827_40%,#1d4ed8_100%)] p-5 text-white shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8"
+    : "rounded-[1.9rem] border border-[#b7cbf3] bg-[linear-gradient(135deg,#ffffff_0%,#f7fbff_38%,#edf4ff_100%)] p-5 text-[#022977] shadow-[0_24px_70px_rgba(36,76,144,0.10)] md:p-8";
+  const activityCardClassName = isDarkTheme
+    ? "rounded-[1.9rem] border border-white/10 bg-slate-900/90 p-4 shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6"
+    : "rounded-[1.9rem] border border-[#b7cbf3] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-[0_18px_44px_rgba(36,76,144,0.06)] md:p-6";
+  const monthlyOverviewClassName = isDarkTheme
+    ? "rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)] p-5"
+    : "rounded-[1.6rem] border border-[#c8d8f6] bg-[linear-gradient(180deg,#ffffff_0%,#f6faff_100%)] p-5";
+  const statusBreakdownClassName = isDarkTheme
+    ? "rounded-[1.6rem] border border-white/10 bg-white/5 p-5"
+    : "rounded-[1.6rem] border border-[#c8d8f6] bg-[#f7faff] p-5";
+
   return (
     <>
-      <section className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef5ff_45%,#dbeafe_100%)] p-5 text-slate-950 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_40%,#1d4ed8_100%)] dark:text-white dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
+      <section className={heroCardClassName}>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-600/70 dark:text-white/65">NTSsign</div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">{isLoading ? "Welcome" : "Welcome back"}</h1>
-            <p className="mt-3 text-base text-slate-700 dark:text-white/88 md:text-lg">{isLoading ? "Loading user..." : displayName}</p>
-            <div className="mt-3 text-xs font-medium uppercase tracking-[0.24em] text-slate-500 dark:text-white/55">Built by NoaTechSolutions</div>
+            <div className={cn("text-xs font-semibold uppercase tracking-[0.28em]", isDarkTheme ? "text-white/65" : "text-[#476ca8]")}>NTSsign</div>
+            <h1 className={cn("mt-3 text-3xl font-semibold tracking-[-0.05em] md:text-5xl", isDarkTheme ? "text-white" : "text-[#022977]")}>{isLoading ? "Welcome" : "Welcome back"}</h1>
+            <p className={cn("mt-3 text-base md:text-lg", isDarkTheme ? "text-white/88" : "text-[#4c6798]")}>{isLoading ? "Loading user..." : displayName}</p>
+            <div className={cn("mt-3 text-xs font-medium uppercase tracking-[0.24em]", isDarkTheme ? "text-white/55" : "text-[#6c86b3]")}>Built by NoaTechSolutions</div>
           </div>
-          <div className="inline-flex items-center gap-3 rounded-full border border-blue-100 bg-white/90 px-4 py-3 text-slate-900 shadow-[0_10px_30px_rgba(37,99,235,0.10)] backdrop-blur dark:border-white/14 dark:bg-white/10 dark:text-white dark:shadow-none">
-            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/60">Current plan</span>
-            <span className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">{isLoading ? "Loading..." : planName ?? "-"}</span>
+          <div className={cn("inline-flex items-center gap-3 rounded-full px-4 py-3 backdrop-blur", isDarkTheme ? "border border-white/14 bg-white/10 text-white shadow-none" : "border border-[#b7cbf3] bg-white text-[#022977] shadow-[0_10px_30px_rgba(36,76,144,0.08)]")}>
+            <span className={cn("text-xs font-semibold uppercase tracking-[0.24em]", isDarkTheme ? "text-white/60" : "text-[#6c86b3]")}>Current plan</span>
+            <span className={cn("rounded-full px-4 py-2 text-sm font-semibold text-white", isDarkTheme ? "bg-[#2563eb] shadow-[0_10px_24px_rgba(37,99,235,0.32)]" : "bg-[#2563eb] shadow-[0_10px_24px_rgba(37,99,235,0.24)]")}>{isLoading ? "Loading..." : planName ?? "-"}</span>
           </div>
         </div>
       </section>
 
-      <section className="rounded-[1.9rem] border border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+      <section className={activityCardClassName}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Current month</div>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Contract activity</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">This dashboard only shows contracts from {billingPeriod ?? "the current month"}.</p>
+            <div className={cn("text-xs font-semibold uppercase tracking-[0.24em]", isDarkTheme ? "text-slate-400" : "text-[#6c86b3]")}>Current month</div>
+            <h2 className={cn("mt-2 text-2xl font-semibold tracking-[-0.04em]", isDarkTheme ? "text-white" : "text-[#022977]")}>Contract activity</h2>
+            <p className={cn("mt-2 max-w-2xl text-sm leading-6", isDarkTheme ? "text-slate-400" : "text-[#4c6798]")}>This dashboard only shows contracts from {billingPeriod ?? "the current month"}.</p>
           </div>
-          <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">{isLoading ? "Loading..." : `${stats.total} contracts this month`}</div>
+          <div className={cn("rounded-full px-4 py-2 text-sm font-medium", isDarkTheme ? "border border-white/10 bg-white/5 text-slate-300" : "border border-[#b7cbf3] bg-[#edf4ff] text-[#4c6798]")}>{isLoading ? "Loading..." : `${stats.total} contracts this month`}</div>
         </div>
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
           <div className="grid gap-4">
-            <div className="rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,#fbfdff_0%,#f4f8ff_100%)] p-5 dark:border-white/10 dark:bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)]">
+            <div className={monthlyOverviewClassName}>
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Monthly overview</div>
@@ -823,13 +870,13 @@ function DashboardOverview({
             </div>
           </div>
 
-          <div className="rounded-[1.6rem] border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
+          <div className={statusBreakdownClassName}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Status distribution</div>
                 <div className="mt-1 text-xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Current month breakdown</div>
               </div>
-              <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:bg-slate-950 dark:text-slate-400">Live</div>
+              <div className={cn("rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]", isDarkTheme ? "bg-slate-950 text-slate-400" : "bg-white text-[#6c86b3]")}>Live</div>
             </div>
             <div className="mt-6 space-y-4">
               {progressStates.map((state) => <ChartRow key={state.label} label={state.label} value={state.value} total={stats.total} color={state.tone} />)}
@@ -3700,10 +3747,35 @@ function DocumentViewer({
   );
 }
 
-function InfoCard({ label, title, subtitle, accent = false }: { label: string; title: string; subtitle: string; accent?: boolean }) {
+function InfoCard({
+  label,
+  title,
+  subtitle,
+  accent = false,
+  actionLabel,
+  onAction,
+}: {
+  label: string;
+  title: string;
+  subtitle: string;
+  accent?: boolean;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   return (
     <div className={cn("rounded-[1.5rem] border p-4 shadow-[var(--shadow-soft)]", accent ? "border-[color:var(--border)] bg-[linear-gradient(135deg,var(--badge-primary-bg)_0%,var(--bg-surface-strong)_100%)]" : "border-[color:var(--border)] bg-[color:var(--bg-elevated)]/85")}>
-      <div className={cn("text-[11px] font-semibold uppercase tracking-[0.28em]", accent ? "text-[color:var(--brand-accent-strong)]" : "text-[color:var(--text-muted)]")}>{label}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div className={cn("text-[11px] font-semibold uppercase tracking-[0.28em]", accent ? "text-[color:var(--brand-accent-strong)]" : "text-[color:var(--text-muted)]")}>{label}</div>
+        {actionLabel && onAction ? (
+          <button
+            type="button"
+            onClick={onAction}
+            className="inline-flex items-center justify-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+          >
+            {actionLabel}
+          </button>
+        ) : null}
+      </div>
       <div className="mt-3 text-sm font-semibold text-[color:var(--text-primary)]">{title}</div>
       <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{subtitle}</div>
     </div>
@@ -4146,12 +4218,13 @@ function DocumentListActions({
 function Logo() {
   const { resolvedTheme } = useTheme();
   const [themeMounted, setThemeMounted] = useState(false);
+  const isDarkTheme = themeMounted && resolvedTheme === "dark";
   const brandLogoSrc =
-    themeMounted && resolvedTheme === "dark"
+    isDarkTheme
       ? "/ntssign-light.svg"
       : "/ntssign-dark.svg";
   const logoShellClass =
-    themeMounted && resolvedTheme === "dark"
+    isDarkTheme
       ? "border-white/10 bg-white"
       : "border-slate-200 bg-[#022977]";
 
@@ -4172,7 +4245,14 @@ function Logo() {
         />
       </div>
       <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid justify-items-center whitespace-pre text-center">
-        <span className="text-[8px] font-medium uppercase tracking-[0.2em] text-[color:var(--text-muted)]">by NoaTechSolutions</span>
+        <span
+          className={cn(
+            "text-[8px] uppercase tracking-[0.2em]",
+            isDarkTheme ? "text-[color:var(--text-muted)]" : "text-[#022977]",
+          )}
+        >
+          by <span className="font-semibold">NoaTechSolutions</span>
+        </span>
       </motion.span>
     </Link>
   );
@@ -4678,6 +4758,69 @@ function sectionTitle(section: SectionKey, companyName?: string | null) {
   if (section === "documents") return "Contract lifecycle";
   if (section === "billing") return "Usage and limits";
   return companyName ?? "NTSsign";
+}
+
+function breadcrumbItems(section: SectionKey) {
+  if (section === "users") {
+    return ["User control", "Members"];
+  }
+
+  if (section === "accountRequests") {
+    return ["User control", "Access requests"];
+  }
+
+  if (section === "documents") {
+    return ["Workspace", "Documents"];
+  }
+
+  if (section === "profile") {
+    return ["Workspace", "Profile"];
+  }
+
+  if (section === "billing") {
+    return ["Workspace", "Billing"];
+  }
+
+  return ["Workspace", "Dashboard"];
+}
+
+function DashboardBreadcrumb({
+  activeSection,
+  className,
+}: {
+  activeSection: SectionKey;
+  className?: string;
+}) {
+  const items = breadcrumbItems(activeSection);
+
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className={cn("min-w-0 items-center gap-2 text-sm", className)}
+    >
+      {items.map((item, index) => {
+        const isLast = index === items.length - 1;
+
+        return (
+          <div key={`${item}-${index}`} className="flex min-w-0 items-center gap-2">
+            {index > 0 ? (
+              <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+            ) : null}
+            <span
+              className={cn(
+                "truncate",
+                isLast
+                  ? "font-semibold text-[color:var(--text-primary)]"
+                  : "text-[color:var(--text-muted)]",
+              )}
+            >
+              {item}
+            </span>
+          </div>
+        );
+      })}
+    </nav>
+  );
 }
 
 function joinDefined(values: Array<string | null | undefined>, separator: string) {

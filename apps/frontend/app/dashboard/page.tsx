@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import {
@@ -245,6 +246,7 @@ type UpdateAccountRequestResponse = {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { setTheme } = useTheme();
   const [user, setUser] = useState<StoredUser | null>(null);
   const [dashboardUser, setDashboardUser] = useState<DashboardUser | null>(null);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
@@ -334,6 +336,10 @@ export default function DashboardPage() {
       setIsDocumentDetailLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    setTheme("dark");
+  }, [setTheme]);
 
   useEffect(() => {
     function syncUser() {

@@ -1,6 +1,7 @@
 "use client";
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
 type SidebarContextProps = {
@@ -64,9 +65,23 @@ export function SidebarLink({
   active = false,
   className,
 }: SidebarLinkProps) {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted && resolvedTheme === "dark";
+  const isLightActive = !isDark && active;
+  const isLightHovered = !isDark && isHovered;
+
   return (
     <a
       href={href}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={(event) => {
         if (onClick) {
           event.preventDefault();
@@ -74,18 +89,34 @@ export function SidebarLink({
         }
       }}
       className={cn(
-        "group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[color:var(--menu-hover)] hover:text-[color:var(--menu-text)]",
+        "group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-[color:var(--menu-text-muted)] transition dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]",
         active &&
-          "bg-[color:var(--bg-elevated)] text-[color:var(--menu-text)] shadow-[var(--shadow-soft)]",
+          "shadow-[var(--shadow-soft)] dark:bg-[rgba(255,255,255,0.12)] dark:text-[color:var(--menu-text)]",
         className,
       )}
+      style={
+        !isDark
+          ? {
+              backgroundColor: isLightActive ? "#bdd4ff" : isLightHovered ? "#d8e6ff" : "transparent",
+              color: isLightActive || isLightHovered ? "#022977" : undefined,
+            }
+          : undefined
+      }
     >
       <span
         className={cn(
-          "flex h-9 w-9 items-center justify-center rounded-xl bg-[color:var(--bg-surface)] text-[color:var(--menu-text-muted)] transition group-hover:bg-[color:var(--bg-surface-strong)] group-hover:text-[color:var(--menu-text)]",
+          "flex h-9 w-9 items-center justify-center rounded-xl transition dark:bg-[color:var(--bg-surface)] dark:text-[color:var(--menu-text-muted)] dark:group-hover:bg-[rgba(255,255,255,0.08)] dark:group-hover:text-white",
           active &&
-            "bg-[color:var(--badge-primary-bg)] text-[color:var(--brand-secondary)]",
+            "dark:bg-[rgba(255,255,255,0.12)] dark:text-white",
         )}
+        style={
+          !isDark
+            ? {
+                backgroundColor: isLightActive ? "#9fbeff" : isLightHovered ? "#bdd4ff" : "#e4efff",
+                color: isLightActive || isLightHovered ? "#022977" : "#5574a6",
+              }
+            : undefined
+        }
       >
         {link.icon}
       </span>
