@@ -168,9 +168,10 @@ export class UsersService {
 
   async createUser(requesterId: string, body: CreateUserDto) {
     const requester = await this.getMasterRequester(requesterId);
+    const normalizedEmail = body.email.trim().toLowerCase();
 
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: body.email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
@@ -181,7 +182,7 @@ export class UsersService {
     const createdUser = await this.prisma.user.create({
       data: {
         companyProfileId: requester.companyProfileId,
-        email: body.email,
+        email: normalizedEmail,
         passwordHash,
         mustChangePassword: false,
         role: body.role ?? UserRole.USER,
@@ -208,9 +209,11 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (body.email && body.email !== targetUser.email) {
+    const normalizedEmail = body.email?.trim().toLowerCase();
+
+    if (normalizedEmail && normalizedEmail !== targetUser.email) {
       const existingUser = await this.prisma.user.findUnique({
-        where: { email: body.email },
+        where: { email: normalizedEmail },
       });
 
       if (existingUser && existingUser.id !== targetUser.id) {
@@ -232,7 +235,7 @@ export class UsersService {
     const updatedUser = await this.prisma.user.update({
       where: { id: targetUser.id },
       data: {
-        email: body.email,
+        email: normalizedEmail,
         role: body.role,
         status: body.status,
       },

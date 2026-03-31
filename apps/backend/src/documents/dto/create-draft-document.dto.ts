@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsObject, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateDraftDocumentDto {
   @IsUUID()
@@ -7,8 +7,9 @@ export class CreateDraftDocumentDto {
   @IsUUID()
   formDefinitionId: string;
 
+  @IsOptional()
   @IsUUID()
-  pandadocTemplateId: string;
+  signatureTemplateId?: string;
 
   @IsObject()
   @IsNotEmpty()

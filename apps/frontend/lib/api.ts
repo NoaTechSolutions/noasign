@@ -1,20 +1,7 @@
 import { clearSession } from "./auth-storage";
+import { API_URL } from "./api-url";
 
-function resolveApiUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-
-  if (configuredUrl) {
-    return configuredUrl.replace(/\/$/, "");
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return "http://127.0.0.1:3000";
-  }
-
-  throw new Error("NEXT_PUBLIC_API_URL is required in production");
-}
-
-export const API_URL = resolveApiUrl();
+export { API_URL };
 
 function handleUnauthorized() {
   if (typeof window === "undefined") {
@@ -29,26 +16,20 @@ function handleUnauthorized() {
 }
 
 type RequestOptions = {
-  token?: string;
   method?: string;
   body?: unknown;
 };
 
 export async function apiRequest<T>(
   path: string,
-  { token, method = "GET", body }: RequestOptions = {},
+  { method = "GET", body }: RequestOptions = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   const response = await fetch(`${API_URL}${path}`, {
     method,
-    headers,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
 

@@ -7,7 +7,7 @@ async function main() {
   const userEmail =
     process.env.LOCAL_USER_EMAIL || 'ana.martinez@worldpaversco.test';
 
-  const [masterUser, normalUser, contractType, formDefinition, pandaTemplate] =
+  const [masterUser, normalUser, contractType, formDefinition, signatureTemplate] =
     await Promise.all([
       prisma.user.findUnique({ where: { email: masterEmail } }),
       prisma.user.findUnique({ where: { email: userEmail } }),
@@ -15,12 +15,12 @@ async function main() {
       prisma.formDefinition.findUnique({
         where: { id: '55bf672d-f307-46df-abe7-f2f7b9ca653c' },
       }),
-      prisma.pandaDocTemplate.findUnique({
+      prisma.signatureTemplate.findUnique({
         where: { id: '2b549fa1-82a5-41b2-87ad-45796a3626f6' },
       }),
     ]);
 
-  if (!masterUser || !normalUser || !contractType || !formDefinition || !pandaTemplate) {
+  if (!masterUser || !normalUser || !contractType || !formDefinition || !signatureTemplate) {
     throw new Error('Missing local bootstrap data. Run npm run bootstrap:local first.');
   }
 
@@ -196,7 +196,7 @@ async function main() {
         companyProfileId: item.companyProfileId,
         documentTypeId: contractType.id,
         formDefinitionId: formDefinition.id,
-        pandadocTemplateId: pandaTemplate.id,
+        signatureTemplateId: signatureTemplate.id,
         status: item.status,
         contractDate: item.contractDate,
         sentAt: item.sentAt ?? null,

@@ -1,54 +1,65 @@
 # NTSsign Price List
 
-## What NTSsign includes
+## Why NTSsign
 
-NTSsign helps your business:
+NTSsign is built for businesses that want a document workflow that adapts to their operation.
 
-- create contracts and business documents faster
-- send documents for signature
-- manage templates in one workspace
-- keep signed PDFs organized
-- reduce manual back-and-forth with clients
+You are not only paying for a signature request.
+
+You are paying for:
+
+- faster document creation
+- cleaner team workflow
+- easier template management
+- one workspace for documents, users, and billing
+- signed PDFs and audit trail in one place
 
 ## Plans
 
 ### Pay As You Go
 
-Best for low-volume use.
+Best for occasional use.
 
 - `USD 15` per document
-- No monthly commitment
-- Includes:
-  - document creation
+- no monthly commitment
+- includes:
+  - create document
   - send for signature
   - signed PDF access
+  - audit trail access
 
-### Starter
+### Launch
 
-Best for businesses with one main document workflow.
+Best for solo operators and one main workflow.
 
 - `USD 39/month`
-- Up to `10` documents per month
+- up to `5` documents per month
+- `1` internal user
 - `1` active template
-- Basic support
+- dashboard and billing visibility
+- extra documents: `USD 7` each
 
 ### Growth
 
-Best for businesses with recurring document activity.
+Best for small teams that send contracts every month.
 
-- `USD 69/month`
-- Up to `25` documents per month
-- Up to `3` active templates
-- Standard support
+- `USD 79/month`
+- up to `12` documents per month
+- up to `3` internal users
+- up to `3` active templates
+- multi-workflow setup
+- extra documents: `USD 5` each
 
-### Pro
+### Scale
 
-Best for businesses with higher volume and multiple workflows.
+Best for recurring teams using NTSsign as an operational tool.
 
-- `USD 99/month`
-- Up to `50` documents per month
-- Multiple active templates
-- Priority support
+- `USD 149/month`
+- up to `25` documents per month
+- up to `8` internal users
+- up to `5` active templates
+- higher-touch support
+- extra documents: `USD 4` each
 
 ## Additional services
 
@@ -56,35 +67,34 @@ Best for businesses with higher volume and multiple workflows.
 
 If you already have a contract and want it adapted into NTSsign:
 
-- from `USD 99`
+- from `USD 149`
 
 ### Additional templates
 
-For additional document workflows:
+For extra document workflows:
 
-- from `USD 79`
+- from `USD 99`
 
-## Why NTSsign
+### Workflow onboarding
 
-- faster contract creation
-- cleaner process for your team
-- better client experience
-- reusable templates
-- signed documents in one place
-- workspace built for your business workflow
+For team setup, process setup, and rollout support:
 
-## Recommended starting point
+- from `USD 149`
 
-If you are testing the platform:
+## Planned premium upgrades
 
-- start with `Pay As You Go`
+As NTSsign grows, higher plans will unlock:
 
-If you create documents every month:
-
-- start with `Starter` or `Growth`
+- saved customer directory
+- reusable customer records
+- customer history and notes
+- reminder automations
+- reporting and analytics
+- stronger white-labeling
 
 ## Notes
 
-- Monthly plans include document limits
-- Additional usage may be billed separately
-- Template setup is quoted based on complexity
+- monthly plans include document limits
+- extra usage may be billed separately
+- template setup is quoted based on complexity
+- some advanced workflow features may be released first in higher plans

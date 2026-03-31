@@ -7,7 +7,7 @@ NTSsign is a SaaS platform for creating, managing, sending, and tracking busines
 The current product is focused on:
 
 - document generation from internal forms
-- PandaDoc-based sending and signing
+- BoldSign-based sending and signing
 - signed PDF access
 - customer/workspace management
 - profile and company data management
@@ -158,8 +158,8 @@ Standard users can:
 The current workflow supports:
 
 - draft creation
-- send to PandaDoc
-- status sync
+- send to BoldSign
+- automatic status sync through callbacks
 - signed/final PDF access
 
 Statuses currently used include:
@@ -171,19 +171,19 @@ Statuses currently used include:
 - COMPLETED
 - CANCELLED
 
-## PandaDoc integration
+## BoldSign integration
 
 The current implementation supports:
 
 - template-based document creation
 - send to recipient
-- status synchronization
+- callback-based status synchronization
 - final PDF retrieval
 
 For local development:
 
-- automatic status changes do not happen unless a manual sync is used
-- this is because local webhook delivery is not public by default
+- automatic status changes require a public `https://` callback URL
+- local callback testing needs a tunnel such as `ngrok`
 
 For staging:
 
@@ -204,21 +204,29 @@ The request is stored in the database and can later be reviewed by master users.
 
 ## Product strengths today
 
-- polished login experience
-- guided document creation
-- role-based behavior
-- signed PDF preview/download
-- usable staging environment
+- polished login and onboarding experience
+- guided document creation workflow
+- role-based workspace behavior
+- team user management for master users
+- account request intake and review
+- billing and usage visibility
+- signed PDF preview and download
+- callback-based status automation
 - customer-ready demo flow
 
 ## Planned improvements
 
-- production deployment
+- saved customer directory
+- reusable customer records across documents
+- customer notes and customer-level history
 - stronger pricing and billing enforcement
 - more template and document-type support
+- reminder automations
+- approval checkpoints before send
+- richer reporting and document analytics
 - deeper white-labeling
 - embedded signing options
-- richer document analytics
+- longer-term move toward a more proprietary signature layer
 
 ## Operational guidance
 

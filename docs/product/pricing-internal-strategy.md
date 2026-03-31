@@ -5,25 +5,25 @@
 The pricing model must:
 
 - protect margin
-- keep entry accessible for small contractors
-- avoid unlimited usage at this stage
-- charge separately for template work
-- support future upsell into higher-value plans
+- keep entry accessible for small contractors and service businesses
+- avoid unlimited risk while running on BoldSign Enterprise API
+- charge separately for setup and template work
+- create room for future upsell based on workflow value, not just signature count
 
 ## Current business context
 
-Current assumptions:
+Current realities:
 
-- first paying customer may start around `USD 35/month`
-- there are at least `3` more prospects not yet closed
-- PandaDoc and future infrastructure costs can compress margin quickly
-- the product already delivers more than just eSignature
+- provider capacity is limited
+- the product already delivers more than just signature
+- setup and adaptation work has real labor cost
+- higher-value plans should be tied to workflow features, not only volume
 
 This means:
 
-- founder pricing can be used temporarily
-- new customers should not be anchored too low
-- template onboarding must not be given away by default
+- the public offer must stay conservative
+- higher tiers should unlock more operational value
+- roadmap features can help justify future upgrades
 
 ## Revenue model
 
@@ -31,57 +31,80 @@ Use three revenue layers:
 
 ### 1. Subscription
 
-Use subscription for predictable recurring revenue.
+Suggested public plans:
 
-Suggested plans:
-
-- `Starter`: `USD 39/month`
-- `Growth`: `USD 69/month`
-- `Pro`: `USD 99/month`
+- `Launch`: `USD 39/month`
+- `Growth`: `USD 79/month`
+- `Scale`: `USD 149/month`
 
 ### 2. Usage overage
 
-Use overage pricing to avoid unlimited risk.
-
 Suggested overages:
 
-- `Starter`: `USD 4` per extra document
-- `Growth`: `USD 3` per extra document
-- `Pro`: `USD 2` per extra document
+- `Launch`: `USD 7` per extra document
+- `Growth`: `USD 5` per extra document
+- `Scale`: `USD 4` per extra document
 
 ### 3. Setup and implementation
 
-This is critical for margin.
-
 Suggested implementation charges:
 
-- simple template: `USD 99`
-- medium template: `USD 149`
-- complex template: `USD 199` to `USD 349`
-- extra template: `USD 79` to `USD 149`
+- simple template: `USD 149`
+- medium template: `USD 199`
+- complex template: `USD 249` to `USD 399`
+- extra template: `USD 99` to `USD 149`
+- workflow onboarding: `USD 149` to `USD 499`
 
-## Founder pricing rules
+## Product packaging logic
 
-Founder pricing should be treated as temporary and limited.
+The plans should scale by business maturity:
 
-Rules:
+### Launch
 
-- use only for early proof customers
-- always define document limits
-- always define template limits
-- mark internally as beta/founder pricing
-- do not use founder pricing as the default public offer
+Good for:
 
-Example founder package:
+- one operator
+- one template
+- one main workflow
 
-- `USD 35/month`
-- `10` documents/month
-- `1` template
-- no advanced onboarding included
+Do not include:
 
-## Recommended customer fit by plan
+- saved customer directory
+- team workflow
+- high-touch onboarding
 
-### Pay As You Go
+### Growth
+
+Good for:
+
+- small teams
+- multiple templates
+- recurring document volume
+
+Use this as the default sales target for qualified customers.
+
+This is the first tier where we can introduce:
+
+- saved customer directory
+- reusable customer records
+- customer history and notes
+
+### Scale
+
+Good for:
+
+- recurring teams using NTSsign operationally
+- customers who need more support and more user seats
+- customers who can later justify higher-value workflow features
+
+This is the best tier for releasing roadmap premium features first:
+
+- reminder automations
+- reporting and analytics
+- approval gates
+- richer workflow packs
+
+## Pay As You Go role
 
 Use when:
 
@@ -89,106 +112,93 @@ Use when:
 - the customer resists monthly commitment
 - the customer is still evaluating the service
 
-Risk:
+Suggested offer:
 
-- lower retention
-- less predictable revenue
+- `USD 15` per document
 
-### Starter
+Includes only the core signature workflow:
 
-Use when:
+- document creation
+- send for signature
+- signed PDF
+- audit trail
 
-- the customer has a recurring but small contract flow
-- one main template is enough
+It should not include:
 
-### Growth
+- setup work
+- saved customer directory
+- team workflow features
 
-Use when:
+## Founder pricing guardrails
 
-- the customer uses multiple document types
-- the customer needs recurring monthly workflow
-- this should be the main target plan for most qualified customers
+Founder pricing should be temporary and controlled.
 
-### Pro
+Rules:
 
-Use when:
+- use only for strategic early customers
+- define document limits clearly
+- define template limits clearly
+- never give away setup, monthly discount, and overage discount all at once
 
-- the customer depends on document automation more heavily
-- the customer needs more templates and more support
+Safer founder example:
+
+- `USD 35/month`
+- up to `5` documents/month
+- `1` template
+- no included setup work
 
 ## Negotiation guardrails
 
-Do not discount all three of these at once:
+Do not discount all of these together:
 
 - monthly subscription
-- template setup fee
+- setup fee
 - overage pricing
 
-If you discount one, protect the others.
+Better options:
 
-Safer negotiation patterns:
-
-- lower setup fee, keep monthly plan intact
-- founder monthly price, but strict document cap
-- first template included, additional templates charged
+- waive part of setup, keep subscription
+- founder price, but tight usage cap
+- include first template, charge additional templates
 
 Avoid:
 
-- unlimited documents at low price
-- free custom template work with low monthly fee
-- long-term custom commitments before product maturity
+- unlimited documents at low monthly price
+- large template promises on Essentials capacity
+- selling roadmap items as if already shipped
 
-## Suggested commercial offers
+## Roadmap-based upsells
 
-### Offer A: Easy entry
+These are good upgrade triggers once released:
 
-- `Pay As You Go`
-- `USD 15` per document
-- template setup billed separately
+- saved customer directory
+- reusable customer records
+- customer notes and history
+- workflow reminders
+- team approvals
+- analytics and reporting
+- stronger white-labeling
+- deeper onboarding services
 
-### Offer B: Beta founder
+## Core sales message
 
-- `USD 35/month`
-- up to `10` documents/month
-- `1` template
-- no included extra template work
+Internally, always anchor on this:
 
-### Offer C: Standard recurring
+- NoaSign is not a commodity signature request
+- NoaSign is a workflow layer that adapts to the client's way of operating
+- the customer pays for speed, organization, setup, and control
 
-- `USD 69/month`
-- up to `25` documents/month
-- up to `3` templates
-- best fit for real operating customer
-
-## Margin thinking
-
-At this stage, do not assume PandaDoc or infrastructure costs are negligible.
-
-Operationally:
-
-- subscription must cover baseline platform cost
-- overages help protect heavy usage
-- setup fees cover implementation work
-
-If a client pays only `USD 35/month`, keep them inside a tightly limited plan.
-
-## Recommended public pricing direction
+## Recommended public offer
 
 Publicly communicate:
 
 - `Pay As You Go`
-- `Starter`
+- `Launch`
 - `Growth`
-- `Pro`
+- `Scale`
 
-Internally keep:
+Internally reserve:
 
-- founder pricing only when strategically useful
-
-## Recommended next steps
-
-- validate pricing with current customer
-- present `Growth` as the normal business plan
-- use founder pricing only when needed to close an early account
-- charge template integration every time unless strategically waived
-- review actual monthly usage once more customers are active
+- founder discounts
+- custom enterprise quotes
+- roadmap-based premium upgrade paths

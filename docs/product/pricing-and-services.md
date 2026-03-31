@@ -2,208 +2,328 @@
 
 ## Positioning
 
-NTSsign is a document workflow and eSignature SaaS for contractors and service businesses that need to:
+NTSsign should not be sold as "just another signature tool".
 
-- create contracts and other business documents quickly
-- send documents for signature
-- manage templates inside a branded workspace
-- keep signed PDFs and document history organized
+The product position is:
 
-The product is designed to sell not only "signature", but also:
+- a workflow SaaS for contractors and service businesses
+- a faster and cleaner way to create business documents
+- a workspace where the company controls templates, users, documents, and billing
+- a more guided and adaptable experience than generic eSignature portals
 
-- operational speed
-- cleaner client experience
-- centralized document control
-- reusable templates
-- guided document creation
+The commercial message is:
 
-## Core services offered
+- generic tools make the client adapt to the software
+- NTSsign adapts the software to the client's workflow
+- signature is only one layer of the value
 
-- document creation from guided forms
-- PandaDoc delivery and signature workflow
-- signed PDF storage and download
-- company profile and document branding
-- template-based document generation
-- workspace for documents, profile, billing, and users
-- admin/master controls for workspace management
+## Core value NTSsign delivers today
 
-## Recommended commercial model
+### Operational value
 
-Use a hybrid commercial model:
+- guided contract creation from structured forms
+- reusable templates inside one workspace
+- document tracking from draft to completed
+- signed PDF preview and download
+- company profile and sender configuration in one place
+- team and workspace controls for master users
+- billing visibility and usage tracking
+- account request flow for onboarding team members
 
-- monthly plans for active customers
+### Client-experience value
+
+- cleaner handoff than asking clients to manage a separate signature system directly
+- fewer manual errors from copy-paste workflows
+- more consistency across sent documents
+- one workspace for document history and follow-up
+
+### Commercial value
+
+- faster onboarding for customers who already have contracts
+- ability to charge for setup, template work, and support
+- room to upsell into more templates, more users, and stronger workflow automation
+
+## Roadmap value to sell carefully
+
+These are good future upsells, but they should be sold as planned or upcoming unless they are already released.
+
+- saved customer directory
+- reusable customer records across documents
+- customer notes and document history per customer
+- reminder automations
+- stronger white-labeling
+- richer reporting and analytics
+- approval flows before send
+- more document types and workflow packs
+- embedded signing or more native signing experiences
+- long-term migration toward a more proprietary signature layer
+
+## Packaging principle
+
+Use plan differentiation based on business maturity, not only document count.
+
+Small customers should get:
+
+- document creation
+- send for signature
+- final PDF access
+
+Higher plans should unlock:
+
+- more users
+- more templates
+- saved customer records
+- reusable client workflows
+- deeper onboarding and support
+
+## Recommended commercial model right now
+
+Use three revenue layers:
+
+- subscription plans for recurring customers
 - pay-per-document for low-volume customers
-- one-time onboarding/template setup fees
+- onboarding and template implementation fees
 
-This protects margin while keeping the product accessible for smaller customers.
+This is the safest model while NTSsign runs on BoldSign Enterprise API.
 
 ## Recommended plans
 
 ### Pay As You Go
 
-Best for customers with low volume who do not want a monthly plan.
+Best for:
 
-- Price: `USD 15` per document sent
-- Includes:
-  - document creation in NTSsign
-  - send for signature
-  - signed PDF download
-- Limits:
-  - no monthly bundled quota
-  - no custom onboarding included
-  - no template setup included
+- low-volume users
+- occasional contracts
+- customers who are still testing the service
 
-### Starter
+Price:
 
-Best for a small business with one main contract workflow.
+- `USD 15` per document sent
 
-- Price: `USD 39/month`
-- Includes:
-  - up to `10` documents per month
-  - `1` active template
-  - `1` main document type
-  - basic support
-- Overage:
-  - `USD 4` per extra document
+Includes:
+
+- guided document creation
+- send for signature
+- signed PDF download
+- audit trail access
+
+Does not include:
+
+- bundled monthly quota
+- saved customer directory
+- team workspace setup
+- custom onboarding
+
+### Launch
+
+Best for:
+
+- solo operators
+- businesses with one main contract workflow
+- customers who want a simple monthly plan
+
+Price:
+
+- `USD 39/month`
+
+Includes:
+
+- up to `5` documents per month
+- `1` internal user
+- `1` active template
+- `1` main document workflow
+- document dashboard
+- billing dashboard
+- signed PDF history
+
+Does not include:
+
+- saved customer directory
+- multi-user collaboration
+- advanced onboarding
+
+Overage:
+
+- `USD 7` per extra document
 
 ### Growth
 
-Best for businesses using multiple templates and moderate monthly volume.
+Best for:
 
-- Price: `USD 69/month`
-- Includes:
-  - up to `25` documents per month
-  - up to `3` active templates
-  - multiple document types
-  - standard support
-- Overage:
-  - `USD 3` per extra document
+- small teams sending contracts every month
+- companies that need multiple templates
+- customers who want the SaaS to remember recurring client information
 
-### Pro
+Price:
 
-Best for teams with recurring document flow and more operational dependency on the platform.
+- `USD 79/month`
 
-- Price: `USD 99/month`
-- Includes:
-  - up to `50` documents per month
-  - multiple active templates
-  - more advanced setup flexibility
-  - priority support
-- Overage:
-  - `USD 2` per extra document
+Includes:
 
-## Suggested onboarding and template fees
+- up to `12` documents per month
+- up to `3` internal users
+- up to `3` active templates
+- multiple document types
+- account-request and member management
+- standard onboarding support
 
-These should be charged separately from the monthly plan.
+Planned / premium roadmap for this tier:
+
+- saved customer directory
+- reusable customer records
+- customer notes and customer-level history
+
+Overage:
+
+- `USD 5` per extra document
+
+### Scale
+
+Best for:
+
+- recurring teams using NTSsign as an operational workspace
+- businesses with several sales or admin users
+- customers who need more structure, more setup, and more support
+
+Price:
+
+- `USD 149/month`
+
+Includes:
+
+- up to `25` documents per month
+- up to `8` internal users
+- up to `5` active templates
+- faster onboarding help
+- higher-touch support
+- stronger workflow configuration help
+
+Planned / premium roadmap for this tier:
+
+- saved customer directory
+- reusable customer records
+- reminder automations
+- reporting and analytics
+- richer document workflow packs
+- approval checkpoints before send
+
+Overage:
+
+- `USD 4` per extra document
+
+### Custom / High Volume
+
+Best for:
+
+- customers with higher monthly volume
+- customers that need more implementation support
+- customers who want deeper workflow adaptation
+
+Price:
+
+- custom quote
+
+Use this only when:
+
+- the customer volume exceeds what Essentials can support comfortably
+- the customer expects implementation beyond standard setup
+- the customer is likely to justify an upgrade in provider cost later
+
+## Feature ladder by plan
+
+### Included today
+
+| Capability | Pay As You Go | Launch | Growth | Scale |
+| --- | --- | --- | --- | --- |
+| Guided document creation | Yes | Yes | Yes | Yes |
+| Send for signature | Yes | Yes | Yes | Yes |
+| Signed PDF download | Yes | Yes | Yes | Yes |
+| Audit trail access | Yes | Yes | Yes | Yes |
+| Workspace dashboard | Limited | Yes | Yes | Yes |
+| Billing visibility | No | Yes | Yes | Yes |
+| Team user management | No | No | Yes | Yes |
+| Account request review | No | No | Yes | Yes |
+| Multiple templates | No | No | Yes | Yes |
+
+### Planned premium roadmap
+
+| Capability | Pay As You Go | Launch | Growth | Scale |
+| --- | --- | --- | --- | --- |
+| Saved customer directory | No | No | Planned | Planned |
+| Reusable customer records | No | No | Planned | Planned |
+| Customer-level history | No | No | Planned | Planned |
+| Reminder automations | No | No | Planned | Planned |
+| Analytics and reporting | No | No | Planned | Planned |
+| Approval flow before send | No | No | Planned | Planned |
+| Stronger white-labeling | No | No | Future add-on | Future add-on |
+
+## Suggested onboarding and implementation fees
+
+These should stay separate from the monthly plan.
 
 ### Template setup
 
-- Simple template setup: `USD 99`
-- Medium complexity template setup: `USD 149`
-- Complex template setup: `USD 199` to `USD 349`
+- simple template setup: `USD 149`
+- medium complexity template setup: `USD 199`
+- complex template setup: `USD 249` to `USD 399`
 
 ### Additional templates
 
-- Additional template: `USD 79` to `USD 149`
+- additional template: `USD 99` to `USD 149`
 
-### Contract upload and SaaS integration
+### Existing contract adaptation
 
-Use this when the client already has an existing contract and wants it adapted into NTSsign.
+Use this when the customer already has a contract and wants it adapted into NTSsign.
 
-- Base integration fee: `USD 99`
-- More complex adaptation: `USD 149` to `USD 249`
+- base adaptation fee: `USD 149`
+- more complex adaptation: `USD 199` to `USD 299`
 
-## Founder / beta pricing guidance
+### Workflow onboarding
 
-For early customers, use founder pricing with clear limits.
+Use this when the customer wants help setting up their internal process, users, templates, and rollout.
 
-Example:
-
-- Founder plan: `USD 35/month`
-- Up to `10` documents per month
-- `1` template
-- special beta pricing
-- subject to price increase for new customers
-
-This allows early adoption without locking the business into underpriced long-term contracts.
-
-## Recommended sales approach
-
-### For low-volume customers
-
-Offer:
-
-- Pay As You Go
-
-Reason:
-
-- easy entry
-- no commitment objection
-- still preserves unit economics
-
-### For recurring contract customers
-
-Offer:
-
-- Starter
-- Growth
-
-Reason:
-
-- predictable revenue
-- better retention
-- easier upsell path
-
-### For customers needing multiple document types
-
-Offer:
-
-- Growth or Pro
-
-Document types can include:
-
-- contracts
-- invoices
-- proposals
-- quotes
-- work orders
+- basic onboarding package: `USD 149`
+- team onboarding package: `USD 249` to `USD 499`
 
 ## Competitive positioning
 
-Compared with generic eSignature tools, NTSsign offers:
+Compared with DocuSign, BoldSign, or other generic signature portals, NTSsign should be positioned as:
 
-- workflow built around contractor-style documents
-- guided field-based document creation
-- company-specific templates inside the SaaS
-- simpler experience for smaller businesses
-- operational control from one workspace
+- simpler for the client's exact workflow
+- more guided for non-technical teams
+- more adaptable for small and medium operators
+- easier to package with onboarding and template support
 
-Compared with sending documents directly from PandaDoc, NTSsign gives:
+The message is not:
 
-- your own SaaS layer
-- customer-specific workspace
-- business logic and permissions
-- branded workflow around your service
-- opportunity to bundle templates, onboarding, and support
+- "we are cheaper because signature is cheaper"
+
+The message is:
+
+- "we save time, reduce friction, and adapt to how your business actually works"
+
+## Sales message that should stay consistent
+
+Use language like this:
+
+- NTSsign is the workspace your team uses before and after the signature
+- we help adapt the process to your operation
+- your business should not have to adapt to a generic portal
+- you are paying for workflow, control, setup, and operational speed, not only for a digital signature event
 
 ## Recommended pricing strategy right now
 
-For the current stage of the project:
+For the current stage:
 
-- keep founder pricing only for the earliest customers
-- do not offer unlimited documents yet
-- charge template setup separately
-- protect margins with overage pricing
-- use Growth as the main target plan for most real customers
+- keep `Pay As You Go` for low-friction entry
+- make `Growth` the main target plan
+- use `Scale` for customers that need more users and more operational handholding
+- do not offer unlimited plans yet
+- do not promise white-label or advanced automation as already included if they are still roadmap
 
 ## Internal notes
 
-- Do not position NTSsign as "just signature"
-- Sell speed, order, professionalism, and operational control
-- Price increases should happen after the beta phase
-- Future premium upsells can include:
-  - embedded signing
-  - stronger white-labeling
-  - more templates
-  - custom onboarding
-  - reporting
+- sell workflow adaptation, not only signature
+- protect margin with setup fees and overage pricing
+- use roadmap features as upgrade conversation, not as fake current functionality
+- move customers into larger plans when they need saved customer records, more users, and more structured operations

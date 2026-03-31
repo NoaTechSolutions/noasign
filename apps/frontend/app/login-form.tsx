@@ -17,10 +17,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { API_URL, apiRequest } from "../lib/api";
-import { getStoredToken, getStoredUser, persistSession } from "../lib/auth-storage";
+import { getStoredUser, persistSession, updateStoredUser } from "../lib/auth-storage";
 
 type LoginResponse = {
-  accessToken: string;
   user: {
     id: string;
     companyProfileId: string | null;
@@ -143,13 +142,10 @@ export function LoginForm() {
   const [isSubmittingResetPassword, setIsSubmittingResetPassword] = useState(false);
   const [accountRequestSuccess, setAccountRequestSuccess] = useState("");
   const [resetToken, setResetToken] = useState("");
-  const [themeMounted, setThemeMounted] = useState(false);
-
-  const loginLogoSrc =
-    themeMounted && resolvedTheme === "dark"
-      ? "/ntssign-login.svg"
-      : "/ntssign-login-light.svg";
-  const isDarkTheme = themeMounted && resolvedTheme === "dark";
+  const isDarkTheme = resolvedTheme !== "light";
+  const loginLogoSrc = isDarkTheme
+    ? "/ntssign-login.svg"
+    : "/ntssign-login-light.svg";
   const authCardClassName = isDarkTheme
     ? "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--border-strong)] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[var(--shadow-medium)] md:gap-5 md:p-7 lg:p-7"
     : "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[#022977] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[0_18px_50px_rgba(2,41,119,0.12)] md:gap-5 md:p-7 lg:p-7";
@@ -167,10 +163,6 @@ export function LoginForm() {
         : "border-[#022977] bg-white text-[color:var(--text-primary)] hover:bg-[#f5f8ff]";
 
   useEffect(() => {
-    setThemeMounted(true);
-  }, []);
-
-  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -181,22 +173,8 @@ export function LoginForm() {
   }, []);
 
   useEffect(() => {
-    const token = getStoredToken();
-    const storedUser = getStoredUser();
-
-    if (token && storedUser?.mustChangePassword) {
-      setEmail(storedUser.email);
-      setActiveView("forcePasswordChange");
-      return;
-    }
-
     if (resetToken) {
       setActiveView("resetPassword");
-      return;
-    }
-
-    if (token) {
-      router.replace("/dashboard");
     }
   }, [resetToken, router]);
 
@@ -400,6 +378,7 @@ export function LoginForm() {
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -413,13 +392,13 @@ export function LoginForm() {
         message?: string;
       };
 
-      if (!response.ok || !data.accessToken || !data.user) {
+      if (!response.ok || !data.user) {
         const message = data.message ?? "Unable to sign in";
         setLoginErrors(mapLoginApiError(message));
         return;
       }
 
-      persistSession(data.accessToken, data.user);
+      persistSession(data.user);
 
       if (data.user.mustChangePassword) {
         setForcePasswordForm({ password: "", confirmPassword: "" });
@@ -534,10 +513,9 @@ export function LoginForm() {
       return;
     }
 
-    const token = getStoredToken();
     const storedUser = getStoredUser();
 
-    if (!token || !storedUser) {
+    if (!storedUser) {
       setForcePasswordErrors({
         form: "Your session expired. Please sign in again.",
       });
@@ -551,13 +529,12 @@ export function LoginForm() {
     try {
       await apiRequest<{ message: string }>("/auth/change-password", {
         method: "POST",
-        token,
         body: {
           password: forcePasswordForm.password,
         },
       });
 
-      persistSession(token, { ...storedUser, mustChangePassword: false });
+      updateStoredUser({ ...storedUser, mustChangePassword: false });
       setForcePasswordSuccess("Password updated successfully.");
 
       startTransition(() => {

@@ -3,7 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { DocumentStatus } from '@prisma/client';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { PandaDocService } from '../pandadoc/pandadoc.service';
+import { SignatureProviderService } from '../signature-provider/signature-provider.service';
 
 const prismaMock = {
   documentType: {
@@ -13,7 +13,7 @@ const prismaMock = {
   formDefinition: {
     findUnique: jest.fn(),
   },
-  pandaDocTemplate: {
+  signatureTemplate: {
     findUnique: jest.fn(),
   },
   user: {
@@ -32,11 +32,12 @@ const prismaMock = {
   },
 };
 
-const pandaDocServiceMock = {
+const signatureProviderServiceMock = {
   createDocumentFromTemplate: jest.fn(),
   getDocumentStatus: jest.fn(),
   waitForDocumentDraft: jest.fn(),
   sendDocument: jest.fn(),
+  downloadDocumentPdf: jest.fn(),
 };
 
 describe('DocumentsService', () => {
@@ -44,7 +45,14 @@ describe('DocumentsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    Object.values(pandaDocServiceMock).forEach((mockFn) => mockFn.mockReset());
+    Object.values(signatureProviderServiceMock).forEach((mockFn) =>
+      mockFn.mockReset(),
+    );
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      role: 'MASTER',
+      companyProfileId: 'company-1',
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,8 +62,8 @@ describe('DocumentsService', () => {
           useValue: prismaMock,
         },
         {
-          provide: PandaDocService,
-          useValue: pandaDocServiceMock,
+          provide: SignatureProviderService,
+          useValue: signatureProviderServiceMock,
         },
       ],
     }).compile();
@@ -67,8 +75,10 @@ describe('DocumentsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('getDocumentTypes includes active form definitions and panda templates', async () => {
-    prismaMock.documentType.findMany.mockResolvedValue([{ id: 'type-1' }]);
+  it('getDocumentTypes includes active form definitions and signature templates', async () => {
+    prismaMock.documentType.findMany.mockResolvedValue([
+      { id: 'type-1', signatureTemplates: [{ id: 'tpl-1' }] },
+    ]);
 
     const result = await service.getDocumentTypes();
 
@@ -82,7 +92,7 @@ describe('DocumentsService', () => {
             createdAt: 'asc',
           },
         },
-        pandaTemplates: {
+        signatureTemplates: {
           where: {
             isActive: true,
           },
@@ -93,7 +103,12 @@ describe('DocumentsService', () => {
       },
       orderBy: { name: 'asc' },
     });
-    expect(result).toEqual([{ id: 'type-1' }]);
+    expect(result).toEqual([
+      {
+        id: 'type-1',
+        signatureTemplates: [{ id: 'tpl-1' }],
+      },
+    ]);
   });
 
   it('updateDraftDocument rejects documents outside DRAFT status', async () => {
@@ -138,8 +153,8 @@ describe('DocumentsService', () => {
       formDefinition: {
         id: 'form-1',
       },
-      pandadocTemplate: {
-        pandadocTemplateId: 'tpl-1',
+      signatureTemplate: {
+        providerTemplateId: 'tpl-1',
         recipientRole: 'Client',
         tokenMappingJson: null,
         fieldMappingJson: null,
@@ -176,22 +191,22 @@ describe('DocumentsService', () => {
         monthlyDocLimit: 1,
       },
     });
-    pandaDocServiceMock.createDocumentFromTemplate.mockResolvedValue({
+    signatureProviderServiceMock.createDocumentFromTemplate.mockResolvedValue({
       id: 'pd-123',
       status: 'document.uploaded',
     });
-    pandaDocServiceMock.waitForDocumentDraft.mockResolvedValue({
+    signatureProviderServiceMock.waitForDocumentDraft.mockResolvedValue({
       id: 'pd-123',
       status: 'document.draft',
     });
-    pandaDocServiceMock.sendDocument.mockResolvedValue(undefined);
+    signatureProviderServiceMock.sendDocument.mockResolvedValue(undefined);
     prismaMock.document.update.mockResolvedValue({
       id: 'doc-1',
       status: DocumentStatus.SENT,
       countedInBilling: false,
       isOverage: false,
       billingPeriod: null,
-      pandadocDocumentId: 'pd-123',
+      providerDocumentId: 'pd-123',
     });
 
     const result = await service.sendDraftDocument('user-1', 'doc-1');
@@ -203,12 +218,12 @@ describe('DocumentsService', () => {
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
-        pandadocStatus: 'document.sent',
+        providerStatus: 'document.sent',
       }),
       include: {
         documentType: true,
         formDefinition: true,
-        pandadocTemplate: true,
+        signatureTemplate: true,
         data: true,
       },
     });
@@ -251,7 +266,7 @@ describe('DocumentsService', () => {
       include: {
         documentType: true,
         formDefinition: true,
-        pandadocTemplate: true,
+        signatureTemplate: true,
         data: true,
       },
     });
@@ -273,7 +288,7 @@ describe('DocumentsService', () => {
       countedInBilling: false,
       isOverage: false,
       billingPeriod: null,
-      pandadocDocumentId: null,
+      providerDocumentId: null,
     });
 
     const result = await service.reactivateDocument('user-1', 'doc-3');
@@ -287,9 +302,10 @@ describe('DocumentsService', () => {
         viewedAt: null,
         signedAt: null,
         completedAt: null,
-        pandadocDocumentId: null,
-        pandadocStatus: null,
-        pandadocLastSyncedAt: null,
+        providerDocumentId: null,
+        providerStatus: null,
+        providerLastSyncedAt: null,
+        lastManualReminderAt: null,
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
@@ -297,7 +313,7 @@ describe('DocumentsService', () => {
       include: {
         documentType: true,
         formDefinition: true,
-        pandadocTemplate: true,
+        signatureTemplate: true,
         data: true,
       },
     });
@@ -346,7 +362,7 @@ describe('DocumentsService', () => {
       include: {
         documentType: true,
         formDefinition: true,
-        pandadocTemplate: true,
+        signatureTemplate: true,
         data: true,
       },
     });

@@ -38,9 +38,13 @@ JWT_SECRET=replace-with-a-local-dev-secret
 JWT_EXPIRES_IN=86400
 PORT=3000
 HOST=127.0.0.1
-PANDADOC_API_KEY=replace-with-your-pandadoc-sandbox-key
-PANDADOC_BASE_URL=https://api.pandadoc.com/public/v1
-PANDADOC_WEBHOOK_SHARED_KEY=replace-with-your-pandadoc-webhook-shared-key
+SIGNATURE_PROVIDER=boldsign
+BOLDSIGN_API_KEY=replace-with-your-boldsign-api-key
+BOLDSIGN_BASE_URL=https://api.boldsign.com
+BOLDSIGN_WEBHOOK_SECRET=
+BOLDSIGN_BRAND_ID=
+BACKEND_URL=
+BOLDSIGN_CALLBACK_URL=
 ```
 
 ## 4. Set frontend local env
@@ -76,7 +80,21 @@ npx prisma migrate deploy
 npm run bootstrap:local
 ```
 
-This creates the `Contract` document type, form definition, and a PandaDoc template record for local testing.
+This creates the `Contract` document type, form definition, and a signature
+template record for local testing.
+
+Set `LOCAL_SIGNATURE_TEMPLATE_ID` before running the bootstrap so the seeded
+template record stores your BoldSign `template_id`.
+
+If your BoldSign template uses a signer role other than `BUYER` for the
+customer signer, also set `LOCAL_SIGNATURE_RECIPIENT_ROLE` before running the
+bootstrap. For example, a bill-of-sale template might need:
+
+```powershell
+$env:LOCAL_SIGNATURE_TEMPLATE_ID='your-boldsign-template-id'
+$env:LOCAL_SIGNATURE_RECIPIENT_ROLE='BUYER'
+npm run bootstrap:local
+```
 
 ## 7. Start the apps
 
@@ -103,4 +121,6 @@ npm run dev
 
 - Local frontend expects the backend on `127.0.0.1:3000`.
 - Local backend binds to `127.0.0.1` when `HOST=127.0.0.1`.
-- If you want to test PandaDoc end-to-end locally, keep your valid sandbox API key in `apps/backend/.env`.
+- BoldSign callbacks require a public `https://` URL. For local automatic
+  status updates, tunnel the backend with something like `ngrok` and set either
+  `BOLDSIGN_CALLBACK_URL` or `BACKEND_URL`.

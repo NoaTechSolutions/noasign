@@ -9,11 +9,15 @@
   - `DATABASE_URL`
   - `JWT_SECRET`
   - `JWT_EXPIRES_IN`
+  - `AUTH_COOKIE_DOMAIN=.ntssign.com`
   - `PORT`
   - `HOST`
-  - `PANDADOC_API_KEY`
-  - `PANDADOC_BASE_URL`
-  - `PANDADOC_WEBHOOK_SHARED_KEY`
+  - `BACKEND_URL=https://api-staging.ntssign.com`
+  - `BOLDSIGN_API_KEY`
+  - `BOLDSIGN_BASE_URL`
+  - `BOLDSIGN_WEBHOOK_SECRET`
+  - `BOLDSIGN_BRAND_ID`
+  - `BOLDSIGN_CALLBACK_URL` or rely on `BACKEND_URL`
 
 ## Frontend
 
@@ -26,3 +30,4 @@
 - Keep only `80/443/22` publicly reachable on the VM.
 - Do not rely on fallback secrets in staging or production.
 - Rotate secrets if they were ever shared in plaintext.
+- Keep `CORS_ORIGINS=https://app-staging.ntssign.com` so credentialed requests only come from the staging frontend.

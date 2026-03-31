@@ -7,6 +7,7 @@ const billingMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart
 const uniqueValue = Date.now();
 const email = `smoke.${uniqueValue}@noasign.test`;
 const password = 'secret123';
+let authCookie = '';
 
 function assert(condition, message) {
   if (!condition) {
@@ -18,6 +19,10 @@ async function request(method, path, { token, body, expectedStatus } = {}) {
   const headers = {
     'Content-Type': 'application/json',
   };
+
+  if (authCookie) {
+    headers.Cookie = authCookie;
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -31,6 +36,11 @@ async function request(method, path, { token, body, expectedStatus } = {}) {
 
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
+  const setCookie = response.headers.get('set-cookie');
+
+  if (setCookie) {
+    authCookie = setCookie.split(';')[0];
+  }
 
   if (expectedStatus && response.status !== expectedStatus) {
     throw new Error(
@@ -56,7 +66,7 @@ async function getContractFixture() {
           isActive: true,
         },
       },
-      pandaTemplates: {
+      signatureTemplates: {
         some: {
           isActive: true,
         },
@@ -71,7 +81,7 @@ async function getContractFixture() {
           createdAt: 'asc',
         },
       },
-      pandaTemplates: {
+      signatureTemplates: {
         where: {
           isActive: true,
         },
@@ -87,12 +97,15 @@ async function getContractFixture() {
 
   assert(fixture, 'No active document fixture found in database');
   assert(fixture.formDefinitions.length > 0, 'No active form definition found');
-  assert(fixture.pandaTemplates.length > 0, 'No active PandaDoc template found');
+  assert(
+    fixture.signatureTemplates.length > 0,
+    'No active signature template found',
+  );
 
   return {
     documentTypeId: fixture.id,
     formDefinitionId: fixture.formDefinitions[0].id,
-    pandadocTemplateId: fixture.pandaTemplates[0].id,
+    signatureTemplateId: fixture.signatureTemplates[0].id,
   };
 }
 
@@ -125,11 +138,7 @@ async function main() {
     },
   });
 
-  const token = loginResult.data.accessToken;
-  assert(token, 'Login did not return accessToken');
-
   const meResult = await request('GET', '/users/me', {
-    token,
     expectedStatus: 200,
   });
 
@@ -137,7 +146,6 @@ async function main() {
   assert(meResult.data.role === 'MASTER', 'GET /users/me role mismatch');
 
   const companyProfileResult = await request('GET', '/company-profile/me', {
-    token,
     expectedStatus: 200,
   });
 
@@ -147,7 +155,6 @@ async function main() {
   );
 
   const updateCompanyProfileResult = await request('PATCH', '/company-profile/me', {
-    token,
     expectedStatus: 200,
     body: {
       companyName: 'NoaSign Smoke Test LLC',
@@ -170,7 +177,6 @@ async function main() {
   );
 
   await request('PATCH', '/company-profile/me', {
-    token,
     expectedStatus: 400,
     body: {
       planName: 'PRO_UNLIMITED',
@@ -178,7 +184,6 @@ async function main() {
   });
 
   const documentTypesResult = await request('GET', '/documents/types', {
-    token,
     expectedStatus: 200,
   });
 
@@ -188,19 +193,18 @@ async function main() {
   );
 
   const createDraftResult = await request('POST', '/documents/draft', {
-    token,
     expectedStatus: 201,
     body: {
       ...fixture,
       contractDate,
       dataJson: {
-        owner_name: 'John Doe',
-        owner_email: 'john@example.com',
-        job_address: '123 Main St',
-        job_city: 'Richmond',
-        job_state: 'CA',
-        contract_price: '15000',
-        project_description: 'Concrete and paver installation',
+        customer_name: 'John Doe',
+        customer_email: 'john@example.com',
+        customer_address: '123 Main St',
+        city: 'Richmond',
+        state: 'CA',
+        zip: '94801',
+        contact_full_name: 'Smoke Tester',
       },
     },
   });
@@ -209,7 +213,6 @@ async function main() {
   assert(createDraftResult.data.document.status === 'DRAFT', 'Draft status mismatch');
 
   const myDocumentsResult = await request('GET', '/documents/my-documents', {
-    token,
     expectedStatus: 200,
   });
 
@@ -219,7 +222,6 @@ async function main() {
   );
 
   const detailResult = await request('GET', `/documents/${documentId}`, {
-    token,
     expectedStatus: 200,
   });
 
@@ -227,18 +229,17 @@ async function main() {
   assert(detailResult.data.versions.length >= 1, 'Document should have versions');
 
   const updateDraftResult = await request('PATCH', `/documents/${documentId}/draft`, {
-    token,
     expectedStatus: 200,
     body: {
       contractDate: updatedContractDate,
       dataJson: {
-        owner_name: 'John Doe Updated',
-        owner_email: 'john.updated@example.com',
-        job_address: '456 Market St',
-        job_city: 'Richmond',
-        job_state: 'CA',
-        contract_price: '18000',
-        project_description: 'Concrete, pavers and drainage installation',
+        customer_name: 'John Doe Updated',
+        customer_email: 'john.updated@example.com',
+        customer_address: '456 Market St',
+        city: 'Richmond',
+        state: 'CA',
+        zip: '94804',
+        contact_full_name: 'Smoke Tester',
       },
     },
   });
@@ -246,7 +247,6 @@ async function main() {
   assert(updateDraftResult.data.document.status === 'DRAFT', 'Updated draft status mismatch');
 
   const sendResult = await request('POST', `/documents/${documentId}/send`, {
-    token,
     expectedStatus: 201,
   });
 
@@ -257,7 +257,6 @@ async function main() {
     'POST',
     `/documents/${documentId}/simulate-viewed`,
     {
-      token,
       expectedStatus: 201,
     },
   );
@@ -268,7 +267,6 @@ async function main() {
     'POST',
     `/documents/${documentId}/simulate-signed`,
     {
-      token,
       expectedStatus: 201,
     },
   );
@@ -279,7 +277,6 @@ async function main() {
     'POST',
     `/documents/${documentId}/simulate-completed`,
     {
-      token,
       expectedStatus: 201,
     },
   );
@@ -290,19 +287,18 @@ async function main() {
   );
 
   const createSecondDraftResult = await request('POST', '/documents/draft', {
-    token,
     expectedStatus: 201,
     body: {
       ...fixture,
       contractDate,
       dataJson: {
-        owner_name: 'Jane Doe',
-        owner_email: 'jane@example.com',
-        job_address: '789 Grove St',
-        job_city: 'Richmond',
-        job_state: 'CA',
-        contract_price: '9000',
-        project_description: 'Retaining wall installation',
+        customer_name: 'Jane Doe',
+        customer_email: 'jane@example.com',
+        customer_address: '789 Grove St',
+        city: 'Richmond',
+        state: 'CA',
+        zip: '94805',
+        contact_full_name: 'Smoke Tester',
       },
     },
   });
@@ -310,7 +306,6 @@ async function main() {
   const secondDocumentId = createSecondDraftResult.data.document.id;
 
   const cancelResult = await request('POST', `/documents/${secondDocumentId}/cancel`, {
-    token,
     expectedStatus: 201,
   });
 
@@ -320,7 +315,6 @@ async function main() {
     'POST',
     `/documents/${secondDocumentId}/reactivate`,
     {
-      token,
       expectedStatus: 201,
     },
   );
@@ -331,7 +325,6 @@ async function main() {
   );
 
   const resendResult = await request('POST', `/documents/${secondDocumentId}/send`, {
-    token,
     expectedStatus: 201,
   });
 
@@ -341,7 +334,6 @@ async function main() {
     'POST',
     `/documents/${secondDocumentId}/simulate-viewed`,
     {
-      token,
       expectedStatus: 201,
     },
   );
@@ -352,7 +344,6 @@ async function main() {
   );
 
   const currentUsageResult = await request('GET', '/billing/current-usage', {
-    token,
     expectedStatus: 200,
   });
 
@@ -366,7 +357,6 @@ async function main() {
   );
 
   const summaryResult = await request('GET', `/billing/summary?month=${billingMonth}`, {
-    token,
     expectedStatus: 200,
   });
 

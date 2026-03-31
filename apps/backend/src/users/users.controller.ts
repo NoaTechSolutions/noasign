@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { UserStatus } from '@prisma/client';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -39,7 +49,7 @@ export class UsersController {
   @Patch('account-requests/:requestId')
   async updateAccountRequestStatus(
     @Req() req: any,
-    @Param('requestId') requestId: string,
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
     @Body() body: UpdateAccountRequestStatusDto,
   ) {
     return this.usersService.updateAccountRequestStatus(
@@ -59,7 +69,7 @@ export class UsersController {
   @Patch(':userId')
   async updateUser(
     @Req() req: any,
-    @Param('userId') userId: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body() body: UpdateUserDto,
   ) {
     return this.usersService.updateUser(req.user.id, userId, body);
@@ -67,7 +77,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':userId/deactivate')
-  async deactivateUser(@Req() req: any, @Param('userId') userId: string) {
+  async deactivateUser(
+    @Req() req: any,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+  ) {
     return this.usersService.updateUser(req.user.id, userId, {
       status: UserStatus.INACTIVE,
     });
@@ -75,7 +88,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':userId/reactivate')
-  async reactivateUser(@Req() req: any, @Param('userId') userId: string) {
+  async reactivateUser(
+    @Req() req: any,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+  ) {
     return this.usersService.updateUser(req.user.id, userId, {
       status: UserStatus.ACTIVE,
     });
@@ -85,7 +101,7 @@ export class UsersController {
   @Post(':userId/password')
   async resetUserPassword(
     @Req() req: any,
-    @Param('userId') userId: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body() body: ResetUserPasswordDto,
   ) {
     return this.usersService.resetUserPassword(req.user.id, userId, body);

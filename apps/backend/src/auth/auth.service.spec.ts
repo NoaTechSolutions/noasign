@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { UserRole, UserStatus } from '@prisma/client';
 
 const prismaMock = {
@@ -16,6 +17,10 @@ const prismaMock = {
 
 const jwtServiceMock = {
   signAsync: jest.fn(),
+};
+
+const configServiceMock = {
+  get: jest.fn(),
 };
 
 describe('AuthService', () => {
@@ -34,6 +39,10 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: jwtServiceMock,
+        },
+        {
+          provide: ConfigService,
+          useValue: configServiceMock,
         },
       ],
     }).compile();
@@ -97,6 +106,47 @@ describe('AuthService', () => {
         companyProfile: {
           id: 'company-1',
         },
+      },
+    });
+  });
+
+  it('register normalizes email before persisting', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.companyProfile.create.mockResolvedValue({
+      id: 'company-1',
+    });
+    prismaMock.user.create.mockResolvedValue({
+      id: 'user-1',
+      companyProfileId: 'company-1',
+      email: 'owner@noasign.com',
+      passwordHash: 'hashed-password',
+      role: UserRole.MASTER,
+      status: UserStatus.ACTIVE,
+      companyProfile: {
+        id: 'company-1',
+      },
+    });
+
+    await service.register({
+      email: ' Owner@NoaSign.com ',
+      password: 'secret123',
+    });
+
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+      where: { email: 'owner@noasign.com' },
+    });
+    expect(prismaMock.companyProfile.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        email: 'owner@noasign.com',
+        contactEmail: 'owner@noasign.com',
+      }),
+    });
+    expect(prismaMock.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        email: 'owner@noasign.com',
+      }),
+      include: {
+        companyProfile: true,
       },
     });
   });

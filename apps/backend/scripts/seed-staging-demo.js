@@ -15,13 +15,13 @@ async function main() {
   const defaultPassword =
     process.env.STAGING_DEMO_USER_PASSWORD || 'secret123';
   const passwordHash = await bcrypt.hash(defaultPassword, 10);
-  const pandadocTemplateId =
-    process.env.STAGING_DEMO_PANDADOC_TEMPLATE_ID || 'DhBwzpbNdESYiCnPmjDLT9';
+  const providerTemplateId =
+    process.env.STAGING_DEMO_SIGNATURE_TEMPLATE_ID || 'DhBwzpbNdESYiCnPmjDLT9';
   const recipientRole =
-    process.env.STAGING_DEMO_PANDADOC_RECIPIENT_ROLE || 'Client';
+    process.env.STAGING_DEMO_SIGNATURE_RECIPIENT_ROLE || 'BUYER';
   const templateName =
-    process.env.STAGING_DEMO_PANDADOC_TEMPLATE_NAME ||
-    'World Pavers Company - Home Improvement Contract';
+    process.env.STAGING_DEMO_SIGNATURE_TEMPLATE_NAME ||
+    'NTSsign BoldSign Contract Template';
   const logoUrl = buildWorldPaversLogoDataUrl();
 
   const companyProfile = await prisma.companyProfile.upsert({
@@ -99,12 +99,12 @@ async function main() {
     },
   });
 
-  const pandaTemplate = await prisma.pandaDocTemplate.upsert({
+  const signatureTemplate = await prisma.signatureTemplate.upsert({
     where: { id: '2b549fa1-82a5-41b2-87ad-45796a3626f6' },
     update: {
       name: templateName,
       documentTypeId: contractType.id,
-      pandadocTemplateId,
+      providerTemplateId,
       recipientRole,
       tokenMappingJson: null,
       fieldMappingJson: null,
@@ -114,7 +114,7 @@ async function main() {
       id: '2b549fa1-82a5-41b2-87ad-45796a3626f6',
       name: templateName,
       documentTypeId: contractType.id,
-      pandadocTemplateId,
+      providerTemplateId,
       recipientRole,
       tokenMappingJson: null,
       fieldMappingJson: null,
@@ -168,11 +168,11 @@ async function main() {
 
   await prisma.userDocumentConfig.upsert({
     where: {
-      userId_documentTypeId_formDefinitionId_pandadocTemplateId: {
+      userId_documentTypeId_formDefinitionId_signatureTemplateId: {
         userId: normalUser.id,
         documentTypeId: contractType.id,
         formDefinitionId: formDefinition.id,
-        pandadocTemplateId: pandaTemplate.id,
+        signatureTemplateId: signatureTemplate.id,
       },
     },
     update: {
@@ -182,7 +182,7 @@ async function main() {
       userId: normalUser.id,
       documentTypeId: contractType.id,
       formDefinitionId: formDefinition.id,
-      pandadocTemplateId: pandaTemplate.id,
+      signatureTemplateId: signatureTemplate.id,
       isActive: true,
     },
   });
@@ -358,7 +358,7 @@ async function main() {
         companyProfileId: item.companyProfileId,
         documentTypeId: contractType.id,
         formDefinitionId: formDefinition.id,
-        pandadocTemplateId: pandaTemplate.id,
+        signatureTemplateId: signatureTemplate.id,
         status: item.status,
         contractDate: item.contractDate,
         sentAt: item.sentAt ?? null,

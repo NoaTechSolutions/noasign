@@ -6,9 +6,10 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { DocumentStatus, Prisma } from '@prisma/client';
+import { createHmac, timingSafeEqual } from 'crypto';
 import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
-import { PandaDocService } from '../pandadoc/pandadoc.service';
+import { SignatureProviderService } from '../signature-provider/signature-provider.service';
 import { CreateDraftDocumentDto } from './dto/create-draft-document.dto';
 import { UpdateDraftDocumentDto } from './dto/update-draft-document.dto';
 
@@ -27,29 +28,119 @@ type LoadedDocument = Prisma.DocumentGetPayload<{
     user: true;
     documentType: true;
     formDefinition: true;
-    pandadocTemplate: true;
+    signatureTemplate: true;
     data: true;
     versions: true;
   };
 }>;
 
+type PublicDocument = Prisma.DocumentGetPayload<{
+  include: {
+    companyProfile: true;
+    user: true;
+    documentType: true;
+    formDefinition: true;
+    signatureTemplate: true;
+    data: true;
+  };
+}>;
+
+type PublicSignatureTokenPayload = {
+  v: 1;
+  p: 'signature-complete';
+  documentId: string;
+  exp: number;
+};
+
 const documentDetailInclude = {
   documentType: true,
   formDefinition: true,
-  pandadocTemplate: true,
+  signatureTemplate: true,
   data: true,
 } satisfies Prisma.DocumentInclude;
+
+const publicDocumentInclude = {
+  companyProfile: true,
+  user: true,
+  documentType: true,
+  formDefinition: true,
+  signatureTemplate: true,
+  data: true,
+} satisfies Prisma.DocumentInclude;
+
+const PUBLIC_SIGNATURE_LINK_TTL_MS = 1000 * 60 * 60 * 24 * 14;
+const MANUAL_REMINDER_COOLDOWN_MS = 1000 * 60 * 60 * 24;
 
 @Injectable()
 export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => PandaDocService))
-    private readonly pandaDocService: PandaDocService,
+    @Inject(forwardRef(() => SignatureProviderService))
+    private readonly signatureProviderService: SignatureProviderService,
   ) {}
 
   private getCurrentBillingPeriod(date = new Date()): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private resolveSignatureTemplateId(body: CreateDraftDocumentDto) {
+    const templateId = body.signatureTemplateId;
+
+    if (!templateId) {
+      throw new BadRequestException('Signature template is required');
+    }
+
+    return templateId;
+  }
+
+  private serializeDocumentType<
+    T extends { signatureTemplates?: unknown[] | null },
+  >(
+    documentType: T,
+  ) {
+    return {
+      ...documentType,
+      signatureTemplates: documentType.signatureTemplates ?? [],
+    };
+  }
+
+  private serializeDocument<T extends Record<string, any> | null>(document: T) {
+    if (!document) {
+      return document;
+    }
+
+    const now = new Date();
+    const resendAvailableAt = this.getResendAvailableAt(
+      document.lastManualReminderAt ?? null,
+    );
+    const resendAvailableInSeconds = resendAvailableAt
+      ? Math.max(
+          0,
+          Math.ceil((resendAvailableAt.getTime() - now.getTime()) / 1000),
+        )
+      : 0;
+    const canResend =
+      this.isResendEligibleStatus(document.status) &&
+      resendAvailableInSeconds === 0;
+
+    return {
+      ...document,
+      providerDocumentId: document.providerDocumentId ?? null,
+      providerStatus: document.providerStatus ?? null,
+      providerLastSyncedAt: document.providerLastSyncedAt ?? null,
+      lastManualReminderAt: document.lastManualReminderAt ?? null,
+      resendAvailableAt: resendAvailableAt?.toISOString() ?? null,
+      resendAvailableInSeconds,
+      serverNow: now.toISOString(),
+      canResend,
+      signatureTemplate: document.signatureTemplate
+        ? {
+            ...document.signatureTemplate,
+            providerTemplateId:
+              document.signatureTemplate.providerTemplateId ?? null,
+          }
+        : null,
+    };
   }
 
   private async getDocumentAccessScope(userId: string) {
@@ -73,6 +164,59 @@ export class DocumentsService {
     return user.role === 'MASTER'
       ? { companyProfileId: user.companyProfileId }
       : { userId: user.id };
+  }
+
+  private isResendEligibleStatus(status?: string | null) {
+    return status === DocumentStatus.SENT || status === DocumentStatus.VIEWED;
+  }
+
+  private getResendAvailableAt(lastManualReminderAt?: Date | string | null) {
+    if (!lastManualReminderAt) {
+      return null;
+    }
+
+    const reminderDate =
+      lastManualReminderAt instanceof Date
+        ? lastManualReminderAt
+        : new Date(lastManualReminderAt);
+
+    if (Number.isNaN(reminderDate.getTime())) {
+      return null;
+    }
+
+    return new Date(reminderDate.getTime() + MANUAL_REMINDER_COOLDOWN_MS);
+  }
+
+  private getResendCooldownRemainingMs(
+    document: { lastManualReminderAt?: Date | string | null },
+    now = new Date(),
+  ) {
+    const resendAvailableAt = this.getResendAvailableAt(
+      document.lastManualReminderAt ?? null,
+    );
+
+    if (!resendAvailableAt) {
+      return 0;
+    }
+
+    return Math.max(0, resendAvailableAt.getTime() - now.getTime());
+  }
+
+  private formatCooldownRemaining(remainingMs: number) {
+    const totalSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${seconds}s`;
+    }
+
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+
+    return `${seconds}s`;
   }
 
   private async getBillingState(
@@ -99,19 +243,23 @@ export class DocumentsService {
   }
 
   async getDocumentTypes() {
-    return this.prisma.documentType.findMany({
+    const documentTypes = await this.prisma.documentType.findMany({
       include: {
         formDefinitions: {
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
         },
-        pandaTemplates: {
+        signatureTemplates: {
           where: { isActive: true },
           orderBy: { createdAt: 'asc' },
         },
       },
       orderBy: { name: 'asc' },
     });
+
+    return documentTypes.map((documentType) =>
+      this.serializeDocumentType(documentType),
+    );
   }
 
   private async generateDocumentNumber(
@@ -148,29 +296,31 @@ export class DocumentsService {
       throw new BadRequestException('User does not have a company profile');
     }
 
-    const [documentType, formDefinition, pandadocTemplate] = await Promise.all([
+    const signatureTemplateId = this.resolveSignatureTemplateId(body);
+
+    const [documentType, formDefinition, signatureTemplate] = await Promise.all([
       this.prisma.documentType.findUnique({ where: { id: body.documentTypeId } }),
       this.prisma.formDefinition.findUnique({
         where: { id: body.formDefinitionId },
       }),
-      this.prisma.pandaDocTemplate.findUnique({
-        where: { id: body.pandadocTemplateId },
+      this.prisma.signatureTemplate.findUnique({
+        where: { id: signatureTemplateId },
       }),
     ]);
 
     if (!documentType) throw new NotFoundException('Document type not found');
     if (!formDefinition) throw new NotFoundException('Form definition not found');
-    if (!pandadocTemplate) {
-      throw new NotFoundException('PandaDoc template not found');
+    if (!signatureTemplate) {
+      throw new NotFoundException('Signature template not found');
     }
     if (formDefinition.documentTypeId !== body.documentTypeId) {
       throw new BadRequestException(
         'Form definition does not belong to the selected document type',
       );
     }
-    if (pandadocTemplate.documentTypeId !== body.documentTypeId) {
+    if (signatureTemplate.documentTypeId !== body.documentTypeId) {
       throw new BadRequestException(
-        'PandaDoc template does not belong to the selected document type',
+        'Signature template does not belong to the selected document type',
       );
     }
 
@@ -181,7 +331,7 @@ export class DocumentsService {
         companyProfileId: user.companyProfileId,
         documentTypeId: body.documentTypeId,
         formDefinitionId: body.formDefinitionId,
-        pandadocTemplateId: body.pandadocTemplateId,
+        signatureTemplateId,
         status: DocumentStatus.DRAFT,
         contractDate: new Date(body.contractDate),
         countedInBilling: false,
@@ -200,13 +350,16 @@ export class DocumentsService {
       },
     });
 
-    return { message: 'Draft document created successfully', document };
+    return {
+      message: 'Draft document created successfully',
+      document: this.serializeDocument(document),
+    };
   }
 
   async getMyDocuments(userId: string) {
     const scope = await this.getDocumentAccessScope(userId);
 
-    return this.prisma.document.findMany({
+    const documents = await this.prisma.document.findMany({
       where: scope,
       include: {
         user: true,
@@ -217,6 +370,8 @@ export class DocumentsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return documents.map((document) => this.serializeDocument(document));
   }
 
   async getDocumentDetail(userId: string, documentId: string) {
@@ -231,7 +386,25 @@ export class DocumentsService {
     });
 
     if (!document) throw new NotFoundException('Document not found');
-    return document;
+    return this.serializeDocument(document);
+  }
+
+  async getDocumentPublicLinks(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, ...scope },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (!document.providerDocumentId) {
+      throw new BadRequestException('Document is not linked to a signature provider');
+    }
+
+    return this.buildPublicSignatureLinks(document.id);
   }
 
   async updateDraftDocument(
@@ -271,7 +444,7 @@ export class DocumentsService {
 
     return {
       message: 'Draft document updated successfully',
-      document: updatedDocument,
+      document: this.serializeDocument(updatedDocument),
     };
   }
 
@@ -285,7 +458,7 @@ export class DocumentsService {
         user: true,
         documentType: true,
         formDefinition: true,
-        pandadocTemplate: true,
+        signatureTemplate: true,
         data: true,
         versions: true,
       },
@@ -298,30 +471,44 @@ export class DocumentsService {
     if (!document.companyProfile) {
       throw new BadRequestException('Company profile not found');
     }
-    if (!document.pandadocTemplate?.pandadocTemplateId) {
-      throw new BadRequestException('PandaDoc template is not configured');
+    if (!document.signatureTemplate?.providerTemplateId) {
+      throw new BadRequestException('Signature template is not configured');
     }
 
     const context = this.buildMappingContext(document);
     const syncTimestamp = new Date();
-    let pandaDocDocumentId = document.pandadocDocumentId;
-    let pandaDocStatus = document.pandadocStatus;
+    const subject = this.renderTextTemplate(
+      document.signatureTemplate.sendSubjectTemplate,
+      context,
+      `Please review and sign ${document.documentNumber}`,
+    );
+    const message = this.renderTextTemplate(
+      document.signatureTemplate.sendMessageTemplate,
+      context,
+      `Hello, please review and sign ${document.documentNumber} sent from NoaSign.`,
+    );
+    let providerDocumentId = document.providerDocumentId;
+    let providerStatus = document.providerStatus;
 
-    if (!pandaDocDocumentId) {
-      const recipient = this.buildPandaDocRecipient(document);
+    if (!providerDocumentId) {
+      const recipient = this.buildSignatureRecipient(document);
+      const senderRecipient = this.buildSenderSignatureRecipient(document);
       const fallbackFields = this.buildFallbackScalarMap(context);
       const createdDocument =
-        await this.pandaDocService.createDocumentFromTemplate({
-          name: this.buildPandaDocDocumentName(document),
-          templateUuid: document.pandadocTemplate.pandadocTemplateId,
+        await this.signatureProviderService.createDocumentFromTemplate({
+          name: this.buildSignatureDocumentName(document),
+          templateId: document.signatureTemplate.providerTemplateId,
           recipients: [recipient],
+          senderRecipient,
+          subject,
+          message,
           tokens: this.buildMappedTokens(
-            document.pandadocTemplate.tokenMappingJson,
+            document.signatureTemplate.tokenMappingJson,
             context,
             fallbackFields,
           ),
           fields: this.buildMappedFields(
-            document.pandadocTemplate.fieldMappingJson,
+            document.signatureTemplate.fieldMappingJson,
             context,
             fallbackFields,
             recipient.role,
@@ -334,76 +521,68 @@ export class DocumentsService {
           },
         });
 
-      pandaDocDocumentId = createdDocument.id;
-      pandaDocStatus = createdDocument.status;
+      providerDocumentId = createdDocument.id;
+      providerStatus = createdDocument.status;
 
       await this.prisma.document.update({
         where: { id: documentId },
         data: {
-          pandadocDocumentId: pandaDocDocumentId,
-          pandadocStatus: pandaDocStatus,
-          pandadocLastSyncedAt: syncTimestamp,
+          providerDocumentId,
+          providerStatus,
+          providerLastSyncedAt: syncTimestamp,
         },
       });
     } else {
-      const remoteStatus = await this.pandaDocService.getDocumentStatus(
-        pandaDocDocumentId,
+      const remoteStatus = await this.signatureProviderService.getDocumentStatus(
+        providerDocumentId,
       );
-      pandaDocStatus = remoteStatus.status;
+      providerStatus = remoteStatus.status;
 
       await this.prisma.document.update({
         where: { id: documentId },
         data: {
-          pandadocStatus: pandaDocStatus,
-          pandadocLastSyncedAt: syncTimestamp,
+          providerStatus,
+          providerLastSyncedAt: syncTimestamp,
         },
       });
 
       if (
-        pandaDocStatus &&
-        !['document.uploaded', 'document.draft'].includes(pandaDocStatus)
+        providerStatus &&
+        !['document.uploaded', 'document.draft'].includes(providerStatus)
       ) {
-        await this.syncDocumentFromPandaDocStatus(
+        await this.syncDocumentFromProviderStatus(
           document.id,
-          pandaDocStatus,
+          providerStatus,
           syncTimestamp,
         );
         throw new BadRequestException(
-          'This draft is already linked to an active PandaDoc document',
+          'This draft is already linked to an active signature request',
         );
       }
     }
 
-    if (!pandaDocDocumentId) {
-      throw new BadRequestException('Unable to resolve PandaDoc document ID');
+    if (!providerDocumentId) {
+      throw new BadRequestException('Unable to resolve signature document ID');
     }
 
-    if (pandaDocStatus !== 'document.draft') {
-      const readyStatus = await this.pandaDocService.waitForDocumentDraft(
-        pandaDocDocumentId,
+    if (providerStatus !== 'document.draft') {
+      const readyStatus = await this.signatureProviderService.waitForDocumentDraft(
+        providerDocumentId,
       );
-      pandaDocStatus = readyStatus.status;
+      providerStatus = readyStatus.status;
 
       await this.prisma.document.update({
         where: { id: documentId },
         data: {
-          pandadocStatus: pandaDocStatus,
-          pandadocLastSyncedAt: new Date(),
+          providerStatus,
+          providerLastSyncedAt: new Date(),
         },
       });
     }
 
-    await this.pandaDocService.sendDocument(pandaDocDocumentId, {
-      subject: this.renderPandaDocTextTemplate(
-        document.pandadocTemplate.sendSubjectTemplate,
-        context,
-        `Please review and sign ${document.documentNumber}`,
-      ),
-      message: this.renderPandaDocTextTemplate(
-        document.pandadocTemplate.sendMessageTemplate,
-        context,
-        `Hello, please review and sign ${document.documentNumber} sent from NoaSign.`,
-      ),
+    await this.signatureProviderService.sendDocument(providerDocumentId, {
+      subject,
+      message,
     });
 
     const updatedDocument = await this.prisma.document.update({
@@ -414,9 +593,9 @@ export class DocumentsService {
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
-        pandadocDocumentId: pandaDocDocumentId,
-        pandadocStatus: 'document.sent',
-        pandadocLastSyncedAt: new Date(),
+        providerDocumentId,
+        providerStatus: 'document.sent',
+        providerLastSyncedAt: new Date(),
       },
       include: documentDetailInclude,
     });
@@ -425,7 +604,84 @@ export class DocumentsService {
       message: 'Document sent successfully',
       isOverage: false,
       billingPeriod: null,
-      document: updatedDocument,
+      document: this.serializeDocument(updatedDocument),
+    };
+  }
+
+  async resendDocument(userId: string, documentId: string) {
+    const scope = await this.getDocumentAccessScope(userId);
+
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, ...scope },
+      include: {
+        documentType: true,
+        data: true,
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (!this.isResendEligibleStatus(document.status)) {
+      throw new BadRequestException(
+        'Only sent or viewed documents can be resent',
+      );
+    }
+
+    if (!document.providerDocumentId) {
+      throw new BadRequestException('Document is not linked to a signature request');
+    }
+
+    const syncedAt = new Date();
+    const remoteStatus = await this.signatureProviderService.getDocumentStatus(
+      document.providerDocumentId,
+    );
+
+    await this.syncDocumentFromProviderStatus(
+      document.id,
+      remoteStatus.status,
+      syncedAt,
+    );
+
+    const normalizedStatus = this.normalizeExternalStatus(remoteStatus.status);
+    if (!['sent', 'viewed'].includes(normalizedStatus)) {
+      throw new BadRequestException(
+        'Only sent or viewed documents can be resent',
+      );
+    }
+
+    const cooldownRemainingMs = this.getResendCooldownRemainingMs(
+      document,
+      syncedAt,
+    );
+
+    if (cooldownRemainingMs > 0) {
+      throw new BadRequestException(
+        `This document can be resent again in ${this.formatCooldownRemaining(
+          cooldownRemainingMs,
+        )}.`,
+      );
+    }
+
+    await this.signatureProviderService.resendDocument(document.providerDocumentId, {
+      message: `Friendly reminder from NTSsign: please review and sign ${document.documentNumber}.`,
+    });
+
+    const reminderTimestamp = new Date();
+    const updatedDocument = await this.prisma.document.update({
+      where: { id: documentId },
+      data: {
+        providerStatus: remoteStatus.status,
+        providerLastSyncedAt: reminderTimestamp,
+        lastManualReminderAt: reminderTimestamp,
+      },
+      include: documentDetailInclude,
+    });
+
+    return {
+      message: 'Reminder sent successfully',
+      document: this.serializeDocument(updatedDocument),
     };
   }
 
@@ -456,7 +712,10 @@ export class DocumentsService {
       include: documentDetailInclude,
     });
 
-    return { message: 'Document cancelled successfully', document: updatedDocument };
+    return {
+      message: 'Document cancelled successfully',
+      document: this.serializeDocument(updatedDocument),
+    };
   }
 
   async reactivateDocument(userId: string, documentId: string) {
@@ -483,9 +742,10 @@ export class DocumentsService {
         viewedAt: null,
         signedAt: null,
         completedAt: null,
-        pandadocDocumentId: null,
-        pandadocStatus: null,
-        pandadocLastSyncedAt: null,
+        providerDocumentId: null,
+        providerStatus: null,
+        providerLastSyncedAt: null,
+        lastManualReminderAt: null,
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
@@ -504,7 +764,7 @@ export class DocumentsService {
 
     return {
       message: 'Document reactivated successfully',
-      document: updatedDocument,
+      document: this.serializeDocument(updatedDocument),
     };
   }
 
@@ -548,7 +808,7 @@ export class DocumentsService {
 
     return {
       message: 'Document marked as viewed successfully',
-      document: updatedDocument,
+      document: this.serializeDocument(updatedDocument),
     };
   }
 
@@ -597,7 +857,7 @@ export class DocumentsService {
 
     return {
       message: 'Document marked as signed successfully',
-      document: updatedDocument,
+      document: this.serializeDocument(updatedDocument),
     };
   }
 
@@ -641,7 +901,7 @@ export class DocumentsService {
 
     return {
       message: 'Document marked as completed successfully',
-      document: updatedDocument,
+      document: this.serializeDocument(updatedDocument),
     };
   }
 
@@ -657,16 +917,16 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    if (!document.pandadocDocumentId) {
-      throw new BadRequestException('Document is not linked to PandaDoc');
+    if (!document.providerDocumentId) {
+      throw new BadRequestException('Document is not linked to a signature provider');
     }
 
-    const remoteStatus = await this.pandaDocService.getDocumentStatus(
-      document.pandadocDocumentId,
+    const remoteStatus = await this.signatureProviderService.getDocumentStatus(
+      document.providerDocumentId,
     );
     const syncedAt = new Date();
 
-    await this.syncDocumentFromPandaDocStatus(
+    await this.syncDocumentFromProviderStatus(
       document.id,
       remoteStatus.status,
       syncedAt,
@@ -683,7 +943,7 @@ export class DocumentsService {
 
     return {
       message: 'Document status synced successfully',
-      document: updatedDocument,
+      document: this.serializeDocument(updatedDocument),
     };
   }
 
@@ -699,29 +959,29 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    if (!document.pandadocDocumentId) {
-      throw new BadRequestException('Document is not linked to PandaDoc');
+    if (!document.providerDocumentId) {
+      throw new BadRequestException('Document is not linked to a signature provider');
     }
 
-    const remoteStatus = await this.pandaDocService.getDocumentStatus(
-      document.pandadocDocumentId,
+    const remoteStatus = await this.signatureProviderService.getDocumentStatus(
+      document.providerDocumentId,
     );
     const syncedAt = new Date();
 
-    await this.syncDocumentFromPandaDocStatus(
+    await this.syncDocumentFromProviderStatus(
       document.id,
       remoteStatus.status,
       syncedAt,
     );
 
-    if (remoteStatus.status !== 'document.completed') {
+    if (this.normalizeExternalStatus(remoteStatus.status) !== 'completed') {
       throw new BadRequestException(
-        'Signed PDF is not available until PandaDoc marks the document as completed',
+        'Signed PDF is not available until the signature provider marks the document as completed',
       );
     }
 
-    const pdf = await this.pandaDocService.downloadDocumentPdf(
-      document.pandadocDocumentId,
+    const pdf = await this.signatureProviderService.downloadDocumentPdf(
+      document.providerDocumentId,
     );
     const safeFileName = `${document.documentNumber}.pdf`;
 
@@ -733,89 +993,104 @@ export class DocumentsService {
     res.send(pdf.buffer);
   }
 
-  async handlePandaDocWebhook(payload: unknown) {
-    const events = Array.isArray(payload) ? payload : payload ? [payload] : [];
+  async getPublicSignatureCompletion(token: string, apiBaseUrl?: string) {
+    const { document, expiresAt } = await this.loadPublicDocumentForToken(token);
+    const previewUrl =
+      document.status === DocumentStatus.COMPLETED
+        ? `${this.normalizeBaseUrl(apiBaseUrl ?? this.getBackendUrl())}/public/signatures/${encodeURIComponent(token)}/preview`
+        : null;
+    const downloadUrl =
+      document.status === DocumentStatus.COMPLETED
+        ? `${this.normalizeBaseUrl(apiBaseUrl ?? this.getBackendUrl())}/public/signatures/${encodeURIComponent(token)}/download`
+        : null;
 
-    for (const event of events) {
-      await this.handleSinglePandaDocWebhook(event);
-    }
+    return {
+      token,
+      status: document.status.toLowerCase(),
+      documentId: document.id,
+      documentNumber: document.documentNumber,
+      documentName: this.buildSignatureDocumentName(document),
+      signerName: this.buildPublicSignerName(document),
+      senderName: this.buildPublicSenderName(document),
+      previewUrl,
+      downloadUrl,
+      expiresAt: expiresAt.toISOString(),
+    };
   }
 
-  private async handleSinglePandaDocWebhook(payload: unknown) {
+  async streamPublicFinalPdf(
+    token: string,
+    disposition: 'inline' | 'attachment',
+    res: Response,
+  ) {
+    const { document } = await this.loadPublicDocumentForToken(token);
+
+    if (!document.providerDocumentId) {
+      throw new BadRequestException('Document is not linked to a signature provider');
+    }
+
+    if (document.status !== DocumentStatus.COMPLETED) {
+      throw new BadRequestException(
+        'Signed PDF is not available until the document is completed',
+      );
+    }
+
+    const pdf = await this.signatureProviderService.downloadDocumentPdf(
+      document.providerDocumentId,
+    );
+    const safeFileName = `${document.documentNumber}.pdf`;
+
+    res.setHeader('Content-Type', pdf.contentType ?? 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `${disposition}; filename="${safeFileName}"`,
+    );
+    res.send(pdf.buffer);
+  }
+
+  async handleBoldSignWebhook(payload: unknown) {
     if (!this.isRecord(payload)) return;
 
     const eventType = this.readStringValue(payload, [
-      'event',
-      'event_type',
-      'type',
-      'name',
+      'event.eventType',
+      'eventType',
     ]);
-    const rawStatus = this.readStringValue(payload, [
-      'data.status',
-      'status',
-      'document.status',
-    ]);
-    const pandaDocDocumentId = this.readStringValue(payload, [
-      'data.id',
-      'id',
-      'document.id',
+    const providerDocumentId = this.readStringValue(payload, [
+      'data.documentId',
+      'documentId',
     ]);
     const noasignDocumentId = this.readStringValue(payload, [
-      'data.metadata.noasignDocumentId',
+      'data.metaData.noasignDocumentId',
       'metadata.noasignDocumentId',
     ]);
-    const occurredAtValue = this.readStringValue(payload, [
-      'data.date_modified',
-      'date_modified',
-      'data.date_created',
-      'date_created',
-      'created_at',
-    ]);
-    const occurredAt = occurredAtValue ? new Date(occurredAtValue) : new Date();
+    const eventTime = this.readStringValue(payload, ['event.created']);
+    const occurredAt =
+      eventTime && /^\d+$/.test(eventTime)
+        ? new Date(Number(eventTime) * 1000)
+        : new Date();
 
     const document = noasignDocumentId
       ? await this.prisma.document.findUnique({
           where: { id: noasignDocumentId },
           include: { companyProfile: true },
         })
-      : pandaDocDocumentId
+      : providerDocumentId
         ? await this.prisma.document.findFirst({
-            where: { pandadocDocumentId: pandaDocDocumentId },
+            where: { providerDocumentId },
             include: { companyProfile: true },
           })
         : null;
 
-    if (!document) return;
+    if (!document || !eventType || eventType === 'Verification') return;
 
-    if (eventType) {
-      const normalized = eventType.toLowerCase();
-      if (normalized.includes('recipient') && normalized.includes('completed')) {
-        await this.syncDocumentToSigned(document.id, occurredAt);
-        return;
-      }
-
-      if (normalized.includes('creation') && normalized.includes('failed')) {
-        await this.prisma.document.update({
-          where: { id: document.id },
-          data: {
-            pandadocStatus: rawStatus ?? 'document.error',
-            pandadocLastSyncedAt: occurredAt,
-          },
-        });
-        return;
-      }
-    }
-
-    if (rawStatus) {
-      await this.syncDocumentFromPandaDocStatus(
-        document.id,
-        rawStatus,
-        occurredAt,
-      );
-    }
+    await this.syncDocumentFromProviderStatus(
+      document.id,
+      eventType,
+      occurredAt,
+    );
   }
 
-  private async syncDocumentFromPandaDocStatus(
+  private async syncDocumentFromProviderStatus(
     documentId: string,
     rawStatus: string,
     occurredAt: Date,
@@ -827,43 +1102,44 @@ export class DocumentsService {
 
     if (!document) return;
 
-    switch (rawStatus) {
-      case 'document.draft':
-      case 'document.uploaded':
+    switch (this.normalizeExternalStatus(rawStatus)) {
+      case 'draft':
         await this.prisma.document.update({
           where: { id: document.id },
           data: {
-            pandadocStatus: rawStatus,
-            pandadocLastSyncedAt: occurredAt,
+            providerStatus: rawStatus,
+            providerLastSyncedAt: occurredAt,
           },
         });
         return;
-      case 'document.sent':
+      case 'sent':
         await this.prisma.document.update({
           where: { id: document.id },
           data: {
             status: DocumentStatus.SENT,
             sentAt: document.sentAt ?? occurredAt,
-            pandadocStatus: rawStatus,
-            pandadocLastSyncedAt: occurredAt,
+            providerStatus: rawStatus,
+            providerLastSyncedAt: occurredAt,
           },
         });
         return;
-      case 'document.viewed':
+      case 'viewed':
         await this.syncDocumentToViewed(document.id, occurredAt, rawStatus);
         return;
-      case 'document.completed':
+      case 'signed':
+        await this.syncDocumentToSigned(document.id, occurredAt, rawStatus);
+        return;
+      case 'completed':
         await this.syncDocumentToCompleted(document.id, occurredAt, rawStatus);
         return;
-      case 'document.declined':
-      case 'document.voided':
+      case 'cancelled':
         await this.prisma.document.update({
           where: { id: document.id },
           data: {
             status: DocumentStatus.CANCELLED,
             cancelledAt: document.cancelledAt ?? occurredAt,
-            pandadocStatus: rawStatus,
-            pandadocLastSyncedAt: occurredAt,
+            providerStatus: rawStatus,
+            providerLastSyncedAt: occurredAt,
           },
         });
         return;
@@ -871,8 +1147,8 @@ export class DocumentsService {
         await this.prisma.document.update({
           where: { id: document.id },
           data: {
-            pandadocStatus: rawStatus,
-            pandadocLastSyncedAt: occurredAt,
+            providerStatus: rawStatus,
+            providerLastSyncedAt: occurredAt,
           },
         });
     }
@@ -908,13 +1184,17 @@ export class DocumentsService {
         countedInBilling: document.companyProfile ? true : document.countedInBilling,
         isOverage: billingState?.isOverage ?? document.isOverage,
         billingPeriod: billingState?.billingPeriod ?? document.billingPeriod,
-        pandadocStatus: rawStatus,
-        pandadocLastSyncedAt: occurredAt,
+        providerStatus: rawStatus,
+        providerLastSyncedAt: occurredAt,
       },
     });
   }
 
-  private async syncDocumentToSigned(documentId: string, occurredAt: Date) {
+  private async syncDocumentToSigned(
+    documentId: string,
+    occurredAt: Date,
+    rawStatus = 'document.completed',
+  ) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: { companyProfile: true },
@@ -941,8 +1221,8 @@ export class DocumentsService {
         countedInBilling: document.companyProfile ? true : document.countedInBilling,
         isOverage: billingState?.isOverage ?? document.isOverage,
         billingPeriod: billingState?.billingPeriod ?? document.billingPeriod,
-        pandadocStatus: 'document.completed',
-        pandadocLastSyncedAt: occurredAt,
+        providerStatus: rawStatus,
+        providerLastSyncedAt: occurredAt,
       },
     });
   }
@@ -979,13 +1259,196 @@ export class DocumentsService {
         countedInBilling: document.companyProfile ? true : document.countedInBilling,
         isOverage: billingState?.isOverage ?? document.isOverage,
         billingPeriod: billingState?.billingPeriod ?? document.billingPeriod,
-        pandadocStatus: rawStatus,
-        pandadocLastSyncedAt: occurredAt,
+        providerStatus: rawStatus,
+        providerLastSyncedAt: occurredAt,
       },
     });
   }
 
-  private buildPandaDocRecipient(document: LoadedDocument) {
+  private async loadPublicDocumentForToken(token: string) {
+    const { documentId, expiresAt } = this.verifyPublicSignatureToken(token);
+
+    let document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: publicDocumentInclude,
+    });
+
+    if (!document || !document.providerDocumentId) {
+      throw new NotFoundException('Public signature link is not available');
+    }
+
+    if (document.status !== DocumentStatus.COMPLETED) {
+      const remoteStatus = await this.signatureProviderService.getDocumentStatus(
+        document.providerDocumentId,
+      );
+      const syncedAt = new Date();
+
+      await this.syncDocumentFromProviderStatus(
+        document.id,
+        remoteStatus.status,
+        syncedAt,
+      );
+
+      document = await this.prisma.document.findUnique({
+        where: { id: documentId },
+        include: publicDocumentInclude,
+      });
+    }
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    return { document, expiresAt };
+  }
+
+  private buildPublicSignatureLinks(documentId: string) {
+    const { token, expiresAt } = this.createPublicSignatureToken(documentId);
+    const appBaseUrl = this.getAppUrl();
+    const backendBaseUrl = this.getBackendUrl();
+
+    return {
+      token,
+      expiresAt: expiresAt.toISOString(),
+      completionUrl: `${appBaseUrl}/signature-complete?token=${encodeURIComponent(token)}`,
+      previewUrl: `${backendBaseUrl}/public/signatures/${encodeURIComponent(token)}/preview`,
+      downloadUrl: `${backendBaseUrl}/public/signatures/${encodeURIComponent(token)}/download`,
+    };
+  }
+
+  private buildPublicSignerName(document: PublicDocument) {
+    const data = this.normalizeJsonObject(document.data?.dataJson);
+
+    return (
+      this.firstNonEmptyString(
+        this.readScalarString(data.customer_full_name),
+        this.readScalarString(data.customer_name),
+        this.readScalarString(data.client_name),
+      ) ?? 'The signer'
+    );
+  }
+
+  private buildPublicSenderName(document: PublicDocument) {
+    const contactFullName = [
+      document.companyProfile?.contactFirstName ?? '',
+      document.companyProfile?.contactLastName ?? '',
+    ]
+      .filter((value) => value.trim().length > 0)
+      .join(' ')
+      .trim();
+
+    return (
+      this.firstNonEmptyString(
+        contactFullName,
+        document.companyProfile?.companyName,
+        document.companyProfile?.legalName,
+        document.user.email,
+      ) ?? 'the sender'
+    );
+  }
+
+  private createPublicSignatureToken(documentId: string) {
+    const expiresAt = new Date(Date.now() + PUBLIC_SIGNATURE_LINK_TTL_MS);
+    const payload: PublicSignatureTokenPayload = {
+      v: 1,
+      p: 'signature-complete',
+      documentId,
+      exp: Math.floor(expiresAt.getTime() / 1000),
+    };
+    const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString(
+      'base64url',
+    );
+    const signature = createHmac('sha256', this.getPublicSignatureSecret())
+      .update(encodedPayload)
+      .digest('base64url');
+
+    return {
+      token: `${encodedPayload}.${signature}`,
+      expiresAt,
+    };
+  }
+
+  private verifyPublicSignatureToken(token: string) {
+    const [encodedPayload, receivedSignature] = token
+      .trim()
+      .split('.', 2)
+      .filter(Boolean);
+
+    if (!encodedPayload || !receivedSignature) {
+      throw new BadRequestException('Invalid public signature token');
+    }
+
+    const expectedSignature = createHmac(
+      'sha256',
+      this.getPublicSignatureSecret(),
+    )
+      .update(encodedPayload)
+      .digest('base64url');
+
+    if (!this.safeCompare(expectedSignature, receivedSignature)) {
+      throw new BadRequestException('Invalid public signature token');
+    }
+
+    let payload: PublicSignatureTokenPayload;
+    try {
+      payload = JSON.parse(
+        Buffer.from(encodedPayload, 'base64url').toString('utf8'),
+      ) as PublicSignatureTokenPayload;
+    } catch {
+      throw new BadRequestException('Invalid public signature token');
+    }
+
+    if (
+      payload.v !== 1 ||
+      payload.p !== 'signature-complete' ||
+      typeof payload.documentId !== 'string' ||
+      !payload.documentId.trim() ||
+      typeof payload.exp !== 'number'
+    ) {
+      throw new BadRequestException('Invalid public signature token');
+    }
+
+    const expiresAt = new Date(payload.exp * 1000);
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException('This secure signature link has expired');
+    }
+
+    return {
+      documentId: payload.documentId,
+      expiresAt,
+    };
+  }
+
+  private getPublicSignatureSecret() {
+    return process.env.JWT_SECRET?.trim() || 'local-noasign-public-link-secret';
+  }
+
+  private safeCompare(expected: string, received: string) {
+    try {
+      return timingSafeEqual(
+        Buffer.from(expected, 'utf8'),
+        Buffer.from(received, 'utf8'),
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private getAppUrl() {
+    return this.normalizeBaseUrl(process.env.APP_URL || 'http://127.0.0.1:3001');
+  }
+
+  private getBackendUrl() {
+    return this.normalizeBaseUrl(
+      process.env.BACKEND_URL || 'http://127.0.0.1:3000',
+    );
+  }
+
+  private normalizeBaseUrl(value: string) {
+    return value.trim().replace(/\/$/, '');
+  }
+
+  private buildSignatureRecipient(document: LoadedDocument) {
     const data = this.normalizeJsonObject(document.data?.dataJson);
     const email = this.firstNonEmptyString(
       this.readScalarString(data.customer_email),
@@ -994,7 +1457,7 @@ export class DocumentsService {
 
     if (!email) {
       throw new BadRequestException(
-        'Document is missing customer email required by PandaDoc',
+        'Document is missing customer email required for the signature request',
       );
     }
 
@@ -1009,13 +1472,60 @@ export class DocumentsService {
 
     return {
       email,
+      name: [firstName, lastName].filter(Boolean).join(' ').trim() || undefined,
       first_name: firstName || undefined,
       last_name: lastName || undefined,
-      role: document.pandadocTemplate.recipientRole || 'Client',
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      role: document.signatureTemplate.recipientRole || 'BUYER',
     };
   }
 
-  private buildPandaDocDocumentName(document: LoadedDocument) {
+  private buildSenderSignatureRecipient(document: LoadedDocument) {
+    const senderEmail = this.firstNonEmptyString(
+      document.companyProfile?.contactEmail,
+      document.companyProfile?.email,
+      document.user.email,
+    );
+
+    if (!senderEmail) {
+      return null;
+    }
+
+    const contactFullName = [
+      document.companyProfile?.contactFirstName ?? '',
+      document.companyProfile?.contactLastName ?? '',
+    ]
+      .filter((value) => value.trim().length > 0)
+      .join(' ')
+      .trim();
+    const senderName =
+      this.firstNonEmptyString(
+        contactFullName,
+        document.companyProfile?.companyName,
+        document.companyProfile?.legalName,
+      ) ?? senderEmail.split('@')[0];
+    const senderFirstName = document.companyProfile?.contactFirstName?.trim();
+    const senderLastName = document.companyProfile?.contactLastName?.trim();
+    const splitName =
+      senderFirstName || senderLastName
+        ? {
+            firstName: senderFirstName ?? '',
+            lastName: senderLastName ?? '',
+          }
+        : this.splitName(senderName);
+
+    return {
+      email: senderEmail,
+      name: senderName,
+      firstName: splitName.firstName || undefined,
+      lastName: splitName.lastName || undefined,
+    };
+  }
+
+  private buildSignatureDocumentName(
+    document: Pick<LoadedDocument, 'documentNumber' | 'documentType' | 'data'>,
+  ) {
     const data = this.normalizeJsonObject(document.data?.dataJson);
     const customerName = this.firstNonEmptyString(
       this.readScalarString(data.customer_full_name),
@@ -1024,6 +1534,83 @@ export class DocumentsService {
     );
 
     return `${document.documentNumber} - ${customerName ?? document.documentType.name}`;
+  }
+
+  private normalizeExternalStatus(rawStatus: string) {
+    const normalized = rawStatus.trim().toLowerCase();
+
+    if (
+      ['document.draft', 'document.uploaded', 'draft', 'draftcreated'].includes(normalized)
+    ) {
+      return 'draft';
+    }
+
+    if (
+      [
+        'document.sent',
+        'sent',
+        'inprogress',
+        'shared',
+        'created',
+        'signature_request_sent',
+        'signature_request_delivered',
+      ].includes(normalized)
+    ) {
+      return 'sent';
+    }
+
+    if (
+      [
+        'document.viewed',
+        'viewed',
+        'delivered',
+        'signature_request_viewed',
+      ].includes(
+        normalized,
+      )
+    ) {
+      return 'viewed';
+    }
+
+    if (['document.signed', 'signed', 'signature_request_signed'].includes(normalized)) {
+      return 'signed';
+    }
+
+    if (
+      [
+        'document.completed',
+        'completed',
+        'signature_request_all_signed',
+        'signature_request_downloadable',
+      ].includes(normalized)
+    ) {
+      return 'completed';
+    }
+
+    if (
+      [
+        'document.declined',
+        'document.voided',
+        'declined',
+        'cancelled',
+        'canceled',
+        'expired',
+        'voided',
+        'signature_request_declined',
+        'signature_request_expired',
+        'signature_request_reassigned',
+        'revoked',
+        'reassigned',
+      ].includes(normalized)
+    ) {
+      return 'cancelled';
+    }
+
+    if (['deliveryfailed', 'editfailed', 'needattention'].includes(normalized)) {
+      return 'error';
+    }
+
+    return normalized;
   }
 
   private buildMappingContext(document: LoadedDocument) {
@@ -1163,6 +1750,7 @@ export class DocumentsService {
       const resolved = this.resolveMappingDefinition(
         definition as MappingDefinition,
         context,
+        fallback,
       );
       if (resolved) tokens.set(tokenName, resolved.value);
     }
@@ -1190,6 +1778,7 @@ export class DocumentsService {
       const resolved = this.resolveMappingDefinition(
         definition as MappingDefinition,
         context,
+        fallback,
       );
       if (resolved) {
         fields[fieldName] = {
@@ -1205,15 +1794,18 @@ export class DocumentsService {
   private resolveMappingDefinition(
     definition: MappingDefinition,
     context: ReturnType<typeof this.buildMappingContext>,
+    fallback: Record<string, ScalarValue>,
   ) {
     if (typeof definition === 'string') {
-      const scalarValue = this.coerceScalar(this.getValueByPath(context, definition));
+      const scalarValue = this.coerceScalar(
+        this.getValueByPath(context, definition) ?? fallback[definition],
+      );
       return scalarValue == null ? null : { value: scalarValue };
     }
 
     if (this.isRecord(definition) && typeof definition.path === 'string') {
       const scalarValue = this.coerceScalar(
-        this.getValueByPath(context, definition.path),
+        this.getValueByPath(context, definition.path) ?? fallback[definition.path],
       );
       if (scalarValue == null) return null;
 
@@ -1229,7 +1821,7 @@ export class DocumentsService {
     return null;
   }
 
-  private renderPandaDocTextTemplate(
+  private renderTextTemplate(
     template: string | null,
     context: ReturnType<typeof this.buildMappingContext>,
     fallback: string,

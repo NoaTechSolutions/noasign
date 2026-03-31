@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import NextImage from "next/image";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import {
@@ -57,9 +59,14 @@ type Doc = {
   status: string;
   contractDate: string;
   createdAt: string;
-  pandadocDocumentId?: string | null;
-  pandadocStatus?: string | null;
-  pandadocLastSyncedAt?: string | null;
+  providerDocumentId?: string | null;
+  providerStatus?: string | null;
+  providerLastSyncedAt?: string | null;
+  lastManualReminderAt?: string | null;
+  resendAvailableAt?: string | null;
+  resendAvailableInSeconds?: number;
+  serverNow?: string | null;
+  canResend?: boolean;
   billingPeriod?: string | null;
   sentAt?: string | null;
   cancelledAt?: string | null;
@@ -76,7 +83,11 @@ type Doc = {
 };
 
 type DocDetail = Doc & {
-  pandadocTemplate?: { name: string; templateKey: string } | null;
+  signatureTemplate?: {
+    name: string;
+    templateKey: string;
+    providerTemplateId?: string | null;
+  } | null;
   data?: { dataJson: Record<string, unknown> } | null;
   versions?: Array<{ id: string; versionNumber: number; createdAt: string }>;
 };
@@ -90,10 +101,11 @@ type DocumentTypeCatalogItem = {
     name: string;
     key: string;
   }>;
-  pandaTemplates: Array<{
+  signatureTemplates: Array<{
     id: string;
     name: string;
     templateKey: string;
+    providerTemplateId?: string | null;
   }>;
 };
 
@@ -198,8 +210,8 @@ type Props = {
   onSelectDocument: (documentId: string) => void;
   onDocumentAction: (
     documentId: string,
-    action: "send" | "cancel" | "reactivate",
-  ) => void;
+    action: "send" | "resend" | "cancel" | "reactivate",
+  ) => Promise<void>;
   onUpdateDraft: (
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -210,7 +222,7 @@ type Props = {
   onCreateDraft: (payload: {
     documentTypeId: string;
     formDefinitionId: string;
-    pandadocTemplateId: string;
+    signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
   }) => Promise<DocDetail | void>;
@@ -283,6 +295,86 @@ type StatusFilter =
   | "COMPLETED"
   | "CANCELLED";
 
+const SECTION_QUERY_KEY = "section";
+const DASHBOARD_SELECTED_DOCUMENT_KEY = "noasign:dashboard:selected-document-id";
+const DASHBOARD_DOCUMENT_VIEWER_KEY = "noasign:dashboard:document-viewer";
+const DOCUMENTS_CREATE_DRAWER_KEY = "noasign:documents:create-draft-open";
+const DOCUMENTS_CREATE_DRAFT_STATE_KEY = "noasign:documents:create-draft-state";
+const BILLING_PLANS_MODAL_KEY = "noasign:billing:plans-modal-open";
+
+type PersistedDocumentViewerState = {
+  open: boolean;
+  initialTab: ViewerTabKey;
+  initialEditingTab: EditableViewerTabKey | null;
+};
+
+type PersistedCreateDraftState = {
+  activeTab: "client" | "project" | "pricing" | "others";
+  isSetupOpen: boolean;
+  sameProjectAddressAsCustomer: boolean;
+  financeEnabled: boolean;
+  selectedDocumentTypeId: string;
+  selectedFormDefinitionId: string;
+  selectedTemplateId: string;
+  contractDate: string;
+  fields: Record<string, string>;
+};
+
+type WorkflowAction = {
+  key: "send" | "resend" | "cancel" | "reactivate";
+  label: string;
+  icon: ReactNode;
+  tone: string;
+  disabled?: boolean;
+};
+
+function parseSectionKey(value: string | null): SectionKey {
+  if (
+    value === "documents" ||
+    value === "users" ||
+    value === "accountRequests" ||
+    value === "profile" ||
+    value === "billing"
+  ) {
+    return value;
+  }
+
+  return "dashboard";
+}
+
+function readSessionBoolean(key: string, fallback = false) {
+  if (typeof window === "undefined") return fallback;
+  return window.sessionStorage.getItem(key) === "true";
+}
+
+function writeSessionBoolean(key: string, value: boolean) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(key, value ? "true" : "false");
+}
+
+function readSessionJson<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+
+  const rawValue = window.sessionStorage.getItem(key);
+  if (!rawValue) return null;
+
+  try {
+    return JSON.parse(rawValue) as T;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionJson(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(key, JSON.stringify(value));
+}
+
+function removeSessionValue(key: string) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(key);
+}
+
 export function DashboardSidebarDemo({
   user,
   companyProfile,
@@ -315,6 +407,9 @@ export function DashboardSidebarDemo({
   onSignOut,
   onChangeOwnPassword,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -324,7 +419,9 @@ export function DashboardSidebarDemo({
     useState<ViewerTabKey>("client");
   const [documentViewerInitialEditingTab, setDocumentViewerInitialEditingTab] =
     useState<EditableViewerTabKey | null>(null);
-  const [activeSection, setActiveSection] = useState<SectionKey>("dashboard");
+  const [documentSuccessMessage, setDocumentSuccessMessage] = useState("");
+  const requestedSection = parseSectionKey(searchParams.get(SECTION_QUERY_KEY));
+  const [activeSection, setActiveSection] = useState<SectionKey>(requestedSection);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
@@ -388,6 +485,35 @@ export function DashboardSidebarDemo({
   }, [activeSection]);
 
   useEffect(() => {
+    const persistedViewerState =
+      readSessionJson<PersistedDocumentViewerState>(DASHBOARD_DOCUMENT_VIEWER_KEY);
+
+    if (!persistedViewerState?.open) {
+      return;
+    }
+
+    setDocumentViewerInitialTab(persistedViewerState.initialTab ?? "client");
+    setDocumentViewerInitialEditingTab(
+      persistedViewerState.initialEditingTab ?? null,
+    );
+    setDocumentViewerOpen(true);
+  }, []);
+
+  useEffect(() => {
+    writeSessionJson(DASHBOARD_DOCUMENT_VIEWER_KEY, {
+      open: documentViewerOpen,
+      initialTab: documentViewerInitialTab,
+      initialEditingTab: documentViewerInitialEditingTab,
+    } satisfies PersistedDocumentViewerState);
+  }, [documentViewerInitialEditingTab, documentViewerInitialTab, documentViewerOpen]);
+
+  useEffect(() => {
+    setActiveSection((current) =>
+      current === requestedSection ? current : requestedSection,
+    );
+  }, [requestedSection]);
+
+  useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
       if (!accountMenuRef.current) {
         return;
@@ -414,6 +540,20 @@ export function DashboardSidebarDemo({
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
   ];
 
+  function updateActiveSection(nextSection: SectionKey) {
+    setActiveSection(nextSection);
+
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextSection === "dashboard") {
+      params.delete(SECTION_QUERY_KEY);
+    } else {
+      params.set(SECTION_QUERY_KEY, nextSection);
+    }
+
+    const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.replace(nextUrl, { scroll: false });
+  }
+
   function closeDocumentViewer() {
     setDocumentViewerOpen(false);
     setDocumentViewerInitialTab("client");
@@ -429,6 +569,42 @@ export function DashboardSidebarDemo({
     setDocumentViewerInitialEditingTab(options.editingTab ?? null);
     setDocumentViewerOpen(true);
     onSelectDocument(options.documentId);
+  }
+
+  async function handleDocumentAction(
+    documentId: string,
+    action: "send" | "resend" | "cancel" | "reactivate",
+  ) {
+    try {
+      await onDocumentAction(documentId, action);
+    } catch {
+      return;
+    }
+
+    if (action !== "send" && action !== "resend") {
+      return;
+    }
+
+    const activeDocument =
+      documents?.find((item) => item.id === documentId) ??
+      (documentDetail?.id === documentId ? documentDetail : null);
+
+    if (action === "send") {
+      closeDocumentViewer();
+      setDocumentSuccessMessage(
+        activeDocument?.documentNumber
+          ? `${activeDocument.documentNumber} was sent successfully.`
+          : "Document sent successfully.",
+      );
+      return;
+    }
+
+    closeDocumentViewer();
+    setDocumentSuccessMessage(
+      activeDocument?.documentNumber
+        ? `Reminder sent for ${activeDocument.documentNumber}.`
+        : "Reminder sent successfully.",
+    );
   }
 
   return (
@@ -487,7 +663,7 @@ export function DashboardSidebarDemo({
                             <button
                               type="button"
                               onClick={() => {
-                                setActiveSection("users");
+                                updateActiveSection("users");
                                 if (window.innerWidth < 1280) {
                                   setOpen(false);
                                 }
@@ -504,7 +680,7 @@ export function DashboardSidebarDemo({
                             <button
                               type="button"
                               onClick={() => {
-                                setActiveSection("accountRequests");
+                                updateActiveSection("accountRequests");
                                 if (window.innerWidth < 1280) {
                                   setOpen(false);
                                 }
@@ -526,7 +702,7 @@ export function DashboardSidebarDemo({
                         link={{ label: link.label, icon: link.icon }}
                         active={activeSection === link.key}
                         onClick={() => {
-                          setActiveSection(link.key);
+                          updateActiveSection(link.key);
                           if (window.innerWidth < 1280) {
                             setOpen(false);
                           }
@@ -561,7 +737,7 @@ export function DashboardSidebarDemo({
                   subtitle={isLoading ? "..." : usage?.isUnlimited ? "Unlimited documents" : `${usage?.documentsUsed ?? 0} used this month`}
                   accent
                   actionLabel="Upgrade plan"
-                  onAction={() => setActiveSection("billing")}
+                  onAction={() => updateActiveSection("billing")}
                 />
               </div>
             </div>
@@ -630,7 +806,7 @@ export function DashboardSidebarDemo({
                       label="Profile"
                       icon={<UserRound className="h-4 w-4" />}
                       onClick={() => {
-                        setActiveSection("profile");
+                        updateActiveSection("profile");
                         setAccountMenuOpen(false);
                       }}
                     />
@@ -638,7 +814,7 @@ export function DashboardSidebarDemo({
                       label="Billing history"
                       icon={<WalletCards className="h-4 w-4" />}
                       onClick={() => {
-                        setActiveSection("billing");
+                        updateActiveSection("billing");
                         setAccountMenuOpen(false);
                       }}
                     />
@@ -698,7 +874,7 @@ export function DashboardSidebarDemo({
                   editingTab: "client",
                 });
               }}
-              onDocumentAction={onDocumentAction}
+              onDocumentAction={handleDocumentAction}
               onCreateDraft={onCreateDraft}
             />
           ) : null}
@@ -763,12 +939,41 @@ export function DashboardSidebarDemo({
         initialActiveTab={documentViewerInitialTab}
         initialEditingTab={documentViewerInitialEditingTab}
         onClose={closeDocumentViewer}
-        onAction={onDocumentAction}
+        onAction={handleDocumentAction}
         onUpdateDraft={onUpdateDraft}
         onSyncDocumentStatus={onSyncDocumentStatus}
         onPreviewFinalPdf={onPreviewFinalPdf}
         onDownloadFinalPdf={onDownloadFinalPdf}
       />
+      {documentSuccessMessage ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+          <button
+            type="button"
+            aria-label="Close document success popup"
+            className="absolute inset-0"
+            onClick={() => setDocumentSuccessMessage("")}
+          />
+          <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--success-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
+            <div className="text-lg font-semibold text-[color:var(--text-primary)]">
+              {documentSuccessMessage.startsWith("Reminder sent")
+                ? "Reminder sent"
+                : "Document sent"}
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">
+              {documentSuccessMessage}
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDocumentSuccessMessage("")}
+                className="rounded-xl bg-[color:var(--button-success)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-success-hover)]"
+              >
+                Accept
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {user?.mustChangePassword ? (
         <ForcePasswordChangeModal onSubmit={onChangeOwnPassword} />
       ) : null}
@@ -794,7 +999,6 @@ function DashboardOverview({
   topStates: Array<{ label: string; value: number; tone: "slate" | "blue" | "cyan" | "green" | "forest" | "rose" }>;
 }) {
   const { resolvedTheme } = useTheme();
-  const [themeMounted, setThemeMounted] = useState(false);
   const progressStates = [
     { label: "Draft", value: stats.draft, tone: "bg-slate-400" },
     { label: "Sent", value: stats.sent, tone: "bg-[#2563eb]" },
@@ -804,11 +1008,7 @@ function DashboardOverview({
     { label: "Cancelled", value: stats.cancelled, tone: "bg-rose-500" },
   ] as const;
 
-  useEffect(() => {
-    setThemeMounted(true);
-  }, []);
-
-  const isDarkTheme = themeMounted && resolvedTheme === "dark";
+  const isDarkTheme = resolvedTheme !== "light";
   const heroCardClassName = isDarkTheme
     ? "rounded-[1.9rem] border border-white/10 bg-[linear-gradient(135deg,#0b1220_0%,#111827_40%,#1d4ed8_100%)] p-5 text-white shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8"
     : "rounded-[1.9rem] border border-[#b7cbf3] bg-[linear-gradient(135deg,#ffffff_0%,#f7fbff_38%,#edf4ff_100%)] p-5 text-[#022977] shadow-[0_24px_70px_rgba(36,76,144,0.10)] md:p-8";
@@ -907,11 +1107,14 @@ function DocumentsPanel(props: {
   onSelectDocument: (documentId: string) => void;
   onOpenDocumentView: (documentId: string) => void;
   onOpenDocumentEdit: (documentId: string) => void;
-  onDocumentAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
+  onDocumentAction: (
+    documentId: string,
+    action: "send" | "resend" | "cancel" | "reactivate",
+  ) => Promise<void>;
   onCreateDraft: (payload: {
     documentTypeId: string;
     formDefinitionId: string;
-    pandadocTemplateId: string;
+    signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
   }) => Promise<DocDetail | void>;
@@ -927,6 +1130,7 @@ function DocumentsPanel(props: {
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [createDrawerVersion, setCreateDrawerVersion] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1062,6 +1266,24 @@ function DocumentsPanel(props: {
     };
   }, [filterMenuOpen]);
 
+  useEffect(() => {
+    setCreateDrawerOpen(readSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY));
+  }, []);
+
+  useEffect(() => {
+    writeSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY, createDrawerOpen);
+  }, [createDrawerOpen]);
+
+  function openCreateDrawer() {
+    setCreateDrawerOpen(true);
+  }
+
+  function closeCreateDrawer() {
+    setCreateDrawerOpen(false);
+    removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
+    setCreateDrawerVersion((current) => current + 1);
+  }
+
   return (
     <section className="grid gap-4">
       <div className="rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
@@ -1139,7 +1361,7 @@ function DocumentsPanel(props: {
             </div>
             <button
               type="button"
-              onClick={() => setCreateDrawerOpen(true)}
+              onClick={openCreateDrawer}
               className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
             >
               New document
@@ -1298,7 +1520,14 @@ function DocumentsPanel(props: {
                           <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
-                              {document.isOverage ? <InlineBadge tone="rose">Overage</InlineBadge> : null}
+                              {document.isOverage ? (
+                                <InlineBadge
+                                  tone="rose"
+                                  title="This document exceeded the documents included in your current monthly plan and may generate overage billing."
+                                >
+                                  Overage
+                                </InlineBadge>
+                              ) : null}
                             </div>
                             <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
                           </button>
@@ -1335,7 +1564,14 @@ function DocumentsPanel(props: {
                           <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
-                              {document.isOverage ? <InlineBadge tone="rose">Overage</InlineBadge> : null}
+                              {document.isOverage ? (
+                                <InlineBadge
+                                  tone="rose"
+                                  title="This document exceeded the documents included in your current monthly plan and may generate overage billing."
+                                >
+                                  Overage
+                                </InlineBadge>
+                              ) : null}
                             </div>
                             <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
                           </button>
@@ -1409,10 +1645,11 @@ function DocumentsPanel(props: {
         )}
       </div>
       <CreateDraftDrawer
+        key={createDrawerVersion}
         open={createDrawerOpen}
         documentTypes={props.documentTypes}
         companyProfile={props.companyProfile}
-        onClose={() => setCreateDrawerOpen(false)}
+        onClose={closeCreateDrawer}
         onCreateDraft={props.onCreateDraft}
         onOpenDocumentView={(documentId) => props.onOpenDocumentView(documentId)}
       />
@@ -1601,6 +1838,14 @@ function BillingPanel({
       accent: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100",
     },
   ];
+
+  useEffect(() => {
+    setPlansModalOpen(readSessionBoolean(BILLING_PLANS_MODAL_KEY));
+  }, []);
+
+  useEffect(() => {
+    writeSessionBoolean(BILLING_PLANS_MODAL_KEY, plansModalOpen);
+  }, [plansModalOpen]);
 
   return (
     <section className="grid gap-4">
@@ -2495,12 +2740,13 @@ function CreateDraftDrawer({
   onCreateDraft: (payload: {
     documentTypeId: string;
     formDefinitionId: string;
-    pandadocTemplateId: string;
+    signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
   }) => Promise<DocDetail | void>;
   onOpenDocumentView: (documentId: string) => void;
 }) {
+  const drawerScrollRef = useRef<HTMLElement | null>(null);
   const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing" | "others">("client");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
@@ -2554,6 +2800,42 @@ function CreateDraftDrawer({
     notes: "",
   });
 
+  useEffect(() => {
+    if (!open) return;
+
+    const persistedState =
+      readSessionJson<PersistedCreateDraftState>(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
+
+    if (!persistedState) {
+      return;
+    }
+
+    setActiveTab(persistedState.activeTab ?? "client");
+    setIsSetupOpen(persistedState.isSetupOpen ?? false);
+    setSameProjectAddressAsCustomer(
+      persistedState.sameProjectAddressAsCustomer ?? true,
+    );
+    setFinanceEnabled(persistedState.financeEnabled ?? false);
+    setSelectedDocumentTypeId(persistedState.selectedDocumentTypeId ?? "");
+    setSelectedFormDefinitionId(persistedState.selectedFormDefinitionId ?? "");
+    setSelectedTemplateId(persistedState.selectedTemplateId ?? "");
+    setContractDate(persistedState.contractDate ?? "");
+    setFields((current) => ({
+      ...current,
+      ...(persistedState.fields ?? {}),
+    }));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      drawerScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [open]);
+
   const selectedDocumentType = useMemo(
     () => documentTypes.find((item) => item.id === selectedDocumentTypeId) ?? null,
     [documentTypes, selectedDocumentTypeId],
@@ -2574,7 +2856,7 @@ function CreateDraftDrawer({
   useEffect(() => {
     if (!open) return;
     const firstType = documentTypes[0] ?? null;
-    setSelectedDocumentTypeId(firstType?.id ?? "");
+    setSelectedDocumentTypeId((current) => current || firstType?.id || "");
   }, [documentTypes, open]);
 
   useEffect(() => {
@@ -2583,18 +2865,40 @@ function CreateDraftDrawer({
       setSelectedTemplateId("");
       return;
     }
-    setSelectedFormDefinitionId(selectedDocumentType.formDefinitions[0]?.id ?? "");
-    setSelectedTemplateId(selectedDocumentType.pandaTemplates[0]?.id ?? "");
+    setSelectedFormDefinitionId(
+      (current) => current || selectedDocumentType.formDefinitions[0]?.id || "",
+    );
+    setSelectedTemplateId(
+      (current) => current || selectedDocumentType.signatureTemplates[0]?.id || "",
+    );
   }, [selectedDocumentType]);
 
-  if (!open) {
-    return null;
-  }
+  useEffect(() => {
+    if (!open) return;
 
-  function requestClose() {
-    if (isSubmitting) return;
-    setConfirmCloseOpen(true);
-  }
+    writeSessionJson(DOCUMENTS_CREATE_DRAFT_STATE_KEY, {
+      activeTab,
+      isSetupOpen,
+      sameProjectAddressAsCustomer,
+      financeEnabled,
+      selectedDocumentTypeId,
+      selectedFormDefinitionId,
+      selectedTemplateId,
+      contractDate,
+      fields,
+    } satisfies PersistedCreateDraftState);
+  }, [
+    activeTab,
+    contractDate,
+    fields,
+    financeEnabled,
+    isSetupOpen,
+    open,
+    sameProjectAddressAsCustomer,
+    selectedDocumentTypeId,
+    selectedFormDefinitionId,
+    selectedTemplateId,
+  ]);
 
   const todayDate = toDateInputValue(new Date().toISOString());
   const hasClientAddress = Boolean(fields.customer_address.trim());
@@ -2670,6 +2974,48 @@ function CreateDraftDrawer({
     );
   }
 
+  useEffect(() => {
+    if (!open) return;
+
+    const projectAccessible = canAccessCreateDraftTab("project");
+    const pricingAccessible = canAccessCreateDraftTab("pricing");
+    const othersAccessible = canAccessCreateDraftTab("others");
+
+    const nextTab =
+      activeTab === "others"
+        ? othersAccessible
+          ? "others"
+          : pricingAccessible
+            ? "pricing"
+            : projectAccessible
+              ? "project"
+              : "client"
+        : activeTab === "pricing"
+          ? pricingAccessible
+            ? "pricing"
+            : projectAccessible
+              ? "project"
+              : "client"
+          : activeTab === "project"
+            ? projectAccessible
+              ? "project"
+              : "client"
+            : "client";
+
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }, [activeTab, fields, open, sameProjectAddressAsCustomer]);
+
+  if (!open) {
+    return null;
+  }
+
+  function requestClose() {
+    if (isSubmitting) return;
+    setConfirmCloseOpen(true);
+  }
+
   function handleNextTab() {
     const fieldErrors = getCreateDraftFieldErrors(activeTab);
     const validationError = getCreateDraftTabError(activeTab);
@@ -2711,7 +3057,7 @@ function CreateDraftDrawer({
       const document = await onCreateDraft({
         documentTypeId: selectedDocumentTypeId,
         formDefinitionId: selectedFormDefinitionId,
-        pandadocTemplateId: selectedTemplateId,
+        signatureTemplateId: selectedTemplateId,
         contractDate,
         dataJson: buildCreateDraftPayload(
           fields,
@@ -2731,10 +3077,17 @@ function CreateDraftDrawer({
     }
   }
 
-  return (
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex min-h-screen items-start justify-center bg-slate-950/45 p-2 pt-1 backdrop-blur-sm md:items-center md:p-4">
       <button type="button" aria-label="Close draft creator" onClick={requestClose} className="absolute inset-0" />
-      <aside className="relative z-10 flex max-h-[98vh] w-full max-w-[90vw] flex-col overflow-y-auto rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 md:h-[96vh] md:max-h-[96vh] md:max-w-[96vw]">
+      <aside
+        ref={drawerScrollRef}
+        className="relative z-10 flex max-h-[98vh] w-full max-w-[90vw] flex-col overflow-y-auto rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 md:h-[96vh] md:max-h-[96vh] md:max-w-[96vw]"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 dark:border-white/10">
           <div className="min-w-0">
             <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Create draft</div>
@@ -2795,7 +3148,7 @@ function CreateDraftDrawer({
                   onChange={setSelectedTemplateId}
                   icon={<LayoutDashboard className="h-4 w-4" />}
                   disabled
-                  options={(selectedDocumentType?.pandaTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
+                  options={(selectedDocumentType?.signatureTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
                 />
               </div>
             ) : null}
@@ -3037,7 +3390,8 @@ function CreateDraftDrawer({
           </div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    window.document.body,
   );
 }
 
@@ -3062,7 +3416,10 @@ function DocumentViewer({
   initialActiveTab: ViewerTabKey;
   initialEditingTab: EditableViewerTabKey | null;
   onClose: () => void;
-  onAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
+  onAction: (
+    documentId: string,
+    action: "send" | "resend" | "cancel" | "reactivate",
+  ) => Promise<void>;
   onUpdateDraft: (
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -3071,13 +3428,24 @@ function DocumentViewer({
   onPreviewFinalPdf: (documentId: string) => Promise<string>;
   onDownloadFinalPdf: (documentId: string) => Promise<void>;
 }) {
+  const viewerScrollRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<ViewerTabKey>("client");
   const [editingTab, setEditingTab] = useState<EditableViewerTabKey | null>(null);
   const [draftFields, setDraftFields] = useState<Record<string, string>>({});
   const [isSavingTab, setIsSavingTab] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
-  const actionButtons = getDocumentActions(document?.status);
+  const [resendCountdownSeconds, setResendCountdownSeconds] = useState(0);
+  const canRenderViewerResend =
+    document?.status === "SENT" || document?.status === "VIEWED";
+  const viewerCanResend =
+    Boolean(document?.canResend) ||
+    (canRenderViewerResend && resendCountdownSeconds === 0);
+  const actionButtons = getDocumentActions(document, {
+    showCountdownWhenBlocked: true,
+    resendCountdownSeconds,
+    canResendOverride: viewerCanResend,
+  });
   const clientProfile = useMemo(() => getClientProfile(document), [document]);
   const projectProfile = useMemo(() => getProjectProfile(document), [document]);
   const clientEntries = useMemo(() => getClientEntries(document), [document]);
@@ -3085,10 +3453,7 @@ function DocumentViewer({
   const pricingEntries = useMemo(() => getPricingEntries(document), [document]);
   const hasPdfStage = document?.status === "SIGNED" || document?.status === "COMPLETED";
   const isDraft = document?.status === "DRAFT";
-  const canSyncStatus =
-    Boolean(document?.pandadocDocumentId) &&
-    ["SENT", "VIEWED", "SIGNED"].includes(document?.status ?? "");
-  const canDownloadPdf = hasPdfStage && Boolean(document?.pandadocDocumentId);
+  const canDownloadPdf = hasPdfStage && Boolean(document?.providerDocumentId);
 
   useEffect(() => {
     if (!open) {
@@ -3102,10 +3467,50 @@ function DocumentViewer({
   }, [open, initialActiveTab, initialEditingTab, isDraft, document?.id]);
 
   useEffect(() => {
+    if (!open) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      viewerScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, document?.id]);
+
+  useEffect(() => {
     if (!document) return;
     setDraftFields(buildDraftFieldMap(document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile));
     setIsSavingTab(false);
   }, [document, clientEntries, projectEntries, pricingEntries, clientProfile, projectProfile]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      !document ||
+      !canRenderViewerResend ||
+      document.canResend ||
+      !document.resendAvailableInSeconds ||
+      document.resendAvailableInSeconds <= 0
+    ) {
+      setResendCountdownSeconds(0);
+      return;
+    }
+
+    setResendCountdownSeconds(document.resendAvailableInSeconds);
+    const intervalId = window.setInterval(() => {
+      setResendCountdownSeconds((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    canRenderViewerResend,
+    document,
+    document?.canResend,
+    document?.id,
+    document?.resendAvailableInSeconds,
+    open,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -3210,7 +3615,11 @@ function DocumentViewer({
     return null;
   }
 
-  return (
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-sm">
       <button type="button" aria-label="Close document viewer" onClick={onClose} className="absolute inset-0" />
       <aside className="relative z-10 flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
@@ -3228,20 +3637,6 @@ function DocumentViewer({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {document && !editingTab && canSyncStatus ? (
-              <button
-                type="button"
-                onClick={() => void onSyncDocumentStatus(document.id)}
-                disabled={actionInFlight === document.id}
-                className={cn(
-                  "hidden items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-2.5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] md:inline-flex",
-                  actionInFlight === document.id && "cursor-not-allowed opacity-60",
-                )}
-              >
-                <Undo2 className="h-4 w-4" />
-                <span>{actionInFlight === document.id ? "Syncing..." : "Sync status"}</span>
-              </button>
-            ) : null}
             {document && !editingTab && canDownloadPdf ? (
               <button
                 type="button"
@@ -3260,16 +3655,22 @@ function DocumentViewer({
               <button
                 key={`viewer-header-${action.key}`}
                 type="button"
-                onClick={() => onAction(document.id, action.key)}
-                disabled={actionInFlight === document.id}
+                onClick={() => {
+                  if (action.disabled) return;
+                  void onAction(document.id, action.key);
+                }}
+                disabled={action.disabled || actionInFlight === document.id}
                 className={cn(
                   "hidden items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition md:inline-flex",
                   action.tone,
-                  actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                  (action.disabled || actionInFlight === document.id) &&
+                    "cursor-not-allowed opacity-60",
                 )}
               >
                 {action.icon}
-                <span>{actionInFlight === document.id ? "Processing..." : action.label}</span>
+                <span>
+                  {actionInFlight === document.id ? "Processing..." : action.label}
+                </span>
               </button>
             )) : null}
             <button
@@ -3308,7 +3709,7 @@ function DocumentViewer({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div ref={viewerScrollRef} className="flex-1 overflow-y-auto px-5 py-5">
           {isLoading ? (
             <EmptyBlock text="Loading document detail..." />
           ) : !document ? (
@@ -3602,7 +4003,7 @@ function DocumentViewer({
               <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-12 text-center dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="text-lg font-semibold text-slate-900 dark:text-white">Final signed PDF</div>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                  Download the signed PDF once PandaDoc confirms the document as completed.
+                  Download the signed PDF once the signature provider confirms the document as completed.
                 </p>
                 <button
                   type="button"
@@ -3635,72 +4036,6 @@ function DocumentViewer({
           )}
         </div>
 
-        {document && !editingTab ? (
-          <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
-            <div className="flex flex-wrap gap-3">
-              {canSyncStatus ? (
-                <button
-                  type="button"
-                  onClick={() => void onSyncDocumentStatus(document.id)}
-                  disabled={actionInFlight === document.id}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]",
-                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
-                  )}
-                >
-                  <Undo2 className="h-4 w-4" />
-                  <span>{actionInFlight === document.id ? "Syncing..." : "Sync status"}</span>
-                </button>
-              ) : null}
-              {canDownloadPdf ? (
-                <button
-                  type="button"
-                  onClick={() => void openPdfPreview()}
-                  disabled={actionInFlight === document.id}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]",
-                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
-                  )}
-                >
-                  <FileText className="h-4 w-4" />
-                  <span>{actionInFlight === document.id ? "Opening..." : "View PDF"}</span>
-                </button>
-              ) : null}
-              {canDownloadPdf ? (
-                <button
-                  type="button"
-                  onClick={() => void onDownloadFinalPdf(document.id)}
-                  disabled={actionInFlight === document.id}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]",
-                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
-                  )}
-                >
-                  <Download className="h-4 w-4" />
-                  <span>{actionInFlight === document.id ? "Preparing..." : "Download PDF"}</span>
-                </button>
-              ) : null}
-              {actionButtons.length > 0 ? actionButtons.map((action) => (
-                <button
-                  key={action.key}
-                  type="button"
-                  onClick={() => onAction(document.id, action.key)}
-                  disabled={actionInFlight === document.id}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition",
-                    action.tone,
-                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
-                  )}
-                >
-                  {action.icon}
-                  <span>{actionInFlight === document.id ? "Processing..." : action.label}</span>
-                </button>
-              )) : (
-                <div className="text-sm text-slate-500 dark:text-slate-400">No direct actions available for this status.</div>
-              )}
-            </div>
-          </div>
-        ) : null}
       </aside>
 
       {isPdfPreviewOpen && pdfPreviewUrl ? (
@@ -3743,7 +4078,8 @@ function DocumentViewer({
           </div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    window.document.body,
   );
 }
 
@@ -4099,9 +4435,27 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={cn("rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]", tones[status] ?? "bg-[color:var(--badge-neutral-bg)] text-[color:var(--badge-neutral-text)]")}>{status}</span>;
 }
 
-function InlineBadge({ children, tone }: { children: ReactNode; tone: "blue" | "rose" }) {
+function InlineBadge({
+  children,
+  tone,
+  title,
+}: {
+  children: ReactNode;
+  tone: "blue" | "rose";
+  title?: string;
+}) {
   const styles = { blue: "bg-[color:var(--badge-primary-bg)] text-[color:var(--badge-primary-text)]", rose: "bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]" };
-  return <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]", styles[tone])}>{children}</span>;
+  return (
+    <span
+      title={title}
+      className={cn(
+        "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
+        styles[tone],
+      )}
+    >
+      {children}
+    </span>
+  );
 }
 
 function DocumentListActions({
@@ -4115,11 +4469,14 @@ function DocumentListActions({
   actionInFlight: boolean;
   onView: () => void;
   onEdit: () => void;
-  onAction: (documentId: string, action: "send" | "cancel" | "reactivate") => void;
+  onAction: (
+    documentId: string,
+    action: "send" | "resend" | "cancel" | "reactivate",
+  ) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
-  const workflowActions = getDocumentActions(rowDocument.status);
+  const workflowActions = getDocumentActions(rowDocument);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -4196,14 +4553,18 @@ function DocumentListActions({
               key={action.key}
               type="button"
               onClick={() => {
-                onAction(rowDocument.id, action.key);
+                if (action.disabled) {
+                  return;
+                }
+                void onAction(rowDocument.id, action.key);
                 setOpen(false);
               }}
-              disabled={actionInFlight}
+              disabled={action.disabled || actionInFlight}
               className={cn(
                 "mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium transition",
                 action.tone,
-                actionInFlight && "cursor-not-allowed opacity-60",
+                (action.disabled || actionInFlight) &&
+                  "cursor-not-allowed opacity-60",
               )}
             >
               {action.label}
@@ -4217,8 +4578,7 @@ function DocumentListActions({
 
 function Logo() {
   const { resolvedTheme } = useTheme();
-  const [themeMounted, setThemeMounted] = useState(false);
-  const isDarkTheme = themeMounted && resolvedTheme === "dark";
+  const isDarkTheme = resolvedTheme !== "light";
   const brandLogoSrc =
     isDarkTheme
       ? "/ntssign-light.svg"
@@ -4227,10 +4587,6 @@ function Logo() {
     isDarkTheme
       ? "border-white/10 bg-white"
       : "border-slate-200 bg-[#022977]";
-
-  useEffect(() => {
-    setThemeMounted(true);
-  }, []);
 
   return (
     <Link href="/dashboard" className="relative z-20 mx-auto flex w-full flex-col items-center justify-center gap-2 py-1 text-center text-sm font-normal text-[color:var(--text-primary)]">
@@ -4260,19 +4616,15 @@ function Logo() {
 
 function LogoIcon() {
   const { resolvedTheme } = useTheme();
-  const [themeMounted, setThemeMounted] = useState(false);
+  const isDarkTheme = resolvedTheme !== "light";
   const brandLogoSrc =
-    themeMounted && resolvedTheme === "dark"
+    isDarkTheme
       ? "/ntssign-light.svg"
       : "/ntssign-dark.svg";
   const logoShellClass =
-    themeMounted && resolvedTheme === "dark"
+    isDarkTheme
       ? "border-white/10 bg-white"
       : "border-slate-200 bg-[#022977]";
-
-  useEffect(() => {
-    setThemeMounted(true);
-  }, []);
 
   return (
     <Link href="/dashboard" className="relative z-20 mx-auto flex items-center justify-center py-1 text-sm font-normal text-[color:var(--text-primary)]">
@@ -4947,11 +5299,92 @@ function loadImageElement(source: string) {
   });
 }
 
-function getDocumentActions(status?: string | null) {
-  if (status === "DRAFT") return [{ key: "send" as const, label: "Send document", icon: <Send className="h-4 w-4" />, tone: "bg-[color:var(--button-primary)] text-white hover:bg-[color:var(--button-primary-hover)]" }, { key: "cancel" as const, label: "Cancel draft", icon: <Ban className="h-4 w-4" />, tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]" }];
-  if (status === "SENT") return [{ key: "cancel" as const, label: "Cancel document", icon: <Ban className="h-4 w-4" />, tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]" }];
-  if (status === "CANCELLED") return [{ key: "reactivate" as const, label: "Reactivate draft", icon: <Undo2 className="h-4 w-4" />, tone: "bg-[color:var(--success-bg)] text-[color:var(--success-text)] hover:bg-[color:var(--badge-success-bg)]" }];
+function getDocumentActions(
+  document?: Pick<Doc, "status" | "canResend" | "resendAvailableInSeconds"> | null,
+  options?: {
+    showCountdownWhenBlocked?: boolean;
+    resendCountdownSeconds?: number;
+    canResendOverride?: boolean;
+  },
+): WorkflowAction[] {
+  const status = document?.status;
+
+  if (status === "DRAFT") {
+    return [
+      {
+        key: "send",
+        label: "Send document",
+        icon: <Send className="h-4 w-4" />,
+        tone: "bg-[color:var(--button-primary)] text-white hover:bg-[color:var(--button-primary-hover)]",
+      },
+      {
+        key: "cancel",
+        label: "Cancel draft",
+        icon: <Ban className="h-4 w-4" />,
+        tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]",
+      },
+    ];
+  }
+
+  if (status === "SENT" || status === "VIEWED") {
+    const canResend =
+      options?.canResendOverride ?? document?.canResend ?? true;
+    const actions: WorkflowAction[] = [];
+
+    if (canResend) {
+      actions.push({
+        key: "resend",
+        label: "Resend document",
+        icon: <Mail className="h-4 w-4" />,
+        tone: "bg-[color:var(--button-neutral)] text-[color:var(--text-primary)] hover:bg-[color:var(--button-neutral-hover)]",
+      });
+    } else if (options?.showCountdownWhenBlocked) {
+      actions.push({
+        key: "resend",
+        label: `Resend in ${formatCountdownLabel(
+          options.resendCountdownSeconds ??
+            document?.resendAvailableInSeconds ??
+            0,
+        )}`,
+        icon: <Mail className="h-4 w-4" />,
+        tone: "bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)]",
+        disabled: true,
+      });
+    }
+
+    actions.push({
+      key: "cancel",
+      label: "Cancel document",
+      icon: <Ban className="h-4 w-4" />,
+      tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]",
+    });
+
+    return actions;
+  }
+
+  if (status === "CANCELLED") {
+    return [
+      {
+        key: "reactivate",
+        label: "Reactivate draft",
+        icon: <Undo2 className="h-4 w-4" />,
+        tone: "bg-[color:var(--success-bg)] text-[color:var(--success-text)] hover:bg-[color:var(--badge-success-bg)]",
+      },
+    ];
+  }
+
   return [];
+}
+
+function formatCountdownLabel(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.ceil(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  return [hours, minutes, seconds]
+    .map((value) => String(value).padStart(2, "0"))
+    .join(":");
 }
 
 function buildTimeline(document: DocDetail) {

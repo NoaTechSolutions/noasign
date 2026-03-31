@@ -31,25 +31,27 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User does not exist');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Account is not active');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
-      throw new UnauthorizedException('Invalid password');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     return user;
   }
 
   async register(data: RegisterDto) {
+    const normalizedEmail = data.email.trim().toLowerCase();
+
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
@@ -60,15 +62,15 @@ export class AuthService {
     const companyProfile = await this.prisma.companyProfile.create({
       data: {
         companyName: 'New Company',
-        email: data.email,
-        contactEmail: data.email,
+        email: normalizedEmail,
+        contactEmail: normalizedEmail,
       },
     });
 
     const user = await this.prisma.user.create({
       data: {
         companyProfileId: companyProfile.id,
-        email: data.email,
+        email: normalizedEmail,
         passwordHash: hashedPassword,
         role: UserRole.MASTER,
         status: UserStatus.ACTIVE,
@@ -173,7 +175,9 @@ export class AuthService {
         'http://127.0.0.1:3001';
       const resetLink = `${appUrl}/?resetToken=${resetToken}`;
 
-      this.logger.log(`Password reset link for ${normalizedEmail}: ${resetLink}`);
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.log(`Password reset link for ${normalizedEmail}: ${resetLink}`);
+      }
 
       const baseResponse: { message: string; resetLink?: string } = {
         message:

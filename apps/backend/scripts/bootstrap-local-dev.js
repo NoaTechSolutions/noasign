@@ -15,12 +15,13 @@ async function main() {
   const defaultPassword =
     process.env.LOCAL_USER_PASSWORD || 'secret123';
   const passwordHash = await bcrypt.hash(defaultPassword, 10);
-  const pandadocTemplateId =
-    process.env.LOCAL_PANDADOC_TEMPLATE_ID || 'DhBwzpbNdESYiCnPmjDLT9';
-  const recipientRole = process.env.LOCAL_PANDADOC_RECIPIENT_ROLE || 'Client';
+  const providerTemplateId =
+    process.env.LOCAL_SIGNATURE_TEMPLATE_ID || 'DhBwzpbNdESYiCnPmjDLT9';
+  const recipientRole =
+    process.env.LOCAL_SIGNATURE_RECIPIENT_ROLE || 'BUYER';
   const templateName =
-    process.env.LOCAL_PANDADOC_TEMPLATE_NAME ||
-    'World Pavers Company - Home Improvement Contract';
+    process.env.LOCAL_SIGNATURE_TEMPLATE_NAME ||
+    'NTSsign BoldSign Contract Template';
   const logoUrl = buildWorldPaversLogoDataUrl();
 
   const companyProfile = await prisma.companyProfile.upsert({
@@ -100,12 +101,12 @@ async function main() {
     },
   });
 
-  const pandaTemplate = await prisma.pandaDocTemplate.upsert({
+  const signatureTemplate = await prisma.signatureTemplate.upsert({
     where: { id: '2b549fa1-82a5-41b2-87ad-45796a3626f6' },
     update: {
       name: templateName,
       documentTypeId: contractType.id,
-      pandadocTemplateId,
+      providerTemplateId,
       recipientRole,
       tokenMappingJson: null,
       fieldMappingJson: null,
@@ -115,7 +116,7 @@ async function main() {
       id: '2b549fa1-82a5-41b2-87ad-45796a3626f6',
       name: templateName,
       documentTypeId: contractType.id,
-      pandadocTemplateId,
+      providerTemplateId,
       recipientRole,
       tokenMappingJson: null,
       fieldMappingJson: null,
@@ -168,11 +169,11 @@ async function main() {
       });
 
   const documentConfigWhere = {
-    userId_documentTypeId_formDefinitionId_pandadocTemplateId: {
+    userId_documentTypeId_formDefinitionId_signatureTemplateId: {
       userId: normalUser.id,
       documentTypeId: contractType.id,
       formDefinitionId: formDefinition.id,
-      pandadocTemplateId: pandaTemplate.id,
+      signatureTemplateId: signatureTemplate.id,
     },
   };
 
@@ -185,7 +186,7 @@ async function main() {
       userId: normalUser.id,
       documentTypeId: contractType.id,
       formDefinitionId: formDefinition.id,
-      pandadocTemplateId: pandaTemplate.id,
+      signatureTemplateId: signatureTemplate.id,
       isActive: true,
     },
   });
@@ -194,9 +195,9 @@ async function main() {
     companyProfileId: companyProfile.id,
     contractTypeId: contractType.id,
     formDefinitionId: formDefinition.id,
-    pandaTemplateId: pandaTemplate.id,
-    pandadocTemplateId: pandaTemplate.pandadocTemplateId,
-    recipientRole: pandaTemplate.recipientRole,
+    signatureTemplateId: signatureTemplate.id,
+    providerTemplateId: signatureTemplate.providerTemplateId,
+    recipientRole: signatureTemplate.recipientRole,
     credentials: {
       master: {
         email: masterEmail,

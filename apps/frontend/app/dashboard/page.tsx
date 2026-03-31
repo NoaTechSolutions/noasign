@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import {
   clearSession,
-  getStoredToken,
   getStoredUser,
+  updateStoredUser,
   type StoredUser,
 } from "../../lib/auth-storage";
 
@@ -91,9 +91,14 @@ type DashboardDocument = {
   status: string;
   contractDate: string;
   createdAt: string;
-  pandadocDocumentId?: string | null;
-  pandadocStatus?: string | null;
-  pandadocLastSyncedAt?: string | null;
+  providerDocumentId?: string | null;
+  providerStatus?: string | null;
+  providerLastSyncedAt?: string | null;
+  lastManualReminderAt?: string | null;
+  resendAvailableAt?: string | null;
+  resendAvailableInSeconds?: number;
+  serverNow?: string | null;
+  canResend?: boolean;
   billingPeriod?: string | null;
   sentAt?: string | null;
   cancelledAt?: string | null;
@@ -143,9 +148,10 @@ type AccountRequest = {
 };
 
 type DocumentDetail = DashboardDocument & {
-  pandadocTemplate?: {
+  signatureTemplate?: {
     name: string;
     templateKey: string;
+    providerTemplateId?: string | null;
   } | null;
   data?: {
     dataJson: Record<string, unknown>;
@@ -157,7 +163,7 @@ type DocumentDetail = DashboardDocument & {
   }>;
 };
 
-type DocumentAction = "send" | "cancel" | "reactivate";
+type DocumentAction = "send" | "resend" | "cancel" | "reactivate";
 
 type DocumentActionResponse = {
   message: string;
@@ -178,10 +184,11 @@ type DocumentTypeCatalogItem = {
     name: string;
     key: string;
   }>;
-  pandaTemplates: Array<{
+  signatureTemplates: Array<{
     id: string;
     name: string;
     templateKey: string;
+    providerTemplateId?: string | null;
   }>;
 };
 
@@ -244,6 +251,10 @@ type UpdateAccountRequestResponse = {
   request: AccountRequest;
 };
 
+const LIVE_DOCUMENT_STATUSES = new Set(["SENT", "VIEWED", "SIGNED"]);
+const DOCUMENT_REFRESH_INTERVAL_MS = 10_000;
+const DASHBOARD_SELECTED_DOCUMENT_KEY = "noasign:dashboard:selected-document-id";
+
 export default function DashboardPage() {
   const router = useRouter();
   const { setTheme } = useTheme();
@@ -265,70 +276,62 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
 
   const loadWorkspace = useCallback(
-    async (accessToken: string, currentSelectedId?: string | null) => {
-    const recentMonths = getRecentBillingMonths(3);
-    const [me, profile, currentUsage, summary, myDocuments, availableDocumentTypes, summaryHistory] = await Promise.all([
-      apiRequest<DashboardUser>("/users/me", { token: accessToken }),
-      apiRequest<CompanyProfile>("/company-profile/me", { token: accessToken }),
-      apiRequest<CurrentUsage>("/billing/current-usage", { token: accessToken }),
-      apiRequest<MonthlySummary>("/billing/summary", { token: accessToken }),
-      apiRequest<DashboardDocument[]>("/documents/my-documents", {
-        token: accessToken,
-      }),
-      apiRequest<DocumentTypeCatalogItem[]>("/documents/types", {
-        token: accessToken,
-      }),
-      Promise.all(
-        recentMonths.map((month) =>
-          apiRequest<MonthlySummary>(`/billing/summary?month=${month}`, {
-            token: accessToken,
-          }),
-        ),
-      ),
-    ]);
+    async (currentSelectedId?: string | null) => {
+      const recentMonths = getRecentBillingMonths(3);
+      const [me, profile, currentUsage, summary, myDocuments, availableDocumentTypes, summaryHistory] =
+        await Promise.all([
+          apiRequest<DashboardUser>("/users/me"),
+          apiRequest<CompanyProfile>("/company-profile/me"),
+          apiRequest<CurrentUsage>("/billing/current-usage"),
+          apiRequest<MonthlySummary>("/billing/summary"),
+          apiRequest<DashboardDocument[]>("/documents/my-documents"),
+          apiRequest<DocumentTypeCatalogItem[]>("/documents/types"),
+          Promise.all(
+            recentMonths.map((month) =>
+              apiRequest<MonthlySummary>(`/billing/summary?month=${month}`),
+            ),
+          ),
+        ]);
 
-    const [workspaceUsers, workspaceAccountRequests] =
-      me.role === "MASTER"
-        ? await Promise.all([
-            apiRequest<ManagedUser[]>("/users", { token: accessToken }),
-            apiRequest<AccountRequest[]>("/users/account-requests", {
-              token: accessToken,
-            }),
-          ])
-        : [[], []];
+      const [workspaceUsers, workspaceAccountRequests] =
+        me.role === "MASTER"
+          ? await Promise.all([
+              apiRequest<ManagedUser[]>("/users"),
+              apiRequest<AccountRequest[]>("/users/account-requests"),
+            ])
+          : [[], []];
 
-    setDashboardUser(me);
-    setCompanyProfile(profile);
-    setUsage(currentUsage);
-    setMonthlySummary(summary);
-    setBillingHistory(summaryHistory);
-    setDocuments(myDocuments);
-    setDocumentTypes(availableDocumentTypes);
-    setManagedUsers(workspaceUsers);
-    setAccountRequests(workspaceAccountRequests);
+      setDashboardUser(me);
+      setCompanyProfile(profile);
+      setUsage(currentUsage);
+      setMonthlySummary(summary);
+      setBillingHistory(summaryHistory);
+      setDocuments(myDocuments);
+      setDocumentTypes(availableDocumentTypes);
+      setManagedUsers(workspaceUsers);
+      setAccountRequests(workspaceAccountRequests);
 
-    const nextSelectedId =
-      currentSelectedId && myDocuments.some((document) => document.id === currentSelectedId)
-        ? currentSelectedId
-        : myDocuments[0]?.id ?? null;
+      const nextSelectedId =
+        currentSelectedId &&
+        myDocuments.some((document) => document.id === currentSelectedId)
+          ? currentSelectedId
+          : myDocuments[0]?.id ?? null;
 
-    setSelectedDocumentId(nextSelectedId);
+      setSelectedDocumentId(nextSelectedId);
 
-    return {
-      myDocuments,
-      nextSelectedId,
-    };
+      return {
+        myDocuments,
+        nextSelectedId,
+      };
     },
     [],
   );
 
-  const loadDocumentDetail = useCallback(async (accessToken: string, documentId: string) => {
+  const loadDocumentDetail = useCallback(async (documentId: string) => {
     setIsDocumentDetailLoading(true);
 
     try {
-      const detail = await apiRequest<DocumentDetail>(`/documents/${documentId}`, {
-        token: accessToken,
-      });
+      const detail = await apiRequest<DocumentDetail>(`/documents/${documentId}`);
 
       setDocumentDetail(detail);
       setSelectedDocumentId(documentId);
@@ -357,15 +360,6 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const accessToken = getStoredToken();
-
-    if (typeof accessToken !== "string" || !user) {
-      router.replace("/");
-      return;
-    }
-
-    const token = accessToken;
-
     let isMounted = true;
 
     async function loadDashboard() {
@@ -373,14 +367,18 @@ export default function DashboardPage() {
       setError("");
 
       try {
-        const { nextSelectedId } = await loadWorkspace(token);
+        const persistedSelectedId =
+          typeof window === "undefined"
+            ? null
+            : window.sessionStorage.getItem(DASHBOARD_SELECTED_DOCUMENT_KEY);
+        const { nextSelectedId } = await loadWorkspace(persistedSelectedId);
 
         if (!isMounted) {
           return;
         }
 
         if (nextSelectedId) {
-          await loadDocumentDetail(token, nextSelectedId);
+          await loadDocumentDetail(nextSelectedId);
         } else {
           setDocumentDetail(null);
         }
@@ -408,9 +406,107 @@ export default function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [loadDocumentDetail, loadWorkspace, router, user]);
+  }, [loadDocumentDetail, loadWorkspace, router]);
 
-  function handleSignOut() {
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (selectedDocumentId) {
+      window.sessionStorage.setItem(
+        DASHBOARD_SELECTED_DOCUMENT_KEY,
+        selectedDocumentId,
+      );
+      return;
+    }
+
+    window.sessionStorage.removeItem(DASHBOARD_SELECTED_DOCUMENT_KEY);
+  }, [selectedDocumentId]);
+
+  const refreshLiveDocumentData = useCallback(
+    async (currentSelectedId?: string | null) => {
+      const [currentUsage, summary, myDocuments] = await Promise.all([
+        apiRequest<CurrentUsage>("/billing/current-usage"),
+        apiRequest<MonthlySummary>("/billing/summary"),
+        apiRequest<DashboardDocument[]>("/documents/my-documents"),
+      ]);
+
+      setUsage(currentUsage);
+      setMonthlySummary(summary);
+      setDocuments(myDocuments);
+
+      const nextSelectedId =
+        currentSelectedId &&
+        myDocuments.some((document) => document.id === currentSelectedId)
+          ? currentSelectedId
+          : myDocuments[0]?.id ?? null;
+
+      setSelectedDocumentId(nextSelectedId);
+
+      if (!nextSelectedId) {
+        setDocumentDetail(null);
+        return;
+      }
+
+      try {
+        const detail = await apiRequest<DocumentDetail>(`/documents/${nextSelectedId}`);
+        setDocumentDetail(detail);
+      } catch {
+        // Keep the current detail visible if a background refresh fails.
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const hasLiveDocuments = (documents ?? []).some((document) =>
+      LIVE_DOCUMENT_STATUSES.has(document.status),
+    );
+
+    if (!hasLiveDocuments || documentActionId) {
+      return;
+    }
+
+    let isCancelled = false;
+    let isRefreshing = false;
+
+    const refreshWorkspace = async () => {
+      if (isCancelled || isRefreshing || document.visibilityState === "hidden") {
+        return;
+      }
+
+      isRefreshing = true;
+
+      try {
+        await refreshLiveDocumentData(selectedDocumentId);
+      } catch {
+        // Ignore background refresh failures and let the next poll retry.
+      } finally {
+        isRefreshing = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void refreshWorkspace();
+    }, DOCUMENT_REFRESH_INTERVAL_MS);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [documentActionId, documents, refreshLiveDocumentData, selectedDocumentId]);
+
+  async function handleSignOut() {
+    try {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // Ignore network/logout errors and clear local state anyway.
+    }
+
     clearSession();
     setUser(null);
     setDashboardUser(null);
@@ -428,18 +524,10 @@ export default function DashboardPage() {
   }
 
   async function handleSelectDocument(documentId: string) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
-      await loadDocumentDetail(accessToken, documentId);
+      await loadDocumentDetail(documentId);
     } catch (detailError) {
       setError(
         detailError instanceof Error
@@ -450,29 +538,22 @@ export default function DashboardPage() {
   }
 
   async function handleDocumentAction(documentId: string, action: DocumentAction) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setDocumentActionId(documentId);
     setError("");
+    let actionSucceeded = false;
 
     try {
       await apiRequest<DocumentActionResponse>(`/documents/${documentId}/${action}`, {
-        token: accessToken,
         method: "POST",
       });
+      actionSucceeded = true;
 
-      const { nextSelectedId } = await loadWorkspace(accessToken, selectedDocumentId);
+      const { nextSelectedId } = await loadWorkspace(selectedDocumentId);
       const detailTarget =
         documentId === selectedDocumentId ? documentId : nextSelectedId;
 
       if (detailTarget) {
-        await loadDocumentDetail(accessToken, detailTarget);
+        await loadDocumentDetail(detailTarget);
       } else {
         setDocumentDetail(null);
       }
@@ -482,31 +563,27 @@ export default function DashboardPage() {
           ? actionError.message
           : "Unable to update document",
       );
+      if (!actionSucceeded) {
+        throw actionError instanceof Error
+          ? actionError
+          : new Error("Unable to update document");
+      }
     } finally {
       setDocumentActionId(null);
     }
   }
 
   async function handleSyncDocumentStatus(documentId: string) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setDocumentActionId(documentId);
     setError("");
 
     try {
       await apiRequest<DocumentActionResponse>(`/documents/${documentId}/sync-status`, {
-        token: accessToken,
         method: "POST",
       });
 
-      await loadWorkspace(accessToken, documentId);
-      await loadDocumentDetail(accessToken, documentId);
+      await loadWorkspace(documentId);
+      await loadDocumentDetail(documentId);
     } catch (syncError) {
       setError(
         syncError instanceof Error
@@ -520,22 +597,12 @@ export default function DashboardPage() {
   }
 
   async function handleDownloadFinalPdf(documentId: string) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setDocumentActionId(documentId);
     setError("");
 
     try {
       const response = await fetch(`${API_URL}/documents/${documentId}/final-pdf`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -589,22 +656,12 @@ export default function DashboardPage() {
   }
 
   async function handlePreviewFinalPdf(documentId: string) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return "";
-    }
-
     setDocumentActionId(documentId);
     setError("");
 
     try {
       const response = await fetch(`${API_URL}/documents/${documentId}/final-pdf`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -649,26 +706,17 @@ export default function DashboardPage() {
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
   ) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setDocumentActionId(documentId);
     setError("");
 
     try {
       await apiRequest<UpdateDraftResponse>(`/documents/${documentId}/draft`, {
-        token: accessToken,
         method: "PATCH",
         body: payload,
       });
 
-      await loadWorkspace(accessToken, documentId);
-      await loadDocumentDetail(accessToken, documentId);
+      await loadWorkspace(documentId);
+      await loadDocumentDetail(documentId);
     } catch (updateError) {
       setError(
         updateError instanceof Error
@@ -684,29 +732,20 @@ export default function DashboardPage() {
   async function handleCreateDraft(payload: {
     documentTypeId: string;
     formDefinitionId: string;
-    pandadocTemplateId: string;
+    signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
   }) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       const response = await apiRequest<CreateDraftResponse>("/documents/draft", {
-        token: accessToken,
         method: "POST",
         body: payload,
       });
 
-      await loadWorkspace(accessToken, response.document.id);
-      await loadDocumentDetail(accessToken, response.document.id);
+      await loadWorkspace(response.document.id);
+      await loadDocumentDetail(response.document.id);
       return response.document;
     } catch (createError) {
       setError(
@@ -719,19 +758,10 @@ export default function DashboardPage() {
   }
 
   async function handleUpdateCompanyProfile(payload: UpdateCompanyProfilePayload) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       const updatedProfile = await apiRequest<CompanyProfile>("/company-profile/me", {
-        token: accessToken,
         method: "PATCH",
         body: payload,
       });
@@ -753,24 +783,15 @@ export default function DashboardPage() {
     password: string;
     role: string;
   }) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       await apiRequest<CreateUserResponse>("/users", {
-        token: accessToken,
         method: "POST",
         body: payload,
       });
 
-      await loadWorkspace(accessToken, selectedDocumentId);
+      await loadWorkspace(selectedDocumentId);
     } catch (createError) {
       setError(
         createError instanceof Error ? createError.message : "Unable to create user",
@@ -783,24 +804,15 @@ export default function DashboardPage() {
     userId: string,
     payload: { email?: string; role?: string; status?: string },
   ) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       await apiRequest<UpdateUserResponse>(`/users/${userId}`, {
-        token: accessToken,
         method: "PATCH",
         body: payload,
       });
 
-      await loadWorkspace(accessToken, selectedDocumentId);
+      await loadWorkspace(selectedDocumentId);
     } catch (updateError) {
       setError(
         updateError instanceof Error ? updateError.message : "Unable to update user",
@@ -810,23 +822,14 @@ export default function DashboardPage() {
   }
 
   async function handleDeactivateUser(userId: string) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       await apiRequest<UpdateUserResponse>(`/users/${userId}/deactivate`, {
-        token: accessToken,
         method: "POST",
       });
 
-      await loadWorkspace(accessToken, selectedDocumentId);
+      await loadWorkspace(selectedDocumentId);
     } catch (actionError) {
       setError(
         actionError instanceof Error ? actionError.message : "Unable to deactivate user",
@@ -836,23 +839,14 @@ export default function DashboardPage() {
   }
 
   async function handleReactivateUser(userId: string) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       await apiRequest<UpdateUserResponse>(`/users/${userId}/reactivate`, {
-        token: accessToken,
         method: "POST",
       });
 
-      await loadWorkspace(accessToken, selectedDocumentId);
+      await loadWorkspace(selectedDocumentId);
     } catch (actionError) {
       setError(
         actionError instanceof Error ? actionError.message : "Unable to reactivate user",
@@ -865,24 +859,15 @@ export default function DashboardPage() {
     userId: string,
     payload: { password: string; temporary: boolean },
   ) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       await apiRequest<ResetUserPasswordResponse>(`/users/${userId}/password`, {
-        token: accessToken,
         method: "POST",
         body: payload,
       });
 
-      await loadWorkspace(accessToken, selectedDocumentId);
+      await loadWorkspace(selectedDocumentId);
     } catch (resetError) {
       setError(
         resetError instanceof Error
@@ -894,19 +879,10 @@ export default function DashboardPage() {
   }
 
   async function handleChangeOwnPassword(password: string) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       await apiRequest<{ message: string }>("/auth/change-password", {
-        token: accessToken,
         method: "POST",
         body: { password },
       });
@@ -920,11 +896,7 @@ export default function DashboardPage() {
 
       const storedUser = getStoredUser();
       if (storedUser) {
-        window.localStorage.setItem(
-          "noasign.user",
-          JSON.stringify({ ...storedUser, mustChangePassword: false }),
-        );
-        window.dispatchEvent(new Event("noasign-auth-change"));
+        updateStoredUser({ ...storedUser, mustChangePassword: false });
       }
     } catch (changeError) {
       setError(
@@ -940,27 +912,18 @@ export default function DashboardPage() {
     requestId: string,
     status: "PENDING" | "APPROVED" | "REJECTED",
   ) {
-    const accessToken = getStoredToken();
-
-    if (!accessToken) {
-      clearSession();
-      router.replace("/");
-      return;
-    }
-
     setError("");
 
     try {
       await apiRequest<UpdateAccountRequestResponse>(
         `/users/account-requests/${requestId}`,
         {
-          token: accessToken,
           method: "PATCH",
           body: { status },
         },
       );
 
-      await loadWorkspace(accessToken, selectedDocumentId);
+      await loadWorkspace(selectedDocumentId);
     } catch (updateError) {
       setError(
         updateError instanceof Error
@@ -978,38 +941,40 @@ export default function DashboardPage() {
           {error}
         </div>
       ) : null}
-      <DashboardSidebarDemo
-        user={dashboardUser ?? user}
-        companyProfile={companyProfile}
-        usage={usage}
-        monthlySummary={monthlySummary}
-        billingHistory={billingHistory}
-        users={managedUsers}
-        accountRequests={accountRequests}
-        documents={documents}
-        documentTypes={documentTypes}
-        documentDetail={documentDetail}
-        selectedDocumentId={selectedDocumentId}
-        isDocumentDetailLoading={isDocumentDetailLoading}
-        documentActionId={documentActionId}
-        isLoading={isLoading}
-        onSelectDocument={handleSelectDocument}
-        onDocumentAction={handleDocumentAction}
-        onUpdateDraft={handleUpdateDraft}
-        onSyncDocumentStatus={handleSyncDocumentStatus}
-        onPreviewFinalPdf={handlePreviewFinalPdf}
-        onDownloadFinalPdf={handleDownloadFinalPdf}
-        onCreateDraft={handleCreateDraft}
-        onUpdateCompanyProfile={handleUpdateCompanyProfile}
-        onCreateUser={handleCreateUser}
-        onUpdateUser={handleUpdateUser}
-        onDeactivateUser={handleDeactivateUser}
-        onReactivateUser={handleReactivateUser}
-        onResetUserPassword={handleResetUserPassword}
-        onUpdateAccountRequestStatus={handleUpdateAccountRequestStatus}
-        onSignOut={handleSignOut}
-        onChangeOwnPassword={handleChangeOwnPassword}
-      />
+      <Suspense fallback={<div className="px-4 py-6 text-sm text-[color:var(--text-muted)]">Loading workspace...</div>}>
+        <DashboardSidebarDemo
+          user={dashboardUser ?? user}
+          companyProfile={companyProfile}
+          usage={usage}
+          monthlySummary={monthlySummary}
+          billingHistory={billingHistory}
+          users={managedUsers}
+          accountRequests={accountRequests}
+          documents={documents}
+          documentTypes={documentTypes}
+          documentDetail={documentDetail}
+          selectedDocumentId={selectedDocumentId}
+          isDocumentDetailLoading={isDocumentDetailLoading}
+          documentActionId={documentActionId}
+          isLoading={isLoading}
+          onSelectDocument={handleSelectDocument}
+          onDocumentAction={handleDocumentAction}
+          onUpdateDraft={handleUpdateDraft}
+          onSyncDocumentStatus={handleSyncDocumentStatus}
+          onPreviewFinalPdf={handlePreviewFinalPdf}
+          onDownloadFinalPdf={handleDownloadFinalPdf}
+          onCreateDraft={handleCreateDraft}
+          onUpdateCompanyProfile={handleUpdateCompanyProfile}
+          onCreateUser={handleCreateUser}
+          onUpdateUser={handleUpdateUser}
+          onDeactivateUser={handleDeactivateUser}
+          onReactivateUser={handleReactivateUser}
+          onResetUserPassword={handleResetUserPassword}
+          onUpdateAccountRequestStatus={handleUpdateAccountRequestStatus}
+          onSignOut={handleSignOut}
+          onChangeOwnPassword={handleChangeOwnPassword}
+        />
+      </Suspense>
     </main>
   );
 }

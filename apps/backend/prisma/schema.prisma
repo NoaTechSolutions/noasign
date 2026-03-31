@@ -41,7 +41,7 @@ enum DocumentFileType {
 }
 
 enum StorageProvider {
-  PANDADOC
+  BOLDSIGN
   S3
   R2
 }
@@ -157,7 +157,7 @@ model DocumentType {
   code             String   @unique
 
   formDefinitions  FormDefinition[]
-  pandaTemplates   PandaDocTemplate[]
+  signatureTemplates SignatureTemplate[]
   userConfigs      UserDocumentConfig[]
   documents        Document[]
 
@@ -180,11 +180,11 @@ model FormDefinition {
   @@map("form_definitions")
 }
 
-model PandaDocTemplate {
+model SignatureTemplate {
   id                String   @id @default(uuid())
   name              String
   documentTypeId    String
-  pandadocTemplateId String
+  providerTemplateId String
   recipientRole     String   @default("Client")
   tokenMappingJson  Json?
   fieldMappingJson  Json?
@@ -198,7 +198,7 @@ model PandaDocTemplate {
   documents         Document[]
 
   @@index([documentTypeId])
-  @@map("pandadoc_templates")
+  @@map("signature_templates")
 }
 
 model UserDocumentConfig {
@@ -206,16 +206,16 @@ model UserDocumentConfig {
   userId            String
   documentTypeId    String
   formDefinitionId  String
-  pandadocTemplateId String
+  signatureTemplateId String
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
 
   user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   documentType      DocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
   formDefinition    FormDefinition   @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
-  pandadocTemplate  PandaDocTemplate @relation(fields: [pandadocTemplateId], references: [id], onDelete: Restrict)
+  signatureTemplate SignatureTemplate @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
 
-  @@unique([userId, documentTypeId, formDefinitionId, pandadocTemplateId])
+  @@unique([userId, documentTypeId, formDefinitionId, signatureTemplateId])
   @@index([userId])
   @@index([documentTypeId])
   @@map("user_document_configs")
@@ -228,10 +228,10 @@ model Document {
   companyProfileId   String?
   documentTypeId     String
   formDefinitionId   String
-  pandadocTemplateId String
-  pandadocDocumentId String?
-  pandadocStatus     String?
-  pandadocLastSyncedAt DateTime?
+  signatureTemplateId String
+  providerDocumentId String?
+  providerStatus     String?
+  providerLastSyncedAt DateTime?
   status             DocumentStatus
 
   contractDate       DateTime?
@@ -240,6 +240,7 @@ model Document {
   signedAt           DateTime?
   completedAt        DateTime?
   cancelledAt        DateTime?
+  lastManualReminderAt DateTime?
 
   countedInBilling   Boolean  @default(false)
   isOverage          Boolean  @default(false)
@@ -252,7 +253,7 @@ model Document {
   companyProfile     CompanyProfile?  @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
   documentType       DocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
   formDefinition     FormDefinition   @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
-  pandadocTemplate   PandaDocTemplate @relation(fields: [pandadocTemplateId], references: [id], onDelete: Restrict)
+  signatureTemplate  SignatureTemplate @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
   data               DocumentData?
   versions           DocumentVersion[]
   files              DocumentFile[]
@@ -262,7 +263,7 @@ model Document {
   @@index([documentTypeId])
   @@index([status])
   @@index([createdAt])
-  @@index([pandadocDocumentId])
+  @@index([providerDocumentId])
   @@map("documents")
 }
 
