@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/backend
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ntssign
+
+      - name: Run unit tests
+        run: npm test
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ntssign
+          JWT_SECRET: ci-test-secret-not-used-in-real-env
+          NODE_ENV: test
+
+  frontend-lint:
+    name: Frontend lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: apps/frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:3000

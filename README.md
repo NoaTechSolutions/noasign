@@ -1,42 +1,94 @@
-# NoaSign
+# NTSsign
 
-NoaSign is a multi-tenant SaaS platform for document operations, contracts, templates, electronic signatures, workflows, and usage-based billing.
+NTSsign is a multi-tenant SaaS platform for document operations, contracts, electronic signatures, workflows, and usage-based billing.
 
-The product is being designed as a sustainable core platform that can support multiple industries without rewriting the foundation. The first practical use case is construction, with future expansion in mind for daycare, artists, service businesses, and other verticals.
+Built for construction businesses first, with a foundation designed to expand to other industries without rewriting the core.
 
 ## Platform Vision
 
-NoaSign is intended to operate as a professional business system, not only as a document editor. The platform should support document creation, business workflows, external signature integrations, operational control, and billing visibility inside a single product.
+NTSsign operates as a professional business system — not just a document editor. The platform covers document creation, guided workflows, external signature integrations (BoldSign), operational control, and billing visibility inside a single product.
 
 ## Project Principles
 
 - Real multi-tenant architecture
-- Maintainability
-- Scalability
-- Roles and permissions
+- Maintainability and scalability
+- Roles and permissions (MASTER / USER)
 - Templates by industry
 - Decoupled integrations
 
 ## Repository Structure
 
 ```text
-noasign/
+ntssign/
   .github/
+    workflows/       # CI and deploy pipelines
   apps/
-    backend/
-    frontend/
-  packages/
+    backend/         # NestJS API
+    frontend/        # Next.js app
   docs/
-    product/
-    architecture/
-    api/
+    development/     # Local setup guide
+    deployment/      # Production and staging guides
+    product/         # Product overview and pricing
   infra/
+    docker-compose.local.yml   # Local PostgreSQL
+```
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | NestJS 11 + TypeScript + Prisma 6 |
+| Frontend | Next.js 16 + React 19 + Tailwind CSS 4 |
+| Database | PostgreSQL 16 |
+| Signatures | BoldSign |
+| Hosting | Oracle Cloud VM + Cloudflare DNS |
+| Process manager | pm2 |
+| Reverse proxy | nginx |
+
+## Environments
+
+| Environment | Purpose |
+|---|---|
+| `local` | Active development on your machine |
+| `production` | Live customers on Oracle Cloud |
+
+## Quick Start (local)
+
+See [docs/development/local.md](docs/development/local.md) for the full setup guide.
+
+```bash
+# 1. Start local database
+docker compose -f infra/docker-compose.local.yml up -d
+
+# 2. Copy env files
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env.local
+
+# 3. Install and migrate
+cd apps/backend && npm install && npx prisma migrate deploy && npm run bootstrap:local
+
+# 4. Start apps (two terminals)
+npm run start:dev          # backend on :3000
+cd ../frontend && npm run dev  # frontend on :3001
 ```
 
 ## Current Status
 
-This repository is in the foundation stage.
+The core product is feature-complete and preparing for production launch.
 
-The current focus is to establish a clean monorepo structure, align documentation, and prepare the project for backend and frontend work without introducing unnecessary boilerplate or premature complexity.
+**Implemented:**
+- Multi-tenant document lifecycle (DRAFT → SENT → VIEWED → SIGNED → COMPLETED → CANCELLED)
+- BoldSign integration with webhook callbacks
+- Guided document creation wizard (client, project, pricing tabs)
+- Usage-based billing tracking with overage support
+- User management with MASTER / USER roles
+- Company profile management
+- Account request intake and review flow
+- Password reset flow
+- Signed PDF preview and download
 
-An early backend workspace exists under `apps/backend`, while the repository structure is being organized to support future growth in a more consistent way.
+**Planned:**
+- Saved customer directory
+- Reminder automations
+- Deeper white-labeling
+- More document types and industries

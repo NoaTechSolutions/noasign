@@ -2,15 +2,17 @@
 
 ## Ports
 
-- Backend: `3000`
-- Frontend: `3001`
-- Postgres: `5433`
+| Service | Port |
+|---|---|
+| Backend | `3000` |
+| Frontend | `3001` |
+| PostgreSQL | `5433` |
 
 ## 1. Start local database
 
 Run from the repository root:
 
-```powershell
+```bash
 docker compose -f infra/docker-compose.local.yml up -d
 ```
 
@@ -18,38 +20,50 @@ docker compose -f infra/docker-compose.local.yml up -d
 
 Backend:
 
-```powershell
-Copy-Item apps/backend/.env.example apps/backend/.env
+```bash
+cp apps/backend/.env.example apps/backend/.env
 ```
 
 Frontend:
 
-```powershell
-Copy-Item apps/frontend/.env.example apps/frontend/.env.local
+```bash
+cp apps/frontend/.env.example apps/frontend/.env.local
 ```
 
-## 3. Set backend local env
+## 3. Configure backend env
 
-Use these values in `apps/backend/.env`:
+Edit `apps/backend/.env` with these values:
 
 ```env
+# Database — local Docker PostgreSQL
 DATABASE_URL=postgresql://postgres:postgres@localhost:5433/noasign
-JWT_SECRET=replace-with-a-local-dev-secret
-JWT_EXPIRES_IN=86400
+
+# Auth
+JWT_SECRET=replace-with-any-local-secret
+JWT_EXPIRES_IN=7d
+NODE_ENV=development
+
+# Server
 PORT=3000
 HOST=127.0.0.1
-SIGNATURE_PROVIDER=boldsign
+
+# BoldSign
 BOLDSIGN_API_KEY=replace-with-your-boldsign-api-key
 BOLDSIGN_BASE_URL=https://api.boldsign.com
 BOLDSIGN_WEBHOOK_SECRET=
 BOLDSIGN_BRAND_ID=
+
+# URLs
+# BACKEND_URL is used for public signature links.
+# Leave empty in local dev unless you need BoldSign webhooks to work
+# (in that case, expose the backend via ngrok and paste the https URL here).
+APP_URL=http://127.0.0.1:3001
 BACKEND_URL=
-BOLDSIGN_CALLBACK_URL=
 ```
 
-## 4. Set frontend local env
+## 4. Configure frontend env
 
-Use this in `apps/frontend/.env.local`:
+`apps/frontend/.env.local` only needs one variable:
 
 ```env
 NEXT_PUBLIC_API_URL=http://127.0.0.1:3000
@@ -57,70 +71,99 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:3000
 
 ## 5. Install dependencies
 
-Backend:
-
-```powershell
-cd apps/backend
-npm install
-```
-
-Frontend:
-
-```powershell
-cd ../frontend
-npm install
+```bash
+cd apps/backend && npm install
+cd ../frontend && npm install
 ```
 
 ## 6. Prepare local database
 
 From `apps/backend`:
 
-```powershell
+```bash
 npx prisma migrate deploy
 npm run bootstrap:local
 ```
 
-This creates the `Contract` document type, form definition, and a signature
-template record for local testing.
+This creates:
+- A `Contract` document type, form definition, and signature template
+- A MASTER user (`master@ntssign.test` / `secret123`)
+- A standard user (`ana.martinez@worldpaversco.test` / `secret123`)
 
-Set `LOCAL_SIGNATURE_TEMPLATE_ID` before running the bootstrap so the seeded
-template record stores your BoldSign `template_id`.
+**Configure your BoldSign template before bootstrapping:**
 
-If your BoldSign template uses a signer role other than `BUYER` for the
-customer signer, also set `LOCAL_SIGNATURE_RECIPIENT_ROLE` before running the
-bootstrap. For example, a bill-of-sale template might need:
-
-```powershell
+```bash
+# Windows PowerShell
 $env:LOCAL_SIGNATURE_TEMPLATE_ID='your-boldsign-template-id'
 $env:LOCAL_SIGNATURE_RECIPIENT_ROLE='BUYER'
 npm run bootstrap:local
+
+# macOS / Linux
+LOCAL_SIGNATURE_TEMPLATE_ID='your-boldsign-template-id' \
+LOCAL_SIGNATURE_RECIPIENT_ROLE='BUYER' \
+npm run bootstrap:local
 ```
 
-## 7. Start the apps
+The `LOCAL_SIGNATURE_RECIPIENT_ROLE` must match the signer role name defined
+in your BoldSign template (e.g. `BUYER`, `Client`, `Signer`).
 
-Backend terminal:
+## 7. Seed test documents (optional)
 
-```powershell
+```bash
+npm run seed:local-documents
+```
+
+Creates 8 documents in different statuses for UI testing.
+
+## 8. Start the apps
+
+Backend (terminal 1):
+
+```bash
 cd apps/backend
 npm run start:dev
 ```
 
-Frontend terminal:
+Frontend (terminal 2):
 
-```powershell
+```bash
 cd apps/frontend
 npm run dev
 ```
 
-## 8. URLs
+## 9. URLs
 
-- Frontend: `http://127.0.0.1:3001`
-- Backend: `http://127.0.0.1:3000`
+| App | URL |
+|---|---|
+| Frontend | http://127.0.0.1:3001 |
+| Backend | http://127.0.0.1:3000 |
 
-## Notes
+## BoldSign webhooks in local dev
 
-- Local frontend expects the backend on `127.0.0.1:3000`.
-- Local backend binds to `127.0.0.1` when `HOST=127.0.0.1`.
-- BoldSign callbacks require a public `https://` URL. For local automatic
-  status updates, tunnel the backend with something like `ngrok` and set either
-  `BOLDSIGN_CALLBACK_URL` or `BACKEND_URL`.
+BoldSign callbacks require a public `https://` URL. In local development,
+automatic status updates (VIEWED, SIGNED, COMPLETED) will not fire unless you
+expose the backend via a tunnel.
+
+```bash
+# Using ngrok
+ngrok http 3000
+```
+
+Then set `BACKEND_URL` in `apps/backend/.env` to the ngrok `https://` URL and
+restart the backend. BoldSign will call `{BACKEND_URL}/boldsign/webhooks/events`.
+
+## Run smoke tests
+
+Tests the full document lifecycle against a running local backend:
+
+```bash
+cd apps/backend
+npm run test:smoke
+```
+
+## Run unit tests
+
+```bash
+cd apps/backend
+npm test
+```

@@ -1,33 +1,57 @@
-# Staging deployment notes
+# Staging Environment (optional)
 
-## Backend
+The two required environments are `local` (development) and `production`.
+Staging is optional — use it when you need to validate changes against a
+live server before pushing to production customers.
 
-- Public base URL: `https://api-staging.ntssign.com`
-- Runs behind `nginx`
-- Process manager: `pm2`
-- Required backend env vars:
-  - `DATABASE_URL`
-  - `JWT_SECRET`
-  - `JWT_EXPIRES_IN`
-  - `AUTH_COOKIE_DOMAIN=.ntssign.com`
-  - `PORT`
-  - `HOST`
-  - `BACKEND_URL=https://api-staging.ntssign.com`
-  - `BOLDSIGN_API_KEY`
-  - `BOLDSIGN_BASE_URL`
-  - `BOLDSIGN_WEBHOOK_SECRET`
-  - `BOLDSIGN_BRAND_ID`
-  - `BOLDSIGN_CALLBACK_URL` or rely on `BACKEND_URL`
+If you run a staging environment, it follows the same setup as production
+(same `production.md` guide) with different domain names and separate secrets.
 
-## Frontend
+## Domains
 
-- Public base URL: `https://app-staging.ntssign.com`
-- Required frontend env vars:
-  - `NEXT_PUBLIC_API_URL=https://api-staging.ntssign.com`
+- Backend: `https://api-staging.ntssign.com`
+- Frontend: `https://app-staging.ntssign.com`
 
-## Security follow-up
+## Backend env vars (staging-specific values)
 
-- Keep only `80/443/22` publicly reachable on the VM.
-- Do not rely on fallback secrets in staging or production.
-- Rotate secrets if they were ever shared in plaintext.
-- Keep `CORS_ORIGINS=https://app-staging.ntssign.com` so credentialed requests only come from the staging frontend.
+```env
+NODE_ENV=production
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/ntssign_staging
+JWT_SECRET=<staging-specific-secret — never reuse production secret>
+AUTH_COOKIE_DOMAIN=.ntssign.com
+PORT=3000
+HOST=127.0.0.1
+TRUST_PROXY=1
+CORS_ORIGINS=https://app-staging.ntssign.com
+APP_URL=https://app-staging.ntssign.com
+BACKEND_URL=https://api-staging.ntssign.com
+BOLDSIGN_API_KEY=<staging-api-key>
+BOLDSIGN_BASE_URL=https://api.boldsign.com
+BOLDSIGN_WEBHOOK_SECRET=<staging-webhook-secret>
+BOLDSIGN_BRAND_ID=<staging-brand-id>
+PUBLIC_LINK_SECRET=<staging-specific-secret>
+```
+
+## Frontend env vars
+
+```env
+NEXT_PUBLIC_API_URL=https://api-staging.ntssign.com
+```
+
+## Seed staging data
+
+```bash
+cd apps/backend
+STAGING_DEMO_MASTER_EMAIL=demo@ntssign.com \
+STAGING_DEMO_MASTER_PASSWORD='replace-with-password' \
+STAGING_DEMO_COMPANY_NAME='Demo Company' \
+npm run seed:staging-demo
+```
+
+## Security rules (same as production)
+
+- Keep only ports `80`, `443`, `22` publicly reachable.
+- Never reuse production secrets in staging.
+- Never commit `.env` files to Git.
+- Cloudflare DNS for staging subdomains should also point to the staging VM IP.
+- Set `CORS_ORIGINS` to only the staging frontend origin.
