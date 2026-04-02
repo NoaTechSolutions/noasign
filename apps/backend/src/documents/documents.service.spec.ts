@@ -37,6 +37,7 @@ const signatureProviderServiceMock = {
   getDocumentStatus: jest.fn(),
   waitForDocumentDraft: jest.fn(),
   sendDocument: jest.fn(),
+  resendDocument: jest.fn(),
   downloadDocumentPdf: jest.fn(),
 };
 
