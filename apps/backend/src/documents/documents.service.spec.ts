@@ -566,4 +566,216 @@ describe('DocumentsService', () => {
 
     expect(result.document.status).toBe(DocumentStatus.CANCELLED);
   });
+
+  it('cancelDocument accepts DRAFT documents', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-draft-cancel',
+      status: DocumentStatus.DRAFT,
+    });
+    prismaMock.document.update.mockResolvedValue({
+      id: 'doc-draft-cancel',
+      status: DocumentStatus.CANCELLED,
+    });
+
+    const result = await service.cancelDocument('user-1', 'doc-draft-cancel');
+
+    expect(result.document.status).toBe(DocumentStatus.CANCELLED);
+  });
+
+  it('cancelDocument rejects SIGNED documents', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-signed',
+      status: DocumentStatus.SIGNED,
+    });
+
+    await expect(
+      service.cancelDocument('user-1', 'doc-signed'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('cancelDocument rejects COMPLETED documents', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-completed',
+      status: DocumentStatus.COMPLETED,
+    });
+
+    await expect(
+      service.cancelDocument('user-1', 'doc-completed'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('createDraftDocument creates document and first version with correct numbering', async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({
+      id: 'type-1',
+      code: 'CON',
+      name: 'Contract',
+    });
+    prismaMock.formDefinition.findUnique.mockResolvedValue({
+      id: 'form-1',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+      id: 'tpl-1',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.document.findFirst.mockResolvedValue(null);
+    prismaMock.document.create.mockResolvedValue({
+      id: 'doc-new',
+      documentNumber: 'CON-000001',
+      status: DocumentStatus.DRAFT,
+      countedInBilling: false,
+      isOverage: false,
+      billingPeriod: null,
+    });
+    prismaMock.documentVersion.create.mockResolvedValue({});
+
+    const result = await service.createDraftDocument('user-1', {
+      documentTypeId: 'type-1',
+      formDefinitionId: 'form-1',
+      signatureTemplateId: 'tpl-1',
+      contractDate: '2026-04-01',
+      dataJson: { customer_name: 'Jane Doe' },
+    });
+
+    expect(prismaMock.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          documentNumber: 'CON-000001',
+          status: DocumentStatus.DRAFT,
+          countedInBilling: false,
+          isOverage: false,
+        }),
+      }),
+    );
+    expect(prismaMock.documentVersion.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          versionNumber: 1,
+          documentId: 'doc-new',
+          changedByUserId: 'user-1',
+        }),
+      }),
+    );
+    expect(result.document.documentNumber).toBe('CON-000001');
+  });
+
+  it('createDraftDocument rejects when formDefinition belongs to a different documentType', async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({
+      id: 'type-1',
+      code: 'CON',
+      name: 'Contract',
+    });
+    prismaMock.formDefinition.findUnique.mockResolvedValue({
+      id: 'form-other',
+      documentTypeId: 'type-OTHER',
+    });
+    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+      id: 'tpl-1',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.document.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.createDraftDocument('user-1', {
+        documentTypeId: 'type-1',
+        formDefinitionId: 'form-other',
+        signatureTemplateId: 'tpl-1',
+        contractDate: '2026-04-01',
+        dataJson: {},
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('resendDocument blocks resend when cooldown is active', async () => {
+    const lastManualReminderAt = new Date();
+
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-resend-cooldown',
+      status: DocumentStatus.SENT,
+      providerDocumentId: 'pd-resend',
+      lastManualReminderAt,
+      data: { dataJson: { customer_email: 'client@example.com' } },
+    });
+    signatureProviderServiceMock.getDocumentStatus.mockResolvedValue({
+      id: 'pd-resend',
+      status: 'document.sent',
+    });
+    prismaMock.document.findUnique.mockResolvedValue({
+      id: 'doc-resend-cooldown',
+      status: DocumentStatus.SENT,
+      sentAt: new Date(),
+      companyProfile: null,
+    });
+    prismaMock.document.update.mockResolvedValue({});
+
+    await expect(
+      service.resendDocument('user-1', 'doc-resend-cooldown'),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(signatureProviderServiceMock.resendDocument).not.toHaveBeenCalled();
+  });
+
+  it('resendDocument rejects documents that are not SENT or VIEWED', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-draft',
+      status: DocumentStatus.DRAFT,
+      providerDocumentId: 'pd-draft',
+      data: { dataJson: {} },
+    });
+
+    await expect(
+      service.resendDocument('user-1', 'doc-draft'),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(
+      signatureProviderServiceMock.getDocumentStatus,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('simulateDocumentCompleted marks SIGNED document as completed with billing preserved', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-6',
+      status: DocumentStatus.SIGNED,
+      countedInBilling: true,
+      isOverage: false,
+      billingPeriod: '2026-04',
+      companyProfile: {
+        id: 'company-1',
+        isUnlimited: false,
+        monthlyDocLimit: 5,
+      },
+    });
+    prismaMock.document.update.mockResolvedValue({
+      id: 'doc-6',
+      status: DocumentStatus.COMPLETED,
+      countedInBilling: true,
+      isOverage: false,
+      billingPeriod: '2026-04',
+    });
+
+    const result = await service.simulateDocumentCompleted('user-1', 'doc-6');
+
+    expect(prismaMock.document.update).toHaveBeenCalledWith({
+      where: { id: 'doc-6' },
+      data: expect.objectContaining({
+        status: DocumentStatus.COMPLETED,
+        countedInBilling: true,
+        completedAt: expect.any(Date),
+      }),
+      include: expect.any(Object),
+    });
+    expect(result.document.status).toBe(DocumentStatus.COMPLETED);
+  });
+
+  it('simulateDocumentCompleted rejects non-SIGNED documents', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-viewed',
+      status: DocumentStatus.VIEWED,
+      companyProfile: { id: 'company-1', isUnlimited: false, monthlyDocLimit: 5 },
+    });
+
+    await expect(
+      service.simulateDocumentCompleted('user-1', 'doc-viewed'),
+    ).rejects.toThrow(BadRequestException);
+  });
 });
