@@ -1607,7 +1607,20 @@ export class DocumentsService {
   }
 
   private getPublicSignatureSecret() {
-    return process.env.JWT_SECRET?.trim() || 'local-noasign-public-link-secret';
+    const secret = (
+      process.env.PUBLIC_LINK_SECRET ?? process.env.JWT_SECRET
+    )?.trim();
+
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'PUBLIC_LINK_SECRET (or JWT_SECRET) is required in production',
+        );
+      }
+      return 'local-noasign-public-link-secret';
+    }
+
+    return secret;
   }
 
   private safeCompare(expected: string, received: string) {
