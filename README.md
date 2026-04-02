@@ -26,6 +26,7 @@ ntssign/
     backend/         # NestJS API
     frontend/        # Next.js app
   docs/
+    architecture/    # Architecture overview, B2B integration design, pending work
     development/     # Local setup guide
     deployment/      # Production and staging guides
     product/         # Product overview and pricing
@@ -72,6 +73,14 @@ npm run start:dev          # backend on :3000
 cd ../frontend && npm run dev  # frontend on :3001
 ```
 
+## Platform Integration (B2B)
+
+NTSsign is designed to be consumed by external SaaS platforms via API. External systems authenticate using **API Keys** and receive real-time document events via **outbound webhooks**.
+
+This enables other NTSolutions products to delegate document signing to NTSsign without building their own signature infrastructure.
+
+See [docs/architecture/b2b-integration.md](docs/architecture/b2b-integration.md) for the full integration design.
+
 ## Current Status
 
 The core product is feature-complete and preparing for production launch.
@@ -86,9 +95,18 @@ The core product is feature-complete and preparing for production launch.
 - Account request intake and review flow
 - Password reset flow
 - Signed PDF preview and download
+- CI pipeline (tests + lint) and deploy pipeline (SSH to Oracle VM)
 
-**Planned:**
+**B2B API (in progress):**
+- API versioning (`/v1/`)
+- API Keys for machine-to-machine auth
+- OpenAPI/Swagger documentation
+- Outbound webhooks for document events
+
+**Product roadmap:**
 - Saved customer directory
 - Reminder automations
 - Deeper white-labeling
 - More document types and industries
+
+See [docs/architecture/pending.md](docs/architecture/pending.md) for the full pending work list.
