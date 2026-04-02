@@ -71,7 +71,9 @@ export class BoldSignService {
     const fieldValues = this.buildFieldValues(payload.fields, payload.tokens);
     const requestBody = {
       Title: payload.name,
-      Message: payload.message ?? `Please review and sign ${payload.name} from NoaSign.`,
+      Message:
+        payload.message ??
+        `Please review and sign ${payload.name} from NoaSign.`,
       MetaData: payload.metadata ?? {},
       EnableReassign: false,
       EnablePrintAndSign: false,
@@ -83,6 +85,9 @@ export class BoldSignService {
         SignerName: this.buildRecipientName(recipient),
         SignerEmail: recipient.email,
         Locale: 'EN',
+        ...(payload.signerRedirectUrl
+          ? { RedirectUrl: payload.signerRedirectUrl }
+          : {}),
         ExistingFormFields: this.buildExistingFormFields(
           recipient.templateRole.fieldIds,
           recipient.role,
@@ -145,13 +150,13 @@ export class BoldSignService {
               'application/json;odata.metadata=minimal;odata.streaming=true',
           },
           body: JSON.stringify({
-            message: payload?.message?.trim() || 'Friendly reminder from NTSsign.',
+            message:
+              payload?.message?.trim() || 'Friendly reminder from NTSsign.',
           }),
         },
       );
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message.toLowerCase() : '';
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
 
       if (
         message.includes('boldsign request failed (403)') ||
@@ -180,7 +185,10 @@ export class BoldSignService {
     return this.getDocumentStatus(documentId);
   }
 
-  verifyEventCallback(rawBody: Buffer | string | undefined, signatureHeader: string | undefined) {
+  verifyEventCallback(
+    rawBody: Buffer | string | undefined,
+    signatureHeader: string | undefined,
+  ) {
     const webhookSecret = this.getWebhookSecret();
 
     if (!webhookSecret || !rawBody || !signatureHeader?.trim()) {
@@ -246,7 +254,10 @@ export class BoldSignService {
     }
 
     let recipients = [...payload.recipients];
-    const missingRoles = this.getMissingTemplateRoles(templateRoles, recipients);
+    const missingRoles = this.getMissingTemplateRoles(
+      templateRoles,
+      recipients,
+    );
 
     if (missingRoles.length === 1 && payload.senderRecipient?.email) {
       const templateRole = missingRoles[0];
@@ -263,7 +274,9 @@ export class BoldSignService {
     }
 
     return recipients.map((recipient) => {
-      const templateRole = templateRoles.get(this.normalizeRole(recipient.role));
+      const templateRole = templateRoles.get(
+        this.normalizeRole(recipient.role),
+      );
 
       if (!templateRole) {
         throw new BadRequestException(
@@ -283,7 +296,9 @@ export class BoldSignService {
     recipients: SignatureRecipient[],
   ) {
     const provided = new Set(
-      recipients.map((recipient) => this.normalizeRole(recipient.role)).filter(Boolean),
+      recipients
+        .map((recipient) => this.normalizeRole(recipient.role))
+        .filter(Boolean),
     );
 
     return [...templateRoles.entries()]
@@ -295,7 +310,10 @@ export class BoldSignService {
     fields?: Record<string, SignatureFieldValue>,
     tokens?: Array<{ name: string; value: SignatureScalar }>,
   ) {
-    const fieldValues = new Map<string, { value: SignatureScalar; role?: string }>();
+    const fieldValues = new Map<
+      string,
+      { value: SignatureScalar; role?: string }
+    >();
 
     for (const token of tokens ?? []) {
       fieldValues.set(token.name, { value: token.value });
@@ -335,18 +353,26 @@ export class BoldSignService {
   }
 
   private buildRecipientName(
-    recipient: Pick<SignatureRecipient, 'email' | 'name' | 'firstName' | 'lastName'>,
+    recipient: Pick<
+      SignatureRecipient,
+      'email' | 'name' | 'firstName' | 'lastName'
+    >,
   ) {
     const fullName =
       recipient.name?.trim() ||
-      [recipient.firstName, recipient.lastName].filter(Boolean).join(' ').trim();
+      [recipient.firstName, recipient.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
 
     return fullName || recipient.email;
   }
 
   private mapDocumentStatus(document: BoldSignDocumentDetailsResponse) {
     const normalizedStatus = (document.status ?? '').trim().toLowerCase();
-    const normalizedDisplayStatus = (document.displayStatus ?? '').trim().toLowerCase();
+    const normalizedDisplayStatus = (document.displayStatus ?? '')
+      .trim()
+      .toLowerCase();
 
     if (
       ['needattention', 'needsattention', 'deliveryfailed'].includes(
@@ -384,11 +410,15 @@ export class BoldSignService {
       .map((detail) => (detail.status ?? '').trim().toLowerCase())
       .filter(Boolean);
 
-    if (signerStatuses.some((status) => ['completed', 'signed'].includes(status))) {
+    if (
+      signerStatuses.some((status) => ['completed', 'signed'].includes(status))
+    ) {
       return 'document.signed';
     }
 
-    if ((document.signerDetails ?? []).some((detail) => Boolean(detail.isViewed))) {
+    if (
+      (document.signerDetails ?? []).some((detail) => Boolean(detail.isViewed))
+    ) {
       return 'document.viewed';
     }
 
@@ -430,21 +460,28 @@ export class BoldSignService {
   }
 
   private getBaseUrl() {
-    return this.configService.get<string>('BOLDSIGN_BASE_URL')?.trim() ?? 'https://api.boldsign.com';
+    return (
+      this.configService.get<string>('BOLDSIGN_BASE_URL')?.trim() ??
+      'https://api.boldsign.com'
+    );
   }
 
   private getApiKey() {
     const apiKey = this.configService.get<string>('BOLDSIGN_API_KEY')?.trim();
 
     if (!apiKey) {
-      throw new InternalServerErrorException('BOLDSIGN_API_KEY is not configured');
+      throw new InternalServerErrorException(
+        'BOLDSIGN_API_KEY is not configured',
+      );
     }
 
     return apiKey;
   }
 
   private getWebhookSecret() {
-    return this.configService.get<string>('BOLDSIGN_WEBHOOK_SECRET')?.trim() ?? '';
+    return (
+      this.configService.get<string>('BOLDSIGN_WEBHOOK_SECRET')?.trim() ?? ''
+    );
   }
 
   private getBrandId() {
@@ -455,7 +492,10 @@ export class BoldSignService {
     return Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody;
   }
 
-  private async request<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+  private async request<T = unknown>(
+    path: string,
+    init?: RequestInit,
+  ): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
 

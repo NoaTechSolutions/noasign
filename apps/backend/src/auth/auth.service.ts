@@ -176,7 +176,9 @@ export class AuthService {
       const resetLink = `${appUrl}/?resetToken=${resetToken}`;
 
       if (process.env.NODE_ENV !== 'production') {
-        this.logger.log(`Password reset link for ${normalizedEmail}: ${resetLink}`);
+        this.logger.log(
+          `Password reset link for ${normalizedEmail}: ${resetLink}`,
+        );
       }
 
       const baseResponse: { message: string; resetLink?: string } = {
@@ -214,7 +216,11 @@ export class AuthService {
       include: { user: true },
     });
 
-    if (!resetRecord || resetRecord.usedAt || resetRecord.expiresAt < new Date()) {
+    if (
+      !resetRecord ||
+      resetRecord.usedAt ||
+      resetRecord.expiresAt < new Date()
+    ) {
       throw new BadRequestException('Reset token is invalid or expired');
     }
 

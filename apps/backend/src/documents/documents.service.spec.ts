@@ -724,9 +724,9 @@ describe('DocumentsService', () => {
       data: { dataJson: {} },
     });
 
-    await expect(
-      service.resendDocument('user-1', 'doc-draft'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.resendDocument('user-1', 'doc-draft')).rejects.toThrow(
+      BadRequestException,
+    );
 
     expect(
       signatureProviderServiceMock.getDocumentStatus,
@@ -772,7 +772,11 @@ describe('DocumentsService', () => {
     prismaMock.document.findFirst.mockResolvedValue({
       id: 'doc-viewed',
       status: DocumentStatus.VIEWED,
-      companyProfile: { id: 'company-1', isUnlimited: false, monthlyDocLimit: 5 },
+      companyProfile: {
+        id: 'company-1',
+        isUnlimited: false,
+        monthlyDocLimit: 5,
+      },
     });
 
     await expect(

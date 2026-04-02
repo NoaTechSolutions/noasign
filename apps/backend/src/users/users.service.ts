@@ -88,7 +88,9 @@ export class UsersService {
     }
 
     if (existingRequest) {
-      throw new BadRequestException('An account request already exists for this email');
+      throw new BadRequestException(
+        'An account request already exists for this email',
+      );
     }
 
     const request = await this.prisma.accountRequest.create({
@@ -196,7 +198,11 @@ export class UsersService {
     };
   }
 
-  async updateUser(requesterId: string, targetUserId: string, body: UpdateUserDto) {
+  async updateUser(
+    requesterId: string,
+    targetUserId: string,
+    body: UpdateUserDto,
+  ) {
     const requester = await this.getMasterRequester(requesterId);
     const targetUser = await this.prisma.user.findFirst({
       where: {

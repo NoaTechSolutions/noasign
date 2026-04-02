@@ -1,4 +1,10 @@
-import { ArrayMinSize, IsArray, IsEmail, IsString, MaxLength } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsEmail,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateAccountRequestDto {
   @IsString()

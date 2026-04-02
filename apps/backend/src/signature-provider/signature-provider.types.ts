@@ -36,6 +36,7 @@ export type CreateSignatureDocumentRequest = {
   tokens?: SignatureToken[];
   fields?: Record<string, SignatureFieldValue>;
   metadata?: Record<string, string>;
+  signerRedirectUrl?: string;
 };
 
 export type SignatureDocumentResponse = {

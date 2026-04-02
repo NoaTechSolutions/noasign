@@ -66,10 +66,17 @@ export class BoldSignController {
         (body.data as Record<string, unknown>).metaData !== null &&
         !Array.isArray((body.data as Record<string, unknown>).metaData) &&
         typeof (
-          (body.data as Record<string, unknown>).metaData as Record<string, unknown>
+          (body.data as Record<string, unknown>).metaData as Record<
+            string,
+            unknown
+          >
         ).noasignDocumentId === 'string'
-          ? (((body.data as Record<string, unknown>).metaData as Record<string, unknown>)
-              .noasignDocumentId as string)
+          ? ((
+              (body.data as Record<string, unknown>).metaData as Record<
+                string,
+                unknown
+              >
+            ).noasignDocumentId as string)
           : '',
     });
 

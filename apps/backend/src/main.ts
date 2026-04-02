@@ -40,15 +40,20 @@ bootstrap();
 
 function buildCorsOriginHandler() {
   const allowedOrigins = new Set(
-    (process.env.CORS_ORIGINS?.split(',') ?? [
-      'http://127.0.0.1:3001',
-      'http://localhost:3001',
-    ])
+    (
+      process.env.CORS_ORIGINS?.split(',') ?? [
+        'http://127.0.0.1:3001',
+        'http://localhost:3001',
+      ]
+    )
       .map((value) => value.trim())
       .filter(Boolean),
   );
 
-  return (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+  return (
+    origin: string | undefined,
+    callback: (error: Error | null, allow?: boolean) => void,
+  ) => {
     if (!origin || allowedOrigins.has(origin)) {
       callback(null, true);
       return;

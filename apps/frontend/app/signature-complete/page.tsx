@@ -128,7 +128,7 @@ export default async function SignatureCompletePage({
                 ? "This secure signature page is no longer available."
                 : showPendingState
                   ? `${documentName} is being finalized.`
-                  : `${signerName} has successfully signed ${documentName}.`}
+                  : `${documentName} was signed and sent.`}
             </h1>
 
             <p className="mt-4 max-w-2xl text-base leading-7 text-[color:var(--text-secondary)]">
@@ -136,8 +136,39 @@ export default async function SignatureCompletePage({
                 ? "The document may have expired, the secure link may be invalid, or the sender may need to share a new link."
                 : showPendingState
                   ? "NTSsign is checking the latest provider status and will show the final signed document as soon as it is ready."
-                  : "This confirmation page is presented by NTSsign so the signing experience closes inside the sender&apos;s brand, not inside a generic document portal."}
+                  : `${signerName} completed the signature. The signed copy has been sent to all parties.`}
             </p>
+
+            {showCompletedState && (previewUrl || downloadUrl) ? (
+              <div className="mt-7 flex flex-wrap gap-3">
+                {previewUrl ? (
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-[color:var(--button-primary)] px-5 py-3 text-sm font-semibold text-white shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--button-primary-hover)]"
+                  >
+                    <Eye className="h-4 w-4" />
+                    View signed document
+                  </a>
+                ) : null}
+                {downloadUrl ? (
+                  <a
+                    href={downloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-5 py-3 text-sm font-semibold text-[color:var(--text-primary)] shadow-[var(--shadow-soft)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-surface)]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download signed PDF
+                  </a>
+                ) : null}
+              </div>
+            ) : showCompletedState ? (
+              <div className="mt-7 rounded-2xl border border-[color:var(--info-border)] bg-[color:var(--info-bg)] px-4 py-3 text-sm text-[color:var(--info-text)]">
+                The signed PDF will be delivered by the sender or via the completion email.
+              </div>
+            ) : null}
 
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               <InfoTile
@@ -153,52 +184,8 @@ export default async function SignatureCompletePage({
               <InfoTile
                 icon={<Sparkles className="h-5 w-5" />}
                 title="Branded experience"
-                description="Your customers can finish the process inside a cleaner, more intentional brand flow."
+                description="Your customers close the signing flow inside your brand, not a generic portal."
               />
-            </div>
-
-            <div className="mt-8 rounded-[1.6rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-5 shadow-[var(--shadow-soft)]">
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-                Next steps
-              </div>
-              <div className="mt-3 grid gap-3 text-sm leading-6 text-[color:var(--text-secondary)]">
-                <p>
-                  A completed copy is available to the sender and can also be delivered by
-                  email according to the signing settings.
-                </p>
-                <p>
-                  If preview or download links were issued for this signature, they will
-                  appear below. Otherwise, the sender can share the final document directly.
-                </p>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                {previewUrl ? (
-                  <ActionLink href={previewUrl} icon={<Eye className="h-4 w-4" />}>
-                    Preview signed PDF
-                  </ActionLink>
-                ) : null}
-                {downloadUrl ? (
-                  <ActionLink href={downloadUrl} icon={<Download className="h-4 w-4" />}>
-                    Download signed PDF
-                  </ActionLink>
-                ) : null}
-                {!previewUrl && !downloadUrl ? (
-                  <div
-                    className={`rounded-2xl px-4 py-3 text-sm ${
-                      tokenError
-                        ? "border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
-                        : "border border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info-text)]"
-                    }`}
-                  >
-                    {tokenError
-                      ? "Ask the sender for a fresh secure link if you still need the signed PDF."
-                      : showPendingState
-                        ? "The final PDF is still being prepared. Refresh this page in a few seconds."
-                        : "The signed PDF can be delivered by the sender or from the completion email."}
-                  </div>
-                ) : null}
-              </div>
             </div>
           </div>
 
