@@ -95,6 +95,10 @@ type DashboardDocument = {
   providerStatus?: string | null;
   providerLastSyncedAt?: string | null;
   lastManualReminderAt?: string | null;
+  lastSentRecipientEmail?: string | null;
+  sendAvailableAt?: string | null;
+  sendAvailableInSeconds?: number;
+  canSend?: boolean;
   resendAvailableAt?: string | null;
   resendAvailableInSeconds?: number;
   serverNow?: string | null;

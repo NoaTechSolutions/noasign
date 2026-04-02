@@ -110,6 +110,13 @@ export class DocumentsService {
     }
 
     const now = new Date();
+    const sendAvailableAt = this.getDraftSendAvailableAt(document, now);
+    const sendAvailableInSeconds = sendAvailableAt
+      ? Math.max(
+          0,
+          Math.ceil((sendAvailableAt.getTime() - now.getTime()) / 1000),
+        )
+      : 0;
     const resendAvailableAt = this.getResendAvailableAt(
       document.lastManualReminderAt ?? null,
     );
@@ -129,6 +136,10 @@ export class DocumentsService {
       providerStatus: document.providerStatus ?? null,
       providerLastSyncedAt: document.providerLastSyncedAt ?? null,
       lastManualReminderAt: document.lastManualReminderAt ?? null,
+      lastSentRecipientEmail: document.lastSentRecipientEmail ?? null,
+      sendAvailableAt: sendAvailableAt?.toISOString() ?? null,
+      sendAvailableInSeconds,
+      canSend: this.canSendDraftDocument(document, now),
       resendAvailableAt: resendAvailableAt?.toISOString() ?? null,
       resendAvailableInSeconds,
       serverNow: now.toISOString(),
@@ -202,6 +213,87 @@ export class DocumentsService {
     return Math.max(0, resendAvailableAt.getTime() - now.getTime());
   }
 
+  private normalizeEmail(value?: string | null) {
+    const normalized = value?.trim().toLowerCase() ?? '';
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private getCurrentRecipientEmail(
+    document: {
+      data?: { dataJson?: Prisma.JsonValue | null } | null;
+    },
+  ) {
+    const data = this.normalizeJsonObject(document.data?.dataJson);
+    return this.normalizeEmail(
+      this.firstNonEmptyString(
+        this.readScalarString(data.customer_email),
+        this.readScalarString(data.client_email),
+      ),
+    );
+  }
+
+  private shouldBlockDraftSendForRecipientReuse(
+    document: {
+      status?: DocumentStatus | string | null;
+      lastManualReminderAt?: Date | string | null;
+      lastSentRecipientEmail?: string | null;
+      data?: { dataJson?: Prisma.JsonValue | null } | null;
+    },
+    now = new Date(),
+  ) {
+    if (document.status !== DocumentStatus.DRAFT) {
+      return false;
+    }
+
+    const cooldownRemainingMs = this.getResendCooldownRemainingMs(document, now);
+    if (cooldownRemainingMs <= 0) {
+      return false;
+    }
+
+    const currentRecipientEmail = this.getCurrentRecipientEmail(document);
+    const previousRecipientEmail = this.normalizeEmail(
+      document.lastSentRecipientEmail ?? null,
+    );
+
+    if (!currentRecipientEmail || !previousRecipientEmail) {
+      return false;
+    }
+
+    return currentRecipientEmail === previousRecipientEmail;
+  }
+
+  private getDraftSendAvailableAt(
+    document: {
+      status?: DocumentStatus | string | null;
+      lastManualReminderAt?: Date | string | null;
+      lastSentRecipientEmail?: string | null;
+      data?: { dataJson?: Prisma.JsonValue | null } | null;
+    },
+    now = new Date(),
+  ) {
+    if (!this.shouldBlockDraftSendForRecipientReuse(document, now)) {
+      return null;
+    }
+
+    return this.getResendAvailableAt(document.lastManualReminderAt ?? null);
+  }
+
+  private canSendDraftDocument(
+    document: {
+      status?: DocumentStatus | string | null;
+      lastManualReminderAt?: Date | string | null;
+      lastSentRecipientEmail?: string | null;
+      data?: { dataJson?: Prisma.JsonValue | null } | null;
+    },
+    now = new Date(),
+  ) {
+    if (document.status !== DocumentStatus.DRAFT) {
+      return false;
+    }
+
+    return !this.shouldBlockDraftSendForRecipientReuse(document, now);
+  }
+
   private formatCooldownRemaining(remainingMs: number) {
     const totalSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
     const hours = Math.floor(totalSeconds / 3600);
@@ -217,6 +309,57 @@ export class DocumentsService {
     }
 
     return `${seconds}s`;
+  }
+
+  private getDocumentStatusRank(status?: DocumentStatus | null) {
+    switch (status) {
+      case DocumentStatus.DRAFT:
+        return 0;
+      case DocumentStatus.SENT:
+        return 1;
+      case DocumentStatus.VIEWED:
+        return 2;
+      case DocumentStatus.SIGNED:
+        return 3;
+      case DocumentStatus.COMPLETED:
+        return 4;
+      case DocumentStatus.CANCELLED:
+        return 5;
+      default:
+        return -1;
+    }
+  }
+
+  private getIncomingLifecycleRank(status: string) {
+    switch (status) {
+      case 'draft':
+        return 0;
+      case 'sent':
+        return 1;
+      case 'viewed':
+        return 2;
+      case 'signed':
+        return 3;
+      case 'completed':
+        return 4;
+      case 'cancelled':
+        return 5;
+      default:
+        return -1;
+    }
+  }
+
+  private shouldIgnoreLifecycleRegression(
+    currentStatus: DocumentStatus,
+    incomingStatus: string,
+  ) {
+    const incomingRank = this.getIncomingLifecycleRank(incomingStatus);
+    if (incomingRank < 0) {
+      return false;
+    }
+
+    const currentRank = this.getDocumentStatusRank(currentStatus);
+    return currentRank > incomingRank;
   }
 
   private async getBillingState(
@@ -475,7 +618,17 @@ export class DocumentsService {
       throw new BadRequestException('Signature template is not configured');
     }
 
+    const sendCooldownRemainingMs = this.getResendCooldownRemainingMs(document);
+    if (this.shouldBlockDraftSendForRecipientReuse(document)) {
+      throw new BadRequestException(
+        `This document was recently resent to the same email address. Update the customer email or send again in ${this.formatCooldownRemaining(
+          sendCooldownRemainingMs,
+        )}.`,
+      );
+    }
+
     const context = this.buildMappingContext(document);
+    const recipient = this.buildSignatureRecipient(document);
     const syncTimestamp = new Date();
     const subject = this.renderTextTemplate(
       document.signatureTemplate.sendSubjectTemplate,
@@ -491,7 +644,6 @@ export class DocumentsService {
     let providerStatus = document.providerStatus;
 
     if (!providerDocumentId) {
-      const recipient = this.buildSignatureRecipient(document);
       const senderRecipient = this.buildSenderSignatureRecipient(document);
       const fallbackFields = this.buildFallbackScalarMap(context);
       const createdDocument =
@@ -590,9 +742,11 @@ export class DocumentsService {
       data: {
         status: DocumentStatus.SENT,
         sentAt: new Date(),
+        lastManualReminderAt: null,
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
+        lastSentRecipientEmail: recipient.email,
         providerDocumentId,
         providerStatus: 'document.sent',
         providerLastSyncedAt: new Date(),
@@ -675,6 +829,7 @@ export class DocumentsService {
         providerStatus: remoteStatus.status,
         providerLastSyncedAt: reminderTimestamp,
         lastManualReminderAt: reminderTimestamp,
+        lastSentRecipientEmail: this.getCurrentRecipientEmail(document),
       },
       include: documentDetailInclude,
     });
@@ -745,7 +900,6 @@ export class DocumentsService {
         providerDocumentId: null,
         providerStatus: null,
         providerLastSyncedAt: null,
-        lastManualReminderAt: null,
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
@@ -974,7 +1128,18 @@ export class DocumentsService {
       syncedAt,
     );
 
-    if (this.normalizeExternalStatus(remoteStatus.status) !== 'completed') {
+    const refreshedDocument = await this.prisma.document.findUnique({
+      where: { id: document.id },
+      select: {
+        status: true,
+        completedAt: true,
+      },
+    });
+
+    if (
+      refreshedDocument?.status !== DocumentStatus.COMPLETED &&
+      !refreshedDocument?.completedAt
+    ) {
       throw new BadRequestException(
         'Signed PDF is not available until the signature provider marks the document as completed',
       );
@@ -1102,7 +1267,19 @@ export class DocumentsService {
 
     if (!document) return;
 
-    switch (this.normalizeExternalStatus(rawStatus)) {
+    const normalizedStatus = this.normalizeExternalStatus(rawStatus);
+
+    if (this.shouldIgnoreLifecycleRegression(document.status, normalizedStatus)) {
+      await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          providerLastSyncedAt: occurredAt,
+        },
+      });
+      return;
+    }
+
+    switch (normalizedStatus) {
       case 'draft':
         await this.prisma.document.update({
           where: { id: document.id },

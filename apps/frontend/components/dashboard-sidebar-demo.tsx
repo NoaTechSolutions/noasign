@@ -63,6 +63,10 @@ type Doc = {
   providerStatus?: string | null;
   providerLastSyncedAt?: string | null;
   lastManualReminderAt?: string | null;
+  lastSentRecipientEmail?: string | null;
+  sendAvailableAt?: string | null;
+  sendAvailableInSeconds?: number;
+  canSend?: boolean;
   resendAvailableAt?: string | null;
   resendAvailableInSeconds?: number;
   serverNow?: string | null;
@@ -3435,15 +3439,23 @@ function DocumentViewer({
   const [isSavingTab, setIsSavingTab] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = useState(false);
+  const [sendCountdownSeconds, setSendCountdownSeconds] = useState(0);
   const [resendCountdownSeconds, setResendCountdownSeconds] = useState(0);
   const canRenderViewerResend =
     document?.status === "SENT" || document?.status === "VIEWED";
+  const canRenderViewerDraftCooldown = document?.status === "DRAFT";
   const viewerCanResend =
     Boolean(document?.canResend) ||
     (canRenderViewerResend && resendCountdownSeconds === 0);
+  const viewerCanSend =
+    document?.status !== "DRAFT" ||
+    Boolean(document?.canSend) ||
+    sendCountdownSeconds === 0;
   const actionButtons = getDocumentActions(document, {
     showCountdownWhenBlocked: true,
+    sendCountdownSeconds,
     resendCountdownSeconds,
+    canSendOverride: viewerCanSend,
     canResendOverride: viewerCanResend,
   });
   const clientProfile = useMemo(() => getClientProfile(document), [document]);
@@ -3486,11 +3498,48 @@ function DocumentViewer({
     if (
       !open ||
       !document ||
+      !canRenderViewerDraftCooldown ||
+      document.canSend ||
+      !document.sendAvailableInSeconds ||
+      document.sendAvailableInSeconds <= 0
+    ) {
+      setSendCountdownSeconds(0);
+      return;
+    }
+
+    setSendCountdownSeconds(document.sendAvailableInSeconds);
+    const intervalId = window.setInterval(() => {
+      setSendCountdownSeconds((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    canRenderViewerDraftCooldown,
+    document,
+    document?.canSend,
+    document?.id,
+    document?.sendAvailableInSeconds,
+    open,
+  ]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      !document ||
       !canRenderViewerResend ||
-      document.canResend ||
       !document.resendAvailableInSeconds ||
       document.resendAvailableInSeconds <= 0
     ) {
+      setResendCountdownSeconds(0);
+      return;
+    }
+
+    const resendBlocked =
+      canRenderViewerResend && !document.canResend;
+
+    if (!resendBlocked) {
       setResendCountdownSeconds(0);
       return;
     }
@@ -5300,30 +5349,57 @@ function loadImageElement(source: string) {
 }
 
 function getDocumentActions(
-  document?: Pick<Doc, "status" | "canResend" | "resendAvailableInSeconds"> | null,
+  document?: Pick<
+    Doc,
+    "status" | "canSend" | "sendAvailableInSeconds" | "canResend" | "resendAvailableInSeconds"
+  > | null,
   options?: {
     showCountdownWhenBlocked?: boolean;
+    sendCountdownSeconds?: number;
     resendCountdownSeconds?: number;
+    canSendOverride?: boolean;
     canResendOverride?: boolean;
   },
 ): WorkflowAction[] {
   const status = document?.status;
+  const sendCooldownSeconds =
+    options?.sendCountdownSeconds ??
+    document?.sendAvailableInSeconds ??
+    0;
+  const resendCooldownSeconds =
+    options?.resendCountdownSeconds ??
+    document?.resendAvailableInSeconds ??
+    0;
 
   if (status === "DRAFT") {
-    return [
-      {
+    const actions: WorkflowAction[] = [];
+    const canSend = options?.canSendOverride ?? document?.canSend ?? true;
+
+    if (canSend) {
+      actions.push({
         key: "send",
         label: "Send document",
         icon: <Send className="h-4 w-4" />,
         tone: "bg-[color:var(--button-primary)] text-white hover:bg-[color:var(--button-primary-hover)]",
-      },
-      {
-        key: "cancel",
-        label: "Cancel draft",
-        icon: <Ban className="h-4 w-4" />,
-        tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]",
-      },
-    ];
+      });
+    } else if (options?.showCountdownWhenBlocked) {
+      actions.push({
+        key: "send",
+        label: `Send again in ${formatCountdownLabel(sendCooldownSeconds)}`,
+        icon: <Send className="h-4 w-4" />,
+        tone: "bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)]",
+        disabled: true,
+      });
+    }
+
+    actions.push({
+      key: "cancel",
+      label: "Cancel draft",
+      icon: <Ban className="h-4 w-4" />,
+      tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]",
+    });
+
+    return actions;
   }
 
   if (status === "SENT" || status === "VIEWED") {
@@ -5341,11 +5417,7 @@ function getDocumentActions(
     } else if (options?.showCountdownWhenBlocked) {
       actions.push({
         key: "resend",
-        label: `Resend in ${formatCountdownLabel(
-          options.resendCountdownSeconds ??
-            document?.resendAvailableInSeconds ??
-            0,
-        )}`,
+        label: `Resend in ${formatCountdownLabel(resendCooldownSeconds)}`,
         icon: <Mail className="h-4 w-4" />,
         tone: "bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)]",
         disabled: true,

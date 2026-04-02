@@ -241,6 +241,7 @@ model Document {
   completedAt        DateTime?
   cancelledAt        DateTime?
   lastManualReminderAt DateTime?
+  lastSentRecipientEmail String?
 
   countedInBilling   Boolean  @default(false)
   isOverage          Boolean  @default(false)

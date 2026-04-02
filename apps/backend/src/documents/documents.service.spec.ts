@@ -136,6 +136,7 @@ describe('DocumentsService', () => {
       companyProfileId: 'company-1',
       documentNumber: 'CON-000001',
       status: DocumentStatus.DRAFT,
+      lastSentRecipientEmail: null,
       data: {
         dataJson: {
           customer_email: 'client@example.com',
@@ -218,6 +219,7 @@ describe('DocumentsService', () => {
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
+        lastSentRecipientEmail: 'client@example.com',
         providerStatus: 'document.sent',
       }),
       include: {
@@ -228,6 +230,179 @@ describe('DocumentsService', () => {
       },
     });
     expect(result.isOverage).toBe(false);
+    expect(result.document.status).toBe(DocumentStatus.SENT);
+  });
+
+  it('sendDraftDocument blocks draft resend bypass while cooldown is active', async () => {
+    const lastManualReminderAt = new Date();
+
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-cooldown',
+      userId: 'user-1',
+      companyProfileId: 'company-1',
+      documentNumber: 'CON-COOLDOWN',
+      status: DocumentStatus.DRAFT,
+      lastManualReminderAt,
+      lastSentRecipientEmail: 'client@example.com',
+      data: {
+        dataJson: {
+          customer_email: 'client@example.com',
+          customer_name: 'Jane Doe',
+        },
+      },
+      user: {
+        email: 'owner@noasign.test',
+        role: 'MASTER',
+      },
+      documentType: {
+        name: 'Contract',
+        code: 'CON',
+      },
+      formDefinition: {
+        id: 'form-1',
+      },
+      signatureTemplate: {
+        providerTemplateId: 'tpl-1',
+        recipientRole: 'Client',
+        tokenMappingJson: null,
+        fieldMappingJson: null,
+        sendSubjectTemplate: null,
+        sendMessageTemplate: null,
+      },
+      versions: [],
+      companyProfile: {
+        id: 'company-1',
+        companyName: 'Noa Company',
+        legalName: null,
+        email: 'office@noa.test',
+        phone: null,
+        website: null,
+        addressLine1: null,
+        addressLine2: null,
+        city: null,
+        state: null,
+        zipCode: null,
+        country: null,
+        licenseNumber: null,
+        contactFirstName: null,
+        contactLastName: null,
+        contactTitle: null,
+        contactEmail: null,
+        contactPhone: null,
+        contactAddressLine1: null,
+        contactAddressLine2: null,
+        contactCity: null,
+        contactState: null,
+        contactZipCode: null,
+        contactCountry: null,
+        isUnlimited: false,
+        monthlyDocLimit: 1,
+      },
+    });
+
+    await expect(
+      service.sendDraftDocument('user-1', 'doc-cooldown'),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(
+      signatureProviderServiceMock.createDocumentFromTemplate,
+    ).not.toHaveBeenCalled();
+    expect(signatureProviderServiceMock.sendDocument).not.toHaveBeenCalled();
+  });
+
+  it('sendDraftDocument allows immediate resend after reactivation when customer email changes', async () => {
+    const lastManualReminderAt = new Date();
+
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-cooldown-changed-email',
+      userId: 'user-1',
+      companyProfileId: 'company-1',
+      documentNumber: 'CON-COOLDOWN-EMAIL',
+      status: DocumentStatus.DRAFT,
+      lastManualReminderAt,
+      lastSentRecipientEmail: 'wrong@example.com',
+      data: {
+        dataJson: {
+          customer_email: 'correct@example.com',
+          customer_name: 'Jane Doe',
+        },
+      },
+      user: {
+        email: 'owner@noasign.test',
+        role: 'MASTER',
+      },
+      documentType: {
+        name: 'Contract',
+        code: 'CON',
+      },
+      formDefinition: {
+        id: 'form-1',
+      },
+      signatureTemplate: {
+        providerTemplateId: 'tpl-1',
+        recipientRole: 'Client',
+        tokenMappingJson: null,
+        fieldMappingJson: null,
+        sendSubjectTemplate: null,
+        sendMessageTemplate: null,
+      },
+      versions: [],
+      companyProfile: {
+        id: 'company-1',
+        companyName: 'Noa Company',
+        legalName: null,
+        email: 'office@noa.test',
+        phone: null,
+        website: null,
+        addressLine1: null,
+        addressLine2: null,
+        city: null,
+        state: null,
+        zipCode: null,
+        country: null,
+        licenseNumber: null,
+        contactFirstName: null,
+        contactLastName: null,
+        contactTitle: null,
+        contactEmail: null,
+        contactPhone: null,
+        contactAddressLine1: null,
+        contactAddressLine2: null,
+        contactCity: null,
+        contactState: null,
+        contactZipCode: null,
+        contactCountry: null,
+        isUnlimited: false,
+        monthlyDocLimit: 1,
+      },
+    });
+    signatureProviderServiceMock.createDocumentFromTemplate.mockResolvedValue({
+      id: 'pd-456',
+      status: 'document.uploaded',
+    });
+    signatureProviderServiceMock.waitForDocumentDraft.mockResolvedValue({
+      id: 'pd-456',
+      status: 'document.draft',
+    });
+    signatureProviderServiceMock.sendDocument.mockResolvedValue(undefined);
+    prismaMock.document.update.mockResolvedValue({
+      id: 'doc-cooldown-changed-email',
+      status: DocumentStatus.SENT,
+      countedInBilling: false,
+      isOverage: false,
+      billingPeriod: null,
+      providerDocumentId: 'pd-456',
+      lastSentRecipientEmail: 'correct@example.com',
+    });
+
+    const result = await service.sendDraftDocument(
+      'user-1',
+      'doc-cooldown-changed-email',
+    );
+
+    expect(
+      signatureProviderServiceMock.createDocumentFromTemplate,
+    ).toHaveBeenCalled();
     expect(result.document.status).toBe(DocumentStatus.SENT);
   });
 
@@ -273,10 +448,15 @@ describe('DocumentsService', () => {
     expect(result.document.status).toBe(DocumentStatus.VIEWED);
   });
 
-  it('reactivateDocument resets send and billing fields back to draft defaults', async () => {
+  it('reactivateDocument resets send and billing fields back to draft defaults while preserving reminder cooldown', async () => {
+    const lastManualReminderAt = new Date('2026-03-30T12:00:00.000Z');
+    const lastSentRecipientEmail = 'client@example.com';
+
     prismaMock.document.findFirst.mockResolvedValue({
       id: 'doc-3',
       status: DocumentStatus.CANCELLED,
+      lastManualReminderAt,
+      lastSentRecipientEmail,
       versions: [{ versionNumber: 1 }],
       data: {
         dataJson: { owner_name: 'Jane Doe' },
@@ -285,6 +465,8 @@ describe('DocumentsService', () => {
     prismaMock.document.update.mockResolvedValue({
       id: 'doc-3',
       status: DocumentStatus.DRAFT,
+      lastManualReminderAt,
+      lastSentRecipientEmail,
       countedInBilling: false,
       isOverage: false,
       billingPeriod: null,
@@ -305,7 +487,6 @@ describe('DocumentsService', () => {
         providerDocumentId: null,
         providerStatus: null,
         providerLastSyncedAt: null,
-        lastManualReminderAt: null,
         countedInBilling: false,
         isOverage: false,
         billingPeriod: null,
@@ -326,6 +507,8 @@ describe('DocumentsService', () => {
       },
     });
     expect(result.document.status).toBe(DocumentStatus.DRAFT);
+    expect(result.document.lastManualReminderAt).toEqual(lastManualReminderAt);
+    expect(result.document.lastSentRecipientEmail).toBe(lastSentRecipientEmail);
   });
 
   it('simulateDocumentSigned accepts VIEWED documents and preserves viewedAt when present', async () => {
