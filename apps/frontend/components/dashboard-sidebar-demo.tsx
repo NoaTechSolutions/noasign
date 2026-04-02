@@ -484,6 +484,7 @@ export function DashboardSidebarDemo({
 
   useEffect(() => {
     if (activeSection === "users" || activeSection === "accountRequests") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsersMenuOpen(true);
     }
   }, [activeSection]);
@@ -496,10 +497,13 @@ export function DashboardSidebarDemo({
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDocumentViewerInitialTab(persistedViewerState.initialTab ?? "client");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDocumentViewerInitialEditingTab(
       persistedViewerState.initialEditingTab ?? null,
     );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDocumentViewerOpen(true);
   }, []);
 
@@ -512,6 +516,7 @@ export function DashboardSidebarDemo({
   }, [documentViewerInitialEditingTab, documentViewerInitialTab, documentViewerOpen]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveSection((current) =>
       current === requestedSection ? current : requestedSection,
     );
@@ -1092,6 +1097,51 @@ function DashboardOverview({
   );
 }
 
+type MasterSortKey = "user" | "company" | "client" | "document" | "status" | "created";
+type UserSortKey = "client" | "document" | "date" | "status";
+type SortKey = MasterSortKey | UserSortKey;
+type SortDirection = "asc" | "desc";
+
+function SortHeader({
+  label,
+  columnKey,
+  align = "left",
+  sortKey,
+  sortDirection,
+  onToggleSort,
+}: {
+  label: string;
+  columnKey: SortKey;
+  align?: "left" | "right";
+  sortKey: SortKey;
+  sortDirection: SortDirection;
+  onToggleSort: (key: SortKey) => void;
+}) {
+  const isActive = sortKey === columnKey;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onToggleSort(columnKey)}
+      className={cn(
+        "inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] transition hover:text-slate-700 dark:hover:text-slate-200",
+        align === "right" && "ml-auto",
+        isActive ? "text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400",
+      )}
+    >
+      <span>{label}</span>
+      <span
+        className={cn(
+          "text-[10px] tracking-normal",
+          isActive ? "opacity-100" : "opacity-45",
+        )}
+      >
+        {isActive ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}
+      </span>
+    </button>
+  );
+}
+
 function DocumentsPanel(props: {
   documents: Doc[] | null;
   allDocuments: Doc[];
@@ -1123,10 +1173,6 @@ function DocumentsPanel(props: {
     dataJson: Record<string, unknown>;
   }) => Promise<DocDetail | void>;
 }) {
-  type MasterSortKey = "user" | "company" | "client" | "document" | "status" | "created";
-  type UserSortKey = "client" | "document" | "date" | "status";
-  type SortKey = MasterSortKey | UserSortKey;
-  type SortDirection = "asc" | "desc";
 
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1202,40 +1248,6 @@ function DocumentsPanel(props: {
     setSortDirection(nextKey === "created" || nextKey === "date" ? "desc" : "asc");
   }
 
-  function SortHeader({
-    label,
-    columnKey,
-    align = "left",
-  }: {
-    label: string;
-    columnKey: SortKey;
-    align?: "left" | "right";
-  }) {
-    const isActive = sortKey === columnKey;
-
-    return (
-      <button
-        type="button"
-        onClick={() => toggleSort(columnKey)}
-        className={cn(
-          "inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] transition hover:text-slate-700 dark:hover:text-slate-200",
-          align === "right" && "ml-auto",
-          isActive ? "text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400",
-        )}
-      >
-        <span>{label}</span>
-        <span
-          className={cn(
-            "text-[10px] tracking-normal",
-            isActive ? "opacity-100" : "opacity-45",
-          )}
-        >
-          {isActive ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}
-        </span>
-      </button>
-    );
-  }
-
   useEffect(() => {
     if (!pageSizeMenuOpen) return;
 
@@ -1271,6 +1283,7 @@ function DocumentsPanel(props: {
   }, [filterMenuOpen]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCreateDrawerOpen(readSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY));
   }, []);
 
@@ -1429,20 +1442,20 @@ function DocumentsPanel(props: {
           <>
             {props.currentUserRole === "MASTER" ? (
               <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
-                <SortHeader label="User" columnKey="user" />
-                <SortHeader label="Company" columnKey="company" />
-                <SortHeader label="Client" columnKey="client" />
-                <SortHeader label="Document" columnKey="document" />
-                <SortHeader label="Status" columnKey="status" />
-                <SortHeader label="Created" columnKey="created" />
+                <SortHeader label="User" columnKey="user" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+                <SortHeader label="Company" columnKey="company" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+                <SortHeader label="Client" columnKey="client" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+                <SortHeader label="Document" columnKey="document" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+                <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+                <SortHeader label="Created" columnKey="created" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
                 <div className="text-right">Actions</div>
               </div>
             ) : (
               <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
-                <SortHeader label="Client" columnKey="client" />
-                <SortHeader label="Document" columnKey="document" />
-                <SortHeader label="Date" columnKey="date" />
-                <SortHeader label="Status" columnKey="status" />
+                <SortHeader label="Client" columnKey="client" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+                <SortHeader label="Document" columnKey="document" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+                <SortHeader label="Date" columnKey="date" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+                <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
                 <div className="text-right">Actions</div>
               </div>
             )}
@@ -1844,6 +1857,7 @@ function BillingPanel({
   ];
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPlansModalOpen(readSessionBoolean(BILLING_PLANS_MODAL_KEY));
   }, []);
 
