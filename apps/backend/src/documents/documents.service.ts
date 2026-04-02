@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -922,7 +923,14 @@ export class DocumentsService {
     };
   }
 
+  private assertNotProduction() {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException('This endpoint is not available in production');
+    }
+  }
+
   async simulateDocumentViewed(userId: string, documentId: string) {
+    this.assertNotProduction();
     const scope = await this.getDocumentAccessScope(userId);
 
     const document = await this.prisma.document.findFirst({
@@ -967,6 +975,7 @@ export class DocumentsService {
   }
 
   async simulateDocumentSigned(userId: string, documentId: string) {
+    this.assertNotProduction();
     const scope = await this.getDocumentAccessScope(userId);
 
     const document = await this.prisma.document.findFirst({
@@ -1016,6 +1025,7 @@ export class DocumentsService {
   }
 
   async simulateDocumentCompleted(userId: string, documentId: string) {
+    this.assertNotProduction();
     const scope = await this.getDocumentAccessScope(userId);
 
     const document = await this.prisma.document.findFirst({
