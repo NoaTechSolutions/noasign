@@ -26,6 +26,8 @@ jobs:
           port: 22
           script: |
             set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             echo "--- Pulling latest code ---"
             cd ~/apps/ntssign
@@ -53,6 +55,8 @@ jobs:
           port: 22
           script: |
             set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             echo "--- Pulling latest code ---"
             cd ~/apps/ntssign
