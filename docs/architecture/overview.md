@@ -73,7 +73,7 @@ CompanyProfile (tenant)
 
 ## Authentication
 
-- **Web users:** JWT stored in HTTP-only cookie (`noasign_access_token`)
+- **Web users:** JWT stored in HTTP-only cookie (`ntssign_access_token`)
 - **API consumers (B2B):** API Keys — see [b2b-integration.md](b2b-integration.md)
 
 JWT payload: `{ sub, email, role, companyProfileId }`
