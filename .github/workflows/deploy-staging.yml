@@ -1,0 +1,68 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+# Only one deploy at a time
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Staging VM
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Deploy backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+
+            echo "--- Pulling latest code ---"
+            cd ~/apps/ntssign
+            git pull origin staging
+
+            echo "--- Building backend ---"
+            cd apps/backend
+            npm ci
+            npx prisma generate
+            npx prisma migrate deploy
+            npm run build
+            npm prune --omit=dev
+
+            echo "--- Restarting backend ---"
+            pm2 restart ntssign-backend --update-env
+
+            echo "--- Backend deploy complete ---"
+
+      - name: Deploy frontend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+
+            echo "--- Pulling latest code ---"
+            cd ~/apps/ntssign
+            git pull origin staging
+
+            echo "--- Building frontend ---"
+            cd apps/frontend
+            NODE_OPTIONS=--max-old-space-size=512 npm run build
+
+            echo "--- Restarting frontend ---"
+            pm2 restart ntssign-frontend --update-env
+
+            echo "--- Frontend deploy complete ---"
