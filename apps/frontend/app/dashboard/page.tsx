@@ -257,7 +257,7 @@ type UpdateAccountRequestResponse = {
 
 const LIVE_DOCUMENT_STATUSES = new Set(["SENT", "VIEWED", "SIGNED"]);
 const DOCUMENT_REFRESH_INTERVAL_MS = 10_000;
-const DASHBOARD_SELECTED_DOCUMENT_KEY = "noasign:dashboard:selected-document-id";
+const DASHBOARD_SELECTED_DOCUMENT_KEY = "ntssign:dashboard:selected-document-id";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -355,11 +355,11 @@ export default function DashboardPage() {
 
     syncUser();
     window.addEventListener("storage", syncUser);
-    window.addEventListener("noasign-auth-change", syncUser);
+    window.addEventListener("ntssign-auth-change", syncUser);
 
     return () => {
       window.removeEventListener("storage", syncUser);
-      window.removeEventListener("noasign-auth-change", syncUser);
+      window.removeEventListener("ntssign-auth-change", syncUser);
     };
   }, []);
 

@@ -645,7 +645,7 @@ export class DocumentsService {
     const message = this.renderTextTemplate(
       document.signatureTemplate.sendMessageTemplate,
       context,
-      `Hello, please review and sign ${document.documentNumber} sent from NoaSign.`,
+      `Hello, please review and sign ${document.documentNumber} sent from NTSSign.`,
     );
     let providerDocumentId = document.providerDocumentId;
     let providerStatus = document.providerStatus;
@@ -1654,7 +1654,7 @@ export class DocumentsService {
           'PUBLIC_LINK_SECRET (or JWT_SECRET) is required in production',
         );
       }
-      return 'local-noasign-public-link-secret';
+      return 'local-ntssign-public-link-secret';
     }
 
     return secret;

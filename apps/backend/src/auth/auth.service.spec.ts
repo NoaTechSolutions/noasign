@@ -62,7 +62,7 @@ describe('AuthService', () => {
     prismaMock.user.create.mockResolvedValue({
       id: 'user-1',
       companyProfileId: 'company-1',
-      email: 'owner@noasign.com',
+      email: 'owner@ntssign.com',
       passwordHash: 'hashed-password',
       role: UserRole.MASTER,
       status: UserStatus.ACTIVE,
@@ -72,21 +72,21 @@ describe('AuthService', () => {
     });
 
     const result = await service.register({
-      email: 'owner@noasign.com',
+      email: 'owner@ntssign.com',
       password: 'secret123',
     });
 
     expect(prismaMock.companyProfile.create).toHaveBeenCalledWith({
       data: {
         companyName: 'New Company',
-        email: 'owner@noasign.com',
-        contactEmail: 'owner@noasign.com',
+        email: 'owner@ntssign.com',
+        contactEmail: 'owner@ntssign.com',
       },
     });
     expect(prismaMock.user.create).toHaveBeenCalledWith({
       data: {
         companyProfileId: 'company-1',
-        email: 'owner@noasign.com',
+        email: 'owner@ntssign.com',
         passwordHash: expect.any(String),
         role: UserRole.MASTER,
         status: UserStatus.ACTIVE,
@@ -100,7 +100,7 @@ describe('AuthService', () => {
       user: {
         id: 'user-1',
         companyProfileId: 'company-1',
-        email: 'owner@noasign.com',
+        email: 'owner@ntssign.com',
         role: UserRole.MASTER,
         status: UserStatus.ACTIVE,
         companyProfile: {
@@ -118,7 +118,7 @@ describe('AuthService', () => {
     prismaMock.user.create.mockResolvedValue({
       id: 'user-1',
       companyProfileId: 'company-1',
-      email: 'owner@noasign.com',
+      email: 'owner@ntssign.com',
       passwordHash: 'hashed-password',
       role: UserRole.MASTER,
       status: UserStatus.ACTIVE,
@@ -133,17 +133,17 @@ describe('AuthService', () => {
     });
 
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
-      where: { email: 'owner@noasign.com' },
+      where: { email: 'owner@ntssign.com' },
     });
     expect(prismaMock.companyProfile.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        email: 'owner@noasign.com',
-        contactEmail: 'owner@noasign.com',
+        email: 'owner@ntssign.com',
+        contactEmail: 'owner@ntssign.com',
       }),
     });
     expect(prismaMock.user.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        email: 'owner@noasign.com',
+        email: 'owner@ntssign.com',
       }),
       include: {
         companyProfile: true,

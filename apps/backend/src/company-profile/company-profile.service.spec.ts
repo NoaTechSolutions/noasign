@@ -40,25 +40,25 @@ describe('CompanyProfileService', () => {
     });
     prismaMock.companyProfile.update.mockResolvedValue({
       id: 'company-1',
-      companyName: 'NoaSign LLC',
+      companyName: 'NTSSign LLC',
       contactPhone: '555-0100',
     });
 
     const result = await service.updateMyCompanyProfile('user-1', {
-      companyName: 'NoaSign LLC',
+      companyName: 'NTSSign LLC',
       contactPhone: '555-0100',
     });
 
     expect(prismaMock.companyProfile.update).toHaveBeenCalledWith({
       where: { id: 'company-1' },
       data: {
-        companyName: 'NoaSign LLC',
+        companyName: 'NTSSign LLC',
         contactPhone: '555-0100',
       },
     });
     expect(result).toEqual({
       id: 'company-1',
-      companyName: 'NoaSign LLC',
+      companyName: 'NTSSign LLC',
       contactPhone: '555-0100',
     });
   });

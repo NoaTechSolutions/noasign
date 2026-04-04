@@ -7,17 +7,17 @@ export type StoredUser = {
   mustChangePassword?: boolean;
 };
 
-export const AUTH_COOKIE = "noasign_access_token";
-const USER_KEY = "noasign.user";
+export const AUTH_COOKIE = "ntssign_access_token";
+const USER_KEY = "ntssign.user";
 
 export function persistSession(user: StoredUser) {
   window.localStorage.setItem(USER_KEY, JSON.stringify(user));
-  window.dispatchEvent(new Event("noasign-auth-change"));
+  window.dispatchEvent(new Event("ntssign-auth-change"));
 }
 
 export function clearSession() {
   window.localStorage.removeItem(USER_KEY);
-  window.dispatchEvent(new Event("noasign-auth-change"));
+  window.dispatchEvent(new Event("ntssign-auth-change"));
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -37,5 +37,5 @@ export function getStoredUser(): StoredUser | null {
 
 export function updateStoredUser(user: StoredUser) {
   window.localStorage.setItem(USER_KEY, JSON.stringify(user));
-  window.dispatchEvent(new Event("noasign-auth-change"));
+  window.dispatchEvent(new Event("ntssign-auth-change"));
 }

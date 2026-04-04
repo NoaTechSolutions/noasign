@@ -73,7 +73,7 @@ export class BoldSignService {
       Title: payload.name,
       Message:
         payload.message ??
-        `Please review and sign ${payload.name} from NoaSign.`,
+        `Please review and sign ${payload.name} from NTSSign.`,
       MetaData: payload.metadata ?? {},
       EnableReassign: false,
       EnablePrintAndSign: false,

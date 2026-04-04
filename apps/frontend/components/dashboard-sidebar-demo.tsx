@@ -300,11 +300,11 @@ type StatusFilter =
   | "CANCELLED";
 
 const SECTION_QUERY_KEY = "section";
-const DASHBOARD_SELECTED_DOCUMENT_KEY = "noasign:dashboard:selected-document-id";
-const DASHBOARD_DOCUMENT_VIEWER_KEY = "noasign:dashboard:document-viewer";
-const DOCUMENTS_CREATE_DRAWER_KEY = "noasign:documents:create-draft-open";
-const DOCUMENTS_CREATE_DRAFT_STATE_KEY = "noasign:documents:create-draft-state";
-const BILLING_PLANS_MODAL_KEY = "noasign:billing:plans-modal-open";
+const DASHBOARD_SELECTED_DOCUMENT_KEY = "ntssign:dashboard:selected-document-id";
+const DASHBOARD_DOCUMENT_VIEWER_KEY = "ntssign:dashboard:document-viewer";
+const DOCUMENTS_CREATE_DRAWER_KEY = "ntssign:documents:create-draft-open";
+const DOCUMENTS_CREATE_DRAFT_STATE_KEY = "ntssign:documents:create-draft-state";
+const BILLING_PLANS_MODAL_KEY = "ntssign:billing:plans-modal-open";
 
 type PersistedDocumentViewerState = {
   open: boolean;

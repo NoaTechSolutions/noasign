@@ -5,7 +5,7 @@ const baseUrl = process.env.BASE_URL ?? 'http://127.0.0.1:3000';
 const now = new Date();
 const billingMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 const uniqueValue = Date.now();
-const email = `smoke.${uniqueValue}@noasign.test`;
+const email = `smoke.${uniqueValue}@ntssign.test`;
 const password = 'secret123';
 let authCookie = '';
 
@@ -157,7 +157,7 @@ async function main() {
   const updateCompanyProfileResult = await request('PATCH', '/company-profile/me', {
     expectedStatus: 200,
     body: {
-      companyName: 'NoaSign Smoke Test LLC',
+      companyName: 'NTSSign Smoke Test LLC',
       industry: 'construction',
       website: 'https://example.com',
       phone: '510-000-0000',
@@ -172,7 +172,7 @@ async function main() {
   });
 
   assert(
-    updateCompanyProfileResult.data.companyName === 'NoaSign Smoke Test LLC',
+    updateCompanyProfileResult.data.companyName === 'NTSSign Smoke Test LLC',
     'Company profile update failed',
   );
 

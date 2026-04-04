@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-export const AUTH_COOKIE = 'noasign_access_token';
+export const AUTH_COOKIE = 'ntssign_access_token';
 
 type SameSite = 'lax' | 'strict' | 'none';
 

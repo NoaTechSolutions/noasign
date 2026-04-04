@@ -145,7 +145,7 @@ describe('DocumentsService', () => {
         },
       },
       user: {
-        email: 'owner@noasign.test',
+        email: 'owner@ntssign.test',
         role: 'MASTER',
       },
       documentType: {
@@ -252,7 +252,7 @@ describe('DocumentsService', () => {
         },
       },
       user: {
-        email: 'owner@noasign.test',
+        email: 'owner@ntssign.test',
         role: 'MASTER',
       },
       documentType: {
@@ -329,7 +329,7 @@ describe('DocumentsService', () => {
         },
       },
       user: {
-        email: 'owner@noasign.test',
+        email: 'owner@ntssign.test',
         role: 'MASTER',
       },
       documentType: {
