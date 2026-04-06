@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { API_URL, apiRequest } from "../../lib/api";
@@ -279,23 +279,41 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const staticDataLoaded = useRef(false);
+
   const loadWorkspace = useCallback(
     async (currentSelectedId?: string | null) => {
-      const recentMonths = getRecentBillingMonths(3);
-      const [me, profile, currentUsage, summary, myDocuments, availableDocumentTypes, summaryHistory] =
-        await Promise.all([
-          apiRequest<DashboardUser>("/users/me"),
-          apiRequest<CompanyProfile>("/company-profile/me"),
-          apiRequest<CurrentUsage>("/billing/current-usage"),
-          apiRequest<MonthlySummary>("/billing/summary"),
-          apiRequest<DashboardDocument[]>("/documents/my-documents"),
-          apiRequest<DocumentTypeCatalogItem[]>("/documents/types"),
-          Promise.all(
-            recentMonths.map((month) =>
-              apiRequest<MonthlySummary>(`/billing/summary?month=${month}`),
+      const isFirstLoad = !staticDataLoaded.current;
+
+      const dynamicRequests = Promise.all([
+        apiRequest<DashboardUser>("/users/me"),
+        apiRequest<CurrentUsage>("/billing/current-usage"),
+        apiRequest<MonthlySummary>("/billing/summary"),
+        apiRequest<DashboardDocument[]>("/documents/my-documents"),
+      ]);
+
+      const staticRequests = isFirstLoad
+        ? Promise.all([
+            apiRequest<CompanyProfile>("/company-profile/me"),
+            apiRequest<DocumentTypeCatalogItem[]>("/documents/types"),
+            Promise.all(
+              getRecentBillingMonths(3).map((month) =>
+                apiRequest<MonthlySummary>(`/billing/summary?month=${month}`),
+              ),
             ),
-          ),
-        ]);
+          ])
+        : Promise.resolve(null);
+
+      const [[me, currentUsage, summary, myDocuments], staticResult] =
+        await Promise.all([dynamicRequests, staticRequests]);
+
+      if (staticResult) {
+        const [profile, availableDocumentTypes, summaryHistory] = staticResult;
+        setCompanyProfile(profile);
+        setDocumentTypes(availableDocumentTypes);
+        setBillingHistory(summaryHistory);
+        staticDataLoaded.current = true;
+      }
 
       const [workspaceUsers, workspaceAccountRequests] =
         me.role === "MASTER"
@@ -306,12 +324,9 @@ export default function DashboardPage() {
           : [[], []];
 
       setDashboardUser(me);
-      setCompanyProfile(profile);
       setUsage(currentUsage);
       setMonthlySummary(summary);
-      setBillingHistory(summaryHistory);
       setDocuments(myDocuments);
-      setDocumentTypes(availableDocumentTypes);
       setManagedUsers(workspaceUsers);
       setAccountRequests(workspaceAccountRequests);
 
