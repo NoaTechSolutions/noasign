@@ -128,7 +128,7 @@ describe('AuthService', () => {
     });
 
     await service.register({
-      email: ' Owner@NoaSign.com ',
+      email: ' Owner@NTSsign.com ',
       password: 'secret123',
     });
 
