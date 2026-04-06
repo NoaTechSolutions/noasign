@@ -3,7 +3,29 @@ import { NestFactory } from '@nestjs/core';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 
+function validateRequiredEnv() {
+  const required = [
+    'JWT_SECRET',
+    'DATABASE_URL',
+    'CORS_ORIGINS',
+    'AUTH_COOKIE_DOMAIN',
+    'APP_URL',
+    'BOLDSIGN_API_KEY',
+    'BOLDSIGN_WEBHOOK_SECRET',
+  ];
+
+  const missing = required.filter((key) => !process.env[key]?.trim());
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missing.join(', ')}`,
+    );
+  }
+}
+
 async function bootstrap() {
+  validateRequiredEnv();
+
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
   });
