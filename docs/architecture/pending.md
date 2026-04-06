@@ -1,6 +1,6 @@
 # NTSsign — Pending Work
 
-Last updated: 2026-04-04
+Last updated: 2026-04-06
 
 Tracking system: **Linear** (project NTSSign, team NoaTechSolutions). Issues referenced as NOA-XX.
 
@@ -75,14 +75,41 @@ No bloquea el B2B inicial pero necesario antes de escalar.
 
 ---
 
-## Ideas de Producto (Futuro)
+## Roadmap de Producto
+
+Ordenado por prioridad e impacto en competitividad. Las primeras tres features forman el núcleo diferenciador.
+
+### Fase A — Núcleo CRM (base de todo lo demás)
+
+| Item | Linear | Notes |
+|------|--------|-------|
+| Customer Management — CRM-lite de contactos | NOA-40 | CRUD de clientes, pre-fill en wizard, historial por cliente |
+| Document Templates — plantillas reutilizables | NOA-41 | Asocia BoldSign template ID, flujo de 3 clicks |
+| Recordatorios automáticos de firma pendiente | NOA-42 | Cron job + BoldSign reminder API, configurable por workspace |
+
+### Fase B — Escala y diferenciación
+
+| Item | Linear | Notes |
+|------|--------|-------|
+| Bulk Send — envío masivo a múltiples clientes | NOA-43 | Requiere NOA-40 + NOA-41. N documentos en una operación |
+| Multi-signer — firmantes múltiples con orden | NOA-44 | Secuencial o paralelo. BoldSign ya lo soporta |
+| Landing page pública NTSsign | NOA-39 | Value prop, brand, responsive, dark/light mode |
+
+### Fase C — Experiencia avanzada
 
 | Item | Linear | Notes |
 |------|--------|-------|
 | Portal de firma white-label por tenant | NOA-34 | Logo, colores, dominio propio para el firmante |
-| Notificaciones por email nativos | NOA-35 | Recordatorios de vencimiento, avisos al owner |
+| Organización de documentos — carpetas/proyectos | NOA-45 | Se potencia con Customer Management |
 | Dashboard de analytics por tenant | NOA-36 | Docs enviados/firmados, tiempo promedio de firma |
+| Notificaciones por email nativos | NOA-35 | Recordatorios de vencimiento, avisos al owner |
 | Exportación masiva de PDFs firmados | NOA-37 | ZIP descargable por período, útil para auditorías |
+
+### Pendientes de linking
+
+| Item | Linear | Notes |
+|------|--------|-------|
+| Link CTA signature-complete → landing page | NOA-38 | Requiere NOA-39 (landing page) |
 
 ---
 
@@ -99,10 +126,16 @@ No bloquea el B2B inicial pero necesario antes de escalar.
 - ✅ PUBLIC_LINK_SECRET separado de JWT_SECRET
 - ✅ `lastSentRecipientEmail` — resend cooldown bypass al cambiar email
 - ✅ CI pipeline (tests + lint en cada PR)
-- ✅ Deploy pipeline staging (SSH a Oracle VM en push a `staging`)
+- ✅ Deploy pipeline staging (SSH a Oracle VM en push a `develop`)
 - ✅ Deploy pipeline prod (SSH a Oracle VM en push a `main`)
+- ✅ Production environment live: api.ntssign.com + app.ntssign.com
 - ✅ Staging environment live: api-staging.ntssign.com + app-staging.ntssign.com
 - ✅ SSL/HTTPS con Let's Encrypt + renovación automática
 - ✅ Rename completo de noasign → ntssign en codebase (cookie, localStorage, eventos, emails)
 - ✅ Documentación completa de arquitectura, deployment y producto
 - ✅ Linear configurado como sistema de tracking (NOA-1 en adelante)
+- ✅ Startup validation: fail-fast si faltan variables de entorno críticas (NOA-13)
+- ✅ BOLDSIGN_WEBHOOK_SECRET validado en startup (NOA-32)
+- ✅ Dashboard optimizado: static data cacheado con useRef, 9 requests → 4 en refreshes (NOA-31)
+- ✅ Signature-complete page redesign: 2 columnas, dark/light mode, brand colors, responsive
+- ✅ @custom-variant dark en globals.css — dark: variants funcionan con next-themes en toda la app
