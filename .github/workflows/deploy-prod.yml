@@ -26,6 +26,8 @@ jobs:
           port: 22
           script: |
             set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             echo "--- Pulling latest code ---"
             cd ~/apps/ntssign
@@ -53,6 +55,8 @@ jobs:
           port: 22
           script: |
             set -e
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             echo "--- Pulling latest code ---"
             cd ~/apps/ntssign
@@ -61,7 +65,7 @@ jobs:
             echo "--- Building frontend ---"
             cd apps/frontend
             npm ci
-            npm run build
+            NODE_OPTIONS="--max-old-space-size=512" npm run build
 
             echo "--- Restarting frontend ---"
             pm2 restart ntssign-frontend --update-env
