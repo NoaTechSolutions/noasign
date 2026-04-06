@@ -51,21 +51,18 @@ export default async function SignatureCompletePage({
 
       {/* Header */}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 md:px-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2.5 rounded-full border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-3 py-2 shadow-[var(--shadow-soft)]"
-        >
-          <div className="relative h-9 w-9 overflow-hidden rounded-full border border-[color:var(--border)] bg-[#022977]">
+        <Link href="/" className="inline-flex items-center gap-3">
+          <div className="relative h-12 w-12 overflow-hidden rounded-full bg-[#022977]">
             <Image
               src="/ntssign-light.svg"
               alt="NTSsign"
               fill
               className="object-contain p-1.5"
-              sizes="36px"
+              sizes="48px"
               priority
             />
           </div>
-          <span className="text-sm font-semibold tracking-[-0.02em] text-[color:var(--text-primary)]">
+          <span className="text-base font-semibold tracking-[-0.02em] text-[color:var(--text-primary)]">
             NTSsign
           </span>
         </Link>
