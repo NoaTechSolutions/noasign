@@ -79,7 +79,7 @@ type CurrentUsage = {
   planName: string;
   monthlyDocLimit: number;
   isUnlimited: boolean;
-  overagePrice: string | number;
+  overagePrice: number;
   documentsUsed: number;
   remainingDocuments: number | null;
   overageDocuments: number;
@@ -90,7 +90,7 @@ type MonthlySummary = {
   planName: string;
   monthlyDocLimit: number;
   isUnlimited: boolean;
-  overagePrice: string | number;
+  overagePrice: number;
   documentsSent: number;
   overageDocuments: number;
   estimatedOverageCost: number;

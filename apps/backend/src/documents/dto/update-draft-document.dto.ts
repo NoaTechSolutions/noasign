@@ -1,11 +1,10 @@
-import { IsNotEmpty, IsObject, IsString } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsObject } from 'class-validator';
 
 export class UpdateDraftDocumentDto {
   @IsObject()
   @IsNotEmpty()
   dataJson: Record<string, any>;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsDateString()
   contractDate: string;
 }

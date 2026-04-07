@@ -61,7 +61,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const companyProfile = await this.prisma.companyProfile.create({
       data: {
-        companyName: 'New Company',
+        companyName: data.companyName.trim(),
         email: normalizedEmail,
         contactEmail: normalizedEmail,
         planName: 'PRO_UNLIMITED',

@@ -120,6 +120,16 @@ function createAuthRateLimitMiddleware() {
   ]);
   const entries = new Map<string, { count: number; resetAt: number }>();
 
+  // Prevent unbounded memory growth — prune expired entries every 5 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of entries) {
+      if (entry.resetAt <= now) {
+        entries.delete(key);
+      }
+    }
+  }, 5 * 60 * 1000).unref();
+
   return (req: Request, res: Response, next: NextFunction) => {
     const routeKey = `${req.method}:${req.path}`;
     if (!protectedRoutes.has(routeKey)) {

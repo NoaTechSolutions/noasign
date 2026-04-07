@@ -257,7 +257,7 @@ export class UsersService {
     const targetUser = await this.prisma.user.findFirst({
       where: {
         id: targetUserId,
-        companyProfileId: requester.companyProfileId,
+        parentCompanyProfileId: requester.companyProfileId,
       },
     });
 
@@ -312,7 +312,7 @@ export class UsersService {
     const targetUser = await this.prisma.user.findFirst({
       where: {
         id: targetUserId,
-        companyProfileId: requester.companyProfileId,
+        parentCompanyProfileId: requester.companyProfileId,
       },
     });
 

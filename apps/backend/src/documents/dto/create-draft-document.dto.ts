@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -21,7 +22,6 @@ export class CreateDraftDocumentDto {
   @IsNotEmpty()
   dataJson: Record<string, any>;
 
-  @IsString()
-  @IsNotEmpty()
+  @IsDateString()
   contractDate: string;
 }

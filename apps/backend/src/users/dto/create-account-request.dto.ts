@@ -12,6 +12,7 @@ export class CreateAccountRequestDto {
   fullName!: string;
 
   @IsEmail()
+  @MaxLength(254)
   email!: string;
 
   @IsArray()
