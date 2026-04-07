@@ -52,6 +52,7 @@ import {
 import { Sidebar, SidebarBody, SidebarLink } from "./ui/sidebar";
 import { cn } from "@/lib/utils";
 import { MasterUsersPanel } from "./master-users-panel";
+import { DocumentFormRenderer, type DocumentSchema } from "./document-form-renderer";
 
 type Doc = {
   id: string;
@@ -103,7 +104,7 @@ type DocumentTypeCatalogItem = {
   formDefinitions: Array<{
     id: string;
     name: string;
-    key: string;
+    schemaJson?: unknown;
   }>;
   signatureTemplates: Array<{
     id: string;
@@ -325,15 +326,11 @@ type PersistedDocumentViewerState = {
 };
 
 type PersistedCreateDraftState = {
-  activeTab: "client" | "project" | "pricing" | "others";
   isSetupOpen: boolean;
-  sameProjectAddressAsCustomer: boolean;
-  financeEnabled: boolean;
   selectedDocumentTypeId: string;
   selectedFormDefinitionId: string;
   selectedTemplateId: string;
   contractDate: string;
-  fields: Record<string, string>;
 };
 
 type WorkflowAction = {
@@ -3075,58 +3072,13 @@ function CreateDraftDrawer({
   onOpenDocumentView: (documentId: string) => void;
 }) {
   const drawerScrollRef = useRef<HTMLElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing" | "others">("client");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
-  const [draftValidationMessage, setDraftValidationMessage] = useState("");
-  const [draftFieldErrors, setDraftFieldErrors] = useState<Record<string, string>>({});
-  const [sameProjectAddressAsCustomer, setSameProjectAddressAsCustomer] = useState(true);
-  const [financeEnabled, setFinanceEnabled] = useState(false);
   const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState("");
   const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [contractDate, setContractDate] = useState("");
-  const [fields, setFields] = useState<Record<string, string>>({
-    customer_name: "",
-    customer_age: "",
-    customer_phone: "",
-    customer_email: "",
-    customer_fax: "",
-    customer_address: "",
-    city: "",
-    state: "",
-    zip: "",
-    project_address: "",
-    project_city: "",
-    project_state: "",
-    project_zip: "",
-    start_date: "",
-    estimated_completion_date: "",
-    project_name: "",
-    project_description: "",
-    contract_scope: "",
-    salesman_full_name: "",
-    state_registration_number: "",
-    warranty_years: "",
-    contract_amount: "",
-    down_payment_amount: "",
-    finance_charge: "",
-    finance_1_amount: "",
-    finance_1_description: "",
-    finance_1_date: "",
-    finance_2_amount: "",
-    finance_2_description: "",
-    finance_2_date: "",
-    finance_3_amount: "",
-    finance_3_description: "",
-    finance_3_date: "",
-    finance_4_amount: "",
-    finance_4_description: "",
-    finance_4_date: "",
-    payment_schedule: "",
-    notes: "",
-  });
 
   useEffect(() => {
     if (!open) return;
@@ -3134,24 +3086,13 @@ function CreateDraftDrawer({
     const persistedState =
       readSessionJson<PersistedCreateDraftState>(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
 
-    if (!persistedState) {
-      return;
-    }
+    if (!persistedState) return;
 
-    setActiveTab(persistedState.activeTab ?? "client");
     setIsSetupOpen(persistedState.isSetupOpen ?? false);
-    setSameProjectAddressAsCustomer(
-      persistedState.sameProjectAddressAsCustomer ?? true,
-    );
-    setFinanceEnabled(persistedState.financeEnabled ?? false);
     setSelectedDocumentTypeId(persistedState.selectedDocumentTypeId ?? "");
     setSelectedFormDefinitionId(persistedState.selectedFormDefinitionId ?? "");
     setSelectedTemplateId(persistedState.selectedTemplateId ?? "");
     setContractDate(persistedState.contractDate ?? "");
-    setFields((current) => ({
-      ...current,
-      ...(persistedState.fields ?? {}),
-    }));
   }, [open]);
 
   useEffect(() => {
@@ -3172,14 +3113,6 @@ function CreateDraftDrawer({
   useEffect(() => {
     setContractDate((current) => current || toDateInputValue(new Date().toISOString()));
   }, []);
-
-  useEffect(() => {
-    if (fields.customer_address.trim()) {
-      setSameProjectAddressAsCustomer(true);
-    } else {
-      setSameProjectAddressAsCustomer(false);
-    }
-  }, [fields.customer_address]);
 
   useEffect(() => {
     if (!open) return;
@@ -3205,135 +3138,20 @@ function CreateDraftDrawer({
     if (!open) return;
 
     writeSessionJson(DOCUMENTS_CREATE_DRAFT_STATE_KEY, {
-      activeTab,
       isSetupOpen,
-      sameProjectAddressAsCustomer,
-      financeEnabled,
       selectedDocumentTypeId,
       selectedFormDefinitionId,
       selectedTemplateId,
       contractDate,
-      fields,
     } satisfies PersistedCreateDraftState);
   }, [
-    activeTab,
     contractDate,
-    fields,
-    financeEnabled,
     isSetupOpen,
     open,
-    sameProjectAddressAsCustomer,
     selectedDocumentTypeId,
     selectedFormDefinitionId,
     selectedTemplateId,
   ]);
-
-  const todayDate = toDateInputValue(new Date().toISOString());
-  const hasClientAddress = Boolean(fields.customer_address.trim());
-
-  function getCreateDraftFieldErrors(tab: "client" | "project" | "pricing" | "others") {
-    const errors: Record<string, string> = {};
-
-    if (tab === "client") {
-      if (!fields.customer_name.trim()) errors.customer_name = "Customer name required";
-      if (!fields.customer_age.trim()) {
-        errors.customer_age = "Age required";
-      } else if (Number(fields.customer_age) < 21) {
-        errors.customer_age = "Must be 21 or older";
-      }
-      if (!fields.customer_email.trim()) {
-        errors.customer_email = "Email required";
-      } else if (!isValidEmail(fields.customer_email.trim())) {
-        errors.customer_email = "Enter a valid email";
-      }
-    }
-
-    if (tab === "project") {
-      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_address.trim()) {
-        errors.project_address = "Project address required";
-      }
-      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_city.trim()) {
-        errors.project_city = "City required";
-      }
-      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_state.trim()) {
-        errors.project_state = "State required";
-      }
-      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_zip.trim()) {
-        errors.project_zip = "Zip code required";
-      }
-      if (!fields.start_date) {
-        errors.start_date = "Start date required";
-      } else if (fields.start_date < todayDate) {
-        errors.start_date = "Only today or future dates";
-      }
-      if (fields.estimated_completion_date && fields.start_date && fields.estimated_completion_date < fields.start_date) {
-        errors.estimated_completion_date = "Must be after start date";
-      }
-    }
-
-    if (tab === "pricing") {
-      if (!fields.contract_amount.trim()) {
-        errors.contract_amount = "Contract price required";
-      }
-    }
-
-    return errors;
-  }
-
-  function getCreateDraftTabError(tab: "client" | "project" | "pricing" | "others") {
-    const errors = getCreateDraftFieldErrors(tab);
-    return Object.keys(errors).length > 0 ? "Complete the required fields to continue." : null;
-  }
-
-  function canAccessCreateDraftTab(tab: "client" | "project" | "pricing" | "others") {
-    if (tab === "client") return true;
-    if (tab === "project") return Object.keys(getCreateDraftFieldErrors("client")).length === 0;
-    if (tab === "pricing") {
-      return (
-        Object.keys(getCreateDraftFieldErrors("client")).length === 0 &&
-        Object.keys(getCreateDraftFieldErrors("project")).length === 0
-      );
-    }
-
-    return (
-      Object.keys(getCreateDraftFieldErrors("client")).length === 0 &&
-      Object.keys(getCreateDraftFieldErrors("project")).length === 0 &&
-      Object.keys(getCreateDraftFieldErrors("pricing")).length === 0
-    );
-  }
-
-  useEffect(() => {
-    if (!open) return;
-
-    const projectAccessible = canAccessCreateDraftTab("project");
-    const pricingAccessible = canAccessCreateDraftTab("pricing");
-    const othersAccessible = canAccessCreateDraftTab("others");
-
-    const nextTab =
-      activeTab === "others"
-        ? othersAccessible
-          ? "others"
-          : pricingAccessible
-            ? "pricing"
-            : projectAccessible
-              ? "project"
-              : "client"
-        : activeTab === "pricing"
-          ? pricingAccessible
-            ? "pricing"
-            : projectAccessible
-              ? "project"
-              : "client"
-          : activeTab === "project"
-            ? projectAccessible
-              ? "project"
-              : "client"
-            : "client";
-
-    if (nextTab !== activeTab) {
-      setActiveTab(nextTab);
-    }
-  }, [activeTab, fields, open, sameProjectAddressAsCustomer]);
 
   if (!open) {
     return null;
@@ -3344,41 +3162,18 @@ function CreateDraftDrawer({
     setConfirmCloseOpen(true);
   }
 
-  function handleNextTab() {
-    const fieldErrors = getCreateDraftFieldErrors(activeTab);
-    const validationError = getCreateDraftTabError(activeTab);
-
-    if (validationError) {
-      setDraftFieldErrors((current) => ({ ...current, ...fieldErrors }));
-      setDraftValidationMessage(validationError);
-      return;
-    }
-
-    setDraftFieldErrors({});
-    setDraftValidationMessage("");
-    setActiveTab((current) =>
-      current === "client"
-        ? "project"
-        : current === "project"
-          ? "pricing"
-          : "others",
-    );
-  }
-
-  async function handleSubmit() {
+  async function handleRendererSubmit(dataJson: Record<string, string>) {
     if (!selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) {
       return;
     }
 
-    const clientErrors = getCreateDraftFieldErrors("client");
-    const projectErrors = getCreateDraftFieldErrors("project");
-    const pricingErrors = getCreateDraftFieldErrors("pricing");
-    const validationError = getCreateDraftTabError("client") ?? getCreateDraftTabError("project") ?? getCreateDraftTabError("pricing");
-    if (validationError) {
-      setDraftFieldErrors({ ...clientErrors, ...projectErrors, ...pricingErrors });
-      setDraftValidationMessage(validationError);
-      return;
-    }
+    // Inject insurance fields from company profile
+    const finalDataJson: Record<string, string> = {
+      ...dataJson,
+      insurance_name: companyProfile?.insuranceName?.trim() ?? "",
+      insurance_phone: companyProfile?.insurancePhone ?? "",
+      insurance_policy_number: companyProfile?.insurancePolicyNumber?.trim() ?? "",
+    };
 
     setIsSubmitting(true);
     try {
@@ -3387,12 +3182,7 @@ function CreateDraftDrawer({
         formDefinitionId: selectedFormDefinitionId,
         signatureTemplateId: selectedTemplateId,
         contractDate,
-        dataJson: buildCreateDraftPayload(
-          fields,
-          sameProjectAddressAsCustomer,
-          financeEnabled,
-          companyProfile,
-        ),
+        dataJson: finalDataJson,
       });
 
       onClose();
@@ -3483,211 +3273,34 @@ function CreateDraftDrawer({
           </div>
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { key: "client", label: "Client" },
-              { key: "project", label: "Project" },
-              { key: "pricing", label: "Pricing" },
-              { key: "others", label: "Others" },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => {
-                  const nextTab = tab.key as "client" | "project" | "pricing" | "others";
-                  if (!canAccessCreateDraftTab(nextTab)) return;
-                  setActiveTab(nextTab);
-                }}
-                disabled={!canAccessCreateDraftTab(tab.key as "client" | "project" | "pricing" | "others")}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
-                  activeTab === tab.key
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
-                  !canAccessCreateDraftTab(tab.key as "client" | "project" | "pricing" | "others") && "cursor-not-allowed opacity-45 hover:bg-slate-50 dark:hover:bg-white/[0.04]",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {(() => {
+          const selectedFormDef = selectedDocumentType?.formDefinitions.find(
+            (f) => f.id === selectedFormDefinitionId,
+          );
+          const schema = selectedFormDef?.schemaJson as DocumentSchema | undefined;
+          if (!schema?.sections?.length) {
+            return (
+              <div className="px-5 py-8 text-center text-sm text-[color:var(--text-muted)]">
+                No form schema configured for this document type.
+              </div>
+            );
+          }
+          return (
+            <DocumentFormRenderer
+              schema={schema}
+              onSubmit={handleRendererSubmit}
+              onCancel={requestClose}
+              isSubmitting={isSubmitting}
+              canSubmit={
+                !!selectedDocumentTypeId &&
+                !!selectedFormDefinitionId &&
+                !!selectedTemplateId &&
+                !!contractDate
+              }
+            />
+          );
+        })()}
 
-        <div className="px-5 py-5">
-          {activeTab === "client" ? (
-            <div className="grid gap-3">
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Customer name" value={fields.customer_name} placeholder="Full name" error={draftFieldErrors.customer_name} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_name: "" })); setFields((current) => ({ ...current, customer_name: toTitleCase(value) })); }} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Age" value={fields.customer_age} placeholder="35" error={draftFieldErrors.customer_age} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_age: "" })); setFields((current) => ({ ...current, customer_age: value.replace(/\D/g, "").slice(0, 3) })); }} />
-              </div>
-              <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={fields.customer_email} placeholder="Email address" error={draftFieldErrors.customer_email} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_email: "" })); setFields((current) => ({ ...current, customer_email: value })); }} />
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={fields.customer_phone} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_phone: formatUsPhone(value) }))} />
-                <EditableField icon={<ScanText className="h-4 w-4" />} label="Fax" value={fields.customer_fax} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_fax: formatUsPhone(value) }))} />
-              </div>
-              <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address" value={fields.customer_address} placeholder="Street address" onChange={(value) => setFields((current) => ({ ...current, customer_address: value }))} />
-              <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={fields.city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, city: value }))} />
-                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={fields.state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, state: value }))} />
-                <EditableField icon={<Pin className="h-4 w-4" />} label="Zip code" value={fields.zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, zip: value }))} />
-              </div>
-            </div>
-          ) : activeTab === "project" ? (
-            <div className="grid gap-3">
-              <label className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)]">
-                <input
-                  type="checkbox"
-                  checked={sameProjectAddressAsCustomer}
-                  onChange={(event) => setSameProjectAddressAsCustomer(event.target.checked)}
-                  disabled={!hasClientAddress}
-                  className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--brand-accent)] focus:ring-[color:var(--focus-ring)]"
-                />
-                <span>Same as client address</span>
-              </label>
-              {!sameProjectAddressAsCustomer ? (
-                <>
-                  <EditableField icon={<MapPlus className="h-4 w-4" />} label="Project address" value={fields.project_address} placeholder="Project address" error={draftFieldErrors.project_address} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_address: "" })); setFields((current) => ({ ...current, project_address: value })); }} />
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={fields.project_city} placeholder="City" error={draftFieldErrors.project_city} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_city: "" })); setFields((current) => ({ ...current, project_city: value })); }} />
-                    <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={fields.project_state} placeholder="State" error={draftFieldErrors.project_state} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_state: "" })); setFields((current) => ({ ...current, project_state: value })); }} />
-                    <EditableField icon={<Pin className="h-4 w-4" />} label="Zip code" value={fields.project_zip} placeholder="Zip code" error={draftFieldErrors.project_zip} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_zip: "" })); setFields((current) => ({ ...current, project_zip: value })); }} />
-                  </div>
-                </>
-              ) : null}
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<ScanText className="h-4 w-4" />} type="date" label="Start date" value={fields.start_date} min={todayDate} error={draftFieldErrors.start_date} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, start_date: "", estimated_completion_date: "" })); setFields((current) => ({ ...current, start_date: value })); }} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} type="date" label="Estimated completion date" value={fields.estimated_completion_date} min={fields.start_date || todayDate} error={draftFieldErrors.estimated_completion_date} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, estimated_completion_date: "" })); setFields((current) => ({ ...current, estimated_completion_date: value })); }} />
-              </div>
-              <EditableField icon={<FileText className="h-4 w-4" />} type="textarea" label="Project description" value={fields.project_description} placeholder="Project description" onChange={(value) => setFields((current) => ({ ...current, project_description: value }))} />
-              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Internal notes (only you can see this, your customer will not)" value={fields.contract_scope} placeholder="Add internal notes" onChange={(value) => setFields((current) => ({ ...current, contract_scope: value }))} />
-            </div>
-          ) : activeTab === "pricing" ? (
-            <div className="grid gap-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <CurrencyField icon={<WalletCards className="h-4 w-4" />} label="Contract price" value={fields.contract_amount} placeholder="12000.00" error={draftFieldErrors.contract_amount} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, contract_amount: "" })); setFields((current) => ({ ...current, contract_amount: formatCurrencyInput(value) })); }} />
-                <CurrencyField icon={<Download className="h-4 w-4" />} label="Down payment" value={fields.down_payment_amount} placeholder="2500.00" onChange={(value) => setFields((current) => ({ ...current, down_payment_amount: formatCurrencyInput(value) }))} />
-              </div>
-              <label className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)]">
-                <input
-                  type="checkbox"
-                  checked={financeEnabled}
-                  onChange={(event) => setFinanceEnabled(event.target.checked)}
-                  className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--brand-accent)] focus:ring-[color:var(--focus-ring)]"
-                />
-                <span>Finance</span>
-              </label>
-              {financeEnabled ? (
-                <>
-                  <CurrencyField icon={<CreditCard className="h-4 w-4" />} label="Finance charge" value={fields.finance_charge} placeholder="350.00" onChange={(value) => setFields((current) => ({ ...current, finance_charge: formatCurrencyInput(value) }))} />
-                  {[1, 2, 3, 4].map((row) => (
-                    <div key={`finance-row-${row}`} className="grid gap-3 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_180px]">
-                      <CurrencyField
-                        icon={<WalletCards className="h-4 w-4" />}
-                        label={`Finance ${row}`}
-                        value={fields[`finance_${row}_amount`]}
-                        placeholder="1000.00"
-                        onChange={(value) =>
-                          setFields((current) => ({
-                            ...current,
-                            [`finance_${row}_amount`]: formatCurrencyInput(value),
-                          }))
-                        }
-                      />
-                      <EditableField
-                        icon={<FileText className="h-4 w-4" />}
-                        label="Description"
-                        value={fields[`finance_${row}_description`]}
-                        placeholder="Description"
-                        onChange={(value) =>
-                          setFields((current) => ({
-                            ...current,
-                            [`finance_${row}_description`]: value,
-                          }))
-                        }
-                      />
-                      <EditableField
-                        icon={<ScanText className="h-4 w-4" />}
-                        type="date"
-                        label="Date"
-                        value={fields[`finance_${row}_date`]}
-                        onChange={(value) =>
-                          setFields((current) => ({
-                            ...current,
-                            [`finance_${row}_date`]: value,
-                          }))
-                        }
-                      />
-                    </div>
-                  ))}
-                </>
-              ) : null}
-              <EditableField icon={<WalletCards className="h-4 w-4" />} label="Payment schedule" value={fields.payment_schedule} placeholder="Payment schedule" onChange={(value) => setFields((current) => ({ ...current, payment_schedule: value }))} />
-            </div>
-          ) : activeTab === "others" ? (
-            <div className="grid gap-3">
-              <EditableField
-                icon={<UserRound className="h-4 w-4" />}
-                label="Salesman who solicited or negotiated contract"
-                value={fields.salesman_full_name}
-                placeholder="Full name"
-                onChange={(value) => setFields((current) => ({ ...current, salesman_full_name: value }))}
-              />
-              <EditableField
-                icon={<Landmark className="h-4 w-4" />}
-                label="State registration number"
-                value={fields.state_registration_number}
-                placeholder="Registration number"
-                onChange={(value) => setFields((current) => ({ ...current, state_registration_number: value }))}
-              />
-              <EditableField
-                icon={<BadgeCheck className="h-4 w-4" />}
-                label="Warranty year(s)"
-                value={fields.warranty_years}
-                placeholder="10"
-                onChange={(value) => setFields((current) => ({ ...current, warranty_years: value.replace(/\D/g, "").slice(0, 3) }))}
-              />
-            </div>
-          ) : null}
-        </div>
-
-        <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
-          {draftValidationMessage ? (
-            <div className="mb-3 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
-              {draftValidationMessage}
-            </div>
-          ) : null}
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={requestClose}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
-            >
-              Cancel
-            </button>
-            {activeTab === "others" ? (
-              <button
-                type="button"
-                onClick={() => void handleSubmit()}
-                disabled={isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate}
-                className={cn(
-                  "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
-                  (isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) && "cursor-not-allowed opacity-60",
-                )}
-              >
-                {isSubmitting ? "Creating..." : "Create draft"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleNextTab}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
-                Continue
-              </button>
-            )}
-          </div>
-        </div>
       </aside>
       {confirmCloseOpen ? (
         <div className="absolute inset-0 z-[60] flex min-h-full items-center justify-center bg-slate-950/30 p-4">
@@ -4498,7 +4111,7 @@ function StatPill({ label, value }: { label: string; value: string }) {
   return <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">{label}</div><div className="mt-3 text-sm font-medium leading-5 text-[color:var(--text-primary)]">{value}</div></div>;
 }
 
-function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value?: string | null }) {
   return <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"><div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]"><span className="text-[color:var(--text-muted)]">{icon}</span>{label}</div><div className="mt-3 text-sm font-medium leading-5 text-[color:var(--text-primary)]">{value}</div></div>;
 }
 
@@ -5399,38 +5012,6 @@ function formatFieldValue(value: unknown) {
   return JSON.stringify(value);
 }
 
-function buildCreateDraftPayload(
-  fields: Record<string, string>,
-  sameProjectAddressAsCustomer = false,
-  financeEnabled = false,
-  companyProfile: Props["companyProfile"] = null,
-) {
-  const nextFields = { ...fields };
-  nextFields.insurance_name = companyProfile?.insuranceName?.trim() ?? "";
-  nextFields.insurance_phone = formatUsPhone(companyProfile?.insurancePhone ?? "");
-  nextFields.insurance_policy_number =
-    companyProfile?.insurancePolicyNumber?.trim() ?? "";
-
-  if (sameProjectAddressAsCustomer) {
-    nextFields.project_address = fields.customer_address;
-    nextFields.project_city = fields.city;
-    nextFields.project_state = fields.state;
-    nextFields.project_zip = fields.zip;
-  }
-
-  if (!financeEnabled) {
-    nextFields.finance_charge = "";
-    for (const row of [1, 2, 3, 4]) {
-      nextFields[`finance_${row}_amount`] = "";
-      nextFields[`finance_${row}_description`] = "";
-      nextFields[`finance_${row}_date`] = "";
-    }
-  }
-
-  return Object.fromEntries(
-    Object.entries(nextFields).filter(([, value]) => value.trim() !== ""),
-  );
-}
 
 function toDateInputValue(value?: string | null) {
   if (!value) return "";
