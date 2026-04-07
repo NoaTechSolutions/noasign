@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   Ban,
+  Building2,
   Copy,
   CheckCircle2,
   ChevronsUpDown,
@@ -27,6 +28,10 @@ type ManagedUser = {
   role: string;
   status: string;
   mustChangePassword?: boolean;
+  accountType?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
   createdAt: string;
   updatedAt: string;
   companyProfile?: {
@@ -54,7 +59,15 @@ type Props = {
   accountRequests: AccountRequest[] | null;
   currentUserId?: string | null;
   isLoading: boolean;
-  onCreateUser: (payload: { email: string; password: string; role: string }) => Promise<void>;
+  onCreateUser: (payload: {
+    email: string;
+    password: string;
+    role: string;
+    accountType?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+  }) => Promise<void>;
   onUpdateUser: (userId: string, payload: { email?: string; role?: string; status?: string }) => Promise<void>;
   onDeactivateUser: (userId: string) => Promise<void>;
   onReactivateUser: (userId: string) => Promise<void>;
@@ -72,7 +85,15 @@ const userRoleFilters = ["ALL", "MASTER", "USER"] as const;
 const userStatusFilters = ["ALL", "ACTIVE", "INACTIVE", "SUSPENDED"] as const;
 const requestStatusFilters = ["ALL", "PENDING", "APPROVED", "REJECTED"] as const;
 
-type CreateFormState = { email: string; password: string; role: "MASTER" | "USER" };
+type CreateFormState = {
+  email: string;
+  password: string;
+  role: "MASTER" | "USER";
+  accountType: "INDIVIDUAL" | "BUSINESS";
+  firstName: string;
+  lastName: string;
+  phone: string;
+};
 type EditingState = { id: string; email: string; role: "MASTER" | "USER" };
 type ResetPasswordState = {
   id: string;
@@ -105,6 +126,17 @@ const rowActionClass =
 
 const paginationButtonClass =
   "inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/8";
+
+function toTitleCase(value: string) {
+  return value.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatUsPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
 
 function formatShortDate(value: string | null) {
   if (!value) return "-";
@@ -1060,8 +1092,14 @@ export function MasterUsersPanel({
     email: "",
     password: "",
     role: "USER",
+    accountType: "INDIVIDUAL",
+    firstName: "",
+    lastName: "",
+    phone: "",
   });
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
   const [openActionMenuFor, setOpenActionMenuFor] = useState<string | null>(null);
@@ -1148,11 +1186,16 @@ export function MasterUsersPanel({
 
   async function handleCreateSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setCreateError(null);
     setSubmittingAction("create");
     try {
       await onCreateUser(createForm);
-      setCreateForm({ email: "", password: "", role: "USER" });
+      setCreateForm({ email: "", password: "", role: "USER", accountType: "INDIVIDUAL", firstName: "", lastName: "", phone: "" });
       setIsCreateOpen(false);
+      setSuccessMessage(`User ${createForm.email} created successfully.`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Failed to create user");
     } finally {
       setSubmittingAction(null);
     }
@@ -1196,6 +1239,12 @@ export function MasterUsersPanel({
 
   return (
     <>
+      {successMessage ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {successMessage}
+        </div>
+      ) : null}
       <section className="grid gap-4">
         <div className="overflow-visible rounded-[1.9rem] border border-slate-200 bg-white shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
           <div className="border-b border-slate-200 px-5 py-5 dark:border-white/10 md:px-6">
@@ -1544,7 +1593,7 @@ export function MasterUsersPanel({
       {mode === "users" && isCreateOpen ? (
         <UserModal
           title="Create user"
-          onClose={() => setIsCreateOpen(false)}
+          onClose={() => { setIsCreateOpen(false); setCreateError(null); }}
           onSubmit={handleCreateSubmit}
           footer={
             <div className="mt-2 flex items-center justify-end gap-3">
@@ -1564,6 +1613,34 @@ export function MasterUsersPanel({
             </div>
           }
         >
+          {createError ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {createError}
+            </div>
+          ) : null}
+          {/* Account type selector */}
+          <FieldShell label="Account type">
+            <div className="grid grid-cols-2 gap-2">
+              {(["INDIVIDUAL", "BUSINESS"] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setCreateForm((c) => ({ ...c, accountType: type }))}
+                  className={cn(
+                    "flex items-center gap-2 rounded-2xl border-2 px-4 py-3 text-left text-sm font-medium transition",
+                    createForm.accountType === type
+                      ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200",
+                  )}
+                >
+                  {type === "INDIVIDUAL" ? <UserRound className="h-4 w-4 shrink-0" /> : <Building2 className="h-4 w-4 shrink-0" />}
+                  {type === "INDIVIDUAL" ? "Individual" : "Business"}
+                </button>
+              ))}
+            </div>
+          </FieldShell>
+
           <FieldShell label="Email">
             <input
               type="email"
@@ -1576,6 +1653,45 @@ export function MasterUsersPanel({
               className={modalInputClass}
             />
           </FieldShell>
+
+          {createForm.accountType === "INDIVIDUAL" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <FieldShell label="First name">
+                <input
+                  type="text"
+                  value={createForm.firstName}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({ ...current, firstName: toTitleCase(event.target.value) }))
+                  }
+                  placeholder="John"
+                  className={modalInputClass}
+                />
+              </FieldShell>
+              <FieldShell label="Last name">
+                <input
+                  type="text"
+                  value={createForm.lastName}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({ ...current, lastName: toTitleCase(event.target.value) }))
+                  }
+                  placeholder="Doe"
+                  className={modalInputClass}
+                />
+              </FieldShell>
+              <FieldShell label="Phone">
+                <input
+                  type="tel"
+                  value={createForm.phone}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({ ...current, phone: formatUsPhone(event.target.value) }))
+                  }
+                  placeholder="(555) 000-0000"
+                  className={modalInputClass}
+                />
+              </FieldShell>
+            </div>
+          ) : null}
+
           <FieldShell label="Temporary password">
             <input
               type="text"
