@@ -27,21 +27,16 @@ export class BillingService {
     const isUnlimited = isMaster || companyProfile.isUnlimited;
     const billingPeriod = this.getCurrentBillingPeriod();
 
+    const docFilter = isMaster
+      ? { companyProfileId: companyProfile.id }
+      : { userId: user.id };
+
     const documentsUsed = await this.prisma.document.count({
-      where: {
-        companyProfileId: companyProfile.id,
-        countedInBilling: true,
-        billingPeriod,
-      },
+      where: { ...docFilter, countedInBilling: true, billingPeriod },
     });
 
     const overageDocuments = await this.prisma.document.count({
-      where: {
-        companyProfileId: companyProfile.id,
-        countedInBilling: true,
-        billingPeriod,
-        isOverage: true,
-      },
+      where: { ...docFilter, countedInBilling: true, billingPeriod, isOverage: true },
     });
 
     const remainingDocuments = isUnlimited
@@ -77,21 +72,16 @@ export class BillingService {
     const isUnlimited = isMaster || companyProfile.isUnlimited;
     const billingPeriod = month || this.getCurrentBillingPeriod();
 
+    const docFilter = isMaster
+      ? { companyProfileId: companyProfile.id }
+      : { userId: user.id };
+
     const documentsSent = await this.prisma.document.count({
-      where: {
-        companyProfileId: companyProfile.id,
-        countedInBilling: true,
-        billingPeriod,
-      },
+      where: { ...docFilter, countedInBilling: true, billingPeriod },
     });
 
     const overageDocuments = isUnlimited ? 0 : await this.prisma.document.count({
-      where: {
-        companyProfileId: companyProfile.id,
-        countedInBilling: true,
-        billingPeriod,
-        isOverage: true,
-      },
+      where: { ...docFilter, countedInBilling: true, billingPeriod, isOverage: true },
     });
 
     const estimatedOverageCost = isUnlimited

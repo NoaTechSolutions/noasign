@@ -81,7 +81,7 @@ describe('DocumentsService', () => {
       { id: 'type-1', signatureTemplates: [{ id: 'tpl-1' }] },
     ]);
 
-    const result = await service.getDocumentTypes();
+    const result = await service.getDocumentTypes('user-1');
 
     expect(prismaMock.documentType.findMany).toHaveBeenCalledWith({
       include: {

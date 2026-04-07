@@ -124,7 +124,14 @@ type Props = {
     accountType?: string | null;
     firstName?: string | null;
     lastName?: string | null;
+    title?: string | null;
     phone?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zipCode?: string | null;
+    avatarUrl?: string | null;
   } | null;
   companyProfile: {
     id: string;
@@ -234,6 +241,7 @@ type Props = {
     contractDate: string;
     dataJson: Record<string, unknown>;
   }) => Promise<DocDetail | void>;
+  onUpdateMe: (payload: { firstName?: string; lastName?: string; title?: string; phone?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; zipCode?: string; avatarUrl?: string }) => Promise<unknown>;
   onUpdateCompanyProfile: (payload: {
     companyName?: string;
     legalName?: string;
@@ -405,6 +413,7 @@ export function DashboardSidebarDemo({
   onPreviewFinalPdf,
   onDownloadFinalPdf,
   onCreateDraft,
+  onUpdateMe,
   onUpdateCompanyProfile,
   onCreateUser,
   onUpdateAccountRequestStatus,
@@ -433,10 +442,13 @@ export function DashboardSidebarDemo({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
-  const displayName =
-    companyProfile?.companyName?.trim() || getDisplayName(user?.email);
-  const accountSubtitle =
-    companyProfile?.email?.trim() || user?.email || "No email";
+  const isIndividualUser = user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL";
+  const displayName = isIndividualUser
+    ? [user?.firstName, user?.lastName].filter(Boolean).join(" ") || getDisplayName(user?.email)
+    : companyProfile?.companyName?.trim() || getDisplayName(user?.email);
+  const accountSubtitle = isIndividualUser
+    ? user?.email || "No email"
+    : companyProfile?.email?.trim() || user?.email || "No email";
   const monthDocuments = useMemo(
     () => filterCurrentMonthDocuments(documents, usage?.billingPeriod),
     [documents, usage?.billingPeriod],
@@ -746,18 +758,18 @@ export function DashboardSidebarDemo({
               </div>
               <div className="mt-2 grid gap-2 xl:mt-3 xl:gap-3">
                 <InfoCard
-                  label={user?.role !== "MASTER" && user?.accountType !== "BUSINESS" ? "Account" : "Company"}
+                  label={user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL" ? "Account" : "Company"}
                   title={
                     isLoading
                       ? "Loading..."
-                      : user?.role !== "MASTER" && user?.accountType !== "BUSINESS"
-                        ? [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ") || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || getDisplayName(user?.email ?? "") || "My Account"
+                      : isIndividualUser
+                        ? [user?.firstName, user?.lastName].filter(Boolean).join(" ") || getDisplayName(user?.email ?? "") || "My Account"
                         : companyProfile?.companyName ?? "NTSsign"
                   }
                   subtitle={
                     isLoading
                       ? "..."
-                      : user?.role !== "MASTER" && user?.accountType !== "BUSINESS"
+                      : isIndividualUser
                         ? user?.email ?? "Individual"
                         : [companyProfile?.contactFirstName, companyProfile?.contactLastName]
                             .filter(Boolean)
@@ -819,7 +831,18 @@ export function DashboardSidebarDemo({
                   onClick={() => setAccountMenuOpen((current) => !current)}
                   className="inline-flex items-center gap-3 rounded-2xl px-1 py-1 transition hover:bg-[color:var(--bg-surface)]"
                 >
-                  <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-full text-sm shadow-[var(--shadow-soft)]" />
+                  {isIndividualUser ? (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-sm font-semibold text-blue-700 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200">
+                      {user?.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                      ) : (
+                        ([user?.firstName, user?.lastName].filter(Boolean).map((n) => n![0]).join("") || user?.email?.slice(0, 2) || "?").toUpperCase()
+                      )}
+                    </div>
+                  ) : (
+                    <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-full text-sm shadow-[var(--shadow-soft)]" />
+                  )}
                   <div className="hidden text-left sm:block">
                     <div className="text-sm font-semibold text-[color:var(--text-primary)]">{isLoading ? "Loading..." : displayName}</div>
                     <div className="text-xs text-[color:var(--text-muted)]">{isLoading ? "..." : accountSubtitle}</div>
@@ -919,6 +942,7 @@ export function DashboardSidebarDemo({
               companyProfile={companyProfile}
               usage={usage}
               currentUserRole={user?.role ?? null}
+              onUpdateMe={onUpdateMe}
               onUpdateCompanyProfile={onUpdateCompanyProfile}
             />
           ) : null}
@@ -2133,12 +2157,14 @@ function ProfilePanel({
   companyProfile,
   usage,
   currentUserRole,
+  onUpdateMe,
   onUpdateCompanyProfile,
 }: {
   user: Props["user"];
   companyProfile: Props["companyProfile"];
   usage: Props["usage"];
   currentUserRole: string | null;
+  onUpdateMe: Props["onUpdateMe"];
   onUpdateCompanyProfile: Props["onUpdateCompanyProfile"];
 }) {
   const companyName = companyProfile?.companyName ?? "Company not defined";
@@ -2201,6 +2227,39 @@ function ProfilePanel({
     contactCity: "",
     contactZipCode: "",
   });
+  const [userProfileForm, setUserProfileForm] = useState({
+    fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+    title: user?.title ?? "",
+    phone: user?.phone ?? "",
+    addressLine1: user?.addressLine1 ?? "",
+    addressLine2: user?.addressLine2 ?? "",
+    city: user?.city ?? "",
+    state: user?.state ?? "",
+    zipCode: user?.zipCode ?? "",
+  });
+  const [isEditingUserProfile, setIsEditingUserProfile] = useState(false);
+  const [isSavingUserProfile, setIsSavingUserProfile] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setUserProfileForm({
+      fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+      title: user?.title ?? "",
+      phone: formatUsPhone(user?.phone ?? ""),
+      addressLine1: user?.addressLine1 ?? "",
+      addressLine2: user?.addressLine2 ?? "",
+      city: user?.city ?? "",
+      state: user?.state ?? "",
+      zipCode: user?.zipCode ?? "",
+    });
+  }, [user?.firstName, user?.lastName, user?.title, user?.phone, user?.addressLine1, user?.addressLine2, user?.city, user?.state, user?.zipCode]);
+
+  useEffect(() => {
+    if (currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL") {
+      setIsPrimaryContactOpen(true);
+    }
+  }, [currentUserRole, user?.accountType]);
 
   useEffect(() => {
     setCompanyDetailsForm({
@@ -2309,6 +2368,57 @@ function ProfilePanel({
       setProfileSuccessMessage("Changes saved successfully");
     } finally {
       setIsSavingInsurance(false);
+    }
+  }
+
+  async function handleAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      event.target.value = "";
+      return;
+    }
+
+    const maxFileSizeBytes = 3 * 1024 * 1024;
+    if (file.size > maxFileSizeBytes) {
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const avatarUrl = await resizeImageFileSquare(file, 512);
+      await onUpdateMe({ avatarUrl });
+      setProfileSuccessMessage("Changes saved successfully");
+    } finally {
+      setIsUploadingAvatar(false);
+      event.target.value = "";
+    }
+  }
+
+  async function saveUserProfile() {
+    const { firstName, lastName } = splitFullName(userProfileForm.fullName);
+
+    setIsSavingUserProfile(true);
+    try {
+      await onUpdateMe({
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        title: userProfileForm.title.trim() || undefined,
+        phone: userProfileForm.phone.trim() || undefined,
+        addressLine1: userProfileForm.addressLine1.trim() || undefined,
+        addressLine2: userProfileForm.addressLine2.trim() || undefined,
+        city: userProfileForm.city.trim() || undefined,
+        state: userProfileForm.state.trim() || undefined,
+        zipCode: userProfileForm.zipCode.trim() || undefined,
+      });
+      setIsEditingUserProfile(false);
+      setProfileSuccessMessage("Changes saved successfully");
+    } finally {
+      setIsSavingUserProfile(false);
     }
   }
 
@@ -2425,13 +2535,13 @@ function ProfilePanel({
   }
 
   if (currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL") {
-    const displayName = contactName || [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+    const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
     const initials = (() => {
-      if (companyProfile?.contactFirstName && companyProfile?.contactLastName) {
-        return `${companyProfile.contactFirstName[0]}${companyProfile.contactLastName[0]}`.toUpperCase();
-      }
       if (user.firstName && user.lastName) {
         return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+      }
+      if (user.firstName) {
+        return user.firstName.slice(0, 2).toUpperCase();
       }
       return user.email.slice(0, 2).toUpperCase();
     })();
@@ -2464,12 +2574,41 @@ function ProfilePanel({
           </div>
         ) : null}
 
-        {/* Hero — same gradient/layout as MASTER, initials circle instead of logo */}
+        {/* Hero — same gradient/layout as MASTER, avatar circle with edit button */}
         <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
-                {initials}
+              <div className="relative h-24 w-24 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
+                  {user.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                  ) : (
+                    <span>{initials}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => userAvatarInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-950"
+                  aria-label="Upload profile picture"
+                  title="Upload profile picture"
+                >
+                  {isUploadingAvatar ? (
+                    <span className="text-[10px] font-semibold">...</span>
+                  ) : (
+                    <Pencil className="h-4 w-4" />
+                  )}
+                </button>
+                <input
+                  ref={userAvatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(event) => void handleAvatarUpload(event)}
+                />
               </div>
               <div className="text-center sm:text-left">
                 <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
@@ -2478,7 +2617,7 @@ function ProfilePanel({
                 <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-white/88">{user.email}</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
                   <ProfileChip label={user.role} />
-                  <ProfileChip label="Individual" />
+                  {user.accountType ? <ProfileChip label={user.accountType.charAt(0) + user.accountType.slice(1).toLowerCase()} /> : null}
                 </div>
               </div>
             </div>
@@ -2500,59 +2639,60 @@ function ProfilePanel({
               </button>
               {isPrimaryContactOpen ? (
                 <ProfileEditActions
-                  isEditing={isEditingPrimaryContact}
-                  isSaving={isSavingPrimaryContact}
-                  onEdit={() => setIsEditingPrimaryContact(true)}
+                  isEditing={isEditingUserProfile}
+                  isSaving={isSavingUserProfile}
+                  onEdit={() => setIsEditingUserProfile(true)}
                   onCancel={() => {
-                    setIsEditingPrimaryContact(false);
-                    setPrimaryContactForm({
-                      contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(),
-                      contactTitle: companyProfile?.contactTitle ?? "",
-                      contactEmail: companyProfile?.contactEmail ?? "",
-                      contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
-                      contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
-                      contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
-                      contactState: companyProfile?.contactState ?? "",
-                      contactCity: companyProfile?.contactCity ?? "",
-                      contactZipCode: companyProfile?.contactZipCode ?? "",
+                    setIsEditingUserProfile(false);
+                    setUserProfileForm({
+                      fullName: [user.firstName, user.lastName].filter(Boolean).join(" "),
+                      title: user.title ?? "",
+                      phone: formatUsPhone(user.phone ?? ""),
+                      addressLine1: user.addressLine1 ?? "",
+                      addressLine2: user.addressLine2 ?? "",
+                      city: user.city ?? "",
+                      state: user.state ?? "",
+                      zipCode: user.zipCode ?? "",
                     });
                   }}
-                  onSave={() => void savePrimaryContact()}
+                  onSave={() => void saveUserProfile()}
                 />
               ) : null}
             </div>
-            {isPrimaryContactOpen ? (isEditingPrimaryContact ? (
+            {isPrimaryContactOpen ? (isEditingUserProfile ? (
               <div className="mt-4 grid gap-3">
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactFullName: value }))} />
-                <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactTitle: value }))} />
                 <div className="grid gap-3 md:grid-cols-2">
-                  <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactEmail: value }))} />
-                  <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactPhone: formatUsPhone(value) }))} />
+                  <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={userProfileForm.fullName} onChange={(value) => setUserProfileForm((c) => ({ ...c, fullName: toTitleCase(value.replace(/\d/g, "")) }))} />
+                  <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={userProfileForm.title} onChange={(value) => setUserProfileForm((c) => ({ ...c, title: value }))} />
                 </div>
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactAddressLine1: value }))} />
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={primaryContactForm.contactAddressLine2} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactAddressLine2: value }))} />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} onChange={() => {}} disabled={true} />
+                  <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={userProfileForm.phone} onChange={(value) => setUserProfileForm((c) => ({ ...c, phone: formatUsPhone(value) }))} />
+                </div>
+                <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={userProfileForm.addressLine1} onChange={(value) => setUserProfileForm((c) => ({ ...c, addressLine1: value }))} />
+                <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={userProfileForm.addressLine2} onChange={(value) => setUserProfileForm((c) => ({ ...c, addressLine2: value }))} />
                 <div className="grid gap-3 md:grid-cols-3">
-                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactState: value }))} />
-                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactCity: value }))} />
-                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((c) => ({ ...c, contactZipCode: value }))} />
+                  <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={userProfileForm.state} onChange={(value) => setUserProfileForm((c) => ({ ...c, state: value }))} />
+                  <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={userProfileForm.city} onChange={(value) => setUserProfileForm((c) => ({ ...c, city: value }))} />
+                  <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP code" value={userProfileForm.zipCode} onChange={(value) => setUserProfileForm((c) => ({ ...c, zipCode: value }))} />
                 </div>
               </div>
             ) : (
               <div className="mt-4 grid gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
-                  <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={contactName} />
-                  <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? ""} />
+                  <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={[user.firstName, user.lastName].filter(Boolean).join(" ")} />
+                  <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={user.title} />
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? ""} />
-                  <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.contactPhone ?? "")} />
+                  <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} />
+                  <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(user.phone ?? "")} />
                 </div>
-                <DetailRow icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={companyProfile?.contactAddressLine1 ?? ""} />
-                <DetailRow icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={companyProfile?.contactAddressLine2 ?? ""} />
+                <DetailRow icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={user.addressLine1} />
+                {user.addressLine2 ? <DetailRow icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={user.addressLine2} /> : null}
                 <div className="grid gap-3 md:grid-cols-3">
-                  <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? ""} />
-                  <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.contactCity ?? ""} />
-                  <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? ""} />
+                  <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={user.state} />
+                  <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={user.city} />
+                  <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={user.zipCode} />
                 </div>
               </div>
             )) : null}
@@ -2562,7 +2702,7 @@ function ProfilePanel({
     );
   }
 
-  // BUSINESS falls through to the full MASTER render below (identical profile, logo upload, all editable)
+  // Only MASTER gets the full company profile render below
 
   return (
     <section className="grid gap-4">
@@ -5514,6 +5654,28 @@ async function resizeImageFile(file: File, maxDimension: number) {
   }
 
   context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/webp", 0.88);
+}
+
+async function resizeImageFileSquare(file: File, size: number) {
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImageElement(source);
+
+  // Center-crop to square, then scale to target size
+  const cropSize = Math.min(image.width, image.height);
+  const srcX = Math.floor((image.width - cropSize) / 2);
+  const srcY = Math.floor((image.height - cropSize) / 2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return source;
+  }
+
+  context.drawImage(image, srcX, srcY, cropSize, cropSize, 0, 0, size, size);
   return canvas.toDataURL("image/webp", 0.88);
 }
 

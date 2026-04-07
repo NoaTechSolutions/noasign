@@ -67,6 +67,7 @@ type Props = {
     firstName?: string;
     lastName?: string;
     phone?: string;
+    companyName?: string;
   }) => Promise<void>;
   onUpdateUser: (userId: string, payload: { email?: string; role?: string; status?: string }) => Promise<void>;
   onDeactivateUser: (userId: string) => Promise<void>;
@@ -93,6 +94,7 @@ type CreateFormState = {
   firstName: string;
   lastName: string;
   phone: string;
+  companyName: string;
 };
 type EditingState = { id: string; email: string; role: "MASTER" | "USER" };
 type ResetPasswordState = {
@@ -852,8 +854,14 @@ function UserRow({
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <CompanyAvatar
-              companyName={user.companyProfile?.companyName}
-              logoUrl={user.companyProfile?.logoUrl}
+              companyName={
+                user.role === "MASTER"
+                  ? user.companyProfile?.companyName
+                  : user.accountType === "INDIVIDUAL"
+                    ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email
+                    : user.companyProfile?.companyName
+              }
+              logoUrl={user.role === "MASTER" ? user.companyProfile?.logoUrl : undefined}
               className="h-10 w-10 rounded-2xl border border-slate-200 text-xs shadow-[var(--shadow-soft)] dark:border-white/10"
             />
             <div className="min-w-0">
@@ -1096,6 +1104,7 @@ export function MasterUsersPanel({
     firstName: "",
     lastName: "",
     phone: "",
+    companyName: "",
   });
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -1190,7 +1199,7 @@ export function MasterUsersPanel({
     setSubmittingAction("create");
     try {
       await onCreateUser(createForm);
-      setCreateForm({ email: "", password: "", role: "USER", accountType: "INDIVIDUAL", firstName: "", lastName: "", phone: "" });
+      setCreateForm({ email: "", password: "", role: "USER", accountType: "INDIVIDUAL", firstName: "", lastName: "", phone: "", companyName: "" });
       setIsCreateOpen(false);
       setSuccessMessage(`User ${createForm.email} created successfully.`);
       setTimeout(() => setSuccessMessage(null), 5000);
@@ -1641,6 +1650,21 @@ export function MasterUsersPanel({
             </div>
           </FieldShell>
 
+          {createForm.accountType === "BUSINESS" ? (
+            <FieldShell label="Company name">
+              <input
+                type="text"
+                required
+                value={createForm.companyName}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, companyName: event.target.value }))
+                }
+                placeholder="Acme Corp"
+                className={modalInputClass}
+              />
+            </FieldShell>
+          ) : null}
+
           <FieldShell label="Email">
             <input
               type="email"
@@ -1661,7 +1685,7 @@ export function MasterUsersPanel({
                   type="text"
                   value={createForm.firstName}
                   onChange={(event) =>
-                    setCreateForm((current) => ({ ...current, firstName: toTitleCase(event.target.value) }))
+                    setCreateForm((current) => ({ ...current, firstName: toTitleCase(event.target.value.replace(/\d/g, "")) }))
                   }
                   placeholder="John"
                   className={modalInputClass}
@@ -1672,7 +1696,7 @@ export function MasterUsersPanel({
                   type="text"
                   value={createForm.lastName}
                   onChange={(event) =>
-                    setCreateForm((current) => ({ ...current, lastName: toTitleCase(event.target.value) }))
+                    setCreateForm((current) => ({ ...current, lastName: toTitleCase(event.target.value.replace(/\d/g, "")) }))
                   }
                   placeholder="Doe"
                   className={modalInputClass}

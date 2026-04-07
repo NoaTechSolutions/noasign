@@ -385,24 +385,79 @@ export class DocumentsService {
     };
   }
 
-  async getDocumentTypes() {
-    const documentTypes = await this.prisma.documentType.findMany({
-      include: {
-        formDefinitions: {
-          where: { isActive: true },
-          orderBy: { createdAt: 'asc' },
-        },
-        signatureTemplates: {
-          where: { isActive: true },
-          orderBy: { createdAt: 'asc' },
-        },
-      },
-      orderBy: { name: 'asc' },
+  async getDocumentTypes(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
     });
 
-    return documentTypes.map((documentType) =>
-      this.serializeDocumentType(documentType),
-    );
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === 'MASTER') {
+      const documentTypes = await this.prisma.documentType.findMany({
+        include: {
+          formDefinitions: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'asc' },
+          },
+          signatureTemplates: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+        orderBy: { name: 'asc' },
+      });
+
+      return documentTypes.map((documentType) =>
+        this.serializeDocumentType(documentType),
+      );
+    }
+
+    const configs = await this.prisma.userDocumentConfig.findMany({
+      where: { userId, isActive: true },
+      include: {
+        documentType: true,
+        formDefinition: true,
+        signatureTemplate: true,
+      },
+    });
+
+    const typeMap = new Map<string, {
+      id: string;
+      name: string;
+      code: string;
+      formDefinitions: Array<{ id: string; name: string }>;
+      signatureTemplates: Array<{ id: string; name: string; providerTemplateId: string | null }>;
+    }>();
+
+    for (const config of configs) {
+      if (!config.formDefinition.isActive || !config.signatureTemplate.isActive) {
+        continue;
+      }
+
+      const existing = typeMap.get(config.documentTypeId);
+
+      if (!existing) {
+        typeMap.set(config.documentTypeId, {
+          id: config.documentType.id,
+          name: config.documentType.name,
+          code: config.documentType.code,
+          formDefinitions: [{ id: config.formDefinition.id, name: config.formDefinition.name }],
+          signatureTemplates: [{ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId }],
+        });
+      } else {
+        if (!existing.formDefinitions.some((fd) => fd.id === config.formDefinition.id)) {
+          existing.formDefinitions.push({ id: config.formDefinition.id, name: config.formDefinition.name });
+        }
+        if (!existing.signatureTemplates.some((st) => st.id === config.signatureTemplate.id)) {
+          existing.signatureTemplates.push({ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId });
+        }
+      }
+    }
+
+    return Array.from(typeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private async generateDocumentNumber(

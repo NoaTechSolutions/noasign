@@ -106,27 +106,36 @@ model CompanyProfile {
 
 model User {
   id                 String   @id @default(uuid())
-  companyProfileId   String?
-  email              String   @unique
-  passwordHash       String
-  mustChangePassword Boolean  @default(false)
-  role               UserRole
-  status             UserStatus @default(ACTIVE)
-  accountType        AccountType?
-  firstName          String?
-  lastName           String?
-  phone              String?
+  companyProfileId         String?
+  parentCompanyProfileId   String?
+  email                    String   @unique
+  passwordHash             String
+  mustChangePassword       Boolean  @default(false)
+  role                     UserRole
+  status                   UserStatus @default(ACTIVE)
+  accountType              AccountType?
+  firstName                String?
+  lastName                 String?
+  title                    String?
+  phone                    String?
+  addressLine1             String?
+  addressLine2             String?
+  city                     String?
+  state                    String?
+  zipCode                  String?
+  avatarUrl                String?
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
-  companyProfile     CompanyProfile? @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
-  documentConfigs    UserDocumentConfig[]
-  documents          Document[]
-  documentVersions   DocumentVersion[]
-  passwordResetTokens PasswordResetToken[]
+  companyProfile           CompanyProfile? @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
+  documentConfigs          UserDocumentConfig[]
+  documents                Document[]
+  documentVersions         DocumentVersion[]
+  passwordResetTokens      PasswordResetToken[]
 
   @@index([companyProfileId])
+  @@index([parentCompanyProfileId])
   @@map("users")
 }
 

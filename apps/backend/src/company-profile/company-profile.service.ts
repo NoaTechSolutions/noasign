@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCompanyProfileDto } from './dto/update-company-profile.dto';
 
@@ -34,11 +34,17 @@ export class CompanyProfileService {
       where: { id: userId },
       select: {
         companyProfileId: true,
+        role: true,
+        accountType: true,
       },
     });
 
     if (!user?.companyProfileId) {
       throw new NotFoundException('Company profile not found');
+    }
+
+    if (user.accountType === 'INDIVIDUAL') {
+      throw new ForbiddenException('Individual users cannot update the company profile');
     }
 
     return this.prisma.companyProfile.update({

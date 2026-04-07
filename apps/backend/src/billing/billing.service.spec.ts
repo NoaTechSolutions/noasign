@@ -37,6 +37,8 @@ describe('BillingService', () => {
 
   it('getCurrentUsage calculates remaining documents for limited plans', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      role: 'MASTER',
       companyProfile: {
         id: 'company-1',
         planName: 'LAUNCH',
@@ -56,6 +58,8 @@ describe('BillingService', () => {
 
   it('getCurrentUsage returns null remainingDocuments for unlimited plans', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      role: 'MASTER',
       companyProfile: {
         id: 'company-1',
         planName: 'PRO_UNLIMITED',
@@ -76,6 +80,8 @@ describe('BillingService', () => {
 
   it('getMonthlySummary estimates overage cost using the requested month', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      role: 'MASTER',
       companyProfile: {
         id: 'company-1',
         planName: 'SCALE',
