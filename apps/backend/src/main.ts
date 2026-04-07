@@ -111,24 +111,25 @@ function createAuthRateLimitMiddleware() {
     process.env.AUTH_RATE_LIMIT_MAX,
     10,
   );
-  const protectedPaths = new Set([
-    '/auth/login',
-    '/auth/register',
-    '/auth/forgot-password',
-    '/auth/reset-password',
-    '/users/account-requests',
+  const protectedRoutes = new Set([
+    'POST:/auth/login',
+    'POST:/auth/register',
+    'POST:/auth/forgot-password',
+    'POST:/auth/reset-password',
+    'POST:/users/account-requests',
   ]);
   const entries = new Map<string, { count: number; resetAt: number }>();
 
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!protectedPaths.has(req.path)) {
+    const routeKey = `${req.method}:${req.path}`;
+    if (!protectedRoutes.has(routeKey)) {
       next();
       return;
     }
 
     const now = Date.now();
     const clientIp = resolveClientIp(req);
-    const key = `${req.path}:${clientIp}`;
+    const key = `${routeKey}:${clientIp}`;
     const existing = entries.get(key);
 
     if (!existing || existing.resetAt <= now) {
