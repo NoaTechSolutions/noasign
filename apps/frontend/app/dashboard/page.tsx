@@ -19,6 +19,10 @@ type DashboardUser = {
   role: string;
   status: string;
   mustChangePassword?: boolean;
+  accountType?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
   companyProfile?: {
     id: string;
     companyName: string;
@@ -360,6 +364,9 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    document.documentElement.classList.add("dark");
+    document.documentElement.classList.remove("light");
+    localStorage.setItem("theme", "dark");
     setTheme("dark");
   }, [setTheme]);
 
@@ -801,6 +808,10 @@ export default function DashboardPage() {
     email: string;
     password: string;
     role: string;
+    accountType?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
   }) {
     setError("");
 

@@ -31,7 +31,7 @@ export function Sidebar({ open, setOpen, children }: SidebarContextProps) {
     <>
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col overflow-hidden border-r border-[color:var(--border)] bg-[image:var(--sidebar-bg-soft)] shadow-[var(--shadow-strong)] transition-[width,transform,padding,opacity,border] duration-300 xl:relative xl:inset-y-auto",
+          "fixed left-0 top-0 z-40 flex h-[100dvh] shrink-0 flex-col overflow-hidden border-r border-[color:var(--border)] bg-[image:var(--sidebar-bg-soft)] shadow-[var(--shadow-strong)] transition-[width,transform,padding,opacity,border] duration-300 xl:sticky xl:top-0 xl:h-[100dvh]",
           open
             ? "w-[17.5rem] translate-x-0 p-4 opacity-100 xl:w-[17.5rem] xl:min-w-[17.5rem] xl:p-5"
             : "-translate-x-[110%] border-r-0 p-0 opacity-0 xl:w-0 xl:min-w-0 xl:translate-x-0 xl:border-r-0 xl:p-0 xl:opacity-0",
