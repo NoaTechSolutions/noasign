@@ -1,6 +1,6 @@
 # NTSsign — Pending Work
 
-Last updated: 2026-04-06
+Last updated: 2026-04-07
 
 Tracking system: **Linear** (project NTSSign, team NoaTechSolutions). Issues referenced as NOA-XX.
 
@@ -20,6 +20,28 @@ Tracking system: **Linear** (project NTSSign, team NoaTechSolutions). Issues ref
 | Auditar variables de entorno sensibles antes de prod | NOA-13 | Pendiente |
 | Agregar endpoint /health al backend | NOA-16 | Pendiente |
 | Fix: BOLDSIGN_WEBHOOK_SECRET sin validación de presencia | NOA-32 | Pendiente |
+
+---
+
+## Epic NOA-46 — Schema-Driven Document Forms
+
+Replaces hardcoded form fields with a fully dynamic, schema-based system. Enables onboarding any new client without code changes. See [schema-driven-forms.md](schema-driven-forms.md) for full spec.
+
+| Item | Linear | Tipo | Prioridad | Notas |
+|------|--------|------|-----------|-------|
+| DB migration: `schemaJson Json?` en `FormDefinition` | NOA-47 | Task | Urgent | Prisma migration + `prisma generate` |
+| Backend: exponer `schemaJson` en `/documents/types` | NOA-48 | Task | Urgent | Agregar campo al select del endpoint |
+| Backend: admin endpoints FormDefinition CRUD | NOA-49 | Feature | High | POST/GET/PATCH/DELETE `/admin/form-definitions` |
+| Backend: admin endpoints SignatureTemplate CRUD | NOA-50 | Feature | High | POST/GET/PATCH/DELETE `/admin/signature-templates` |
+| Backend: admin endpoint UserDocumentConfig assignment | NOA-51 | Feature | High | POST/DELETE `/admin/users/:id/document-configs` |
+| Frontend: Dynamic document form renderer | NOA-52 | Feature | Urgent | Reemplaza form hardcodeado. Lee `schemaJson`, renderiza campos por `type` |
+| Frontend: Admin panel — FormDefinition manager | NOA-53 | Feature | High | Editor JSON + preview de campos. Solo visible para MASTER global |
+| Frontend: Admin panel — SignatureTemplate manager | NOA-54 | Feature | High | Crear/editar templates con providerTemplateId + fieldMappingJson |
+| Frontend: Admin panel — UserDocumentConfig assignments | NOA-55 | Feature | High | Asignar form+template a cada usuario por tipo de documento |
+
+**Dependencias:** NOA-52 bloquea el lanzamiento. NOA-47 y NOA-48 son prerequisitos de NOA-52. NOA-49/50/51 son prerequisitos del panel admin (NOA-53/54/55).
+
+**Nota sobre NOA-41:** El item "Document Templates" del roadmap queda absorbido por este epic. NOA-41 se puede cerrar o redirigir a NOA-46.
 
 ---
 

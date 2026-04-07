@@ -65,9 +65,12 @@ Isolation is enforced at the **application layer** — every query filters by th
 CompanyProfile (tenant)
     ├── Users (MASTER / ADMIN / USER)
     ├── Documents (with full lifecycle)
-    ├── DocumentTypes + FormDefinitions + SignatureTemplates
+    ├── DocumentTypes + FormDefinitions (schemaJson) + SignatureTemplates (fieldMappingJson)
+    ├── UserDocumentConfig (assigns form+template per user per document type)
     └── Billing (monthly usage, plan limits, overage)
 ```
+
+Form schemas are stored in `FormDefinition.schemaJson` and rendered dynamically in the frontend. Each client (INDIVIDUAL or BUSINESS user) can have multiple document type configurations via `UserDocumentConfig`. See [schema-driven-forms.md](schema-driven-forms.md) for full spec.
 
 ---
 

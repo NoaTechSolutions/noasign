@@ -6,6 +6,29 @@ Items marked **[SCHEMA]** require Prisma schema changes before implementation.
 
 ---
 
+## Epic NOA-46 — Schema-Driven Document Forms (Current Sprint)
+
+**Priority:** Blocking — must ship before Phase 1 features  
+**Type:** Epic / Architecture
+
+The current document creation form is hardcoded in the frontend. Every new client with different fields requires a code change and deployment. This epic replaces that with a fully dynamic system.
+
+**Core change:** `FormDefinition` gains a `schemaJson` field. The frontend renders forms dynamically from this schema. No code changes needed to onboard new clients.
+
+**Scenarios covered:**
+- Client brings their own PDF → upload to BoldSign, map fields, define schema in NoaSign
+- Client has no document → use a BoldSign template, same setup flow
+
+**Multi-template per client:** Each client can have Contract, Invoice, Proforma, etc. — each with its own form and BoldSign template, all managed via `UserDocumentConfig`.
+
+**Admin workflow:** MASTER user manages all schemas, templates, and assignments via an in-app admin panel — no deployments.
+
+**Child issues:** NOA-47 (migration) → NOA-48 (API) → NOA-49/50/51 (admin endpoints) → NOA-52 (dynamic renderer) → NOA-53/54/55 (admin UI)
+
+See [schema-driven-forms.md](../architecture/schema-driven-forms.md) for full technical spec.
+
+---
+
 ## Phase 1 — MVP Completion (Current Sprint)
 
 These are blockers. The product is incomplete without them.

@@ -56,83 +56,39 @@ Available for master users.
 - plan visibility
 - workspace usage tracking
 
-## Current document creation flow
+## Document creation flow
 
-### 1. Setup
+Document forms are **schema-driven** — each client sees a personalized popup with exactly the fields defined in their `FormDefinition.schemaJson`. No hardcoded fields.
 
-The user starts a new document and sees:
+### How it works
 
-- document type
-- contract date
-- form
-- template
+1. Client clicks "Create Document"
+2. System reads the client's `UserDocumentConfig` for that document type
+3. Loads the `FormDefinition.schemaJson` for their assigned form
+4. Renders the dynamic form with the exact fields defined in the schema
+5. On submit: document is created, BoldSign template is pre-filled via `fieldMappingJson`, sent to recipient for signing
 
-These values are currently visible but locked in the UI.
+### Field types supported
 
-### 2. Client
+`text`, `email`, `phone`, `date`, `currency`, `number`, `textarea`, `select`
 
-The client tab captures:
+### Multi-template support per client
 
-- customer name
-- age
-- email
-- phone
-- fax
-- address
-- city
-- state
-- zip code
+Each client can have multiple document type configurations:
+- Contract → their own form + their own BoldSign template
+- Invoice → different form + different template
+- Proforma → etc.
 
-Current validation includes:
+All managed via `UserDocumentConfig` assignments.
 
-- required fields
-- email format
-- age minimum rule
-- field-level inline errors
+### Admin configuration (MASTER user)
 
-### 3. Project
+The MASTER user manages all form schemas and template assignments without touching code:
+- Create/edit `FormDefinition` schemas (JSON field definitions)
+- Create/edit `SignatureTemplate` entries (BoldSign templateId + field mapping)
+- Assign configurations to specific clients via `UserDocumentConfig`
 
-The project tab captures:
-
-- same as client address checkbox
-- project address
-- city
-- state
-- zip code
-- start date
-- estimated completion date
-- project description
-- internal notes
-
-Current validation includes:
-
-- project address requirement when not inherited from client
-- city/state/zip requirement when not inherited from client
-- start date required
-- no past start dates
-- estimated completion date cannot be earlier than start date
-
-### 4. Pricing
-
-The pricing tab captures:
-
-- contract price
-- down payment
-- finance charge
-- finance schedule rows
-- payment schedule
-
-Current validation includes:
-
-- contract price required
-
-### 5. Others
-
-The others tab captures:
-
-- salesman full name
-- state registration number
-- warranty years
+See [schema-driven-forms.md](../architecture/schema-driven-forms.md) for full technical spec.
 
 ## Roles
 
