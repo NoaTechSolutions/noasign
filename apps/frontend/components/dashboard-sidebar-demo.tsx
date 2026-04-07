@@ -746,15 +746,23 @@ export function DashboardSidebarDemo({
               </div>
               <div className="mt-2 grid gap-2 xl:mt-3 xl:gap-3">
                 <InfoCard
-                  label="Company"
-                  title={isLoading ? "Loading..." : companyProfile?.companyName ?? "NTSsign"}
+                  label={user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL" ? "Account" : "Company"}
+                  title={
+                    isLoading
+                      ? "Loading..."
+                      : user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL"
+                        ? [user?.firstName, user?.lastName].filter(Boolean).join(" ") || getDisplayName(user?.email ?? "") || "My Account"
+                        : companyProfile?.companyName ?? "NTSsign"
+                  }
                   subtitle={
                     isLoading
                       ? "..."
-                      : [companyProfile?.contactFirstName, companyProfile?.contactLastName]
-                          .filter(Boolean)
-                          .join(" ")
-                          .trim() || companyProfile?.contactEmail || "Primary contact not defined"
+                      : user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL"
+                        ? user?.email ?? "Individual"
+                        : [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+                            .filter(Boolean)
+                            .join(" ")
+                            .trim() || companyProfile?.contactEmail || "Primary contact not defined"
                   }
                 />
                 <InfoCard
@@ -2468,89 +2476,7 @@ function ProfilePanel({
     );
   }
 
-  if (currentUserRole !== "MASTER" && user?.accountType === "BUSINESS") {
-    const bizName = companyProfile?.companyName ?? "Company";
-    const bizInitials = getCompanyInitials(companyProfile?.companyName);
-    const bizLocation = [companyProfile?.city, companyProfile?.state, companyProfile?.country].filter(Boolean).join(", ");
-    const bizContact = [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ") || companyProfile?.contactEmail || "Contact not defined";
-
-    return (
-      <section className="grid gap-4">
-        {/* Hero — same gradient and layout as MASTER, no upload button */}
-        <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
-                {companyProfile?.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={companyProfile.logoUrl} alt={`${bizName} logo`} className="h-full w-full object-cover" />
-                ) : (
-                  <span>{bizInitials}</span>
-                )}
-              </div>
-              <div className="text-center sm:text-left">
-                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
-                  {bizName}
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-white/88">{companyProfile?.email ?? ""}</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-                  <ProfileChip label={companyProfile?.industry ?? "Industry not defined"} />
-                  <ProfileChip label={bizLocation || "Location not defined"} />
-                  <ProfileChip label={bizContact} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Company details — read-only */}
-        <div className="grid gap-4">
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-              <ChevronRight className="h-4 w-4" />
-              <span>Company details</span>
-            </div>
-            <div className="mt-4 grid gap-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyProfile?.companyName ?? ""} />
-                <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyProfile?.legalName ?? ""} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Factory className="h-4 w-4" />} label="Industry" value={companyProfile?.industry ?? ""} />
-                <DetailRow icon={<FileText className="h-4 w-4" />} label="License number" value={companyProfile?.licenseNumber ?? ""} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.phone ?? "")} />
-                <DetailRow icon={<Phone className="h-4 w-4" />} label="Fax" value={formatUsPhone(companyProfile?.phone2 ?? "")} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.email ?? ""} />
-                <DetailRow icon={<Globe className="h-4 w-4" />} label="Website" value={companyProfile?.website ?? ""} />
-              </div>
-            </div>
-          </div>
-
-          {/* Primary contact — read-only */}
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-              <ChevronRight className="h-4 w-4" />
-              <span>Primary contact</span>
-            </div>
-            <div className="mt-4 grid gap-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={[companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ")} />
-                <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? ""} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? ""} />
-                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.contactPhone ?? "")} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  // BUSINESS falls through to the full MASTER render below (identical profile, logo upload, all editable)
 
   return (
     <section className="grid gap-4">
