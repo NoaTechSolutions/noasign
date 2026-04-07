@@ -1,4 +1,4 @@
-import { UserRole, UserStatus } from '@prisma/client';
+import { AccountType, UserRole, UserStatus } from '@prisma/client';
 import {
   IsEmail,
   IsEnum,
@@ -25,4 +25,23 @@ export class CreateUserDto {
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;
+
+  @IsOptional()
+  @IsEnum(AccountType)
+  accountType?: AccountType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  phone?: string;
 }

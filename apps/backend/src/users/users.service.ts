@@ -189,6 +189,10 @@ export class UsersService {
         mustChangePassword: false,
         role: body.role ?? UserRole.USER,
         status: body.status ?? UserStatus.ACTIVE,
+        accountType: body.accountType ?? null,
+        firstName: body.firstName?.trim() || null,
+        lastName: body.lastName?.trim() || null,
+        phone: body.phone?.trim() || null,
       },
     });
 

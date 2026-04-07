@@ -25,6 +25,11 @@ enum AccountRequestStatus {
   REJECTED
 }
 
+enum AccountType {
+  INDIVIDUAL
+  BUSINESS
+}
+
 enum DocumentStatus {
   DRAFT
   SENT
@@ -107,6 +112,10 @@ model User {
   mustChangePassword Boolean  @default(false)
   role               UserRole
   status             UserStatus @default(ACTIVE)
+  accountType        AccountType?
+  firstName          String?
+  lastName           String?
+  phone              String?
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
