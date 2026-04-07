@@ -15,6 +15,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminService } from './admin.service';
 import { CreateFormDefinitionDto } from './dto/create-form-definition.dto';
 import { UpdateFormDefinitionDto } from './dto/update-form-definition.dto';
+import { CreateSignatureTemplateDto } from './dto/create-signature-template.dto';
+import { UpdateSignatureTemplateDto } from './dto/update-signature-template.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('admin')
@@ -62,5 +64,48 @@ export class AdminController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.adminService.deleteFormDefinition(req.user.id, id);
+  }
+
+  // ── SignatureTemplate endpoints ──────────────────────────────────────────
+
+  @Post('signature-templates')
+  async createSignatureTemplate(
+    @Req() req: any,
+    @Body() body: CreateSignatureTemplateDto,
+  ) {
+    return this.adminService.createSignatureTemplate(req.user.id, body);
+  }
+
+  @Get('signature-templates')
+  async listSignatureTemplates(
+    @Req() req: any,
+    @Query('documentTypeId') documentTypeId?: string,
+  ) {
+    return this.adminService.listSignatureTemplates(req.user.id, documentTypeId);
+  }
+
+  @Get('signature-templates/:id')
+  async getSignatureTemplate(
+    @Req() req: any,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.adminService.getSignatureTemplate(req.user.id, id);
+  }
+
+  @Patch('signature-templates/:id')
+  async updateSignatureTemplate(
+    @Req() req: any,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: UpdateSignatureTemplateDto,
+  ) {
+    return this.adminService.updateSignatureTemplate(req.user.id, id, body);
+  }
+
+  @Delete('signature-templates/:id')
+  async deleteSignatureTemplate(
+    @Req() req: any,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.adminService.deleteSignatureTemplate(req.user.id, id);
   }
 }
