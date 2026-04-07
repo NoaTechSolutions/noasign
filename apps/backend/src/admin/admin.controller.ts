@@ -17,6 +17,7 @@ import { CreateFormDefinitionDto } from './dto/create-form-definition.dto';
 import { UpdateFormDefinitionDto } from './dto/update-form-definition.dto';
 import { CreateSignatureTemplateDto } from './dto/create-signature-template.dto';
 import { UpdateSignatureTemplateDto } from './dto/update-signature-template.dto';
+import { CreateUserDocumentConfigDto } from './dto/create-user-document-config.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('admin')
@@ -107,5 +108,47 @@ export class AdminController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.adminService.deleteSignatureTemplate(req.user.id, id);
+  }
+
+  // ── UserDocumentConfig endpoints ─────────────────────────────────────────
+
+  @Post('user-document-configs')
+  async createUserDocumentConfig(
+    @Req() req: any,
+    @Body() body: CreateUserDocumentConfigDto,
+  ) {
+    return this.adminService.createUserDocumentConfig(req.user.id, body);
+  }
+
+  @Get('user-document-configs')
+  async listUserDocumentConfigs(
+    @Req() req: any,
+    @Query('userId') targetUserId?: string,
+  ) {
+    return this.adminService.listUserDocumentConfigs(req.user.id, targetUserId);
+  }
+
+  @Patch('user-document-configs/:id/activate')
+  async activateUserDocumentConfig(
+    @Req() req: any,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.adminService.toggleUserDocumentConfig(req.user.id, id, true);
+  }
+
+  @Patch('user-document-configs/:id/deactivate')
+  async deactivateUserDocumentConfig(
+    @Req() req: any,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.adminService.toggleUserDocumentConfig(req.user.id, id, false);
+  }
+
+  @Delete('user-document-configs/:id')
+  async deleteUserDocumentConfig(
+    @Req() req: any,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.adminService.deleteUserDocumentConfig(req.user.id, id);
   }
 }

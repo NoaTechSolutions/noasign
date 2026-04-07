@@ -9,6 +9,7 @@ import { CreateFormDefinitionDto } from './dto/create-form-definition.dto';
 import { UpdateFormDefinitionDto } from './dto/update-form-definition.dto';
 import { CreateSignatureTemplateDto } from './dto/create-signature-template.dto';
 import { UpdateSignatureTemplateDto } from './dto/update-signature-template.dto';
+import { CreateUserDocumentConfigDto } from './dto/create-user-document-config.dto';
 
 @Injectable()
 export class AdminService {
@@ -224,5 +225,95 @@ export class AdminService {
     await this.prisma.signatureTemplate.delete({ where: { id } });
 
     return { message: 'SignatureTemplate deleted successfully' };
+  }
+
+  // ── UserDocumentConfig assignments ───────────────────────────────────────
+
+  async createUserDocumentConfig(userId: string, dto: CreateUserDocumentConfigDto) {
+    await this.assertRootMaster(userId);
+
+    const [targetUser, documentType, formDefinition, signatureTemplate] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: dto.userId } }),
+      this.prisma.documentType.findUnique({ where: { id: dto.documentTypeId } }),
+      this.prisma.formDefinition.findUnique({ where: { id: dto.formDefinitionId } }),
+      this.prisma.signatureTemplate.findUnique({ where: { id: dto.signatureTemplateId } }),
+    ]);
+
+    if (!targetUser) throw new NotFoundException(`User ${dto.userId} not found`);
+    if (!documentType) throw new NotFoundException(`DocumentType ${dto.documentTypeId} not found`);
+    if (!formDefinition) throw new NotFoundException(`FormDefinition ${dto.formDefinitionId} not found`);
+    if (!signatureTemplate) throw new NotFoundException(`SignatureTemplate ${dto.signatureTemplateId} not found`);
+
+    if (formDefinition.documentTypeId !== dto.documentTypeId) {
+      throw new NotFoundException(`FormDefinition does not belong to DocumentType ${dto.documentTypeId}`);
+    }
+
+    if (signatureTemplate.documentTypeId !== dto.documentTypeId) {
+      throw new NotFoundException(`SignatureTemplate does not belong to DocumentType ${dto.documentTypeId}`);
+    }
+
+    return this.prisma.userDocumentConfig.create({
+      data: {
+        userId: dto.userId,
+        documentTypeId: dto.documentTypeId,
+        formDefinitionId: dto.formDefinitionId,
+        signatureTemplateId: dto.signatureTemplateId,
+        isActive: dto.isActive ?? true,
+      },
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        documentType: true,
+        formDefinition: true,
+        signatureTemplate: true,
+      },
+    });
+  }
+
+  async listUserDocumentConfigs(userId: string, targetUserId?: string) {
+    await this.assertRootMaster(userId);
+
+    return this.prisma.userDocumentConfig.findMany({
+      where: targetUserId ? { userId: targetUserId } : undefined,
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        documentType: true,
+        formDefinition: true,
+        signatureTemplate: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async toggleUserDocumentConfig(userId: string, id: string, isActive: boolean) {
+    await this.assertRootMaster(userId);
+
+    const existing = await this.prisma.userDocumentConfig.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`UserDocumentConfig ${id} not found`);
+    }
+
+    return this.prisma.userDocumentConfig.update({
+      where: { id },
+      data: { isActive },
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        documentType: true,
+        formDefinition: true,
+        signatureTemplate: true,
+      },
+    });
+  }
+
+  async deleteUserDocumentConfig(userId: string, id: string) {
+    await this.assertRootMaster(userId);
+
+    const existing = await this.prisma.userDocumentConfig.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`UserDocumentConfig ${id} not found`);
+    }
+
+    await this.prisma.userDocumentConfig.delete({ where: { id } });
+
+    return { message: 'UserDocumentConfig removed successfully' };
   }
 }
