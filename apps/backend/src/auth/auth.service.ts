@@ -64,6 +64,9 @@ export class AuthService {
         companyName: 'New Company',
         email: normalizedEmail,
         contactEmail: normalizedEmail,
+        planName: 'PRO_UNLIMITED',
+        isUnlimited: true,
+        monthlyDocLimit: 0,
       },
     });
 

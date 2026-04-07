@@ -23,6 +23,8 @@ export class BillingService {
     }
 
     const companyProfile = user.companyProfile;
+    const isMaster = user.role === 'MASTER';
+    const isUnlimited = isMaster || companyProfile.isUnlimited;
     const billingPeriod = this.getCurrentBillingPeriod();
 
     const documentsUsed = await this.prisma.document.count({
@@ -42,15 +44,15 @@ export class BillingService {
       },
     });
 
-    const remainingDocuments = companyProfile.isUnlimited
+    const remainingDocuments = isUnlimited
       ? null
       : Math.max(companyProfile.monthlyDocLimit - documentsUsed, 0);
 
     return {
       billingPeriod,
-      planName: companyProfile.planName,
+      planName: isMaster ? 'PRO_UNLIMITED' : companyProfile.planName,
       monthlyDocLimit: companyProfile.monthlyDocLimit,
-      isUnlimited: companyProfile.isUnlimited,
+      isUnlimited,
       overagePrice: companyProfile.overagePrice,
       documentsUsed,
       remainingDocuments,
@@ -71,6 +73,8 @@ export class BillingService {
     }
 
     const companyProfile = user.companyProfile;
+    const isMaster = user.role === 'MASTER';
+    const isUnlimited = isMaster || companyProfile.isUnlimited;
     const billingPeriod = month || this.getCurrentBillingPeriod();
 
     const documentsSent = await this.prisma.document.count({
@@ -81,7 +85,7 @@ export class BillingService {
       },
     });
 
-    const overageDocuments = await this.prisma.document.count({
+    const overageDocuments = isUnlimited ? 0 : await this.prisma.document.count({
       where: {
         companyProfileId: companyProfile.id,
         countedInBilling: true,
@@ -90,14 +94,15 @@ export class BillingService {
       },
     });
 
-    const estimatedOverageCost =
-      Number(companyProfile.overagePrice) * overageDocuments;
+    const estimatedOverageCost = isUnlimited
+      ? 0
+      : Number(companyProfile.overagePrice) * overageDocuments;
 
     return {
       month: billingPeriod,
-      planName: companyProfile.planName,
+      planName: isMaster ? 'PRO_UNLIMITED' : companyProfile.planName,
       monthlyDocLimit: companyProfile.monthlyDocLimit,
-      isUnlimited: companyProfile.isUnlimited,
+      isUnlimited,
       overagePrice: companyProfile.overagePrice,
       documentsSent,
       overageDocuments,
