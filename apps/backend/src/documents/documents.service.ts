@@ -428,7 +428,7 @@ export class DocumentsService {
       id: string;
       name: string;
       code: string;
-      formDefinitions: Array<{ id: string; name: string }>;
+      formDefinitions: Array<{ id: string; name: string; schemaJson: unknown }>;
       signatureTemplates: Array<{ id: string; name: string; providerTemplateId: string | null }>;
     }>();
 
@@ -444,12 +444,12 @@ export class DocumentsService {
           id: config.documentType.id,
           name: config.documentType.name,
           code: config.documentType.code,
-          formDefinitions: [{ id: config.formDefinition.id, name: config.formDefinition.name }],
+          formDefinitions: [{ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson }],
           signatureTemplates: [{ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId }],
         });
       } else {
         if (!existing.formDefinitions.some((fd) => fd.id === config.formDefinition.id)) {
-          existing.formDefinitions.push({ id: config.formDefinition.id, name: config.formDefinition.name });
+          existing.formDefinitions.push({ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson });
         }
         if (!existing.signatureTemplates.some((st) => st.id === config.signatureTemplate.id)) {
           existing.signatureTemplates.push({ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId });
