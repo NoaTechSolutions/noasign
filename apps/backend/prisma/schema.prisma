@@ -186,6 +186,7 @@ model FormDefinition {
   id               String   @id @default(uuid())
   name             String
   documentTypeId   String
+  schemaJson       Json?
   description      String?
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
