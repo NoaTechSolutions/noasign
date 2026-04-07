@@ -2424,32 +2424,7 @@ function ProfilePanel({
 
     return (
       <section className="grid gap-4">
-        {profileErrorMessage ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
-            <button type="button" aria-label="Close error popup" className="absolute inset-0" onClick={() => setProfileErrorMessage("")} />
-            <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--danger-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
-              <div className="text-lg font-semibold text-[color:var(--text-primary)]">Validation error</div>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{profileErrorMessage}</p>
-              <div className="mt-5 flex justify-end">
-                <button type="button" onClick={() => setProfileErrorMessage("")} className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]">Close</button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-        {profileSuccessMessage ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
-            <button type="button" aria-label="Close success popup" className="absolute inset-0" onClick={() => setProfileSuccessMessage("")} />
-            <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--success-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
-              <div className="text-lg font-semibold text-[color:var(--text-primary)]">Saved</div>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{profileSuccessMessage}</p>
-              <div className="mt-5 flex justify-end">
-                <button type="button" onClick={() => setProfileSuccessMessage("")} className="rounded-xl bg-[color:var(--button-success)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-success-hover)]">Close</button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Hero */}
+        {/* Hero — same gradient, user initials instead of logo */}
         <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
@@ -2470,79 +2445,107 @@ function ProfilePanel({
           </div>
         </div>
 
-        {/* Primary contact — identical to MASTER section */}
+        {/* Personal info — user's own data only, same card style as MASTER sections */}
         <div className="grid gap-4">
           <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={togglePrimaryContactOpen}
-                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                aria-expanded={isPrimaryContactOpen}
-              >
-                <ChevronRight className={cn("h-4 w-4 transition-transform", isPrimaryContactOpen && "rotate-90")} />
-                <span>Primary contact</span>
-              </button>
-              {isPrimaryContactOpen ? (
-                <ProfileEditActions
-                  isEditing={isEditingPrimaryContact}
-                  isSaving={isSavingPrimaryContact}
-                  onEdit={() => setIsEditingPrimaryContact(true)}
-                  onCancel={() => {
-                    setIsEditingPrimaryContact(false);
-                    setPrimaryContactForm({
-                      contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(),
-                      contactTitle: companyProfile?.contactTitle ?? "",
-                      contactEmail: companyProfile?.contactEmail ?? "",
-                      contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
-                      contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
-                      contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
-                      contactState: companyProfile?.contactState ?? "",
-                      contactCity: companyProfile?.contactCity ?? "",
-                      contactZipCode: companyProfile?.contactZipCode ?? "",
-                    });
-                  }}
-                  onSave={() => void savePrimaryContact()}
-                />
-              ) : null}
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+              <ChevronRight className="h-4 w-4" />
+              <span>Personal info</span>
             </div>
-            {isPrimaryContactOpen ? (isEditingPrimaryContact ? (
-              <div className="mt-4 grid gap-3">
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: value }))} />
-                <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: value }))} />
-                <div className="grid gap-3 md:grid-cols-2">
-                  <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactEmail: value }))} />
-                  <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactPhone: formatUsPhone(value) }))} />
-                </div>
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine1: value }))} />
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={primaryContactForm.contactAddressLine2} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine2: value }))} />
-                <div className="grid gap-3 md:grid-cols-3">
-                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: value }))} />
-                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: value }))} />
-                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value }))} />
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<UserRound className="h-4 w-4" />} label="First name" value={user.firstName ?? ""} />
+                <DetailRow icon={<UserRound className="h-4 w-4" />} label="Last name" value={user.lastName ?? ""} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} />
+                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={user.phone ? formatUsPhone(user.phone) : ""} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (currentUserRole !== "MASTER" && user?.accountType === "BUSINESS") {
+    const bizName = companyProfile?.companyName ?? "Company";
+    const bizInitials = getCompanyInitials(companyProfile?.companyName);
+    const bizLocation = [companyProfile?.city, companyProfile?.state, companyProfile?.country].filter(Boolean).join(", ");
+    const bizContact = [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ") || companyProfile?.contactEmail || "Contact not defined";
+
+    return (
+      <section className="grid gap-4">
+        {/* Hero — same gradient and layout as MASTER, no upload button */}
+        <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
+                {companyProfile?.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={companyProfile.logoUrl} alt={`${bizName} logo`} className="h-full w-full object-cover" />
+                ) : (
+                  <span>{bizInitials}</span>
+                )}
+              </div>
+              <div className="text-center sm:text-left">
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
+                  {bizName}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-white/88">{companyProfile?.email ?? ""}</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+                  <ProfileChip label={companyProfile?.industry ?? "Industry not defined"} />
+                  <ProfileChip label={bizLocation || "Location not defined"} />
+                  <ProfileChip label={bizContact} />
                 </div>
               </div>
-            ) : (
-              <div className="mt-4 grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={contactName || ""} />
-                  <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? ""} />
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? ""} />
-                  <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.contactPhone ?? "")} />
-                </div>
-                <DetailRow icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={companyProfile?.contactAddressLine1 ?? ""} />
-                {companyProfile?.contactAddressLine2?.trim() ? (
-                  <DetailRow icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={companyProfile.contactAddressLine2} />
-                ) : null}
-                <div className="grid gap-3 md:grid-cols-3">
-                  <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? ""} />
-                  <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.contactCity ?? ""} />
-                  <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? ""} />
-                </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Company details — read-only */}
+        <div className="grid gap-4">
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+              <ChevronRight className="h-4 w-4" />
+              <span>Company details</span>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyProfile?.companyName ?? ""} />
+                <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyProfile?.legalName ?? ""} />
               </div>
-            )) : null}
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Factory className="h-4 w-4" />} label="Industry" value={companyProfile?.industry ?? ""} />
+                <DetailRow icon={<FileText className="h-4 w-4" />} label="License number" value={companyProfile?.licenseNumber ?? ""} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.phone ?? "")} />
+                <DetailRow icon={<Phone className="h-4 w-4" />} label="Fax" value={formatUsPhone(companyProfile?.phone2 ?? "")} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.email ?? ""} />
+                <DetailRow icon={<Globe className="h-4 w-4" />} label="Website" value={companyProfile?.website ?? ""} />
+              </div>
+            </div>
+          </div>
+
+          {/* Primary contact — read-only */}
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+              <ChevronRight className="h-4 w-4" />
+              <span>Primary contact</span>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={[companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ")} />
+                <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? ""} />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? ""} />
+                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.contactPhone ?? "")} />
+              </div>
+            </div>
           </div>
         </div>
       </section>
