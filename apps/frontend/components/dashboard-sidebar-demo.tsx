@@ -121,6 +121,10 @@ type Props = {
     role: string;
     status: string;
     mustChangePassword?: boolean;
+    accountType?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
   } | null;
   companyProfile: {
     id: string;
@@ -483,6 +487,19 @@ export function DashboardSidebarDemo({
   }, []);
 
   useEffect(() => {
+    const isMobile = window.innerWidth < 1280;
+    if (isMobile && open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  useEffect(() => {
     if (activeSection === "users" || activeSection === "accountRequests") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsersMenuOpen(true);
@@ -617,10 +634,10 @@ export function DashboardSidebarDemo({
   }
 
   return (
-    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row">
+    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row xl:overflow-visible">
       <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between gap-8">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
+        <SidebarBody className="justify-between gap-3 xl:gap-8">
+          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-hidden">
             <div className="relative flex items-start justify-center gap-3">
               <div className="min-w-0 flex-1">{open ? <Logo /> : <LogoIcon />}</div>
               {open ? (
@@ -635,7 +652,7 @@ export function DashboardSidebarDemo({
               ) : null}
             </div>
 
-            <div className="mt-8">
+            <div className="mt-4 xl:mt-8">
               <div className="flex flex-col gap-2">
                 {links.map((link) => (
                   <div key={link.key}>
@@ -723,11 +740,11 @@ export function DashboardSidebarDemo({
               </div>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-4 xl:mt-8">
               <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">
                 Workspace
               </div>
-              <div className="mt-3 grid gap-3">
+              <div className="mt-2 grid gap-2 xl:mt-3 xl:gap-3">
                 <InfoCard
                   label="Company"
                   title={isLoading ? "Loading..." : companyProfile?.companyName ?? "NTSsign"}
@@ -756,7 +773,7 @@ export function DashboardSidebarDemo({
             <button
               type="button"
               onClick={onSignOut}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm font-medium text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--danger-bg)]"
+              className="inline-flex h-14 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm font-medium text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--danger-bg)]"
             >
               Sign out
             </button>
@@ -893,6 +910,7 @@ export function DashboardSidebarDemo({
               user={user}
               companyProfile={companyProfile}
               usage={usage}
+              currentUserRole={user?.role ?? null}
               onUpdateCompanyProfile={onUpdateCompanyProfile}
             />
           ) : null}
@@ -2106,11 +2124,13 @@ function ProfilePanel({
   user,
   companyProfile,
   usage,
+  currentUserRole,
   onUpdateCompanyProfile,
 }: {
   user: Props["user"];
   companyProfile: Props["companyProfile"];
   usage: Props["usage"];
+  currentUserRole: string | null;
   onUpdateCompanyProfile: Props["onUpdateCompanyProfile"];
 }) {
   const companyName = companyProfile?.companyName ?? "Company not defined";
@@ -2133,7 +2153,9 @@ function ProfilePanel({
   const [isEditingPrimaryContact, setIsEditingPrimaryContact] = useState(false);
   const [isCompanyDetailsOpen, setIsCompanyDetailsOpen] = useState(true);
   const [isInsuranceOpen, setIsInsuranceOpen] = useState(false);
-  const [isPrimaryContactOpen, setIsPrimaryContactOpen] = useState(false);
+  const [isPrimaryContactOpen, setIsPrimaryContactOpen] = useState(
+    currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL",
+  );
   const [isSavingCompanyDetails, setIsSavingCompanyDetails] = useState(false);
   const [isSavingInsurance, setIsSavingInsurance] = useState(false);
   const [isSavingPrimaryContact, setIsSavingPrimaryContact] = useState(false);
@@ -2392,6 +2414,139 @@ function ProfilePanel({
       }
       return next;
     });
+  }
+
+  if (currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL") {
+    const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+    const initials = user.firstName && user.lastName
+      ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+      : user.email.slice(0, 2).toUpperCase();
+
+    return (
+      <section className="grid gap-4">
+        {profileErrorMessage ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+            <button type="button" aria-label="Close error popup" className="absolute inset-0" onClick={() => setProfileErrorMessage("")} />
+            <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--danger-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
+              <div className="text-lg font-semibold text-[color:var(--text-primary)]">Validation error</div>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{profileErrorMessage}</p>
+              <div className="mt-5 flex justify-end">
+                <button type="button" onClick={() => setProfileErrorMessage("")} className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]">Close</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {profileSuccessMessage ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+            <button type="button" aria-label="Close success popup" className="absolute inset-0" onClick={() => setProfileSuccessMessage("")} />
+            <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--success-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
+              <div className="text-lg font-semibold text-[color:var(--text-primary)]">Saved</div>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{profileSuccessMessage}</p>
+              <div className="mt-5 flex justify-end">
+                <button type="button" onClick={() => setProfileSuccessMessage("")} className="rounded-xl bg-[color:var(--button-success)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-success-hover)]">Close</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Hero */}
+        <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200">
+                {initials}
+              </div>
+              <div className="text-center sm:text-left">
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
+                  {displayName}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-white/88">{user.email}</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+                  <ProfileChip label={user.role} />
+                  <ProfileChip label="Individual" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Primary contact — identical to MASTER section */}
+        <div className="grid gap-4">
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={togglePrimaryContactOpen}
+                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                aria-expanded={isPrimaryContactOpen}
+              >
+                <ChevronRight className={cn("h-4 w-4 transition-transform", isPrimaryContactOpen && "rotate-90")} />
+                <span>Primary contact</span>
+              </button>
+              {isPrimaryContactOpen ? (
+                <ProfileEditActions
+                  isEditing={isEditingPrimaryContact}
+                  isSaving={isSavingPrimaryContact}
+                  onEdit={() => setIsEditingPrimaryContact(true)}
+                  onCancel={() => {
+                    setIsEditingPrimaryContact(false);
+                    setPrimaryContactForm({
+                      contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(),
+                      contactTitle: companyProfile?.contactTitle ?? "",
+                      contactEmail: companyProfile?.contactEmail ?? "",
+                      contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
+                      contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
+                      contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
+                      contactState: companyProfile?.contactState ?? "",
+                      contactCity: companyProfile?.contactCity ?? "",
+                      contactZipCode: companyProfile?.contactZipCode ?? "",
+                    });
+                  }}
+                  onSave={() => void savePrimaryContact()}
+                />
+              ) : null}
+            </div>
+            {isPrimaryContactOpen ? (isEditingPrimaryContact ? (
+              <div className="mt-4 grid gap-3">
+                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: value }))} />
+                <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: value }))} />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactEmail: value }))} />
+                  <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactPhone: formatUsPhone(value) }))} />
+                </div>
+                <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine1: value }))} />
+                <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={primaryContactForm.contactAddressLine2} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine2: value }))} />
+                <div className="grid gap-3 md:grid-cols-3">
+                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: value }))} />
+                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: value }))} />
+                  <EditableField icon={<MapPinned className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value }))} />
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={contactName || ""} />
+                  <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? ""} />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? ""} />
+                  <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.contactPhone ?? "")} />
+                </div>
+                <DetailRow icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={companyProfile?.contactAddressLine1 ?? ""} />
+                {companyProfile?.contactAddressLine2?.trim() ? (
+                  <DetailRow icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={companyProfile.contactAddressLine2} />
+                ) : null}
+                <div className="grid gap-3 md:grid-cols-3">
+                  <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? ""} />
+                  <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.contactCity ?? ""} />
+                  <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? ""} />
+                </div>
+              </div>
+            )) : null}
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -4162,8 +4317,11 @@ function InfoCard({
   onAction?: () => void;
 }) {
   return (
-    <div className={cn("rounded-[1.5rem] border p-4 shadow-[var(--shadow-soft)]", accent ? "border-[color:var(--border)] bg-[linear-gradient(135deg,var(--badge-primary-bg)_0%,var(--bg-surface-strong)_100%)]" : "border-[color:var(--border)] bg-[color:var(--bg-elevated)]/85")}>
-      <div className="flex items-start justify-between gap-3">
+    <div className={cn(
+      "rounded-[1.5rem] border p-2.5 shadow-[var(--shadow-soft)] xl:p-4",
+      accent ? "border-[color:var(--border)] bg-[linear-gradient(135deg,var(--badge-primary-bg)_0%,var(--bg-surface-strong)_100%)]" : "border-[color:var(--border)] bg-[color:var(--bg-elevated)]/85",
+    )}>
+      <div className="flex items-center justify-between gap-2">
         <div className={cn("text-[11px] font-semibold uppercase tracking-[0.28em]", accent ? "text-[color:var(--brand-accent-strong)]" : "text-[color:var(--text-muted)]")}>{label}</div>
         {actionLabel && onAction ? (
           <button
@@ -4175,8 +4333,8 @@ function InfoCard({
           </button>
         ) : null}
       </div>
-      <div className="mt-3 text-sm font-semibold text-[color:var(--text-primary)]">{title}</div>
-      <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{subtitle}</div>
+      <div className="mt-1 text-xs font-semibold text-[color:var(--text-primary)] xl:mt-3 xl:text-sm">{title}</div>
+      <div className="mt-0.5 text-[10px] text-[color:var(--text-secondary)] xl:mt-1 xl:text-xs">{subtitle}</div>
     </div>
   );
 }
