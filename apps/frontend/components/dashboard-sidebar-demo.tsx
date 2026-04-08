@@ -3181,6 +3181,9 @@ function CreateDraftDrawer({
 
     const finalDataJson: Record<string, string> = {
       ...dataJson,
+      // Concatenated city/state/zip from form data (BoldSign uses single merged field)
+      customer_city_state_zip: formatCityStateZip(dataJson.city, dataJson.state, dataJson.zip),
+      project_city_state_zip: formatCityStateZip(dataJson.project_city, dataJson.project_state, dataJson.project_zip),
       // Insurance
       insurance_name: companyProfile?.insuranceName?.trim() ?? "",
       insurance_phone: companyProfile?.insurancePhone ?? "",
