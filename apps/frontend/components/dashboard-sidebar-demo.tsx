@@ -3167,12 +3167,40 @@ function CreateDraftDrawer({
       return;
     }
 
-    // Inject insurance fields from company profile
+    // Helper: "City, ST ZIP" — same format used in BoldSign concatenated fields
+    const formatCityStateZip = (city?: string | null, state?: string | null, zip?: string | null) => {
+      const parts = [city?.trim(), state?.trim()].filter(Boolean).join(", ");
+      return [parts, zip?.trim()].filter(Boolean).join(" ");
+    };
+
+    // Inject company-profile static fields (not entered by user in the form)
+    const contactName = [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
     const finalDataJson: Record<string, string> = {
       ...dataJson,
+      // Insurance
       insurance_name: companyProfile?.insuranceName?.trim() ?? "",
       insurance_phone: companyProfile?.insurancePhone ?? "",
       insurance_policy_number: companyProfile?.insurancePolicyNumber?.trim() ?? "",
+      // Director (primary contact of the company)
+      director_name: contactName,
+      director_phone: companyProfile?.contactPhone ?? "",
+      director_city_state_zip: formatCityStateZip(
+        companyProfile?.contactCity,
+        companyProfile?.contactState,
+        companyProfile?.contactZipCode,
+      ),
+      // Fund holder (the company itself)
+      fund_holder_name: companyProfile?.companyName?.trim() ?? "",
+      fund_holder_phone: companyProfile?.phone ?? "",
+      fund_holder_city_state_zip: formatCityStateZip(
+        companyProfile?.city,
+        companyProfile?.state,
+        companyProfile?.zipCode,
+      ),
     };
 
     setIsSubmitting(true);
