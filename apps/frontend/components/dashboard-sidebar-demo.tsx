@@ -2392,7 +2392,26 @@ function ProfilePanel({
     }
   }
 
+  function getUserProfileOriginal() {
+    return {
+      fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+      title: user?.title ?? "",
+      phone: user?.phone ?? "",
+      addressLine1: user?.addressLine1 ?? "",
+      addressLine2: user?.addressLine2 ?? "",
+      city: user?.city ?? "",
+      state: user?.state ?? "",
+      zipCode: user?.zipCode ?? "",
+    };
+  }
+
   async function saveUserProfile() {
+    const changed = buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm);
+    if (Object.keys(changed).length === 0) {
+      setIsEditingUserProfile(false);
+      return;
+    }
+
     const { firstName, lastName } = splitFullName(userProfileForm.fullName);
 
     setIsSavingUserProfile(true);
@@ -2636,17 +2655,10 @@ function ProfilePanel({
                   isSaving={isSavingUserProfile}
                   onEdit={() => setIsEditingUserProfile(true)}
                   onCancel={() => {
+                    const isDirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
+                    if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
                     setIsEditingUserProfile(false);
-                    setUserProfileForm({
-                      fullName: [user.firstName, user.lastName].filter(Boolean).join(" "),
-                      title: user.title ?? "",
-                      phone: formatUsPhone(user.phone ?? ""),
-                      addressLine1: user.addressLine1 ?? "",
-                      addressLine2: user.addressLine2 ?? "",
-                      city: user.city ?? "",
-                      state: user.state ?? "",
-                      zipCode: user.zipCode ?? "",
-                    });
+                    setUserProfileForm(getUserProfileOriginal());
                   }}
                   onSave={() => void saveUserProfile()}
                 />
@@ -2829,8 +2841,7 @@ function ProfilePanel({
                 isSaving={isSavingCompanyDetails}
                 onEdit={() => setIsEditingCompanyDetails(true)}
                 onCancel={() => {
-                  setIsEditingCompanyDetails(false);
-                  setCompanyDetailsForm({
+                  const original = {
                     companyName: companyProfile?.companyName ?? "",
                     legalName: companyProfile?.legalName ?? "",
                     industry: companyProfile?.industry ?? "",
@@ -2844,7 +2855,11 @@ function ProfilePanel({
                     state: companyProfile?.state ?? "",
                     city: companyProfile?.city ?? "",
                     zipCode: companyProfile?.zipCode ?? "",
-                  });
+                  };
+                  const isDirty = Object.keys(buildChangedProfilePayload(original, companyDetailsForm)).length > 0;
+                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
+                  setIsEditingCompanyDetails(false);
+                  setCompanyDetailsForm(original);
                 }}
                 onSave={() => void saveCompanyDetails()}
               />
@@ -2932,12 +2947,20 @@ function ProfilePanel({
                 isSaving={isSavingInsurance}
                 onEdit={() => setIsEditingInsurance(true)}
                 onCancel={() => {
-                  setIsEditingInsurance(false);
-                  setInsuranceForm({
+                  const original = {
                     insuranceName: companyProfile?.insuranceName ?? "",
                     insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""),
                     insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "",
-                  });
+                  };
+                  const current = {
+                    insuranceName: insuranceForm.insuranceName,
+                    insurancePhone: formatUsPhone(insuranceForm.insurancePhone),
+                    insurancePolicyNumber: insuranceForm.insurancePolicyNumber,
+                  };
+                  const isDirty = Object.keys(buildChangedProfilePayload(original, current)).length > 0;
+                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
+                  setIsEditingInsurance(false);
+                  setInsuranceForm(original);
                 }}
                 onSave={() => void saveInsurance()}
               />
@@ -2975,8 +2998,7 @@ function ProfilePanel({
                 isSaving={isSavingPrimaryContact}
                 onEdit={() => setIsEditingPrimaryContact(true)}
                 onCancel={() => {
-                  setIsEditingPrimaryContact(false);
-                  setPrimaryContactForm({
+                  const original = {
                     contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
                       .filter(Boolean)
                       .join(" ")
@@ -2989,7 +3011,11 @@ function ProfilePanel({
                     contactState: companyProfile?.contactState ?? "",
                     contactCity: companyProfile?.contactCity ?? "",
                     contactZipCode: companyProfile?.contactZipCode ?? "",
-                  });
+                  };
+                  const isDirty = Object.keys(buildChangedProfilePayload(original, primaryContactForm)).length > 0;
+                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
+                  setIsEditingPrimaryContact(false);
+                  setPrimaryContactForm(original);
                 }}
                 onSave={() => void savePrimaryContact()}
               />

@@ -1094,6 +1094,7 @@ export function MasterUsersPanel({
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<EditingState | null>(null);
+  const [originalEditingUser, setOriginalEditingUser] = useState<EditingState | null>(null);
   const [resetPasswordState, setResetPasswordState] = useState<ResetPasswordState | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<AccountRequest | null>(null);
   const [createForm, setCreateForm] = useState<CreateFormState>({
@@ -1213,6 +1214,15 @@ export function MasterUsersPanel({
   async function handleEditSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingUser) return;
+    const noChange =
+      originalEditingUser &&
+      editingUser.email === originalEditingUser.email &&
+      editingUser.role === originalEditingUser.role;
+    if (noChange) {
+      setEditingUser(null);
+      setOriginalEditingUser(null);
+      return;
+    }
     setSubmittingAction(`update:${editingUser.id}`);
     try {
       await onUpdateUser(editingUser.id, {
@@ -1220,6 +1230,7 @@ export function MasterUsersPanel({
         role: editingUser.role,
       });
       setEditingUser(null);
+      setOriginalEditingUser(null);
     } finally {
       setSubmittingAction(null);
     }
@@ -1515,7 +1526,7 @@ export function MasterUsersPanel({
                   openActionMenuFor={openActionMenuFor}
                   setOpenActionMenuFor={setOpenActionMenuFor}
                   submittingAction={submittingAction}
-                  onEdit={setEditingUser}
+                  onEdit={(state) => { setEditingUser(state); setOriginalEditingUser(state); }}
                   onTemporaryPassword={(userId, email) =>
                     setResetPasswordState({
                       id: userId,
@@ -1750,11 +1761,21 @@ export function MasterUsersPanel({
       {mode === "users" && editingUser ? (
         <UserModal
           title="Edit user"
-          onClose={() => setEditingUser(null)}
+          onClose={() => {
+            const isDirty = originalEditingUser && (editingUser.email !== originalEditingUser.email || editingUser.role !== originalEditingUser.role);
+            if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
+            setEditingUser(null);
+            setOriginalEditingUser(null);
+          }}
           onSubmit={handleEditSubmit}
           footer={
             <div className="mt-2 flex items-center justify-end gap-3">
-              <button type="button" onClick={() => setEditingUser(null)} className={ghostButtonClass}>
+              <button type="button" onClick={() => {
+                const isDirty = originalEditingUser && (editingUser.email !== originalEditingUser.email || editingUser.role !== originalEditingUser.role);
+                if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
+                setEditingUser(null);
+                setOriginalEditingUser(null);
+              }} className={ghostButtonClass}>
                 Cancel
               </button>
               <button

@@ -384,7 +384,7 @@ export function LoginForm() {
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
-          password,
+          password: password.trim(),
         }),
       });
 

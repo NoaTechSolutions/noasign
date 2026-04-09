@@ -92,6 +92,33 @@ function applyDigitsOnly(value: string, maxLength?: number): string {
   return value.replace(/\D/g, "").slice(0, maxLength ?? 100);
 }
 
+function applyLettersOnly(value: string): string {
+  // Strip digits; preserve letters, spaces, and punctuation
+  return value.replace(/[0-9]/g, "");
+}
+
+// Keys whose text inputs must never contain digits
+const LETTERS_ONLY_KEYS = new Set([
+  "customer_name",
+  "salesman_full_name",
+  "fund_holder_name",
+  "insurance_name",
+]);
+
+// Keys whose text inputs must not contain digits (city/state — no numbers allowed)
+const NO_DIGITS_KEYS = new Set([
+  "city",
+  "state",
+  "project_city",
+  "project_state",
+]);
+
+// Keys whose text inputs accept only digits
+const DIGITS_ONLY_KEYS = new Set(["zip", "project_zip", "zipCode"]);
+
+// Keys whose number inputs have a max length of 2 digits
+const MAX_2_DIGITS_KEYS = new Set(["customer_age"]);
+
 function iconForType(type: FieldType) {
   if (type === "email") return <Mail className="h-4 w-4" />;
   if (type === "phone") return <Phone className="h-4 w-4" />;
@@ -198,6 +225,7 @@ function RendererField({
   }
 
   if (field.type === "number") {
+    const numMaxLength = MAX_2_DIGITS_KEYS.has(field.key) ? 2 : field.validation?.maxLength;
     return (
       <BaseField label={field.label} icon={icon} error={error}>
         <input
@@ -206,7 +234,7 @@ function RendererField({
           value={value}
           placeholder={field.placeholder}
           disabled={disabled}
-          onChange={(e) => onChange(applyDigitsOnly(e.target.value, field.validation?.maxLength))}
+          onChange={(e) => onChange(applyDigitsOnly(e.target.value, numMaxLength))}
           className={inputClass}
         />
       </BaseField>
@@ -254,9 +282,15 @@ function RendererField({
         placeholder={field.placeholder}
         disabled={disabled}
         onChange={(e) => {
-          const next = field.transform === "titleCase"
-            ? applyTransform(e.target.value, "titleCase")
-            : e.target.value;
+          let next = e.target.value;
+          if (LETTERS_ONLY_KEYS.has(field.key) || NO_DIGITS_KEYS.has(field.key)) {
+            next = applyLettersOnly(next);
+          } else if (DIGITS_ONLY_KEYS.has(field.key)) {
+            next = applyDigitsOnly(next);
+          }
+          if (field.transform === "titleCase" || NO_DIGITS_KEYS.has(field.key)) {
+            next = applyTransform(next, "titleCase");
+          }
           onChange(next);
         }}
         className={inputClass}
@@ -304,6 +338,18 @@ export function DocumentFormRenderer({
     }
     return initial;
   });
+
+  // ── Dirty tracking ─────────────────────────────────────────────────────────
+
+  const isDirty = useMemo(
+    () => allFieldKeys.some((key) => (fields[key] ?? "") !== (initialValues?.[key] ?? "")),
+    [fields, allFieldKeys, initialValues],
+  );
+
+  function handleCancel() {
+    if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
+    onCancel();
+  }
 
   // ── Tab state ──────────────────────────────────────────────────────────────
 
@@ -683,7 +729,7 @@ export function DocumentFormRenderer({
         <div className="flex flex-wrap items-center justify-end gap-3">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
           >
             Cancel

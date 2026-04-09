@@ -708,7 +708,6 @@ export class DocumentsService {
     if (!providerDocumentId) {
       const senderRecipient = this.buildSenderSignatureRecipient(document);
       const fallbackFields = this.buildFallbackScalarMap(context);
-      const { completionUrl } = this.buildPublicSignatureLinks(document.id);
       const createdDocument =
         await this.signatureProviderService.createDocumentFromTemplate({
           name: this.buildSignatureDocumentName(document),
@@ -734,7 +733,6 @@ export class DocumentsService {
             noasignUserId: document.userId,
             noasignDocumentNumber: document.documentNumber,
           },
-          signerRedirectUrl: completionUrl,
         });
 
       providerDocumentId = createdDocument.id;
