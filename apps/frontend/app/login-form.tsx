@@ -384,7 +384,7 @@ export function LoginForm() {
         },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
-          password: password.trim(),
+          password,
         }),
       });
 
@@ -726,6 +726,8 @@ export function LoginForm() {
             </div>
             {loginErrors.password ? (
               <InputError text={loginErrors.password} />
+            ) : password !== password.trim() ? (
+              <p className="mt-1.5 text-xs text-amber-500">Your password has leading or trailing spaces — make sure that&apos;s intentional.</p>
             ) : null}
           </FieldLabel>
 
