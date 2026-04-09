@@ -574,67 +574,6 @@ export function DashboardSidebarDemo({
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
   ];
 
-  function doNavigate(nextSection: SectionKey) {
-    setActiveSection(nextSection);
-    const nextUrl =
-      nextSection === "dashboard"
-        ? pathname
-        : `${pathname}?${SECTION_QUERY_KEY}=${nextSection}`;
-    window.history.replaceState(null, "", nextUrl);
-  }
-
-  function updateActiveSection(nextSection: SectionKey) {
-    const isEditing = isEditingUserProfile || isEditingCompanyDetails || isEditingInsurance || isEditingPrimaryContact;
-    if (!isEditing) {
-      doNavigate(nextSection);
-      return;
-    }
-
-    // Determine if the active edit form is dirty
-    let dirty = false;
-    if (isEditingUserProfile) {
-      dirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
-    } else if (isEditingCompanyDetails) {
-      dirty = Object.keys(buildChangedProfilePayload(
-        { companyName: companyProfile?.companyName ?? "", legalName: companyProfile?.legalName ?? "", industry: companyProfile?.industry ?? "", licenseNumber: companyProfile?.licenseNumber ?? "", phone: formatUsPhone(companyProfile?.phone ?? ""), phone2: formatUsPhone(companyProfile?.phone2 ?? ""), email: companyProfile?.email ?? "", website: companyProfile?.website ?? "", addressLine1: companyProfile?.addressLine1 ?? "", state: companyProfile?.state ?? "", city: companyProfile?.city ?? "", zipCode: companyProfile?.zipCode ?? "" },
-        companyDetailsForm,
-      )).length > 0;
-    } else if (isEditingInsurance) {
-      dirty = Object.keys(buildChangedProfilePayload(
-        { insuranceName: companyProfile?.insuranceName ?? "", insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""), insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "" },
-        { insuranceName: insuranceForm.insuranceName, insurancePhone: formatUsPhone(insuranceForm.insurancePhone), insurancePolicyNumber: insuranceForm.insurancePolicyNumber },
-      )).length > 0;
-    } else if (isEditingPrimaryContact) {
-      dirty = Object.keys(buildChangedProfilePayload(
-        { contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(), contactTitle: companyProfile?.contactTitle ?? "", contactEmail: companyProfile?.contactEmail ?? "", contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""), contactAddressLine1: companyProfile?.contactAddressLine1 ?? "", contactState: companyProfile?.contactState ?? "", contactCity: companyProfile?.contactCity ?? "", contactZipCode: companyProfile?.contactZipCode ?? "" },
-        primaryContactForm,
-      )).length > 0;
-    }
-
-    if (!dirty) {
-      // Discard edit silently and navigate
-      setIsEditingUserProfile(false);
-      setIsEditingCompanyDetails(false);
-      setIsEditingInsurance(false);
-      setIsEditingPrimaryContact(false);
-      doNavigate(nextSection);
-      return;
-    }
-
-    setConfirmDialog({
-      title: "Unsaved changes",
-      message: "You have unsaved changes. Are you sure you want to leave without saving?",
-      onConfirm: () => {
-        setIsEditingUserProfile(false);
-        setIsEditingCompanyDetails(false);
-        setIsEditingInsurance(false);
-        setIsEditingPrimaryContact(false);
-        setConfirmDialog(null);
-        doNavigate(nextSection);
-      },
-    });
-  }
-
   function closeDocumentViewer() {
     setDocumentViewerOpen(false);
     setDocumentViewerInitialTab("client");
@@ -2478,6 +2417,67 @@ function ProfilePanel({
       state: user?.state ?? "",
       zipCode: user?.zipCode ?? "",
     };
+  }
+
+  function doNavigate(nextSection: SectionKey) {
+    setActiveSection(nextSection);
+    const nextUrl =
+      nextSection === "dashboard"
+        ? pathname
+        : `${pathname}?${SECTION_QUERY_KEY}=${nextSection}`;
+    window.history.replaceState(null, "", nextUrl);
+  }
+
+  function updateActiveSection(nextSection: SectionKey) {
+    const isEditing = isEditingUserProfile || isEditingCompanyDetails || isEditingInsurance || isEditingPrimaryContact;
+    if (!isEditing) {
+      doNavigate(nextSection);
+      return;
+    }
+
+    // Determine if the active edit form is dirty
+    let dirty = false;
+    if (isEditingUserProfile) {
+      dirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
+    } else if (isEditingCompanyDetails) {
+      dirty = Object.keys(buildChangedProfilePayload(
+        { companyName: companyProfile?.companyName ?? "", legalName: companyProfile?.legalName ?? "", industry: companyProfile?.industry ?? "", licenseNumber: companyProfile?.licenseNumber ?? "", phone: formatUsPhone(companyProfile?.phone ?? ""), phone2: formatUsPhone(companyProfile?.phone2 ?? ""), email: companyProfile?.email ?? "", website: companyProfile?.website ?? "", addressLine1: companyProfile?.addressLine1 ?? "", state: companyProfile?.state ?? "", city: companyProfile?.city ?? "", zipCode: companyProfile?.zipCode ?? "" },
+        companyDetailsForm,
+      )).length > 0;
+    } else if (isEditingInsurance) {
+      dirty = Object.keys(buildChangedProfilePayload(
+        { insuranceName: companyProfile?.insuranceName ?? "", insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""), insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "" },
+        { insuranceName: insuranceForm.insuranceName, insurancePhone: formatUsPhone(insuranceForm.insurancePhone), insurancePolicyNumber: insuranceForm.insurancePolicyNumber },
+      )).length > 0;
+    } else if (isEditingPrimaryContact) {
+      dirty = Object.keys(buildChangedProfilePayload(
+        { contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(), contactTitle: companyProfile?.contactTitle ?? "", contactEmail: companyProfile?.contactEmail ?? "", contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""), contactAddressLine1: companyProfile?.contactAddressLine1 ?? "", contactState: companyProfile?.contactState ?? "", contactCity: companyProfile?.contactCity ?? "", contactZipCode: companyProfile?.contactZipCode ?? "" },
+        primaryContactForm,
+      )).length > 0;
+    }
+
+    if (!dirty) {
+      // Discard edit silently and navigate
+      setIsEditingUserProfile(false);
+      setIsEditingCompanyDetails(false);
+      setIsEditingInsurance(false);
+      setIsEditingPrimaryContact(false);
+      doNavigate(nextSection);
+      return;
+    }
+
+    setConfirmDialog({
+      title: "Unsaved changes",
+      message: "You have unsaved changes. Are you sure you want to leave without saving?",
+      onConfirm: () => {
+        setIsEditingUserProfile(false);
+        setIsEditingCompanyDetails(false);
+        setIsEditingInsurance(false);
+        setIsEditingPrimaryContact(false);
+        setConfirmDialog(null);
+        doNavigate(nextSection);
+      },
+    });
   }
 
   async function saveUserProfile() {
