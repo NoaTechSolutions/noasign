@@ -97,7 +97,7 @@ function applyLettersOnly(value: string): string {
   return value.replace(/[0-9]/g, "");
 }
 
-// Keys whose text inputs must never contain digits
+// Keys whose text inputs must never contain digits and always title-case
 const LETTERS_ONLY_KEYS = new Set([
   "customer_name",
   "salesman_full_name",
@@ -288,7 +288,7 @@ function RendererField({
           } else if (DIGITS_ONLY_KEYS.has(field.key)) {
             next = applyDigitsOnly(next);
           }
-          if (field.transform === "titleCase" || NO_DIGITS_KEYS.has(field.key)) {
+          if (field.transform === "titleCase" || NO_DIGITS_KEYS.has(field.key) || LETTERS_ONLY_KEYS.has(field.key)) {
             next = applyTransform(next, "titleCase");
           }
           onChange(next);
@@ -339,16 +339,21 @@ export function DocumentFormRenderer({
     return initial;
   });
 
-  // ── Dirty tracking ─────────────────────────────────────────────────────────
+  // ── Dirty tracking + cancel confirmation ──────────────────────────────────
 
   const isDirty = useMemo(
     () => allFieldKeys.some((key) => (fields[key] ?? "") !== (initialValues?.[key] ?? "")),
     [fields, allFieldKeys, initialValues],
   );
 
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
   function handleCancel() {
-    if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
-    onCancel();
+    if (isDirty) {
+      setCancelConfirmOpen(true);
+    } else {
+      onCancel();
+    }
   }
 
   // ── Tab state ──────────────────────────────────────────────────────────────
@@ -574,6 +579,34 @@ export function DocumentFormRenderer({
 
   return (
     <>
+      {/* Cancel confirmation dialog */}
+      {cancelConfirmOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
+            <div className="text-lg font-semibold text-slate-950 dark:text-white">Cancel draft?</div>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              If you close this now, the information entered here will be discarded.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCancelConfirmOpen(false)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCancelConfirmOpen(false); onCancel(); }}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Tab bar */}
       <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
         <div className="flex flex-wrap gap-2">

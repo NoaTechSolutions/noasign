@@ -1095,6 +1095,7 @@ export function MasterUsersPanel({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<EditingState | null>(null);
   const [originalEditingUser, setOriginalEditingUser] = useState<EditingState | null>(null);
+  const [editConfirmDialog, setEditConfirmDialog] = useState<{ onConfirm: () => void } | null>(null);
   const [resetPasswordState, setResetPasswordState] = useState<ResetPasswordState | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<AccountRequest | null>(null);
   const [createForm, setCreateForm] = useState<CreateFormState>({
@@ -1763,18 +1764,16 @@ export function MasterUsersPanel({
           title="Edit user"
           onClose={() => {
             const isDirty = originalEditingUser && (editingUser.email !== originalEditingUser.email || editingUser.role !== originalEditingUser.role);
-            if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
-            setEditingUser(null);
-            setOriginalEditingUser(null);
+            if (!isDirty) { setEditingUser(null); setOriginalEditingUser(null); return; }
+            setEditConfirmDialog({ onConfirm: () => { setEditConfirmDialog(null); setEditingUser(null); setOriginalEditingUser(null); } });
           }}
           onSubmit={handleEditSubmit}
           footer={
             <div className="mt-2 flex items-center justify-end gap-3">
               <button type="button" onClick={() => {
                 const isDirty = originalEditingUser && (editingUser.email !== originalEditingUser.email || editingUser.role !== originalEditingUser.role);
-                if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
-                setEditingUser(null);
-                setOriginalEditingUser(null);
+                if (!isDirty) { setEditingUser(null); setOriginalEditingUser(null); return; }
+                setEditConfirmDialog({ onConfirm: () => { setEditConfirmDialog(null); setEditingUser(null); setOriginalEditingUser(null); } });
               }} className={ghostButtonClass}>
                 Cancel
               </button>
@@ -1837,6 +1836,18 @@ export function MasterUsersPanel({
           onChange={setResetPasswordState}
           onSubmit={handleResetPasswordSubmit}
         />
+      ) : null}
+      {editConfirmDialog ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
+            <div className="text-lg font-semibold text-slate-950 dark:text-white">Unsaved changes</div>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">You have unsaved changes. Are you sure you want to cancel?</p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button type="button" onClick={() => setEditConfirmDialog(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10">No</button>
+              <button type="button" onClick={editConfirmDialog.onConfirm} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700">Yes</button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </>
   );

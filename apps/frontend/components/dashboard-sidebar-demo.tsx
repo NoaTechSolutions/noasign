@@ -574,15 +574,65 @@ export function DashboardSidebarDemo({
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
   ];
 
-  function updateActiveSection(nextSection: SectionKey) {
+  function doNavigate(nextSection: SectionKey) {
     setActiveSection(nextSection);
-
     const nextUrl =
       nextSection === "dashboard"
         ? pathname
         : `${pathname}?${SECTION_QUERY_KEY}=${nextSection}`;
-
     window.history.replaceState(null, "", nextUrl);
+  }
+
+  function updateActiveSection(nextSection: SectionKey) {
+    const isEditing = isEditingUserProfile || isEditingCompanyDetails || isEditingInsurance || isEditingPrimaryContact;
+    if (!isEditing) {
+      doNavigate(nextSection);
+      return;
+    }
+
+    // Determine if the active edit form is dirty
+    let dirty = false;
+    if (isEditingUserProfile) {
+      dirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
+    } else if (isEditingCompanyDetails) {
+      dirty = Object.keys(buildChangedProfilePayload(
+        { companyName: companyProfile?.companyName ?? "", legalName: companyProfile?.legalName ?? "", industry: companyProfile?.industry ?? "", licenseNumber: companyProfile?.licenseNumber ?? "", phone: formatUsPhone(companyProfile?.phone ?? ""), phone2: formatUsPhone(companyProfile?.phone2 ?? ""), email: companyProfile?.email ?? "", website: companyProfile?.website ?? "", addressLine1: companyProfile?.addressLine1 ?? "", state: companyProfile?.state ?? "", city: companyProfile?.city ?? "", zipCode: companyProfile?.zipCode ?? "" },
+        companyDetailsForm,
+      )).length > 0;
+    } else if (isEditingInsurance) {
+      dirty = Object.keys(buildChangedProfilePayload(
+        { insuranceName: companyProfile?.insuranceName ?? "", insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""), insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "" },
+        { insuranceName: insuranceForm.insuranceName, insurancePhone: formatUsPhone(insuranceForm.insurancePhone), insurancePolicyNumber: insuranceForm.insurancePolicyNumber },
+      )).length > 0;
+    } else if (isEditingPrimaryContact) {
+      dirty = Object.keys(buildChangedProfilePayload(
+        { contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(), contactTitle: companyProfile?.contactTitle ?? "", contactEmail: companyProfile?.contactEmail ?? "", contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""), contactAddressLine1: companyProfile?.contactAddressLine1 ?? "", contactState: companyProfile?.contactState ?? "", contactCity: companyProfile?.contactCity ?? "", contactZipCode: companyProfile?.contactZipCode ?? "" },
+        primaryContactForm,
+      )).length > 0;
+    }
+
+    if (!dirty) {
+      // Discard edit silently and navigate
+      setIsEditingUserProfile(false);
+      setIsEditingCompanyDetails(false);
+      setIsEditingInsurance(false);
+      setIsEditingPrimaryContact(false);
+      doNavigate(nextSection);
+      return;
+    }
+
+    setConfirmDialog({
+      title: "Unsaved changes",
+      message: "You have unsaved changes. Are you sure you want to leave without saving?",
+      onConfirm: () => {
+        setIsEditingUserProfile(false);
+        setIsEditingCompanyDetails(false);
+        setIsEditingInsurance(false);
+        setIsEditingPrimaryContact(false);
+        setConfirmDialog(null);
+        doNavigate(nextSection);
+      },
+    });
   }
 
   function closeDocumentViewer() {
@@ -1028,6 +1078,30 @@ export function DashboardSidebarDemo({
       ) : null}
       {user?.mustChangePassword ? (
         <ForcePasswordChangeModal onSubmit={onChangeOwnPassword} />
+      ) : null}
+      {confirmDialog ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
+            <div className="text-lg font-semibold text-slate-950 dark:text-white">{confirmDialog.title}</div>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{confirmDialog.message}</p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmDialog(null)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={confirmDialog.onConfirm}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -2233,6 +2307,7 @@ function ProfilePanel({
   const [isEditingUserProfile, setIsEditingUserProfile] = useState(false);
   const [isSavingUserProfile, setIsSavingUserProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -2656,9 +2731,8 @@ function ProfilePanel({
                   onEdit={() => setIsEditingUserProfile(true)}
                   onCancel={() => {
                     const isDirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
-                    if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
-                    setIsEditingUserProfile(false);
-                    setUserProfileForm(getUserProfileOriginal());
+                    if (!isDirty) { setIsEditingUserProfile(false); setUserProfileForm(getUserProfileOriginal()); return; }
+                    setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingUserProfile(false); setUserProfileForm(getUserProfileOriginal()); } });
                   }}
                   onSave={() => void saveUserProfile()}
                 />
@@ -2668,17 +2742,16 @@ function ProfilePanel({
               <div className="mt-4 grid gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
                   <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={userProfileForm.fullName} onChange={(value) => setUserProfileForm((c) => ({ ...c, fullName: toTitleCase(value.replace(/\d/g, "")) }))} />
-                  <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={userProfileForm.title} onChange={(value) => setUserProfileForm((c) => ({ ...c, title: value }))} />
+                  <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={userProfileForm.title} onChange={(value) => setUserProfileForm((c) => ({ ...c, title: toTitleCase(value) }))} />
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} onChange={() => {}} disabled={true} />
                   <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={userProfileForm.phone} onChange={(value) => setUserProfileForm((c) => ({ ...c, phone: formatUsPhone(value) }))} />
                 </div>
                 <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={userProfileForm.addressLine1} onChange={(value) => setUserProfileForm((c) => ({ ...c, addressLine1: value }))} />
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={userProfileForm.addressLine2} onChange={(value) => setUserProfileForm((c) => ({ ...c, addressLine2: value }))} />
                 <div className="grid gap-3 md:grid-cols-3">
-                  <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={userProfileForm.state} onChange={(value) => setUserProfileForm((c) => ({ ...c, state: value }))} />
-                  <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={userProfileForm.city} onChange={(value) => setUserProfileForm((c) => ({ ...c, city: value }))} />
+                  <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={userProfileForm.city} onChange={(value) => setUserProfileForm((c) => ({ ...c, city: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                  <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={userProfileForm.state} onChange={(value) => setUserProfileForm((c) => ({ ...c, state: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
                   <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP code" value={userProfileForm.zipCode} onChange={(value) => setUserProfileForm((c) => ({ ...c, zipCode: value }))} />
                 </div>
               </div>
@@ -2857,9 +2930,8 @@ function ProfilePanel({
                     zipCode: companyProfile?.zipCode ?? "",
                   };
                   const isDirty = Object.keys(buildChangedProfilePayload(original, companyDetailsForm)).length > 0;
-                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
-                  setIsEditingCompanyDetails(false);
-                  setCompanyDetailsForm(original);
+                  if (!isDirty) { setIsEditingCompanyDetails(false); setCompanyDetailsForm(original); return; }
+                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingCompanyDetails(false); setCompanyDetailsForm(original); } });
                 }}
                 onSave={() => void saveCompanyDetails()}
               />
@@ -2868,8 +2940,8 @@ function ProfilePanel({
           {isCompanyDetailsOpen ? (isEditingCompanyDetails ? (
             <div className="mt-5 grid gap-3">
               <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: value }))} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyDetailsForm.legalName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, legalName: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: toTitleCase(value) }))} />
+                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyDetailsForm.legalName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, legalName: toTitleCase(value) }))} />
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <EditableField icon={<Factory className="h-4 w-4" />} label="Industry" value={companyDetailsForm.industry} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, industry: value }))} />
@@ -2884,11 +2956,10 @@ function ProfilePanel({
                 <EditableField icon={<Globe className="h-4 w-4" />} label="Website" value={companyDetailsForm.website} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, website: value }))} />
               </div>
               <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={companyDetailsForm.addressLine1} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine1: value }))} />
-              <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={companyDetailsForm.addressLine2} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine2: value }))} />
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={companyDetailsForm.state} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, state: value }))} />
-                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={companyDetailsForm.city} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, city: value }))} />
-                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyDetailsForm.zipCode} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, zipCode: value }))} />
+                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={companyDetailsForm.city} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, city: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={companyDetailsForm.state} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, state: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyDetailsForm.zipCode} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, zipCode: value.replace(/\D/g, "") }))} />
               </div>
             </div>
           ) : (
@@ -2958,9 +3029,8 @@ function ProfilePanel({
                     insurancePolicyNumber: insuranceForm.insurancePolicyNumber,
                   };
                   const isDirty = Object.keys(buildChangedProfilePayload(original, current)).length > 0;
-                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
-                  setIsEditingInsurance(false);
-                  setInsuranceForm(original);
+                  if (!isDirty) { setIsEditingInsurance(false); setInsuranceForm(original); return; }
+                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingInsurance(false); setInsuranceForm(original); } });
                 }}
                 onSave={() => void saveInsurance()}
               />
@@ -2968,7 +3038,7 @@ function ProfilePanel({
           </div>
           {isInsuranceOpen ? (isEditingInsurance ? (
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <EditableField icon={<ShieldCheck className="h-4 w-4" />} label="Insurance name" value={insuranceForm.insuranceName} onChange={(value) => setInsuranceForm((current) => ({ ...current, insuranceName: value }))} />
+              <EditableField icon={<ShieldCheck className="h-4 w-4" />} label="Insurance name" value={insuranceForm.insuranceName} onChange={(value) => setInsuranceForm((current) => ({ ...current, insuranceName: toTitleCase(value) }))} />
               <EditableField icon={<Phone className="h-4 w-4" />} label="Insurance phone" value={insuranceForm.insurancePhone} onChange={(value) => setInsuranceForm((current) => ({ ...current, insurancePhone: formatUsPhone(value) }))} />
               <EditableField icon={<FileText className="h-4 w-4" />} label="Policy number" value={insuranceForm.insurancePolicyNumber} onChange={(value) => setInsuranceForm((current) => ({ ...current, insurancePolicyNumber: value }))} />
             </div>
@@ -3013,9 +3083,8 @@ function ProfilePanel({
                     contactZipCode: companyProfile?.contactZipCode ?? "",
                   };
                   const isDirty = Object.keys(buildChangedProfilePayload(original, primaryContactForm)).length > 0;
-                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
-                  setIsEditingPrimaryContact(false);
-                  setPrimaryContactForm(original);
+                  if (!isDirty) { setIsEditingPrimaryContact(false); setPrimaryContactForm(original); return; }
+                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingPrimaryContact(false); setPrimaryContactForm(original); } });
                 }}
                 onSave={() => void savePrimaryContact()}
               />
@@ -3023,18 +3092,17 @@ function ProfilePanel({
           </div>
           {isPrimaryContactOpen ? (isEditingPrimaryContact ? (
             <div className="mt-4 grid gap-3">
-              <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: value }))} />
-              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: value }))} />
+              <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: toTitleCase(value) }))} />
               <div className="grid gap-3 md:grid-cols-2">
                 <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactEmail: value }))} />
                 <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactPhone: formatUsPhone(value) }))} />
               </div>
               <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine1: value }))} />
-              <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={primaryContactForm.contactAddressLine2} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine2: value }))} />
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: value }))} />
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: value }))} />
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value }))} />
+                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value.replace(/\D/g, "") }))} />
               </div>
             </div>
           ) : (
