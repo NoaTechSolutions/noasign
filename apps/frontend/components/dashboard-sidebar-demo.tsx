@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import NextImage from "next/image";
 import Link from "next/link";
@@ -627,6 +627,26 @@ export function DashboardSidebarDemo({
     );
   }
 
+  const profileNavGuardRef = useRef<((onGo: () => void) => void) | null>(null);
+
+  function doNavigate(nextSection: SectionKey) {
+    setActiveSection(nextSection);
+    const nextUrl =
+      nextSection === "dashboard"
+        ? pathname
+        : `${pathname}?${SECTION_QUERY_KEY}=${nextSection}`;
+    window.history.replaceState(null, "", nextUrl);
+  }
+
+  function updateActiveSection(nextSection: SectionKey) {
+    const guard = profileNavGuardRef.current;
+    if (guard) {
+      guard(() => doNavigate(nextSection));
+    } else {
+      doNavigate(nextSection);
+    }
+  }
+
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row xl:overflow-visible">
       <Sidebar open={open} setOpen={setOpen}>
@@ -926,6 +946,7 @@ export function DashboardSidebarDemo({
               currentUserRole={user?.role ?? null}
               onUpdateMe={onUpdateMe}
               onUpdateCompanyProfile={onUpdateCompanyProfile}
+              navGuardRef={profileNavGuardRef}
             />
           ) : null}
 
@@ -2165,6 +2186,7 @@ function ProfilePanel({
   currentUserRole,
   onUpdateMe,
   onUpdateCompanyProfile,
+  navGuardRef,
 }: {
   user: Props["user"];
   companyProfile: Props["companyProfile"];
@@ -2172,6 +2194,7 @@ function ProfilePanel({
   currentUserRole: string | null;
   onUpdateMe: Props["onUpdateMe"];
   onUpdateCompanyProfile: Props["onUpdateCompanyProfile"];
+  navGuardRef: MutableRefObject<((onGo: () => void) => void) | null>;
 }) {
   const companyName = companyProfile?.companyName ?? "Company not defined";
   const contactName = [companyProfile?.contactFirstName, companyProfile?.contactLastName]
@@ -2305,6 +2328,61 @@ function ProfilePanel({
     });
   }, [companyProfile]);
 
+  useEffect(() => {
+    navGuardRef.current = (onGo: () => void) => {
+      const isEditing = isEditingUserProfile || isEditingCompanyDetails || isEditingInsurance || isEditingPrimaryContact;
+      if (!isEditing) {
+        onGo();
+        return;
+      }
+
+      let dirty = false;
+      if (isEditingUserProfile) {
+        dirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
+      } else if (isEditingCompanyDetails) {
+        dirty = Object.keys(buildChangedProfilePayload(
+          { companyName: companyProfile?.companyName ?? "", legalName: companyProfile?.legalName ?? "", industry: companyProfile?.industry ?? "", licenseNumber: companyProfile?.licenseNumber ?? "", phone: formatUsPhone(companyProfile?.phone ?? ""), phone2: formatUsPhone(companyProfile?.phone2 ?? ""), email: companyProfile?.email ?? "", website: companyProfile?.website ?? "", addressLine1: companyProfile?.addressLine1 ?? "", state: companyProfile?.state ?? "", city: companyProfile?.city ?? "", zipCode: companyProfile?.zipCode ?? "" },
+          companyDetailsForm,
+        )).length > 0;
+      } else if (isEditingInsurance) {
+        dirty = Object.keys(buildChangedProfilePayload(
+          { insuranceName: companyProfile?.insuranceName ?? "", insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""), insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "" },
+          { insuranceName: insuranceForm.insuranceName, insurancePhone: formatUsPhone(insuranceForm.insurancePhone), insurancePolicyNumber: insuranceForm.insurancePolicyNumber },
+        )).length > 0;
+      } else if (isEditingPrimaryContact) {
+        dirty = Object.keys(buildChangedProfilePayload(
+          { contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(), contactTitle: companyProfile?.contactTitle ?? "", contactEmail: companyProfile?.contactEmail ?? "", contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""), contactAddressLine1: companyProfile?.contactAddressLine1 ?? "", contactState: companyProfile?.contactState ?? "", contactCity: companyProfile?.contactCity ?? "", contactZipCode: companyProfile?.contactZipCode ?? "" },
+          primaryContactForm,
+        )).length > 0;
+      }
+
+      if (!dirty) {
+        setIsEditingUserProfile(false);
+        setIsEditingCompanyDetails(false);
+        setIsEditingInsurance(false);
+        setIsEditingPrimaryContact(false);
+        onGo();
+        return;
+      }
+
+      setConfirmDialog({
+        title: "Unsaved changes",
+        message: "You have unsaved changes. Are you sure you want to leave without saving?",
+        onConfirm: () => {
+          setIsEditingUserProfile(false);
+          setIsEditingCompanyDetails(false);
+          setIsEditingInsurance(false);
+          setIsEditingPrimaryContact(false);
+          setConfirmDialog(null);
+          onGo();
+        },
+      });
+    };
+    return () => {
+      navGuardRef.current = null;
+    };
+  }, [isEditingUserProfile, isEditingCompanyDetails, isEditingInsurance, isEditingPrimaryContact, userProfileForm, companyDetailsForm, insuranceForm, primaryContactForm, companyProfile, user, navGuardRef]);
+
   async function saveCompanyDetails() {
     if (companyDetailsForm.email.trim() && !isValidEmail(companyDetailsForm.email)) {
       setProfileErrorMessage("Enter a valid company email address");
@@ -2417,67 +2495,6 @@ function ProfilePanel({
       state: user?.state ?? "",
       zipCode: user?.zipCode ?? "",
     };
-  }
-
-  function doNavigate(nextSection: SectionKey) {
-    setActiveSection(nextSection);
-    const nextUrl =
-      nextSection === "dashboard"
-        ? pathname
-        : `${pathname}?${SECTION_QUERY_KEY}=${nextSection}`;
-    window.history.replaceState(null, "", nextUrl);
-  }
-
-  function updateActiveSection(nextSection: SectionKey) {
-    const isEditing = isEditingUserProfile || isEditingCompanyDetails || isEditingInsurance || isEditingPrimaryContact;
-    if (!isEditing) {
-      doNavigate(nextSection);
-      return;
-    }
-
-    // Determine if the active edit form is dirty
-    let dirty = false;
-    if (isEditingUserProfile) {
-      dirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
-    } else if (isEditingCompanyDetails) {
-      dirty = Object.keys(buildChangedProfilePayload(
-        { companyName: companyProfile?.companyName ?? "", legalName: companyProfile?.legalName ?? "", industry: companyProfile?.industry ?? "", licenseNumber: companyProfile?.licenseNumber ?? "", phone: formatUsPhone(companyProfile?.phone ?? ""), phone2: formatUsPhone(companyProfile?.phone2 ?? ""), email: companyProfile?.email ?? "", website: companyProfile?.website ?? "", addressLine1: companyProfile?.addressLine1 ?? "", state: companyProfile?.state ?? "", city: companyProfile?.city ?? "", zipCode: companyProfile?.zipCode ?? "" },
-        companyDetailsForm,
-      )).length > 0;
-    } else if (isEditingInsurance) {
-      dirty = Object.keys(buildChangedProfilePayload(
-        { insuranceName: companyProfile?.insuranceName ?? "", insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""), insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "" },
-        { insuranceName: insuranceForm.insuranceName, insurancePhone: formatUsPhone(insuranceForm.insurancePhone), insurancePolicyNumber: insuranceForm.insurancePolicyNumber },
-      )).length > 0;
-    } else if (isEditingPrimaryContact) {
-      dirty = Object.keys(buildChangedProfilePayload(
-        { contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(), contactTitle: companyProfile?.contactTitle ?? "", contactEmail: companyProfile?.contactEmail ?? "", contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""), contactAddressLine1: companyProfile?.contactAddressLine1 ?? "", contactState: companyProfile?.contactState ?? "", contactCity: companyProfile?.contactCity ?? "", contactZipCode: companyProfile?.contactZipCode ?? "" },
-        primaryContactForm,
-      )).length > 0;
-    }
-
-    if (!dirty) {
-      // Discard edit silently and navigate
-      setIsEditingUserProfile(false);
-      setIsEditingCompanyDetails(false);
-      setIsEditingInsurance(false);
-      setIsEditingPrimaryContact(false);
-      doNavigate(nextSection);
-      return;
-    }
-
-    setConfirmDialog({
-      title: "Unsaved changes",
-      message: "You have unsaved changes. Are you sure you want to leave without saving?",
-      onConfirm: () => {
-        setIsEditingUserProfile(false);
-        setIsEditingCompanyDetails(false);
-        setIsEditingInsurance(false);
-        setIsEditingPrimaryContact(false);
-        setConfirmDialog(null);
-        doNavigate(nextSection);
-      },
-    });
   }
 
   async function saveUserProfile() {
