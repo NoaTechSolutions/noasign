@@ -109,20 +109,20 @@ export class BoldSignController {
     providerDocumentId: string;
     noasignDocumentId: string;
   }) {
-    if (process.env.NODE_ENV === 'production') {
-      return;
-    }
-
     const logDir = join(process.cwd(), 'runtime-logs');
     const logFile = join(logDir, 'boldsign-webhook.log');
-    mkdirSync(logDir, { recursive: true });
-    appendFileSync(
-      logFile,
-      `${JSON.stringify({
-        receivedAt: new Date().toISOString(),
-        ...payload,
-      })}\n`,
-      'utf8',
-    );
+    try {
+      mkdirSync(logDir, { recursive: true });
+      appendFileSync(
+        logFile,
+        `${JSON.stringify({
+          receivedAt: new Date().toISOString(),
+          ...payload,
+        })}\n`,
+        'utf8',
+      );
+    } catch {
+      // non-fatal — never block the webhook response due to log failure
+    }
   }
 }

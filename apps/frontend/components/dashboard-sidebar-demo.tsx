@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import NextImage from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import {
@@ -421,7 +421,6 @@ export function DashboardSidebarDemo({
   onSignOut,
   onChangeOwnPassword,
 }: Props) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -578,15 +577,12 @@ export function DashboardSidebarDemo({
   function updateActiveSection(nextSection: SectionKey) {
     setActiveSection(nextSection);
 
-    const params = new URLSearchParams(searchParams.toString());
-    if (nextSection === "dashboard") {
-      params.delete(SECTION_QUERY_KEY);
-    } else {
-      params.set(SECTION_QUERY_KEY, nextSection);
-    }
+    const nextUrl =
+      nextSection === "dashboard"
+        ? pathname
+        : `${pathname}?${SECTION_QUERY_KEY}=${nextSection}`;
 
-    const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-    router.replace(nextUrl, { scroll: false });
+    window.history.replaceState(null, "", nextUrl);
   }
 
   function closeDocumentViewer() {
@@ -3184,13 +3180,18 @@ function CreateDraftDrawer({
       // Concatenated city/state/zip from form data (BoldSign uses single merged field)
       customer_city_state_zip: formatCityStateZip(dataJson.city, dataJson.state, dataJson.zip),
       project_city_state_zip: formatCityStateZip(dataJson.project_city, dataJson.project_state, dataJson.project_zip),
+      // Company
+      license_number: companyProfile?.licenseNumber?.trim() ?? "",
       // Insurance
       insurance_name: companyProfile?.insuranceName?.trim() ?? "",
       insurance_phone: companyProfile?.insurancePhone ?? "",
       insurance_policy_number: companyProfile?.insurancePolicyNumber?.trim() ?? "",
       // Director (primary contact of the company)
       director_name: contactName,
+      director_email: companyProfile?.contactEmail ?? "",
       director_phone: companyProfile?.contactPhone ?? "",
+      director_address: companyProfile?.contactAddressLine1?.trim() ?? "",
+      director_contract_address: companyProfile?.contactAddressLine1?.trim() ?? "",
       director_city_state_zip: formatCityStateZip(
         companyProfile?.contactCity,
         companyProfile?.contactState,

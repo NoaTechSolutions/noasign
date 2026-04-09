@@ -1834,9 +1834,13 @@ export class DocumentsService {
     const normalized = rawStatus.trim().toLowerCase();
 
     if (
-      ['document.draft', 'document.uploaded', 'draft', 'draftcreated'].includes(
-        normalized,
-      )
+      [
+        'document.draft',
+        'document.uploaded',
+        'draft',
+        'draftcreated',
+        'documentcreated', // BoldSign webhook
+      ].includes(normalized)
     ) {
       return 'draft';
     }
@@ -1850,6 +1854,7 @@ export class DocumentsService {
         'created',
         'signature_request_sent',
         'signature_request_delivered',
+        'documentsent', // BoldSign webhook
       ].includes(normalized)
     ) {
       return 'sent';
@@ -1861,15 +1866,19 @@ export class DocumentsService {
         'viewed',
         'delivered',
         'signature_request_viewed',
+        'documentviewed', // BoldSign webhook
       ].includes(normalized)
     ) {
       return 'viewed';
     }
 
     if (
-      ['document.signed', 'signed', 'signature_request_signed'].includes(
-        normalized,
-      )
+      [
+        'document.signed',
+        'signed',
+        'signature_request_signed',
+        'documentsigned', // BoldSign webhook
+      ].includes(normalized)
     ) {
       return 'signed';
     }
@@ -1880,6 +1889,7 @@ export class DocumentsService {
         'completed',
         'signature_request_all_signed',
         'signature_request_downloadable',
+        'documentcompleted', // BoldSign webhook
       ].includes(normalized)
     ) {
       return 'completed';
@@ -1899,13 +1909,22 @@ export class DocumentsService {
         'signature_request_reassigned',
         'revoked',
         'reassigned',
+        'documentdeclined',   // BoldSign webhook
+        'documentexpired',    // BoldSign webhook
+        'documentrevoked',    // BoldSign webhook
+        'documentreassigned', // BoldSign webhook
       ].includes(normalized)
     ) {
       return 'cancelled';
     }
 
     if (
-      ['deliveryfailed', 'editfailed', 'needattention'].includes(normalized)
+      [
+        'deliveryfailed',
+        'editfailed',
+        'needattention',
+        'needtoattention', // BoldSign webhook
+      ].includes(normalized)
     ) {
       return 'error';
     }
@@ -2045,6 +2064,35 @@ export class DocumentsService {
     this.assignScalarValue(fallback, 'contact_title', context.contact.title);
     this.assignScalarValue(fallback, 'contact_email', context.contact.email);
     this.assignScalarValue(fallback, 'contact_phone', context.contact.phone);
+    // Director aliases (primary contact) — matches BoldSign template token names
+    this.assignScalarValue(fallback, 'director_name', contactFullName);
+    this.assignScalarValue(fallback, 'director_email', context.contact.email);
+    this.assignScalarValue(fallback, 'director_phone', context.contact.phone);
+    this.assignScalarValue(
+      fallback,
+      'director_address',
+      context.contact.addressLine1,
+    );
+    this.assignScalarValue(
+      fallback,
+      'director_contract_address',
+      context.contact.addressLine1,
+    );
+    this.assignScalarValue(
+      fallback,
+      'director_city_state_zip',
+      this.formatCityStateZip(
+        context.contact.city,
+        context.contact.state,
+        context.contact.zipCode,
+      ),
+    );
+    // license_number alias (template may use either name)
+    this.assignScalarValue(
+      fallback,
+      'license_number',
+      context.company.licenseNumber,
+    );
     this.assignScalarValue(
       fallback,
       'customer_full_address',

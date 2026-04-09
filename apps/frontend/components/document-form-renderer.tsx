@@ -248,7 +248,8 @@ function RendererField({
   return (
     <BaseField label={field.label} icon={icon} error={error}>
       <input
-        type={field.type === "email" ? "email" : "text"}
+        type="text"
+        inputMode={field.type === "email" ? "email" : "text"}
         value={value}
         placeholder={field.placeholder}
         disabled={disabled}
