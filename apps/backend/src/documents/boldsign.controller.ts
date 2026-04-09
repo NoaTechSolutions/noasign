@@ -50,10 +50,6 @@ export class BoldSignController {
       eventType,
       signatureEventHeader,
       hasSignatureHeader: Boolean(signatureHeader?.trim()),
-      signatureHeaderPreview: signatureHeader?.trim()?.slice(0, 80) ?? '',
-      hasRawBody: req.rawBody != null,
-      rawBodyLength: req.rawBody?.length ?? 0,
-      rawBodyPreview: req.rawBody?.toString('utf8')?.slice(0, 60) ?? '',
       hasValidSignature,
       providerDocumentId:
         typeof body?.data === 'object' &&
@@ -109,10 +105,6 @@ export class BoldSignController {
     eventType: string;
     signatureEventHeader?: string;
     hasSignatureHeader: boolean;
-    signatureHeaderPreview?: string;
-    hasRawBody?: boolean;
-    rawBodyLength?: number;
-    rawBodyPreview?: string;
     hasValidSignature: boolean;
     providerDocumentId: string;
     noasignDocumentId: string;
