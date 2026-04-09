@@ -1039,30 +1039,6 @@ export function DashboardSidebarDemo({
       {user?.mustChangePassword ? (
         <ForcePasswordChangeModal onSubmit={onChangeOwnPassword} />
       ) : null}
-      {confirmDialog ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
-            <div className="text-lg font-semibold text-slate-950 dark:text-white">{confirmDialog.title}</div>
-            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{confirmDialog.message}</p>
-            <div className="mt-5 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmDialog(null)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
-              >
-                No
-              </button>
-              <button
-                type="button"
-                onClick={confirmDialog.onConfirm}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
-              >
-                Yes
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -3153,6 +3129,30 @@ function ProfilePanel({
           )) : null}
         </div>
       </div>
+      {confirmDialog ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
+            <div className="text-lg font-semibold text-slate-950 dark:text-white">{confirmDialog.title}</div>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{confirmDialog.message}</p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmDialog(null)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={confirmDialog.onConfirm}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
