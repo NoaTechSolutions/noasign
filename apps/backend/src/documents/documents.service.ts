@@ -2087,10 +2087,15 @@ export class DocumentsService {
         context.contact.zipCode,
       ),
     );
-    // license_number alias (template may use either name)
+    // license_number aliases (template may use any of these names)
     this.assignScalarValue(
       fallback,
       'license_number',
+      context.company.licenseNumber,
+    );
+    this.assignScalarValue(
+      fallback,
+      'director_license_number',
       context.company.licenseNumber,
     );
     this.assignScalarValue(
