@@ -50,6 +50,7 @@ export class BoldSignController {
       eventType,
       signatureEventHeader,
       hasSignatureHeader: Boolean(signatureHeader?.trim()),
+      signatureHeaderPreview: signatureHeader?.trim()?.slice(0, 80) ?? '',
       hasValidSignature,
       providerDocumentId:
         typeof body?.data === 'object' &&
@@ -105,6 +106,7 @@ export class BoldSignController {
     eventType: string;
     signatureEventHeader?: string;
     hasSignatureHeader: boolean;
+    signatureHeaderPreview?: string;
     hasValidSignature: boolean;
     providerDocumentId: string;
     noasignDocumentId: string;
