@@ -1551,7 +1551,7 @@ export class DocumentsService {
   ) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
-      include: { companyProfile: true },
+      include: { companyProfile: true, documentType: true },
     });
 
     if (!document) return;
@@ -1583,31 +1583,41 @@ export class DocumentsService {
       },
     });
 
-    // Send confirmation email to the signer — PDF attached if download succeeds
+    // Send confirmation email to the signer with the signed PDF attached.
+    // If BoldSign hasn't generated the PDF yet after all retries, send a
+    // "your copy is on its way" email instead — never send without the attachment.
     const signerEmail = document.lastSentRecipientEmail;
     if (signerEmail) {
-      let pdfBuffer: Buffer | undefined;
-      if (document.providerDocumentId) {
-        pdfBuffer = await this.downloadPdfWithRetry(
-          document.id,
-          document.providerDocumentId,
-        );
-      }
+      const emailPayload = {
+        to: signerEmail,
+        signerName: this.buildPublicSignerName(document as PublicDocument),
+        senderCompany:
+          document.companyProfile?.companyName ??
+          document.companyProfile?.legalName ??
+          'NTSsign',
+        documentName: document.documentType?.name ?? document.documentNumber,
+        documentNumber: document.documentNumber,
+      };
+
       try {
-        await this.emailService.sendSignedConfirmation({
-          to: signerEmail,
-          signerName: this.buildPublicSignerName(document as PublicDocument),
-          senderCompany:
-            document.companyProfile?.companyName ??
-            document.companyProfile?.legalName ??
-            'NTSsign',
-          documentName: document.documentType?.name ?? document.documentNumber,
-          documentNumber: document.documentNumber,
-          pdfBuffer,
-        });
+        const pdfBuffer = document.providerDocumentId
+          ? await this.downloadPdfWithRetry(
+              document.id,
+              document.providerDocumentId,
+            )
+          : null;
+
+        if (pdfBuffer) {
+          await this.emailService.sendSignedConfirmation({
+            ...emailPayload,
+            pdfBuffer,
+          });
+        } else {
+          await this.emailService.sendSignatureProcessing(emailPayload);
+        }
       } catch (emailErr) {
         this.logger.error(
-          `[syncDocumentToCompleted] Failed to send signed confirmation for document ${document.id}: ${emailErr instanceof Error ? emailErr.message : String(emailErr)}`,
+          `[syncDocumentToCompleted] Failed to send email for document ${document.id}: ${emailErr instanceof Error ? emailErr.message : String(emailErr)}`,
         );
         // non-fatal — document is already marked completed
       }
@@ -1657,26 +1667,31 @@ export class DocumentsService {
   }
 
   /**
-   * Retries PDF download with exponential-ish delays.
+   * Tries to download the signed PDF from BoldSign.
    * BoldSign fires the webhook immediately but generates the signed PDF asynchronously,
-   * so the first attempt often fails with a 404/500. We wait ~15s before the first try
-   * and add another 15s between each subsequent attempt.
+   * so the first attempt may fail. We retry up to `retries` times with `delayMs` between
+   * each attempt (no delay before the very first try).
+   *
+   * Returns the PDF buffer on success, or null if all attempts are exhausted.
+   * The caller decides what email to send based on the result.
    */
   private async downloadPdfWithRetry(
     documentId: string,
     providerDocumentId: string,
-    retries = 3,
+    retries = 8,
     delayMs = 15_000,
-  ): Promise<Buffer | undefined> {
+  ): Promise<Buffer | null> {
     for (let attempt = 0; attempt < retries; attempt++) {
-      // Always wait before attempting — BoldSign needs time to generate the signed PDF
-      await this.sleep(delayMs);
+      if (attempt > 0) {
+        // No delay before the first attempt — BoldSign sometimes has the PDF ready immediately
+        await this.sleep(delayMs);
+      }
       try {
         const pdf = await this.signatureProviderService.downloadDocumentPdf(
           providerDocumentId,
         );
         this.logger.log(
-          `[syncDocumentToCompleted] PDF downloaded on attempt ${attempt + 1} for document ${documentId}`,
+          `[syncDocumentToCompleted] PDF ready on attempt ${attempt + 1}/${retries} for document ${documentId}`,
         );
         return pdf.buffer;
       } catch (err) {
@@ -1686,9 +1701,9 @@ export class DocumentsService {
       }
     }
     this.logger.error(
-      `[syncDocumentToCompleted] All ${retries} PDF download attempts failed for document ${documentId} — sending confirmation without attachment`,
+      `[syncDocumentToCompleted] PDF not available after ${retries} attempts (~${Math.round((retries - 1) * delayMs / 1000)}s) for document ${documentId}`,
     );
-    return undefined;
+    return null;
   }
 
   private buildPublicSignatureLinks(documentId: string, signerEmail?: string) {
@@ -1857,7 +1872,7 @@ export class DocumentsService {
     const appUrl = this.getAppUrl();
     const emailParam = `email=${encodeURIComponent(payload.signerEmail)}`;
 
-    const terminalStatuses = [DocumentStatus.COMPLETED, DocumentStatus.SIGNED, DocumentStatus.CANCELLED];
+    const terminalStatuses: DocumentStatus[] = [DocumentStatus.COMPLETED, DocumentStatus.SIGNED, DocumentStatus.CANCELLED];
     if (!document || terminalStatuses.includes(document.status)) {
       return `${appUrl}/signature-complete?${emailParam}`;
     }
