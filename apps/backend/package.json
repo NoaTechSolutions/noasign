@@ -16,6 +16,7 @@
     "bootstrap:prod-master": "node ./scripts/bootstrap-production-master.js",
     "seed:local-documents": "node ./scripts/seed-local-documents.js",
     "seed:staging-demo": "node ./scripts/seed-staging-demo.js",
+    "seed:construction": "ts-node -r tsconfig-paths/register prisma/seed.ts",
     "test:smoke": "node ./scripts/smoke-api.mjs",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",

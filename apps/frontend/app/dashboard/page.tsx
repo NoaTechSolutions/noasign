@@ -19,6 +19,17 @@ type DashboardUser = {
   role: string;
   status: string;
   mustChangePassword?: boolean;
+  accountType?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  title?: string | null;
+  phone?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+  avatarUrl?: string | null;
   companyProfile?: {
     id: string;
     companyName: string;
@@ -68,7 +79,7 @@ type CurrentUsage = {
   planName: string;
   monthlyDocLimit: number;
   isUnlimited: boolean;
-  overagePrice: string | number;
+  overagePrice: number;
   documentsUsed: number;
   remainingDocuments: number | null;
   overageDocuments: number;
@@ -79,7 +90,7 @@ type MonthlySummary = {
   planName: string;
   monthlyDocLimit: number;
   isUnlimited: boolean;
-  overagePrice: string | number;
+  overagePrice: number;
   documentsSent: number;
   overageDocuments: number;
   estimatedOverageCost: number;
@@ -309,7 +320,9 @@ export default function DashboardPage() {
 
       if (staticResult) {
         const [profile, availableDocumentTypes, summaryHistory] = staticResult;
-        setCompanyProfile(profile);
+        // Individual users have their own data — don't leak company profile into state
+        const isIndividual = me.role !== "MASTER" && me.accountType === "INDIVIDUAL";
+        setCompanyProfile(isIndividual ? null : profile);
         setDocumentTypes(availableDocumentTypes);
         setBillingHistory(summaryHistory);
         staticDataLoaded.current = true;
@@ -360,6 +373,9 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    document.documentElement.classList.add("dark");
+    document.documentElement.classList.remove("light");
+    localStorage.setItem("theme", "dark");
     setTheme("dark");
   }, [setTheme]);
 
@@ -776,6 +792,25 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleUpdateMe(payload: { firstName?: string; lastName?: string; title?: string; phone?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; zipCode?: string; avatarUrl?: string }) {
+    setError("");
+
+    try {
+      const updatedUser = await apiRequest<DashboardUser>("/users/me", {
+        method: "PATCH",
+        body: payload,
+      });
+
+      setDashboardUser(updatedUser);
+      return updatedUser;
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error ? updateError.message : "Unable to update profile",
+      );
+      throw updateError;
+    }
+  }
+
   async function handleUpdateCompanyProfile(payload: UpdateCompanyProfilePayload) {
     setError("");
 
@@ -801,6 +836,11 @@ export default function DashboardPage() {
     email: string;
     password: string;
     role: string;
+    accountType?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    companyName?: string;
   }) {
     setError("");
 
@@ -983,6 +1023,7 @@ export default function DashboardPage() {
           onPreviewFinalPdf={handlePreviewFinalPdf}
           onDownloadFinalPdf={handleDownloadFinalPdf}
           onCreateDraft={handleCreateDraft}
+          onUpdateMe={handleUpdateMe}
           onUpdateCompanyProfile={handleUpdateCompanyProfile}
           onCreateUser={handleCreateUser}
           onUpdateUser={handleUpdateUser}

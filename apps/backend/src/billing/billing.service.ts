@@ -23,35 +23,32 @@ export class BillingService {
     }
 
     const companyProfile = user.companyProfile;
+    const isMaster = user.role === 'MASTER';
+    const isUnlimited = isMaster || companyProfile.isUnlimited;
     const billingPeriod = this.getCurrentBillingPeriod();
 
+    const docFilter = isMaster
+      ? { companyProfileId: companyProfile.id }
+      : { userId: user.id };
+
     const documentsUsed = await this.prisma.document.count({
-      where: {
-        companyProfileId: companyProfile.id,
-        countedInBilling: true,
-        billingPeriod,
-      },
+      where: { ...docFilter, countedInBilling: true, billingPeriod },
     });
 
     const overageDocuments = await this.prisma.document.count({
-      where: {
-        companyProfileId: companyProfile.id,
-        countedInBilling: true,
-        billingPeriod,
-        isOverage: true,
-      },
+      where: { ...docFilter, countedInBilling: true, billingPeriod, isOverage: true },
     });
 
-    const remainingDocuments = companyProfile.isUnlimited
+    const remainingDocuments = isUnlimited
       ? null
       : Math.max(companyProfile.monthlyDocLimit - documentsUsed, 0);
 
     return {
       billingPeriod,
-      planName: companyProfile.planName,
+      planName: isMaster ? 'PRO_UNLIMITED' : companyProfile.planName,
       monthlyDocLimit: companyProfile.monthlyDocLimit,
-      isUnlimited: companyProfile.isUnlimited,
-      overagePrice: companyProfile.overagePrice,
+      isUnlimited,
+      overagePrice: Number(companyProfile.overagePrice),
       documentsUsed,
       remainingDocuments,
       overageDocuments,
@@ -71,34 +68,32 @@ export class BillingService {
     }
 
     const companyProfile = user.companyProfile;
+    const isMaster = user.role === 'MASTER';
+    const isUnlimited = isMaster || companyProfile.isUnlimited;
     const billingPeriod = month || this.getCurrentBillingPeriod();
 
+    const docFilter = isMaster
+      ? { companyProfileId: companyProfile.id }
+      : { userId: user.id };
+
     const documentsSent = await this.prisma.document.count({
-      where: {
-        companyProfileId: companyProfile.id,
-        countedInBilling: true,
-        billingPeriod,
-      },
+      where: { ...docFilter, countedInBilling: true, billingPeriod },
     });
 
-    const overageDocuments = await this.prisma.document.count({
-      where: {
-        companyProfileId: companyProfile.id,
-        countedInBilling: true,
-        billingPeriod,
-        isOverage: true,
-      },
+    const overageDocuments = isUnlimited ? 0 : await this.prisma.document.count({
+      where: { ...docFilter, countedInBilling: true, billingPeriod, isOverage: true },
     });
 
-    const estimatedOverageCost =
-      Number(companyProfile.overagePrice) * overageDocuments;
+    const estimatedOverageCost = isUnlimited
+      ? 0
+      : Number(companyProfile.overagePrice) * overageDocuments;
 
     return {
       month: billingPeriod,
-      planName: companyProfile.planName,
+      planName: isMaster ? 'PRO_UNLIMITED' : companyProfile.planName,
       monthlyDocLimit: companyProfile.monthlyDocLimit,
-      isUnlimited: companyProfile.isUnlimited,
-      overagePrice: companyProfile.overagePrice,
+      isUnlimited,
+      overagePrice: Number(companyProfile.overagePrice),
       documentsSent,
       overageDocuments,
       estimatedOverageCost,

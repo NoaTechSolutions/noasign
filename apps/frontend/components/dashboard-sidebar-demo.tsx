@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import NextImage from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import {
@@ -52,6 +52,7 @@ import {
 import { Sidebar, SidebarBody, SidebarLink } from "./ui/sidebar";
 import { cn } from "@/lib/utils";
 import { MasterUsersPanel } from "./master-users-panel";
+import { DocumentFormRenderer, type DocumentSchema } from "./document-form-renderer";
 
 type Doc = {
   id: string;
@@ -103,7 +104,7 @@ type DocumentTypeCatalogItem = {
   formDefinitions: Array<{
     id: string;
     name: string;
-    key: string;
+    schemaJson?: unknown;
   }>;
   signatureTemplates: Array<{
     id: string;
@@ -121,6 +122,17 @@ type Props = {
     role: string;
     status: string;
     mustChangePassword?: boolean;
+    accountType?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    title?: string | null;
+    phone?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zipCode?: string | null;
+    avatarUrl?: string | null;
   } | null;
   companyProfile: {
     id: string;
@@ -230,6 +242,7 @@ type Props = {
     contractDate: string;
     dataJson: Record<string, unknown>;
   }) => Promise<DocDetail | void>;
+  onUpdateMe: (payload: { firstName?: string; lastName?: string; title?: string; phone?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; zipCode?: string; avatarUrl?: string }) => Promise<unknown>;
   onUpdateCompanyProfile: (payload: {
     companyName?: string;
     legalName?: string;
@@ -313,15 +326,11 @@ type PersistedDocumentViewerState = {
 };
 
 type PersistedCreateDraftState = {
-  activeTab: "client" | "project" | "pricing" | "others";
   isSetupOpen: boolean;
-  sameProjectAddressAsCustomer: boolean;
-  financeEnabled: boolean;
   selectedDocumentTypeId: string;
   selectedFormDefinitionId: string;
   selectedTemplateId: string;
   contractDate: string;
-  fields: Record<string, string>;
 };
 
 type WorkflowAction = {
@@ -401,6 +410,7 @@ export function DashboardSidebarDemo({
   onPreviewFinalPdf,
   onDownloadFinalPdf,
   onCreateDraft,
+  onUpdateMe,
   onUpdateCompanyProfile,
   onCreateUser,
   onUpdateAccountRequestStatus,
@@ -411,7 +421,6 @@ export function DashboardSidebarDemo({
   onSignOut,
   onChangeOwnPassword,
 }: Props) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -429,10 +438,13 @@ export function DashboardSidebarDemo({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
-  const displayName =
-    companyProfile?.companyName?.trim() || getDisplayName(user?.email);
-  const accountSubtitle =
-    companyProfile?.email?.trim() || user?.email || "No email";
+  const isIndividualUser = user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL";
+  const displayName = isIndividualUser
+    ? [user?.firstName, user?.lastName].filter(Boolean).join(" ") || getDisplayName(user?.email)
+    : companyProfile?.companyName?.trim() || getDisplayName(user?.email);
+  const accountSubtitle = isIndividualUser
+    ? user?.email || "No email"
+    : companyProfile?.email?.trim() || user?.email || "No email";
   const monthDocuments = useMemo(
     () => filterCurrentMonthDocuments(documents, usage?.billingPeriod),
     [documents, usage?.billingPeriod],
@@ -481,6 +493,19 @@ export function DashboardSidebarDemo({
       window.removeEventListener("resize", syncSidebarState);
     };
   }, []);
+
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1280;
+    if (isMobile && open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
 
   useEffect(() => {
     if (activeSection === "users" || activeSection === "accountRequests") {
@@ -549,20 +574,6 @@ export function DashboardSidebarDemo({
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
   ];
 
-  function updateActiveSection(nextSection: SectionKey) {
-    setActiveSection(nextSection);
-
-    const params = new URLSearchParams(searchParams.toString());
-    if (nextSection === "dashboard") {
-      params.delete(SECTION_QUERY_KEY);
-    } else {
-      params.set(SECTION_QUERY_KEY, nextSection);
-    }
-
-    const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-    router.replace(nextUrl, { scroll: false });
-  }
-
   function closeDocumentViewer() {
     setDocumentViewerOpen(false);
     setDocumentViewerInitialTab("client");
@@ -616,11 +627,31 @@ export function DashboardSidebarDemo({
     );
   }
 
+  const profileNavGuardRef = useRef<((onGo: () => void) => void) | null>(null);
+
+  function doNavigate(nextSection: SectionKey) {
+    setActiveSection(nextSection);
+    const nextUrl =
+      nextSection === "dashboard"
+        ? pathname
+        : `${pathname}?${SECTION_QUERY_KEY}=${nextSection}`;
+    window.history.replaceState(null, "", nextUrl);
+  }
+
+  function updateActiveSection(nextSection: SectionKey) {
+    const guard = profileNavGuardRef.current;
+    if (guard) {
+      guard(() => doNavigate(nextSection));
+    } else {
+      doNavigate(nextSection);
+    }
+  }
+
   return (
-    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row">
+    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row xl:overflow-visible">
       <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between gap-8">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
+        <SidebarBody className="justify-between gap-3 xl:gap-8">
+          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-hidden">
             <div className="relative flex items-start justify-center gap-3">
               <div className="min-w-0 flex-1">{open ? <Logo /> : <LogoIcon />}</div>
               {open ? (
@@ -635,7 +666,7 @@ export function DashboardSidebarDemo({
               ) : null}
             </div>
 
-            <div className="mt-8">
+            <div className="mt-4 xl:mt-8">
               <div className="flex flex-col gap-2">
                 {links.map((link) => (
                   <div key={link.key}>
@@ -723,21 +754,29 @@ export function DashboardSidebarDemo({
               </div>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-4 xl:mt-8">
               <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">
                 Workspace
               </div>
-              <div className="mt-3 grid gap-3">
+              <div className="mt-2 grid gap-2 xl:mt-3 xl:gap-3">
                 <InfoCard
-                  label="Company"
-                  title={isLoading ? "Loading..." : companyProfile?.companyName ?? "NTSsign"}
+                  label={user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL" ? "Account" : "Company"}
+                  title={
+                    isLoading
+                      ? "Loading..."
+                      : isIndividualUser
+                        ? [user?.firstName, user?.lastName].filter(Boolean).join(" ") || getDisplayName(user?.email ?? "") || "My Account"
+                        : companyProfile?.companyName ?? "NTSsign"
+                  }
                   subtitle={
                     isLoading
                       ? "..."
-                      : [companyProfile?.contactFirstName, companyProfile?.contactLastName]
-                          .filter(Boolean)
-                          .join(" ")
-                          .trim() || companyProfile?.contactEmail || "Primary contact not defined"
+                      : isIndividualUser
+                        ? user?.email ?? "Individual"
+                        : [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+                            .filter(Boolean)
+                            .join(" ")
+                            .trim() || companyProfile?.contactEmail || "Primary contact not defined"
                   }
                 />
                 <InfoCard
@@ -756,7 +795,7 @@ export function DashboardSidebarDemo({
             <button
               type="button"
               onClick={onSignOut}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm font-medium text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--danger-bg)]"
+              className="inline-flex h-14 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm font-medium text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--danger-bg)]"
             >
               Sign out
             </button>
@@ -794,7 +833,18 @@ export function DashboardSidebarDemo({
                   onClick={() => setAccountMenuOpen((current) => !current)}
                   className="inline-flex items-center gap-3 rounded-2xl px-1 py-1 transition hover:bg-[color:var(--bg-surface)]"
                 >
-                  <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-full text-sm shadow-[var(--shadow-soft)]" />
+                  {isIndividualUser ? (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-sm font-semibold text-blue-700 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200">
+                      {user?.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                      ) : (
+                        ([user?.firstName, user?.lastName].filter(Boolean).map((n) => n![0]).join("") || user?.email?.slice(0, 2) || "?").toUpperCase()
+                      )}
+                    </div>
+                  ) : (
+                    <CompanyAvatar companyName={companyProfile?.companyName} logoUrl={companyProfile?.logoUrl} className="h-10 w-10 rounded-full text-sm shadow-[var(--shadow-soft)]" />
+                  )}
                   <div className="hidden text-left sm:block">
                     <div className="text-sm font-semibold text-[color:var(--text-primary)]">{isLoading ? "Loading..." : displayName}</div>
                     <div className="text-xs text-[color:var(--text-muted)]">{isLoading ? "..." : accountSubtitle}</div>
@@ -893,7 +943,10 @@ export function DashboardSidebarDemo({
               user={user}
               companyProfile={companyProfile}
               usage={usage}
+              currentUserRole={user?.role ?? null}
+              onUpdateMe={onUpdateMe}
               onUpdateCompanyProfile={onUpdateCompanyProfile}
+              navGuardRef={profileNavGuardRef}
             />
           ) : null}
 
@@ -2106,12 +2159,18 @@ function ProfilePanel({
   user,
   companyProfile,
   usage,
+  currentUserRole,
+  onUpdateMe,
   onUpdateCompanyProfile,
+  navGuardRef,
 }: {
   user: Props["user"];
   companyProfile: Props["companyProfile"];
   usage: Props["usage"];
+  currentUserRole: string | null;
+  onUpdateMe: Props["onUpdateMe"];
   onUpdateCompanyProfile: Props["onUpdateCompanyProfile"];
+  navGuardRef: MutableRefObject<((onGo: () => void) => void) | null>;
 }) {
   const companyName = companyProfile?.companyName ?? "Company not defined";
   const contactName = [companyProfile?.contactFirstName, companyProfile?.contactLastName]
@@ -2133,7 +2192,9 @@ function ProfilePanel({
   const [isEditingPrimaryContact, setIsEditingPrimaryContact] = useState(false);
   const [isCompanyDetailsOpen, setIsCompanyDetailsOpen] = useState(true);
   const [isInsuranceOpen, setIsInsuranceOpen] = useState(false);
-  const [isPrimaryContactOpen, setIsPrimaryContactOpen] = useState(false);
+  const [isPrimaryContactOpen, setIsPrimaryContactOpen] = useState(
+    currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL",
+  );
   const [isSavingCompanyDetails, setIsSavingCompanyDetails] = useState(false);
   const [isSavingInsurance, setIsSavingInsurance] = useState(false);
   const [isSavingPrimaryContact, setIsSavingPrimaryContact] = useState(false);
@@ -2171,6 +2232,40 @@ function ProfilePanel({
     contactCity: "",
     contactZipCode: "",
   });
+  const [userProfileForm, setUserProfileForm] = useState({
+    fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+    title: user?.title ?? "",
+    phone: user?.phone ?? "",
+    addressLine1: user?.addressLine1 ?? "",
+    addressLine2: user?.addressLine2 ?? "",
+    city: user?.city ?? "",
+    state: user?.state ?? "",
+    zipCode: user?.zipCode ?? "",
+  });
+  const [isEditingUserProfile, setIsEditingUserProfile] = useState(false);
+  const [isSavingUserProfile, setIsSavingUserProfile] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setUserProfileForm({
+      fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+      title: user?.title ?? "",
+      phone: formatUsPhone(user?.phone ?? ""),
+      addressLine1: user?.addressLine1 ?? "",
+      addressLine2: user?.addressLine2 ?? "",
+      city: user?.city ?? "",
+      state: user?.state ?? "",
+      zipCode: user?.zipCode ?? "",
+    });
+  }, [user?.firstName, user?.lastName, user?.title, user?.phone, user?.addressLine1, user?.addressLine2, user?.city, user?.state, user?.zipCode]);
+
+  useEffect(() => {
+    if (currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL") {
+      setIsPrimaryContactOpen(true);
+    }
+  }, [currentUserRole, user?.accountType]);
 
   useEffect(() => {
     setCompanyDetailsForm({
@@ -2208,6 +2303,61 @@ function ProfilePanel({
       contactZipCode: companyProfile?.contactZipCode ?? "",
     });
   }, [companyProfile]);
+
+  useEffect(() => {
+    navGuardRef.current = (onGo: () => void) => {
+      const isEditing = isEditingUserProfile || isEditingCompanyDetails || isEditingInsurance || isEditingPrimaryContact;
+      if (!isEditing) {
+        onGo();
+        return;
+      }
+
+      let dirty = false;
+      if (isEditingUserProfile) {
+        dirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
+      } else if (isEditingCompanyDetails) {
+        dirty = Object.keys(buildChangedProfilePayload(
+          { companyName: companyProfile?.companyName ?? "", legalName: companyProfile?.legalName ?? "", industry: companyProfile?.industry ?? "", licenseNumber: companyProfile?.licenseNumber ?? "", phone: formatUsPhone(companyProfile?.phone ?? ""), phone2: formatUsPhone(companyProfile?.phone2 ?? ""), email: companyProfile?.email ?? "", website: companyProfile?.website ?? "", addressLine1: companyProfile?.addressLine1 ?? "", state: companyProfile?.state ?? "", city: companyProfile?.city ?? "", zipCode: companyProfile?.zipCode ?? "" },
+          companyDetailsForm,
+        )).length > 0;
+      } else if (isEditingInsurance) {
+        dirty = Object.keys(buildChangedProfilePayload(
+          { insuranceName: companyProfile?.insuranceName ?? "", insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""), insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "" },
+          { insuranceName: insuranceForm.insuranceName, insurancePhone: formatUsPhone(insuranceForm.insurancePhone), insurancePolicyNumber: insuranceForm.insurancePolicyNumber },
+        )).length > 0;
+      } else if (isEditingPrimaryContact) {
+        dirty = Object.keys(buildChangedProfilePayload(
+          { contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(), contactTitle: companyProfile?.contactTitle ?? "", contactEmail: companyProfile?.contactEmail ?? "", contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""), contactAddressLine1: companyProfile?.contactAddressLine1 ?? "", contactState: companyProfile?.contactState ?? "", contactCity: companyProfile?.contactCity ?? "", contactZipCode: companyProfile?.contactZipCode ?? "" },
+          primaryContactForm,
+        )).length > 0;
+      }
+
+      if (!dirty) {
+        setIsEditingUserProfile(false);
+        setIsEditingCompanyDetails(false);
+        setIsEditingInsurance(false);
+        setIsEditingPrimaryContact(false);
+        onGo();
+        return;
+      }
+
+      setConfirmDialog({
+        title: "Unsaved changes",
+        message: "You have unsaved changes. Are you sure you want to leave without saving?",
+        onConfirm: () => {
+          setIsEditingUserProfile(false);
+          setIsEditingCompanyDetails(false);
+          setIsEditingInsurance(false);
+          setIsEditingPrimaryContact(false);
+          setConfirmDialog(null);
+          onGo();
+        },
+      });
+    };
+    return () => {
+      navGuardRef.current = null;
+    };
+  }, [isEditingUserProfile, isEditingCompanyDetails, isEditingInsurance, isEditingPrimaryContact, userProfileForm, companyDetailsForm, insuranceForm, primaryContactForm, companyProfile, user, navGuardRef]);
 
   async function saveCompanyDetails() {
     if (companyDetailsForm.email.trim() && !isValidEmail(companyDetailsForm.email)) {
@@ -2279,6 +2429,76 @@ function ProfilePanel({
       setProfileSuccessMessage("Changes saved successfully");
     } finally {
       setIsSavingInsurance(false);
+    }
+  }
+
+  async function handleAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      event.target.value = "";
+      return;
+    }
+
+    const maxFileSizeBytes = 3 * 1024 * 1024;
+    if (file.size > maxFileSizeBytes) {
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const avatarUrl = await resizeImageFileSquare(file, 512);
+      await onUpdateMe({ avatarUrl });
+      setProfileSuccessMessage("Changes saved successfully");
+    } finally {
+      setIsUploadingAvatar(false);
+      event.target.value = "";
+    }
+  }
+
+  function getUserProfileOriginal() {
+    return {
+      fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+      title: user?.title ?? "",
+      phone: user?.phone ?? "",
+      addressLine1: user?.addressLine1 ?? "",
+      addressLine2: user?.addressLine2 ?? "",
+      city: user?.city ?? "",
+      state: user?.state ?? "",
+      zipCode: user?.zipCode ?? "",
+    };
+  }
+
+  async function saveUserProfile() {
+    const changed = buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm);
+    if (Object.keys(changed).length === 0) {
+      setIsEditingUserProfile(false);
+      return;
+    }
+
+    const { firstName, lastName } = splitFullName(userProfileForm.fullName);
+
+    setIsSavingUserProfile(true);
+    try {
+      await onUpdateMe({
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        title: userProfileForm.title.trim() || undefined,
+        phone: userProfileForm.phone.trim() || undefined,
+        addressLine1: userProfileForm.addressLine1.trim() || undefined,
+        addressLine2: userProfileForm.addressLine2.trim() || undefined,
+        city: userProfileForm.city.trim() || undefined,
+        state: userProfileForm.state.trim() || undefined,
+        zipCode: userProfileForm.zipCode.trim() || undefined,
+      });
+      setIsEditingUserProfile(false);
+      setProfileSuccessMessage("Changes saved successfully");
+    } finally {
+      setIsSavingUserProfile(false);
     }
   }
 
@@ -2393,6 +2613,167 @@ function ProfilePanel({
       return next;
     });
   }
+
+  if (currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL") {
+    const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+    const initials = (() => {
+      if (user.firstName && user.lastName) {
+        return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+      }
+      if (user.firstName) {
+        return user.firstName.slice(0, 2).toUpperCase();
+      }
+      return user.email.slice(0, 2).toUpperCase();
+    })();
+
+    return (
+      <section className="grid gap-4">
+        {/* Error / success popups — identical to MASTER */}
+        {profileErrorMessage ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+            <button type="button" aria-label="Close error popup" className="absolute inset-0" onClick={() => setProfileErrorMessage("")} />
+            <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--danger-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
+              <div className="text-lg font-semibold text-[color:var(--text-primary)]">Validation error</div>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{profileErrorMessage}</p>
+              <div className="mt-5 flex justify-end">
+                <button type="button" onClick={() => setProfileErrorMessage("")} className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]">Close</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {profileSuccessMessage ? (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+            <button type="button" aria-label="Close success popup" className="absolute inset-0" onClick={() => setProfileSuccessMessage("")} />
+            <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--success-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
+              <div className="text-lg font-semibold text-[color:var(--text-primary)]">Saved</div>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{profileSuccessMessage}</p>
+              <div className="mt-5 flex justify-end">
+                <button type="button" onClick={() => setProfileSuccessMessage("")} className="rounded-xl bg-[color:var(--button-success)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-success-hover)]">Close</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Hero — same gradient/layout as MASTER, avatar circle with edit button */}
+        <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
+              <div className="relative h-24 w-24 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
+                  {user.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+                  ) : (
+                    <span>{initials}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => userAvatarInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-950"
+                  aria-label="Upload profile picture"
+                  title="Upload profile picture"
+                >
+                  {isUploadingAvatar ? (
+                    <span className="text-[10px] font-semibold">...</span>
+                  ) : (
+                    <Pencil className="h-4 w-4" />
+                  )}
+                </button>
+                <input
+                  ref={userAvatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(event) => void handleAvatarUpload(event)}
+                />
+              </div>
+              <div className="text-center sm:text-left">
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
+                  {displayName}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-white/88">{user.email}</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+                  <ProfileChip label={user.role} />
+                  {user.accountType ? <ProfileChip label={user.accountType.charAt(0) + user.accountType.slice(1).toLowerCase()} /> : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Personal info — same card, edit button and all fields identical to MASTER Primary Contact */}
+        <div className="grid gap-4">
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={togglePrimaryContactOpen}
+                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                aria-expanded={isPrimaryContactOpen}
+              >
+                <ChevronRight className={cn("h-4 w-4 transition-transform", isPrimaryContactOpen && "rotate-90")} />
+                <span>Personal info</span>
+              </button>
+              {isPrimaryContactOpen ? (
+                <ProfileEditActions
+                  isEditing={isEditingUserProfile}
+                  isSaving={isSavingUserProfile}
+                  onEdit={() => setIsEditingUserProfile(true)}
+                  onCancel={() => {
+                    const isDirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
+                    if (!isDirty) { setIsEditingUserProfile(false); setUserProfileForm(getUserProfileOriginal()); return; }
+                    setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingUserProfile(false); setUserProfileForm(getUserProfileOriginal()); } });
+                  }}
+                  onSave={() => void saveUserProfile()}
+                />
+              ) : null}
+            </div>
+            {isPrimaryContactOpen ? (isEditingUserProfile ? (
+              <div className="mt-4 grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={userProfileForm.fullName} onChange={(value) => setUserProfileForm((c) => ({ ...c, fullName: toTitleCase(value.replace(/\d/g, "")) }))} />
+                  <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={userProfileForm.title} onChange={(value) => setUserProfileForm((c) => ({ ...c, title: toTitleCase(value) }))} />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} onChange={() => {}} disabled={true} />
+                  <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={userProfileForm.phone} onChange={(value) => setUserProfileForm((c) => ({ ...c, phone: formatUsPhone(value) }))} />
+                </div>
+                <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={userProfileForm.addressLine1} onChange={(value) => setUserProfileForm((c) => ({ ...c, addressLine1: value }))} />
+                <div className="grid gap-3 md:grid-cols-3">
+                  <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={userProfileForm.city} onChange={(value) => setUserProfileForm((c) => ({ ...c, city: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                  <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={userProfileForm.state} onChange={(value) => setUserProfileForm((c) => ({ ...c, state: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                  <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP code" value={userProfileForm.zipCode} onChange={(value) => setUserProfileForm((c) => ({ ...c, zipCode: value }))} />
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={[user.firstName, user.lastName].filter(Boolean).join(" ")} />
+                  <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={user.title} />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} />
+                  <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(user.phone ?? "")} />
+                </div>
+                <DetailRow icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={user.addressLine1} />
+                {user.addressLine2 ? <DetailRow icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={user.addressLine2} /> : null}
+                <div className="grid gap-3 md:grid-cols-3">
+                  <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={user.state} />
+                  <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={user.city} />
+                  <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={user.zipCode} />
+                </div>
+              </div>
+            )) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Only MASTER gets the full company profile render below
 
   return (
     <section className="grid gap-4">
@@ -2526,8 +2907,7 @@ function ProfilePanel({
                 isSaving={isSavingCompanyDetails}
                 onEdit={() => setIsEditingCompanyDetails(true)}
                 onCancel={() => {
-                  setIsEditingCompanyDetails(false);
-                  setCompanyDetailsForm({
+                  const original = {
                     companyName: companyProfile?.companyName ?? "",
                     legalName: companyProfile?.legalName ?? "",
                     industry: companyProfile?.industry ?? "",
@@ -2541,7 +2921,10 @@ function ProfilePanel({
                     state: companyProfile?.state ?? "",
                     city: companyProfile?.city ?? "",
                     zipCode: companyProfile?.zipCode ?? "",
-                  });
+                  };
+                  const isDirty = Object.keys(buildChangedProfilePayload(original, companyDetailsForm)).length > 0;
+                  if (!isDirty) { setIsEditingCompanyDetails(false); setCompanyDetailsForm(original); return; }
+                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingCompanyDetails(false); setCompanyDetailsForm(original); } });
                 }}
                 onSave={() => void saveCompanyDetails()}
               />
@@ -2550,8 +2933,8 @@ function ProfilePanel({
           {isCompanyDetailsOpen ? (isEditingCompanyDetails ? (
             <div className="mt-5 grid gap-3">
               <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: value }))} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyDetailsForm.legalName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, legalName: value }))} />
+                <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: toTitleCase(value) }))} />
+                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyDetailsForm.legalName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, legalName: toTitleCase(value) }))} />
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <EditableField icon={<Factory className="h-4 w-4" />} label="Industry" value={companyDetailsForm.industry} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, industry: value }))} />
@@ -2566,11 +2949,10 @@ function ProfilePanel({
                 <EditableField icon={<Globe className="h-4 w-4" />} label="Website" value={companyDetailsForm.website} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, website: value }))} />
               </div>
               <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={companyDetailsForm.addressLine1} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine1: value }))} />
-              <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={companyDetailsForm.addressLine2} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine2: value }))} />
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={companyDetailsForm.state} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, state: value }))} />
-                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={companyDetailsForm.city} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, city: value }))} />
-                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyDetailsForm.zipCode} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, zipCode: value }))} />
+                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={companyDetailsForm.city} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, city: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={companyDetailsForm.state} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, state: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyDetailsForm.zipCode} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, zipCode: value.replace(/\D/g, "") }))} />
               </div>
             </div>
           ) : (
@@ -2604,8 +2986,8 @@ function ProfilePanel({
                 />
               ) : null}
               <div className="grid gap-3 md:grid-cols-3">
-                <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.state ?? ""} />
                 <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.city ?? ""} />
+                <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.state ?? ""} />
                 <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyProfile?.zipCode ?? ""} />
               </div>
             </div>
@@ -2629,12 +3011,19 @@ function ProfilePanel({
                 isSaving={isSavingInsurance}
                 onEdit={() => setIsEditingInsurance(true)}
                 onCancel={() => {
-                  setIsEditingInsurance(false);
-                  setInsuranceForm({
+                  const original = {
                     insuranceName: companyProfile?.insuranceName ?? "",
                     insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""),
                     insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "",
-                  });
+                  };
+                  const current = {
+                    insuranceName: insuranceForm.insuranceName,
+                    insurancePhone: formatUsPhone(insuranceForm.insurancePhone),
+                    insurancePolicyNumber: insuranceForm.insurancePolicyNumber,
+                  };
+                  const isDirty = Object.keys(buildChangedProfilePayload(original, current)).length > 0;
+                  if (!isDirty) { setIsEditingInsurance(false); setInsuranceForm(original); return; }
+                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingInsurance(false); setInsuranceForm(original); } });
                 }}
                 onSave={() => void saveInsurance()}
               />
@@ -2642,7 +3031,7 @@ function ProfilePanel({
           </div>
           {isInsuranceOpen ? (isEditingInsurance ? (
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <EditableField icon={<ShieldCheck className="h-4 w-4" />} label="Insurance name" value={insuranceForm.insuranceName} onChange={(value) => setInsuranceForm((current) => ({ ...current, insuranceName: value }))} />
+              <EditableField icon={<ShieldCheck className="h-4 w-4" />} label="Insurance name" value={insuranceForm.insuranceName} onChange={(value) => setInsuranceForm((current) => ({ ...current, insuranceName: toTitleCase(value) }))} />
               <EditableField icon={<Phone className="h-4 w-4" />} label="Insurance phone" value={insuranceForm.insurancePhone} onChange={(value) => setInsuranceForm((current) => ({ ...current, insurancePhone: formatUsPhone(value) }))} />
               <EditableField icon={<FileText className="h-4 w-4" />} label="Policy number" value={insuranceForm.insurancePolicyNumber} onChange={(value) => setInsuranceForm((current) => ({ ...current, insurancePolicyNumber: value }))} />
             </div>
@@ -2672,8 +3061,7 @@ function ProfilePanel({
                 isSaving={isSavingPrimaryContact}
                 onEdit={() => setIsEditingPrimaryContact(true)}
                 onCancel={() => {
-                  setIsEditingPrimaryContact(false);
-                  setPrimaryContactForm({
+                  const original = {
                     contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
                       .filter(Boolean)
                       .join(" ")
@@ -2686,7 +3074,10 @@ function ProfilePanel({
                     contactState: companyProfile?.contactState ?? "",
                     contactCity: companyProfile?.contactCity ?? "",
                     contactZipCode: companyProfile?.contactZipCode ?? "",
-                  });
+                  };
+                  const isDirty = Object.keys(buildChangedProfilePayload(original, primaryContactForm)).length > 0;
+                  if (!isDirty) { setIsEditingPrimaryContact(false); setPrimaryContactForm(original); return; }
+                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingPrimaryContact(false); setPrimaryContactForm(original); } });
                 }}
                 onSave={() => void savePrimaryContact()}
               />
@@ -2694,18 +3085,17 @@ function ProfilePanel({
           </div>
           {isPrimaryContactOpen ? (isEditingPrimaryContact ? (
             <div className="mt-4 grid gap-3">
-              <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: value }))} />
-              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: value }))} />
+              <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: toTitleCase(value) }))} />
               <div className="grid gap-3 md:grid-cols-2">
                 <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactEmail: value }))} />
                 <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactPhone: formatUsPhone(value) }))} />
               </div>
               <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine1: value }))} />
-              <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={primaryContactForm.contactAddressLine2} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine2: value }))} />
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: value }))} />
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: value }))} />
-                <EditableField icon={<MapPinned className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value }))} />
+                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
+                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value.replace(/\D/g, "") }))} />
               </div>
             </div>
           ) : (
@@ -2731,14 +3121,38 @@ function ProfilePanel({
                 />
               ) : null}
               <div className="grid gap-3 md:grid-cols-3">
-                <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? ""} />
                 <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.contactCity ?? ""} />
+                <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? ""} />
                 <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? ""} />
               </div>
             </div>
           )) : null}
         </div>
       </div>
+      {confirmDialog ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
+            <div className="text-lg font-semibold text-slate-950 dark:text-white">{confirmDialog.title}</div>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{confirmDialog.message}</p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmDialog(null)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={confirmDialog.onConfirm}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -2765,58 +3179,13 @@ function CreateDraftDrawer({
   onOpenDocumentView: (documentId: string) => void;
 }) {
   const drawerScrollRef = useRef<HTMLElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"client" | "project" | "pricing" | "others">("client");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
-  const [draftValidationMessage, setDraftValidationMessage] = useState("");
-  const [draftFieldErrors, setDraftFieldErrors] = useState<Record<string, string>>({});
-  const [sameProjectAddressAsCustomer, setSameProjectAddressAsCustomer] = useState(true);
-  const [financeEnabled, setFinanceEnabled] = useState(false);
   const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState("");
   const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [contractDate, setContractDate] = useState("");
-  const [fields, setFields] = useState<Record<string, string>>({
-    customer_name: "",
-    customer_age: "",
-    customer_phone: "",
-    customer_email: "",
-    customer_fax: "",
-    customer_address: "",
-    city: "",
-    state: "",
-    zip: "",
-    project_address: "",
-    project_city: "",
-    project_state: "",
-    project_zip: "",
-    start_date: "",
-    estimated_completion_date: "",
-    project_name: "",
-    project_description: "",
-    contract_scope: "",
-    salesman_full_name: "",
-    state_registration_number: "",
-    warranty_years: "",
-    contract_amount: "",
-    down_payment_amount: "",
-    finance_charge: "",
-    finance_1_amount: "",
-    finance_1_description: "",
-    finance_1_date: "",
-    finance_2_amount: "",
-    finance_2_description: "",
-    finance_2_date: "",
-    finance_3_amount: "",
-    finance_3_description: "",
-    finance_3_date: "",
-    finance_4_amount: "",
-    finance_4_description: "",
-    finance_4_date: "",
-    payment_schedule: "",
-    notes: "",
-  });
 
   useEffect(() => {
     if (!open) return;
@@ -2824,24 +3193,13 @@ function CreateDraftDrawer({
     const persistedState =
       readSessionJson<PersistedCreateDraftState>(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
 
-    if (!persistedState) {
-      return;
-    }
+    if (!persistedState) return;
 
-    setActiveTab(persistedState.activeTab ?? "client");
     setIsSetupOpen(persistedState.isSetupOpen ?? false);
-    setSameProjectAddressAsCustomer(
-      persistedState.sameProjectAddressAsCustomer ?? true,
-    );
-    setFinanceEnabled(persistedState.financeEnabled ?? false);
     setSelectedDocumentTypeId(persistedState.selectedDocumentTypeId ?? "");
     setSelectedFormDefinitionId(persistedState.selectedFormDefinitionId ?? "");
     setSelectedTemplateId(persistedState.selectedTemplateId ?? "");
     setContractDate(persistedState.contractDate ?? "");
-    setFields((current) => ({
-      ...current,
-      ...(persistedState.fields ?? {}),
-    }));
   }, [open]);
 
   useEffect(() => {
@@ -2862,14 +3220,6 @@ function CreateDraftDrawer({
   useEffect(() => {
     setContractDate((current) => current || toDateInputValue(new Date().toISOString()));
   }, []);
-
-  useEffect(() => {
-    if (fields.customer_address.trim()) {
-      setSameProjectAddressAsCustomer(true);
-    } else {
-      setSameProjectAddressAsCustomer(false);
-    }
-  }, [fields.customer_address]);
 
   useEffect(() => {
     if (!open) return;
@@ -2895,135 +3245,20 @@ function CreateDraftDrawer({
     if (!open) return;
 
     writeSessionJson(DOCUMENTS_CREATE_DRAFT_STATE_KEY, {
-      activeTab,
       isSetupOpen,
-      sameProjectAddressAsCustomer,
-      financeEnabled,
       selectedDocumentTypeId,
       selectedFormDefinitionId,
       selectedTemplateId,
       contractDate,
-      fields,
     } satisfies PersistedCreateDraftState);
   }, [
-    activeTab,
     contractDate,
-    fields,
-    financeEnabled,
     isSetupOpen,
     open,
-    sameProjectAddressAsCustomer,
     selectedDocumentTypeId,
     selectedFormDefinitionId,
     selectedTemplateId,
   ]);
-
-  const todayDate = toDateInputValue(new Date().toISOString());
-  const hasClientAddress = Boolean(fields.customer_address.trim());
-
-  function getCreateDraftFieldErrors(tab: "client" | "project" | "pricing" | "others") {
-    const errors: Record<string, string> = {};
-
-    if (tab === "client") {
-      if (!fields.customer_name.trim()) errors.customer_name = "Customer name required";
-      if (!fields.customer_age.trim()) {
-        errors.customer_age = "Age required";
-      } else if (Number(fields.customer_age) < 21) {
-        errors.customer_age = "Must be 21 or older";
-      }
-      if (!fields.customer_email.trim()) {
-        errors.customer_email = "Email required";
-      } else if (!isValidEmail(fields.customer_email.trim())) {
-        errors.customer_email = "Enter a valid email";
-      }
-    }
-
-    if (tab === "project") {
-      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_address.trim()) {
-        errors.project_address = "Project address required";
-      }
-      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_city.trim()) {
-        errors.project_city = "City required";
-      }
-      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_state.trim()) {
-        errors.project_state = "State required";
-      }
-      if ((!sameProjectAddressAsCustomer || !hasClientAddress) && !fields.project_zip.trim()) {
-        errors.project_zip = "Zip code required";
-      }
-      if (!fields.start_date) {
-        errors.start_date = "Start date required";
-      } else if (fields.start_date < todayDate) {
-        errors.start_date = "Only today or future dates";
-      }
-      if (fields.estimated_completion_date && fields.start_date && fields.estimated_completion_date < fields.start_date) {
-        errors.estimated_completion_date = "Must be after start date";
-      }
-    }
-
-    if (tab === "pricing") {
-      if (!fields.contract_amount.trim()) {
-        errors.contract_amount = "Contract price required";
-      }
-    }
-
-    return errors;
-  }
-
-  function getCreateDraftTabError(tab: "client" | "project" | "pricing" | "others") {
-    const errors = getCreateDraftFieldErrors(tab);
-    return Object.keys(errors).length > 0 ? "Complete the required fields to continue." : null;
-  }
-
-  function canAccessCreateDraftTab(tab: "client" | "project" | "pricing" | "others") {
-    if (tab === "client") return true;
-    if (tab === "project") return Object.keys(getCreateDraftFieldErrors("client")).length === 0;
-    if (tab === "pricing") {
-      return (
-        Object.keys(getCreateDraftFieldErrors("client")).length === 0 &&
-        Object.keys(getCreateDraftFieldErrors("project")).length === 0
-      );
-    }
-
-    return (
-      Object.keys(getCreateDraftFieldErrors("client")).length === 0 &&
-      Object.keys(getCreateDraftFieldErrors("project")).length === 0 &&
-      Object.keys(getCreateDraftFieldErrors("pricing")).length === 0
-    );
-  }
-
-  useEffect(() => {
-    if (!open) return;
-
-    const projectAccessible = canAccessCreateDraftTab("project");
-    const pricingAccessible = canAccessCreateDraftTab("pricing");
-    const othersAccessible = canAccessCreateDraftTab("others");
-
-    const nextTab =
-      activeTab === "others"
-        ? othersAccessible
-          ? "others"
-          : pricingAccessible
-            ? "pricing"
-            : projectAccessible
-              ? "project"
-              : "client"
-        : activeTab === "pricing"
-          ? pricingAccessible
-            ? "pricing"
-            : projectAccessible
-              ? "project"
-              : "client"
-          : activeTab === "project"
-            ? projectAccessible
-              ? "project"
-              : "client"
-            : "client";
-
-    if (nextTab !== activeTab) {
-      setActiveTab(nextTab);
-    }
-  }, [activeTab, fields, open, sameProjectAddressAsCustomer]);
 
   if (!open) {
     return null;
@@ -3034,41 +3269,54 @@ function CreateDraftDrawer({
     setConfirmCloseOpen(true);
   }
 
-  function handleNextTab() {
-    const fieldErrors = getCreateDraftFieldErrors(activeTab);
-    const validationError = getCreateDraftTabError(activeTab);
-
-    if (validationError) {
-      setDraftFieldErrors((current) => ({ ...current, ...fieldErrors }));
-      setDraftValidationMessage(validationError);
-      return;
-    }
-
-    setDraftFieldErrors({});
-    setDraftValidationMessage("");
-    setActiveTab((current) =>
-      current === "client"
-        ? "project"
-        : current === "project"
-          ? "pricing"
-          : "others",
-    );
-  }
-
-  async function handleSubmit() {
+  async function handleRendererSubmit(dataJson: Record<string, string>) {
     if (!selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) {
       return;
     }
 
-    const clientErrors = getCreateDraftFieldErrors("client");
-    const projectErrors = getCreateDraftFieldErrors("project");
-    const pricingErrors = getCreateDraftFieldErrors("pricing");
-    const validationError = getCreateDraftTabError("client") ?? getCreateDraftTabError("project") ?? getCreateDraftTabError("pricing");
-    if (validationError) {
-      setDraftFieldErrors({ ...clientErrors, ...projectErrors, ...pricingErrors });
-      setDraftValidationMessage(validationError);
-      return;
-    }
+    // Helper: "City, ST ZIP" — same format used in BoldSign concatenated fields
+    const formatCityStateZip = (city?: string | null, state?: string | null, zip?: string | null) => {
+      const parts = [city?.trim(), state?.trim()].filter(Boolean).join(", ");
+      return [parts, zip?.trim()].filter(Boolean).join(" ");
+    };
+
+    // Inject company-profile static fields (not entered by user in the form)
+    const contactName = [companyProfile?.contactFirstName, companyProfile?.contactLastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    const finalDataJson: Record<string, string> = {
+      ...dataJson,
+      // Concatenated city/state/zip from form data (BoldSign uses single merged field)
+      customer_city_state_zip: formatCityStateZip(dataJson.city, dataJson.state, dataJson.zip),
+      project_city_state_zip: formatCityStateZip(dataJson.project_city, dataJson.project_state, dataJson.project_zip),
+      // Company
+      license_number: companyProfile?.licenseNumber?.trim() ?? "",
+      // Insurance
+      insurance_name: companyProfile?.insuranceName?.trim() ?? "",
+      insurance_phone: companyProfile?.insurancePhone ?? "",
+      insurance_policy_number: companyProfile?.insurancePolicyNumber?.trim() ?? "",
+      // Director (primary contact of the company)
+      director_name: contactName,
+      director_email: companyProfile?.contactEmail ?? "",
+      director_phone: companyProfile?.contactPhone ?? "",
+      director_address: companyProfile?.contactAddressLine1?.trim() ?? "",
+      director_contract_address: companyProfile?.contactAddressLine1?.trim() ?? "",
+      director_city_state_zip: formatCityStateZip(
+        companyProfile?.contactCity,
+        companyProfile?.contactState,
+        companyProfile?.contactZipCode,
+      ),
+      // Fund holder (the company itself)
+      fund_holder_name: companyProfile?.companyName?.trim() ?? "",
+      fund_holder_phone: companyProfile?.phone ?? "",
+      fund_holder_city_state_zip: formatCityStateZip(
+        companyProfile?.city,
+        companyProfile?.state,
+        companyProfile?.zipCode,
+      ),
+    };
 
     setIsSubmitting(true);
     try {
@@ -3077,12 +3325,7 @@ function CreateDraftDrawer({
         formDefinitionId: selectedFormDefinitionId,
         signatureTemplateId: selectedTemplateId,
         contractDate,
-        dataJson: buildCreateDraftPayload(
-          fields,
-          sameProjectAddressAsCustomer,
-          financeEnabled,
-          companyProfile,
-        ),
+        dataJson: finalDataJson,
       });
 
       onClose();
@@ -3173,211 +3416,34 @@ function CreateDraftDrawer({
           </div>
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { key: "client", label: "Client" },
-              { key: "project", label: "Project" },
-              { key: "pricing", label: "Pricing" },
-              { key: "others", label: "Others" },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => {
-                  const nextTab = tab.key as "client" | "project" | "pricing" | "others";
-                  if (!canAccessCreateDraftTab(nextTab)) return;
-                  setActiveTab(nextTab);
-                }}
-                disabled={!canAccessCreateDraftTab(tab.key as "client" | "project" | "pricing" | "others")}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
-                  activeTab === tab.key
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
-                  !canAccessCreateDraftTab(tab.key as "client" | "project" | "pricing" | "others") && "cursor-not-allowed opacity-45 hover:bg-slate-50 dark:hover:bg-white/[0.04]",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {(() => {
+          const selectedFormDef = selectedDocumentType?.formDefinitions.find(
+            (f) => f.id === selectedFormDefinitionId,
+          );
+          const schema = selectedFormDef?.schemaJson as DocumentSchema | undefined;
+          if (!schema?.sections?.length) {
+            return (
+              <div className="px-5 py-8 text-center text-sm text-[color:var(--text-muted)]">
+                No form schema configured for this document type.
+              </div>
+            );
+          }
+          return (
+            <DocumentFormRenderer
+              schema={schema}
+              onSubmit={handleRendererSubmit}
+              onCancel={requestClose}
+              isSubmitting={isSubmitting}
+              canSubmit={
+                !!selectedDocumentTypeId &&
+                !!selectedFormDefinitionId &&
+                !!selectedTemplateId &&
+                !!contractDate
+              }
+            />
+          );
+        })()}
 
-        <div className="px-5 py-5">
-          {activeTab === "client" ? (
-            <div className="grid gap-3">
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-                <EditableField icon={<UserRound className="h-4 w-4" />} label="Customer name" value={fields.customer_name} placeholder="Full name" error={draftFieldErrors.customer_name} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_name: "" })); setFields((current) => ({ ...current, customer_name: toTitleCase(value) })); }} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Age" value={fields.customer_age} placeholder="35" error={draftFieldErrors.customer_age} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_age: "" })); setFields((current) => ({ ...current, customer_age: value.replace(/\D/g, "").slice(0, 3) })); }} />
-              </div>
-              <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={fields.customer_email} placeholder="Email address" error={draftFieldErrors.customer_email} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, customer_email: "" })); setFields((current) => ({ ...current, customer_email: value })); }} />
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={fields.customer_phone} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_phone: formatUsPhone(value) }))} />
-                <EditableField icon={<ScanText className="h-4 w-4" />} label="Fax" value={fields.customer_fax} placeholder="(555) 123-4567" onChange={(value) => setFields((current) => ({ ...current, customer_fax: formatUsPhone(value) }))} />
-              </div>
-              <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address" value={fields.customer_address} placeholder="Street address" onChange={(value) => setFields((current) => ({ ...current, customer_address: value }))} />
-              <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={fields.city} placeholder="City" onChange={(value) => setFields((current) => ({ ...current, city: value }))} />
-                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={fields.state} placeholder="State" onChange={(value) => setFields((current) => ({ ...current, state: value }))} />
-                <EditableField icon={<Pin className="h-4 w-4" />} label="Zip code" value={fields.zip} placeholder="Zip code" onChange={(value) => setFields((current) => ({ ...current, zip: value }))} />
-              </div>
-            </div>
-          ) : activeTab === "project" ? (
-            <div className="grid gap-3">
-              <label className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)]">
-                <input
-                  type="checkbox"
-                  checked={sameProjectAddressAsCustomer}
-                  onChange={(event) => setSameProjectAddressAsCustomer(event.target.checked)}
-                  disabled={!hasClientAddress}
-                  className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--brand-accent)] focus:ring-[color:var(--focus-ring)]"
-                />
-                <span>Same as client address</span>
-              </label>
-              {!sameProjectAddressAsCustomer ? (
-                <>
-                  <EditableField icon={<MapPlus className="h-4 w-4" />} label="Project address" value={fields.project_address} placeholder="Project address" error={draftFieldErrors.project_address} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_address: "" })); setFields((current) => ({ ...current, project_address: value })); }} />
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={fields.project_city} placeholder="City" error={draftFieldErrors.project_city} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_city: "" })); setFields((current) => ({ ...current, project_city: value })); }} />
-                    <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={fields.project_state} placeholder="State" error={draftFieldErrors.project_state} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_state: "" })); setFields((current) => ({ ...current, project_state: value })); }} />
-                    <EditableField icon={<Pin className="h-4 w-4" />} label="Zip code" value={fields.project_zip} placeholder="Zip code" error={draftFieldErrors.project_zip} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, project_zip: "" })); setFields((current) => ({ ...current, project_zip: value })); }} />
-                  </div>
-                </>
-              ) : null}
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<ScanText className="h-4 w-4" />} type="date" label="Start date" value={fields.start_date} min={todayDate} error={draftFieldErrors.start_date} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, start_date: "", estimated_completion_date: "" })); setFields((current) => ({ ...current, start_date: value })); }} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} type="date" label="Estimated completion date" value={fields.estimated_completion_date} min={fields.start_date || todayDate} error={draftFieldErrors.estimated_completion_date} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, estimated_completion_date: "" })); setFields((current) => ({ ...current, estimated_completion_date: value })); }} />
-              </div>
-              <EditableField icon={<FileText className="h-4 w-4" />} type="textarea" label="Project description" value={fields.project_description} placeholder="Project description" onChange={(value) => setFields((current) => ({ ...current, project_description: value }))} />
-              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Internal notes (only you can see this, your customer will not)" value={fields.contract_scope} placeholder="Add internal notes" onChange={(value) => setFields((current) => ({ ...current, contract_scope: value }))} />
-            </div>
-          ) : activeTab === "pricing" ? (
-            <div className="grid gap-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <CurrencyField icon={<WalletCards className="h-4 w-4" />} label="Contract price" value={fields.contract_amount} placeholder="12000.00" error={draftFieldErrors.contract_amount} onChange={(value) => { setDraftFieldErrors((current) => ({ ...current, contract_amount: "" })); setFields((current) => ({ ...current, contract_amount: formatCurrencyInput(value) })); }} />
-                <CurrencyField icon={<Download className="h-4 w-4" />} label="Down payment" value={fields.down_payment_amount} placeholder="2500.00" onChange={(value) => setFields((current) => ({ ...current, down_payment_amount: formatCurrencyInput(value) }))} />
-              </div>
-              <label className="inline-flex items-center gap-3 rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)]">
-                <input
-                  type="checkbox"
-                  checked={financeEnabled}
-                  onChange={(event) => setFinanceEnabled(event.target.checked)}
-                  className="h-4 w-4 rounded border-[color:var(--border)] text-[color:var(--brand-accent)] focus:ring-[color:var(--focus-ring)]"
-                />
-                <span>Finance</span>
-              </label>
-              {financeEnabled ? (
-                <>
-                  <CurrencyField icon={<CreditCard className="h-4 w-4" />} label="Finance charge" value={fields.finance_charge} placeholder="350.00" onChange={(value) => setFields((current) => ({ ...current, finance_charge: formatCurrencyInput(value) }))} />
-                  {[1, 2, 3, 4].map((row) => (
-                    <div key={`finance-row-${row}`} className="grid gap-3 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_180px]">
-                      <CurrencyField
-                        icon={<WalletCards className="h-4 w-4" />}
-                        label={`Finance ${row}`}
-                        value={fields[`finance_${row}_amount`]}
-                        placeholder="1000.00"
-                        onChange={(value) =>
-                          setFields((current) => ({
-                            ...current,
-                            [`finance_${row}_amount`]: formatCurrencyInput(value),
-                          }))
-                        }
-                      />
-                      <EditableField
-                        icon={<FileText className="h-4 w-4" />}
-                        label="Description"
-                        value={fields[`finance_${row}_description`]}
-                        placeholder="Description"
-                        onChange={(value) =>
-                          setFields((current) => ({
-                            ...current,
-                            [`finance_${row}_description`]: value,
-                          }))
-                        }
-                      />
-                      <EditableField
-                        icon={<ScanText className="h-4 w-4" />}
-                        type="date"
-                        label="Date"
-                        value={fields[`finance_${row}_date`]}
-                        onChange={(value) =>
-                          setFields((current) => ({
-                            ...current,
-                            [`finance_${row}_date`]: value,
-                          }))
-                        }
-                      />
-                    </div>
-                  ))}
-                </>
-              ) : null}
-              <EditableField icon={<WalletCards className="h-4 w-4" />} label="Payment schedule" value={fields.payment_schedule} placeholder="Payment schedule" onChange={(value) => setFields((current) => ({ ...current, payment_schedule: value }))} />
-            </div>
-          ) : activeTab === "others" ? (
-            <div className="grid gap-3">
-              <EditableField
-                icon={<UserRound className="h-4 w-4" />}
-                label="Salesman who solicited or negotiated contract"
-                value={fields.salesman_full_name}
-                placeholder="Full name"
-                onChange={(value) => setFields((current) => ({ ...current, salesman_full_name: value }))}
-              />
-              <EditableField
-                icon={<Landmark className="h-4 w-4" />}
-                label="State registration number"
-                value={fields.state_registration_number}
-                placeholder="Registration number"
-                onChange={(value) => setFields((current) => ({ ...current, state_registration_number: value }))}
-              />
-              <EditableField
-                icon={<BadgeCheck className="h-4 w-4" />}
-                label="Warranty year(s)"
-                value={fields.warranty_years}
-                placeholder="10"
-                onChange={(value) => setFields((current) => ({ ...current, warranty_years: value.replace(/\D/g, "").slice(0, 3) }))}
-              />
-            </div>
-          ) : null}
-        </div>
-
-        <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
-          {draftValidationMessage ? (
-            <div className="mb-3 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
-              {draftValidationMessage}
-            </div>
-          ) : null}
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={requestClose}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
-            >
-              Cancel
-            </button>
-            {activeTab === "others" ? (
-              <button
-                type="button"
-                onClick={() => void handleSubmit()}
-                disabled={isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate}
-                className={cn(
-                  "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
-                  (isSubmitting || !selectedDocumentTypeId || !selectedFormDefinitionId || !selectedTemplateId || !contractDate) && "cursor-not-allowed opacity-60",
-                )}
-              >
-                {isSubmitting ? "Creating..." : "Create draft"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleNextTab}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
-                Continue
-              </button>
-            )}
-          </div>
-        </div>
       </aside>
       {confirmCloseOpen ? (
         <div className="absolute inset-0 z-[60] flex min-h-full items-center justify-center bg-slate-950/30 p-4">
@@ -4162,8 +4228,11 @@ function InfoCard({
   onAction?: () => void;
 }) {
   return (
-    <div className={cn("rounded-[1.5rem] border p-4 shadow-[var(--shadow-soft)]", accent ? "border-[color:var(--border)] bg-[linear-gradient(135deg,var(--badge-primary-bg)_0%,var(--bg-surface-strong)_100%)]" : "border-[color:var(--border)] bg-[color:var(--bg-elevated)]/85")}>
-      <div className="flex items-start justify-between gap-3">
+    <div className={cn(
+      "rounded-[1.5rem] border p-2.5 shadow-[var(--shadow-soft)] xl:p-4",
+      accent ? "border-[color:var(--border)] bg-[linear-gradient(135deg,var(--badge-primary-bg)_0%,var(--bg-surface-strong)_100%)]" : "border-[color:var(--border)] bg-[color:var(--bg-elevated)]/85",
+    )}>
+      <div className="flex items-center justify-between gap-2">
         <div className={cn("text-[11px] font-semibold uppercase tracking-[0.28em]", accent ? "text-[color:var(--brand-accent-strong)]" : "text-[color:var(--text-muted)]")}>{label}</div>
         {actionLabel && onAction ? (
           <button
@@ -4175,8 +4244,8 @@ function InfoCard({
           </button>
         ) : null}
       </div>
-      <div className="mt-3 text-sm font-semibold text-[color:var(--text-primary)]">{title}</div>
-      <div className="mt-1 text-xs text-[color:var(--text-secondary)]">{subtitle}</div>
+      <div className="mt-1 text-xs font-semibold text-[color:var(--text-primary)] xl:mt-3 xl:text-sm">{title}</div>
+      <div className="mt-0.5 text-[10px] text-[color:var(--text-secondary)] xl:mt-1 xl:text-xs">{subtitle}</div>
     </div>
   );
 }
@@ -4185,7 +4254,7 @@ function StatPill({ label, value }: { label: string; value: string }) {
   return <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">{label}</div><div className="mt-3 text-sm font-medium leading-5 text-[color:var(--text-primary)]">{value}</div></div>;
 }
 
-function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value?: string | null }) {
   return <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"><div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]"><span className="text-[color:var(--text-muted)]">{icon}</span>{label}</div><div className="mt-3 text-sm font-medium leading-5 text-[color:var(--text-primary)]">{value}</div></div>;
 }
 
@@ -5086,38 +5155,6 @@ function formatFieldValue(value: unknown) {
   return JSON.stringify(value);
 }
 
-function buildCreateDraftPayload(
-  fields: Record<string, string>,
-  sameProjectAddressAsCustomer = false,
-  financeEnabled = false,
-  companyProfile: Props["companyProfile"] = null,
-) {
-  const nextFields = { ...fields };
-  nextFields.insurance_name = companyProfile?.insuranceName?.trim() ?? "";
-  nextFields.insurance_phone = formatUsPhone(companyProfile?.insurancePhone ?? "");
-  nextFields.insurance_policy_number =
-    companyProfile?.insurancePolicyNumber?.trim() ?? "";
-
-  if (sameProjectAddressAsCustomer) {
-    nextFields.project_address = fields.customer_address;
-    nextFields.project_city = fields.city;
-    nextFields.project_state = fields.state;
-    nextFields.project_zip = fields.zip;
-  }
-
-  if (!financeEnabled) {
-    nextFields.finance_charge = "";
-    for (const row of [1, 2, 3, 4]) {
-      nextFields[`finance_${row}_amount`] = "";
-      nextFields[`finance_${row}_description`] = "";
-      nextFields[`finance_${row}_date`] = "";
-    }
-  }
-
-  return Object.fromEntries(
-    Object.entries(nextFields).filter(([, value]) => value.trim() !== ""),
-  );
-}
 
 function toDateInputValue(value?: string | null) {
   if (!value) return "";
@@ -5341,6 +5378,28 @@ async function resizeImageFile(file: File, maxDimension: number) {
   }
 
   context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/webp", 0.88);
+}
+
+async function resizeImageFileSquare(file: File, size: number) {
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImageElement(source);
+
+  // Center-crop to square, then scale to target size
+  const cropSize = Math.min(image.width, image.height);
+  const srcX = Math.floor((image.width - cropSize) / 2);
+  const srcY = Math.floor((image.height - cropSize) / 2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return source;
+  }
+
+  context.drawImage(image, srcX, srcY, cropSize, cropSize, 0, 0, size, size);
   return canvas.toDataURL("image/webp", 0.88);
 }
 

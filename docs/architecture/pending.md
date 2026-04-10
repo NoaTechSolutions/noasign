@@ -1,6 +1,6 @@
 # NTSsign — Pending Work
 
-Last updated: 2026-04-04
+Last updated: 2026-04-07
 
 Tracking system: **Linear** (project NTSSign, team NoaTechSolutions). Issues referenced as NOA-XX.
 
@@ -20,6 +20,28 @@ Tracking system: **Linear** (project NTSSign, team NoaTechSolutions). Issues ref
 | Auditar variables de entorno sensibles antes de prod | NOA-13 | Pendiente |
 | Agregar endpoint /health al backend | NOA-16 | Pendiente |
 | Fix: BOLDSIGN_WEBHOOK_SECRET sin validación de presencia | NOA-32 | Pendiente |
+
+---
+
+## Epic NOA-46 — Schema-Driven Document Forms
+
+Replaces hardcoded form fields with a fully dynamic, schema-based system. Enables onboarding any new client without code changes. See [schema-driven-forms.md](schema-driven-forms.md) for full spec.
+
+| Item | Linear | Tipo | Prioridad | Notas |
+|------|--------|------|-----------|-------|
+| DB migration: `schemaJson Json?` en `FormDefinition` | NOA-47 | Task | Urgent | Prisma migration + `prisma generate` |
+| Backend: exponer `schemaJson` en `/documents/types` | NOA-48 | Task | Urgent | Agregar campo al select del endpoint |
+| Backend: admin endpoints FormDefinition CRUD | NOA-49 | Feature | High | POST/GET/PATCH/DELETE `/admin/form-definitions` |
+| Backend: admin endpoints SignatureTemplate CRUD | NOA-50 | Feature | High | POST/GET/PATCH/DELETE `/admin/signature-templates` |
+| Backend: admin endpoint UserDocumentConfig assignment | NOA-51 | Feature | High | POST/DELETE `/admin/users/:id/document-configs` |
+| Frontend: Dynamic document form renderer | NOA-52 | Feature | Urgent | Reemplaza form hardcodeado. Lee `schemaJson`, renderiza campos por `type` |
+| Frontend: Admin panel — FormDefinition manager | NOA-53 | Feature | High | Editor JSON + preview de campos. Solo visible para MASTER global |
+| Frontend: Admin panel — SignatureTemplate manager | NOA-54 | Feature | High | Crear/editar templates con providerTemplateId + fieldMappingJson |
+| Frontend: Admin panel — UserDocumentConfig assignments | NOA-55 | Feature | High | Asignar form+template a cada usuario por tipo de documento |
+
+**Dependencias:** NOA-52 bloquea el lanzamiento. NOA-47 y NOA-48 son prerequisitos de NOA-52. NOA-49/50/51 son prerequisitos del panel admin (NOA-53/54/55).
+
+**Nota sobre NOA-41:** El item "Document Templates" del roadmap queda absorbido por este epic. NOA-41 se puede cerrar o redirigir a NOA-46.
 
 ---
 
@@ -75,14 +97,41 @@ No bloquea el B2B inicial pero necesario antes de escalar.
 
 ---
 
-## Ideas de Producto (Futuro)
+## Roadmap de Producto
+
+Ordenado por prioridad e impacto en competitividad. Las primeras tres features forman el núcleo diferenciador.
+
+### Fase A — Núcleo CRM (base de todo lo demás)
+
+| Item | Linear | Notes |
+|------|--------|-------|
+| Customer Management — CRM-lite de contactos | NOA-40 | CRUD de clientes, pre-fill en wizard, historial por cliente |
+| Document Templates — plantillas reutilizables | NOA-41 | Asocia BoldSign template ID, flujo de 3 clicks |
+| Recordatorios automáticos de firma pendiente | NOA-42 | Cron job + BoldSign reminder API, configurable por workspace |
+
+### Fase B — Escala y diferenciación
+
+| Item | Linear | Notes |
+|------|--------|-------|
+| Bulk Send — envío masivo a múltiples clientes | NOA-43 | Requiere NOA-40 + NOA-41. N documentos en una operación |
+| Multi-signer — firmantes múltiples con orden | NOA-44 | Secuencial o paralelo. BoldSign ya lo soporta |
+| Landing page pública NTSsign | NOA-39 | Value prop, brand, responsive, dark/light mode |
+
+### Fase C — Experiencia avanzada
 
 | Item | Linear | Notes |
 |------|--------|-------|
 | Portal de firma white-label por tenant | NOA-34 | Logo, colores, dominio propio para el firmante |
-| Notificaciones por email nativos | NOA-35 | Recordatorios de vencimiento, avisos al owner |
+| Organización de documentos — carpetas/proyectos | NOA-45 | Se potencia con Customer Management |
 | Dashboard de analytics por tenant | NOA-36 | Docs enviados/firmados, tiempo promedio de firma |
+| Notificaciones por email nativos | NOA-35 | Recordatorios de vencimiento, avisos al owner |
 | Exportación masiva de PDFs firmados | NOA-37 | ZIP descargable por período, útil para auditorías |
+
+### Pendientes de linking
+
+| Item | Linear | Notes |
+|------|--------|-------|
+| Link CTA signature-complete → landing page | NOA-38 | Requiere NOA-39 (landing page) |
 
 ---
 
@@ -99,10 +148,16 @@ No bloquea el B2B inicial pero necesario antes de escalar.
 - ✅ PUBLIC_LINK_SECRET separado de JWT_SECRET
 - ✅ `lastSentRecipientEmail` — resend cooldown bypass al cambiar email
 - ✅ CI pipeline (tests + lint en cada PR)
-- ✅ Deploy pipeline staging (SSH a Oracle VM en push a `staging`)
+- ✅ Deploy pipeline staging (SSH a Oracle VM en push a `develop`)
 - ✅ Deploy pipeline prod (SSH a Oracle VM en push a `main`)
+- ✅ Production environment live: api.ntssign.com + app.ntssign.com
 - ✅ Staging environment live: api-staging.ntssign.com + app-staging.ntssign.com
 - ✅ SSL/HTTPS con Let's Encrypt + renovación automática
 - ✅ Rename completo de noasign → ntssign en codebase (cookie, localStorage, eventos, emails)
 - ✅ Documentación completa de arquitectura, deployment y producto
 - ✅ Linear configurado como sistema de tracking (NOA-1 en adelante)
+- ✅ Startup validation: fail-fast si faltan variables de entorno críticas (NOA-13)
+- ✅ BOLDSIGN_WEBHOOK_SECRET validado en startup (NOA-32)
+- ✅ Dashboard optimizado: static data cacheado con useRef, 9 requests → 4 en refreshes (NOA-31)
+- ✅ Signature-complete page redesign: 2 columnas, dark/light mode, brand colors, responsive
+- ✅ @custom-variant dark en globals.css — dark: variants funcionan con next-themes en toda la app

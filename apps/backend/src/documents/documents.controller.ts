@@ -22,8 +22,8 @@ export class DocumentsController {
   constructor(private documentsService: DocumentsService) {}
 
   @Get('types')
-  async getDocumentTypes() {
-    return this.documentsService.getDocumentTypes();
+  async getDocumentTypes(@Req() req: any) {
+    return this.documentsService.getDocumentTypes(req.user.id);
   }
 
   @Post('draft')

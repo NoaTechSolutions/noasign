@@ -34,7 +34,12 @@ export async function apiRequest<T>(
   });
 
   const text = await response.text();
-  const data = text ? (JSON.parse(text) as T | { message?: string }) : null;
+  let data: T | { message?: string } | null = null;
+  try {
+    data = text ? (JSON.parse(text) as T | { message?: string }) : null;
+  } catch {
+    // non-JSON response (proxy error, HTML page, etc.)
+  }
 
   if (!response.ok) {
     if (response.status === 401) {

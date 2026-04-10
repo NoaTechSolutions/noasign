@@ -14,6 +14,7 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateAccountRequestDto } from './dto/create-account-request.dto';
 import { UpdateAccountRequestStatusDto } from './dto/update-account-request-status.dto';
 import { ResetUserPasswordDto } from './dto/reset-user-password.dto';
@@ -63,6 +64,12 @@ export class UsersController {
   @Post()
   async createUser(@Req() req: any, @Body() body: CreateUserDto) {
     return this.usersService.createUser(req.user.id, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  async updateMe(@Req() req: any, @Body() body: UpdateMeDto) {
+    return this.usersService.updateMe(req.user.id, body);
   }
 
   @UseGuards(JwtAuthGuard)

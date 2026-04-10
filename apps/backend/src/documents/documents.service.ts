@@ -385,24 +385,79 @@ export class DocumentsService {
     };
   }
 
-  async getDocumentTypes() {
-    const documentTypes = await this.prisma.documentType.findMany({
-      include: {
-        formDefinitions: {
-          where: { isActive: true },
-          orderBy: { createdAt: 'asc' },
-        },
-        signatureTemplates: {
-          where: { isActive: true },
-          orderBy: { createdAt: 'asc' },
-        },
-      },
-      orderBy: { name: 'asc' },
+  async getDocumentTypes(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
     });
 
-    return documentTypes.map((documentType) =>
-      this.serializeDocumentType(documentType),
-    );
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === 'MASTER') {
+      const documentTypes = await this.prisma.documentType.findMany({
+        include: {
+          formDefinitions: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'asc' },
+          },
+          signatureTemplates: {
+            where: { isActive: true },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+        orderBy: { name: 'asc' },
+      });
+
+      return documentTypes.map((documentType) =>
+        this.serializeDocumentType(documentType),
+      );
+    }
+
+    const configs = await this.prisma.userDocumentConfig.findMany({
+      where: { userId, isActive: true },
+      include: {
+        documentType: true,
+        formDefinition: true,
+        signatureTemplate: true,
+      },
+    });
+
+    const typeMap = new Map<string, {
+      id: string;
+      name: string;
+      code: string;
+      formDefinitions: Array<{ id: string; name: string; schemaJson: unknown }>;
+      signatureTemplates: Array<{ id: string; name: string; providerTemplateId: string | null }>;
+    }>();
+
+    for (const config of configs) {
+      if (!config.formDefinition.isActive || !config.signatureTemplate.isActive) {
+        continue;
+      }
+
+      const existing = typeMap.get(config.documentTypeId);
+
+      if (!existing) {
+        typeMap.set(config.documentTypeId, {
+          id: config.documentType.id,
+          name: config.documentType.name,
+          code: config.documentType.code,
+          formDefinitions: [{ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson }],
+          signatureTemplates: [{ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId }],
+        });
+      } else {
+        if (!existing.formDefinitions.some((fd) => fd.id === config.formDefinition.id)) {
+          existing.formDefinitions.push({ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson });
+        }
+        if (!existing.signatureTemplates.some((st) => st.id === config.signatureTemplate.id)) {
+          existing.signatureTemplates.push({ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId });
+        }
+      }
+    }
+
+    return Array.from(typeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private async generateDocumentNumber(
@@ -653,7 +708,6 @@ export class DocumentsService {
     if (!providerDocumentId) {
       const senderRecipient = this.buildSenderSignatureRecipient(document);
       const fallbackFields = this.buildFallbackScalarMap(context);
-      const { completionUrl } = this.buildPublicSignatureLinks(document.id);
       const createdDocument =
         await this.signatureProviderService.createDocumentFromTemplate({
           name: this.buildSignatureDocumentName(document),
@@ -679,7 +733,6 @@ export class DocumentsService {
             noasignUserId: document.userId,
             noasignDocumentNumber: document.documentNumber,
           },
-          signerRedirectUrl: completionUrl,
         });
 
       providerDocumentId = createdDocument.id;
@@ -1779,9 +1832,13 @@ export class DocumentsService {
     const normalized = rawStatus.trim().toLowerCase();
 
     if (
-      ['document.draft', 'document.uploaded', 'draft', 'draftcreated'].includes(
-        normalized,
-      )
+      [
+        'document.draft',
+        'document.uploaded',
+        'draft',
+        'draftcreated',
+        'documentcreated', // BoldSign webhook
+      ].includes(normalized)
     ) {
       return 'draft';
     }
@@ -1795,6 +1852,7 @@ export class DocumentsService {
         'created',
         'signature_request_sent',
         'signature_request_delivered',
+        'documentsent', // BoldSign webhook
       ].includes(normalized)
     ) {
       return 'sent';
@@ -1806,15 +1864,19 @@ export class DocumentsService {
         'viewed',
         'delivered',
         'signature_request_viewed',
+        'documentviewed', // BoldSign webhook
       ].includes(normalized)
     ) {
       return 'viewed';
     }
 
     if (
-      ['document.signed', 'signed', 'signature_request_signed'].includes(
-        normalized,
-      )
+      [
+        'document.signed',
+        'signed',
+        'signature_request_signed',
+        'documentsigned', // BoldSign webhook
+      ].includes(normalized)
     ) {
       return 'signed';
     }
@@ -1825,6 +1887,7 @@ export class DocumentsService {
         'completed',
         'signature_request_all_signed',
         'signature_request_downloadable',
+        'documentcompleted', // BoldSign webhook
       ].includes(normalized)
     ) {
       return 'completed';
@@ -1844,13 +1907,22 @@ export class DocumentsService {
         'signature_request_reassigned',
         'revoked',
         'reassigned',
+        'documentdeclined',   // BoldSign webhook
+        'documentexpired',    // BoldSign webhook
+        'documentrevoked',    // BoldSign webhook
+        'documentreassigned', // BoldSign webhook
       ].includes(normalized)
     ) {
       return 'cancelled';
     }
 
     if (
-      ['deliveryfailed', 'editfailed', 'needattention'].includes(normalized)
+      [
+        'deliveryfailed',
+        'editfailed',
+        'needattention',
+        'needtoattention', // BoldSign webhook
+      ].includes(normalized)
     ) {
       return 'error';
     }
@@ -1990,6 +2062,40 @@ export class DocumentsService {
     this.assignScalarValue(fallback, 'contact_title', context.contact.title);
     this.assignScalarValue(fallback, 'contact_email', context.contact.email);
     this.assignScalarValue(fallback, 'contact_phone', context.contact.phone);
+    // Director aliases (primary contact) — matches BoldSign template token names
+    this.assignScalarValue(fallback, 'director_name', contactFullName);
+    this.assignScalarValue(fallback, 'director_email', context.contact.email);
+    this.assignScalarValue(fallback, 'director_phone', context.contact.phone);
+    this.assignScalarValue(
+      fallback,
+      'director_address',
+      context.contact.addressLine1,
+    );
+    this.assignScalarValue(
+      fallback,
+      'director_contract_address',
+      context.contact.addressLine1,
+    );
+    this.assignScalarValue(
+      fallback,
+      'director_city_state_zip',
+      this.formatCityStateZip(
+        context.contact.city,
+        context.contact.state,
+        context.contact.zipCode,
+      ),
+    );
+    // license_number aliases (template may use any of these names)
+    this.assignScalarValue(
+      fallback,
+      'license_number',
+      context.company.licenseNumber,
+    );
+    this.assignScalarValue(
+      fallback,
+      'director_license_number',
+      context.company.licenseNumber,
+    );
     this.assignScalarValue(
       fallback,
       'customer_full_address',

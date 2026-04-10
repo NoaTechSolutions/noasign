@@ -9,4 +9,9 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(128)
   password: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  companyName: string;
 }

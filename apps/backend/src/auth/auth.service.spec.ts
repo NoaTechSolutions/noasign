@@ -74,6 +74,7 @@ describe('AuthService', () => {
     const result = await service.register({
       email: 'owner@ntssign.com',
       password: 'secret123',
+      companyName: 'New Company',
     });
 
     expect(prismaMock.companyProfile.create).toHaveBeenCalledWith({
@@ -130,6 +131,7 @@ describe('AuthService', () => {
     await service.register({
       email: ' Owner@NTSsign.com ',
       password: 'secret123',
+      companyName: 'NTSsign',
     });
 
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
