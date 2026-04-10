@@ -710,7 +710,8 @@ export class DocumentsService {
     let providerDocumentId = document.providerDocumentId;
     let providerStatus = document.providerStatus;
 
-    const { completionUrl } = this.buildPublicSignatureLinks(documentId);
+    const { completionUrl: baseCompletionUrl } = this.buildPublicSignatureLinks(documentId);
+    const completionUrl = `${baseCompletionUrl}&email=${encodeURIComponent(recipient.email)}`;
 
     if (!providerDocumentId) {
       const senderRecipient = this.buildSenderSignatureRecipient(document);

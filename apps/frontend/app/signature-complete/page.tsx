@@ -53,6 +53,7 @@ export default async function SignatureCompletePage({
   const previewUrl = sanitizeLink(publicSignature?.previewUrl ?? null) ?? sanitizeLink(getSingleParam(params.preview));
   const downloadUrl = sanitizeLink(publicSignature?.downloadUrl ?? null) ?? sanitizeLink(getSingleParam(params.download));
   const returnUrl = sanitizeLink(getSingleParam(params.return)) ?? "/";
+  const signerEmail = getSingleParam(params.email);
   const status = normalizeSignatureStatus(publicSignature?.status ?? "completed");
   const showCompletedState = status === "completed";
   const showPendingState = ["sent", "viewed", "signed"].includes(status);
@@ -104,15 +105,13 @@ export default async function SignatureCompletePage({
           <div className="flex">
             <div
               className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${
-                showCompletedState
+                showCompletedState || tokenError
                   ? "border border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[#065f46] dark:text-[color:var(--success-text)]"
-                  : tokenError
-                    ? "border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
-                    : "border border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info-text)]"
+                  : "border border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info-text)]"
               }`}
             >
               <BadgeCheck className="h-3.5 w-3.5" />
-              {showCompletedState ? "Document completed" : tokenError ? "Link unavailable" : "Processing"}
+              {showPendingState && !tokenError ? "Processing" : "Document signed successfully"}
             </div>
           </div>
 
@@ -122,27 +121,25 @@ export default async function SignatureCompletePage({
               <FileCheck2 className="h-8 w-8 text-[#065f46] dark:text-[color:var(--success-text)]" />
             </div>
             <h1 className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] md:text-3xl">
-              {tokenError
-                ? "Link no longer available"
-                : showPendingState
-                  ? "Document is being finalized"
-                  : "Signed and sent successfully"}
+              {showPendingState && !tokenError
+                ? "Document is being finalized"
+                : "Signed and sent successfully"}
             </h1>
           </div>
 
           {/* Paragraph — full on md+, short on mobile */}
           <p className="mt-4 text-sm leading-6 text-[color:var(--text-secondary)] hidden md:block">
-            {tokenError
-              ? "This secure link may have expired or is invalid. Contact the sender for a new link."
-              : showPendingState
-                ? `${documentName} is being processed. The final signed copy will be ready shortly.`
+            {showPendingState && !tokenError
+              ? `${documentName} is being processed. The final signed copy will be ready shortly.`
+              : signerEmail
+                ? <>We sent a copy of the signed document to <strong className="text-[color:var(--text-primary)]">{signerEmail}</strong>.</>
                 : `${signerName} completed the signature on ${documentName}. A signed copy has been sent to all parties.`}
           </p>
           <p className="mt-4 text-sm leading-6 text-[color:var(--text-secondary)] md:hidden">
-            {tokenError
-              ? "This link is no longer valid."
-              : showPendingState
-                ? "The signed copy will be ready shortly."
+            {showPendingState && !tokenError
+              ? "The signed copy will be ready shortly."
+              : signerEmail
+                ? <>Sent to <strong className="text-[color:var(--text-primary)]">{signerEmail}</strong>.</>
                 : "A signed copy has been sent to your email."}
           </p>
 

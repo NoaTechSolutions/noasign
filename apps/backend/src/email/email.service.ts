@@ -62,7 +62,7 @@ export class EmailService {
 
   private buildSigningInvitationHtml(p: SigningInvitationPayload): string {
     const appUrl = this.getAppUrl();
-    const logoUrl = `${appUrl}/ntssign-light.svg`;
+    const logoUrl = `${appUrl}/ntssign-logo-light.svg`;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -85,14 +85,11 @@ export class EmailService {
                   <td>
                     <table cellpadding="0" cellspacing="0">
                       <tr>
-                        <td style="vertical-align:middle;">
-                          <div style="width:48px;height:48px;background:#ffffff;border-radius:12px;overflow:hidden;display:inline-block;">
-                            <img src="${logoUrl}" alt="NTSsign" width="48" height="48" style="display:block;width:48px;height:48px;object-fit:contain;" />
+                        <td style="vertical-align:middle;text-align:center;">
+                          <div style="width:56px;height:56px;background:#ffffff;border-radius:14px;overflow:hidden;display:inline-block;box-shadow:0 2px 8px rgba(0,0,0,0.18);">
+                            <img src="${logoUrl}" alt="NTSsign" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:contain;" />
                           </div>
-                        </td>
-                        <td style="padding-left:12px;vertical-align:middle;">
-                          <div style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px;line-height:1;">NTSsign</div>
-                          <div style="color:rgba(255,255,255,0.6);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-top:3px;">by NoaTechSolutions</div>
+                          <div style="color:rgba(255,255,255,0.55);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;margin-top:5px;white-space:nowrap;">by NoaTechSolutions</div>
                         </td>
                       </tr>
                     </table>
