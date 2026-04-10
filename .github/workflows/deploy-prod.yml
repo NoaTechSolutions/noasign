@@ -41,8 +41,8 @@ jobs:
             npm run build
             npm prune --omit=dev
 
-            echo "--- Restarting backend ---"
-            pm2 restart ntssign-backend --update-env
+            echo "--- Reloading backend (zero-downtime) ---"
+            pm2 reload ntssign-backend --update-env
 
             echo "--- Backend deploy complete ---"
 
@@ -67,7 +67,7 @@ jobs:
             npm ci
             NODE_OPTIONS="--max-old-space-size=512" npm run build
 
-            echo "--- Restarting frontend ---"
-            pm2 restart ntssign-frontend --update-env
+            echo "--- Reloading frontend (zero-downtime) ---"
+            pm2 reload ntssign-frontend --update-env
 
             echo "--- Frontend deploy complete ---"
