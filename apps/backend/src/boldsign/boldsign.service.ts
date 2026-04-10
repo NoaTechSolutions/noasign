@@ -176,17 +176,17 @@ export class BoldSignService {
     documentId: string,
     signerEmail: string,
   ): Promise<string> {
-    const response = await this.request<{ signingLink?: string }>(
-      `/v1/document/signinglink?documentId=${encodeURIComponent(documentId)}&signerEmail=${encodeURIComponent(signerEmail)}`,
+    const response = await this.request<{ signLink?: string }>(
+      `/v1/document/getEmbeddedSignLink?documentId=${encodeURIComponent(documentId)}&signerEmail=${encodeURIComponent(signerEmail)}`,
     );
 
-    if (!response.signingLink) {
+    if (!response.signLink) {
       throw new BadGatewayException(
         'BoldSign did not return a signing link for this document',
       );
     }
 
-    return response.signingLink;
+    return response.signLink;
   }
 
   async downloadDocumentPdf(
