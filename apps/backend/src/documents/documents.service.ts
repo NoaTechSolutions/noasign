@@ -3,12 +3,14 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
 import { DocumentStatus, Prisma } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { Response } from 'express';
+import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignatureProviderService } from '../signature-provider/signature-provider.service';
 import { CreateDraftDocumentDto } from './dto/create-draft-document.dto';
@@ -74,10 +76,13 @@ const MANUAL_REMINDER_COOLDOWN_MS = 1000 * 60 * 60 * 24;
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => SignatureProviderService))
     private readonly signatureProviderService: SignatureProviderService,
+    private readonly emailService: EmailService,
   ) {}
 
   private getCurrentBillingPeriod(date = new Date()): string {
@@ -705,6 +710,8 @@ export class DocumentsService {
     let providerDocumentId = document.providerDocumentId;
     let providerStatus = document.providerStatus;
 
+    const { completionUrl } = this.buildPublicSignatureLinks(documentId);
+
     if (!providerDocumentId) {
       const senderRecipient = this.buildSenderSignatureRecipient(document);
       const fallbackFields = this.buildFallbackScalarMap(context);
@@ -716,6 +723,7 @@ export class DocumentsService {
           senderRecipient,
           subject,
           message,
+          signerRedirectUrl: completionUrl,
           tokens: this.buildMappedTokens(
             document.signatureTemplate.tokenMappingJson,
             context,
@@ -800,6 +808,31 @@ export class DocumentsService {
       subject,
       message,
     });
+
+    // Fetch the signer's signing link from BoldSign and send our own email
+    try {
+      const signingLink = await this.signatureProviderService.getSigningLink(
+        providerDocumentId,
+        recipient.email,
+      );
+      await this.emailService.sendSigningInvitation({
+        to: recipient.email,
+        signerName: this.buildPublicSignerName(document),
+        senderName: this.buildPublicSenderName(document),
+        senderCompany:
+          document.companyProfile?.companyName ??
+          document.companyProfile?.legalName ??
+          'NTSsign',
+        documentName: document.documentType?.name ?? document.documentNumber,
+        documentNumber: document.documentNumber,
+        signingUrl: signingLink,
+      });
+    } catch (emailError) {
+      this.logger.error(
+        `[sendDraftDocument] Email sending failed for document ${documentId}: ${emailError instanceof Error ? emailError.message : String(emailError)}`,
+      );
+      // Do not throw — document is already sent in BoldSign, email failure is non-fatal
+    }
 
     const updatedDocument = await this.prisma.document.update({
       where: { id: documentId },

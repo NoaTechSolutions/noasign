@@ -4,10 +4,11 @@ import { BoldSignController } from './boldsign.controller';
 import { PublicSignaturesController } from './public-signatures.controller';
 import { DocumentsService } from './documents.service';
 import { BoldSignModule } from '../boldsign/boldsign.module';
+import { EmailModule } from '../email/email.module';
 import { SignatureProviderModule } from '../signature-provider/signature-provider.module';
 
 @Module({
-  imports: [forwardRef(() => SignatureProviderModule), BoldSignModule],
+  imports: [forwardRef(() => SignatureProviderModule), BoldSignModule, EmailModule],
   controllers: [
     DocumentsController,
     BoldSignController,

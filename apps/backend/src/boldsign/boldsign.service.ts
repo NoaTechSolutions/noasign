@@ -77,6 +77,7 @@ export class BoldSignService {
       MetaData: payload.metadata ?? {},
       EnableReassign: false,
       EnablePrintAndSign: false,
+      DisableEmails: true,
       ...(this.getBrandId() ? { BrandId: this.getBrandId() } : {}),
       Roles: recipients.map((recipient) => ({
         RoleIndex: recipient.templateRole.index,
@@ -169,6 +170,23 @@ export class BoldSignService {
 
       throw error;
     }
+  }
+
+  async getSigningLink(
+    documentId: string,
+    signerEmail: string,
+  ): Promise<string> {
+    const response = await this.request<{ signingLink?: string }>(
+      `/v1/document/signinglink?documentId=${encodeURIComponent(documentId)}&signerEmail=${encodeURIComponent(signerEmail)}`,
+    );
+
+    if (!response.signingLink) {
+      throw new BadGatewayException(
+        'BoldSign did not return a signing link for this document',
+      );
+    }
+
+    return response.signingLink;
   }
 
   async downloadDocumentPdf(
