@@ -1588,16 +1588,10 @@ export class DocumentsService {
     if (signerEmail) {
       let pdfBuffer: Buffer | undefined;
       if (document.providerDocumentId) {
-        try {
-          const pdf = await this.signatureProviderService.downloadDocumentPdf(
-            document.providerDocumentId,
-          );
-          pdfBuffer = pdf.buffer;
-        } catch (pdfErr) {
-          this.logger.warn(
-            `[syncDocumentToCompleted] PDF download failed for ${document.id}, sending confirmation without attachment: ${pdfErr instanceof Error ? pdfErr.message : String(pdfErr)}`,
-          );
-        }
+        pdfBuffer = await this.downloadPdfWithRetry(
+          document.id,
+          document.providerDocumentId,
+        );
       }
       try {
         await this.emailService.sendSignedConfirmation({
@@ -1656,6 +1650,45 @@ export class DocumentsService {
     }
 
     return { document, expiresAt };
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Retries PDF download with exponential-ish delays.
+   * BoldSign fires the webhook immediately but generates the signed PDF asynchronously,
+   * so the first attempt often fails with a 404/500. We wait ~15s before the first try
+   * and add another 15s between each subsequent attempt.
+   */
+  private async downloadPdfWithRetry(
+    documentId: string,
+    providerDocumentId: string,
+    retries = 3,
+    delayMs = 15_000,
+  ): Promise<Buffer | undefined> {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      // Always wait before attempting — BoldSign needs time to generate the signed PDF
+      await this.sleep(delayMs);
+      try {
+        const pdf = await this.signatureProviderService.downloadDocumentPdf(
+          providerDocumentId,
+        );
+        this.logger.log(
+          `[syncDocumentToCompleted] PDF downloaded on attempt ${attempt + 1} for document ${documentId}`,
+        );
+        return pdf.buffer;
+      } catch (err) {
+        this.logger.warn(
+          `[syncDocumentToCompleted] PDF download attempt ${attempt + 1}/${retries} failed for document ${documentId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    this.logger.error(
+      `[syncDocumentToCompleted] All ${retries} PDF download attempts failed for document ${documentId} — sending confirmation without attachment`,
+    );
+    return undefined;
   }
 
   private buildPublicSignatureLinks(documentId: string, signerEmail?: string) {
