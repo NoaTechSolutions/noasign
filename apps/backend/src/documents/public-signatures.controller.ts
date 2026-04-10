@@ -1,10 +1,16 @@
-import { Controller, Get, Param, Req, Res } from '@nestjs/common';
+import { Controller, Get, Param, Redirect, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DocumentsService } from './documents.service';
 
 @Controller('public/signatures')
 export class PublicSignaturesController {
   constructor(private readonly documentsService: DocumentsService) {}
+
+  @Get('proxy/:token')
+  async signingProxy(@Param('token') token: string, @Res() res: Response) {
+    const redirectUrl = await this.documentsService.resolveSigningRedirect(token);
+    res.redirect(302, redirectUrl);
+  }
 
   @Get(':token')
   async getSignatureCompletion(

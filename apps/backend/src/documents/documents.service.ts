@@ -55,6 +55,14 @@ type PublicSignatureTokenPayload = {
   exp: number;
 };
 
+type SigningProxyTokenPayload = {
+  v: 1;
+  p: 'sign-proxy';
+  documentId: string;
+  signerEmail: string;
+  exp: number;
+};
+
 const documentDetailInclude = {
   documentType: true,
   formDefinition: true,
@@ -710,7 +718,7 @@ export class DocumentsService {
     let providerDocumentId = document.providerDocumentId;
     let providerStatus = document.providerStatus;
 
-    const { completionUrl: baseCompletionUrl } = this.buildPublicSignatureLinks(documentId);
+    const { completionUrl: baseCompletionUrl, signingProxyUrl } = this.buildPublicSignatureLinks(documentId, recipient.email);
     const completionUrl = `${baseCompletionUrl}&email=${encodeURIComponent(recipient.email)}`;
 
     if (!providerDocumentId) {
@@ -812,11 +820,15 @@ export class DocumentsService {
 
     // Fetch the signer's signing link from BoldSign and send our own email
     try {
-      const signingLink = await this.signatureProviderService.getSigningLink(
-        providerDocumentId,
-        recipient.email,
-        completionUrl,
-      );
+      // Use signing proxy URL so re-clicks after signing redirect to success page
+      let emailSigningUrl = signingProxyUrl;
+      if (!emailSigningUrl) {
+        emailSigningUrl = await this.signatureProviderService.getSigningLink(
+          providerDocumentId,
+          recipient.email,
+          completionUrl,
+        );
+      }
       await this.emailService.sendSigningInvitation({
         to: recipient.email,
         signerName: this.buildPublicSignerName(document),
@@ -827,7 +839,7 @@ export class DocumentsService {
           'NTSsign',
         documentName: document.documentType?.name ?? document.documentNumber,
         documentNumber: document.documentNumber,
-        signingUrl: signingLink,
+        signingUrl: emailSigningUrl,
       });
     } catch (emailError) {
       this.logger.error(
@@ -1570,6 +1582,32 @@ export class DocumentsService {
         providerLastSyncedAt: occurredAt,
       },
     });
+
+    // Send confirmation email with signed PDF to the signer
+    const signerEmail = document.lastSentRecipientEmail;
+    if (signerEmail && document.providerDocumentId) {
+      try {
+        const pdf = await this.signatureProviderService.downloadDocumentPdf(
+          document.providerDocumentId,
+        );
+        await this.emailService.sendSignedConfirmation({
+          to: signerEmail,
+          signerName: this.buildPublicSignerName(document as PublicDocument),
+          senderCompany:
+            document.companyProfile?.companyName ??
+            document.companyProfile?.legalName ??
+            'NTSsign',
+          documentName: document.documentType?.name ?? document.documentNumber,
+          documentNumber: document.documentNumber,
+          pdfBuffer: pdf.buffer,
+        });
+      } catch (err) {
+        this.logger.error(
+          `[syncDocumentToCompleted] Failed to send signed confirmation for document ${document.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        // non-fatal — document is already marked completed
+      }
+    }
   }
 
   private async loadPublicDocumentForToken(token: string) {
@@ -1610,15 +1648,22 @@ export class DocumentsService {
     return { document, expiresAt };
   }
 
-  private buildPublicSignatureLinks(documentId: string) {
+  private buildPublicSignatureLinks(documentId: string, signerEmail?: string) {
     const { token, expiresAt } = this.createPublicSignatureToken(documentId);
     const appBaseUrl = this.getAppUrl();
     const backendBaseUrl = this.getBackendUrl();
+
+    const proxyToken = signerEmail
+      ? this.createSigningProxyToken(documentId, signerEmail)
+      : null;
 
     return {
       token,
       expiresAt: expiresAt.toISOString(),
       completionUrl: `${appBaseUrl}/signature-complete?token=${encodeURIComponent(token)}`,
+      signingProxyUrl: proxyToken
+        ? `${backendBaseUrl}/public/signatures/proxy/${encodeURIComponent(proxyToken)}`
+        : null,
       previewUrl: `${backendBaseUrl}/public/signatures/${encodeURIComponent(token)}/preview`,
       downloadUrl: `${backendBaseUrl}/public/signatures/${encodeURIComponent(token)}/download`,
     };
@@ -1729,6 +1774,63 @@ export class DocumentsService {
       documentId: payload.documentId,
       expiresAt,
     };
+  }
+
+  private createSigningProxyToken(documentId: string, signerEmail: string): string {
+    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 30 days
+    const payload: SigningProxyTokenPayload = { v: 1, p: 'sign-proxy', documentId, signerEmail, exp };
+    const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+    const signature = createHmac('sha256', this.getPublicSignatureSecret())
+      .update(encodedPayload)
+      .digest('base64url');
+    return `${encodedPayload}.${signature}`;
+  }
+
+  async resolveSigningRedirect(proxyToken: string): Promise<string> {
+    const [encodedPayload, receivedSignature] = proxyToken.trim().split('.', 2).filter(Boolean);
+    if (!encodedPayload || !receivedSignature) {
+      throw new BadRequestException('Invalid signing proxy token');
+    }
+    const expectedSignature = createHmac('sha256', this.getPublicSignatureSecret())
+      .update(encodedPayload)
+      .digest('base64url');
+    if (!this.safeCompare(expectedSignature, receivedSignature)) {
+      throw new BadRequestException('Invalid signing proxy token');
+    }
+    let payload: SigningProxyTokenPayload;
+    try {
+      payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as SigningProxyTokenPayload;
+    } catch {
+      throw new BadRequestException('Invalid signing proxy token');
+    }
+    if (payload.v !== 1 || payload.p !== 'sign-proxy' || !payload.documentId || !payload.signerEmail) {
+      throw new BadRequestException('Invalid signing proxy token');
+    }
+    if (payload.exp * 1000 <= Date.now()) {
+      throw new BadRequestException('Signing link has expired');
+    }
+
+    const document = await this.prisma.document.findUnique({ where: { id: payload.documentId } });
+    const appUrl = this.getAppUrl();
+    const emailParam = `email=${encodeURIComponent(payload.signerEmail)}`;
+
+    if (!document || document.status === DocumentStatus.COMPLETED || document.status === DocumentStatus.CANCELLED) {
+      return `${appUrl}/signature-complete?${emailParam}`;
+    }
+
+    if (!document.providerDocumentId) {
+      return `${appUrl}/signature-complete?${emailParam}`;
+    }
+
+    const { completionUrl: baseCompletionUrl } = this.buildPublicSignatureLinks(payload.documentId);
+    const completionUrl = `${baseCompletionUrl}&${emailParam}`;
+
+    const signingLink = await this.signatureProviderService.getSigningLink(
+      document.providerDocumentId,
+      payload.signerEmail,
+      completionUrl,
+    );
+    return signingLink;
   }
 
   private getPublicSignatureSecret() {

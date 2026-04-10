@@ -53,7 +53,8 @@ export default async function SignatureCompletePage({
   const previewUrl = sanitizeLink(publicSignature?.previewUrl ?? null) ?? sanitizeLink(getSingleParam(params.preview));
   const downloadUrl = sanitizeLink(publicSignature?.downloadUrl ?? null) ?? sanitizeLink(getSingleParam(params.download));
   const returnUrl = sanitizeLink(getSingleParam(params.return)) ?? "/";
-  const signerEmail = getSingleParam(params.email);
+  // BoldSign appends ?documentId=xxx to the redirect URL — strip anything after the email value
+  const signerEmail = getSingleParam(params.email)?.split('?')[0] ?? null;
   const status = normalizeSignatureStatus(publicSignature?.status ?? "completed");
   const showCompletedState = status === "completed";
   const showPendingState = ["sent", "viewed", "signed"].includes(status);
