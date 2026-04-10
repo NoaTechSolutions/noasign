@@ -47,8 +47,9 @@ export class SignatureProviderService {
   async getSigningLink(
     documentId: string,
     signerEmail: string,
+    redirectUrl?: string,
   ): Promise<string> {
-    return this.boldSignService.getSigningLink(documentId, signerEmail);
+    return this.boldSignService.getSigningLink(documentId, signerEmail, redirectUrl);
   }
 
   async waitForDocumentDraft(

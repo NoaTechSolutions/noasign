@@ -814,6 +814,7 @@ export class DocumentsService {
       const signingLink = await this.signatureProviderService.getSigningLink(
         providerDocumentId,
         recipient.email,
+        completionUrl,
       );
       await this.emailService.sendSigningInvitation({
         to: recipient.email,

@@ -56,7 +56,14 @@ export class EmailService {
     );
   }
 
+  private getAppUrl(): string {
+    return (process.env.APP_URL ?? 'https://app.ntssign.com').replace(/\/$/, '');
+  }
+
   private buildSigningInvitationHtml(p: SigningInvitationPayload): string {
+    const appUrl = this.getAppUrl();
+    const logoUrl = `${appUrl}/ntssign-light.svg`;
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -76,8 +83,19 @@ export class EmailService {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td>
-                    <div style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.5px;">NTSsign</div>
-                    <div style="color:rgba(255,255,255,0.6);font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:2px;">by NoaTechSolutions</div>
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;">
+                          <div style="width:48px;height:48px;background:#ffffff;border-radius:12px;overflow:hidden;display:inline-block;">
+                            <img src="${logoUrl}" alt="NTSsign" width="48" height="48" style="display:block;width:48px;height:48px;object-fit:contain;" />
+                          </div>
+                        </td>
+                        <td style="padding-left:12px;vertical-align:middle;">
+                          <div style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.5px;line-height:1;">NTSsign</div>
+                          <div style="color:rgba(255,255,255,0.6);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-top:3px;">by NoaTechSolutions</div>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                   <td align="right">
                     <div style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,0.8);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Signature Request</div>

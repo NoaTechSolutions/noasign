@@ -175,9 +175,16 @@ export class BoldSignService {
   async getSigningLink(
     documentId: string,
     signerEmail: string,
+    redirectUrl?: string,
   ): Promise<string> {
+    const params = new URLSearchParams({
+      documentId,
+      signerEmail,
+      ...(redirectUrl ? { redirectUrl } : {}),
+    });
+
     const response = await this.request<{ signLink?: string }>(
-      `/v1/document/getEmbeddedSignLink?documentId=${encodeURIComponent(documentId)}&signerEmail=${encodeURIComponent(signerEmail)}`,
+      `/v1/document/getEmbeddedSignLink?${params.toString()}`,
     );
 
     if (!response.signLink) {
