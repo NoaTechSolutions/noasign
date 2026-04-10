@@ -1583,13 +1583,23 @@ export class DocumentsService {
       },
     });
 
-    // Send confirmation email with signed PDF to the signer
+    // Send confirmation email to the signer — PDF attached if download succeeds
     const signerEmail = document.lastSentRecipientEmail;
-    if (signerEmail && document.providerDocumentId) {
+    if (signerEmail) {
+      let pdfBuffer: Buffer | undefined;
+      if (document.providerDocumentId) {
+        try {
+          const pdf = await this.signatureProviderService.downloadDocumentPdf(
+            document.providerDocumentId,
+          );
+          pdfBuffer = pdf.buffer;
+        } catch (pdfErr) {
+          this.logger.warn(
+            `[syncDocumentToCompleted] PDF download failed for ${document.id}, sending confirmation without attachment: ${pdfErr instanceof Error ? pdfErr.message : String(pdfErr)}`,
+          );
+        }
+      }
       try {
-        const pdf = await this.signatureProviderService.downloadDocumentPdf(
-          document.providerDocumentId,
-        );
         await this.emailService.sendSignedConfirmation({
           to: signerEmail,
           signerName: this.buildPublicSignerName(document as PublicDocument),
@@ -1599,11 +1609,11 @@ export class DocumentsService {
             'NTSsign',
           documentName: document.documentType?.name ?? document.documentNumber,
           documentNumber: document.documentNumber,
-          pdfBuffer: pdf.buffer,
+          pdfBuffer,
         });
-      } catch (err) {
+      } catch (emailErr) {
         this.logger.error(
-          `[syncDocumentToCompleted] Failed to send signed confirmation for document ${document.id}: ${err instanceof Error ? err.message : String(err)}`,
+          `[syncDocumentToCompleted] Failed to send signed confirmation for document ${document.id}: ${emailErr instanceof Error ? emailErr.message : String(emailErr)}`,
         );
         // non-fatal — document is already marked completed
       }
@@ -1814,7 +1824,8 @@ export class DocumentsService {
     const appUrl = this.getAppUrl();
     const emailParam = `email=${encodeURIComponent(payload.signerEmail)}`;
 
-    if (!document || document.status === DocumentStatus.COMPLETED || document.status === DocumentStatus.CANCELLED) {
+    const terminalStatuses = [DocumentStatus.COMPLETED, DocumentStatus.SIGNED, DocumentStatus.CANCELLED];
+    if (!document || terminalStatuses.includes(document.status)) {
       return `${appUrl}/signature-complete?${emailParam}`;
     }
 
