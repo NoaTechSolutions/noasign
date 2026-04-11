@@ -82,6 +82,9 @@ describe('AuthService', () => {
         companyName: 'New Company',
         email: 'owner@ntssign.com',
         contactEmail: 'owner@ntssign.com',
+        isUnlimited: true,
+        monthlyDocLimit: 0,
+        planName: 'PRO_UNLIMITED',
       },
     });
     expect(prismaMock.user.create).toHaveBeenCalledWith({

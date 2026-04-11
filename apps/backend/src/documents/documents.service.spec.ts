@@ -4,6 +4,7 @@ import { DocumentStatus } from '@prisma/client';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignatureProviderService } from '../signature-provider/signature-provider.service';
+import { EmailService } from '../email/email.service';
 
 const prismaMock = {
   documentType: {
@@ -65,6 +66,13 @@ describe('DocumentsService', () => {
         {
           provide: SignatureProviderService,
           useValue: signatureProviderServiceMock,
+        },
+        {
+          provide: EmailService,
+          useValue: {
+            sendSigningInvitation: jest.fn().mockResolvedValue(undefined),
+            sendSignedConfirmation: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();

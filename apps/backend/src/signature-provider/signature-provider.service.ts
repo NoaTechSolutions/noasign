@@ -44,6 +44,14 @@ export class SignatureProviderService {
     return this.boldSignService.downloadDocumentPdf(documentId);
   }
 
+  async getSigningLink(
+    documentId: string,
+    signerEmail: string,
+    redirectUrl?: string,
+  ): Promise<string> {
+    return this.boldSignService.getSigningLink(documentId, signerEmail, redirectUrl);
+  }
+
   async waitForDocumentDraft(
     documentId: string,
     _timeoutMs = 45000,
