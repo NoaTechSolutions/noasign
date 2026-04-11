@@ -16,8 +16,8 @@ import {
   ScrollText,
   ShieldCheck,
 } from "lucide-react";
-import { API_URL, apiRequest } from "../lib/api";
-import { getStoredUser, persistSession, updateStoredUser } from "../lib/auth-storage";
+import { API_URL, apiRequest } from "../../lib/api";
+import { getStoredUser, persistSession, updateStoredUser } from "../../lib/auth-storage";
 
 type LoginResponse = {
   user: {

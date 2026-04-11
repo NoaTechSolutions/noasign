@@ -1893,21 +1893,47 @@ function BillingPanel({
   );
   const planCards = [
     {
-      name: "LAUNCH",
+      name: "STARTER",
+      displayName: "Starter",
+      price: "$19/mo",
+      annualPrice: "$16/mo annual",
       limit: "5 docs / month",
+      description: "For solo operators with one main workflow.",
+      isMostPopular: false,
       accent: "border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-white",
     },
     {
-      name: "SCALE",
-      limit: "25 docs / month",
+      name: "LAUNCH",
+      displayName: "Launch",
+      price: "$39/mo",
+      annualPrice: "$32/mo annual",
+      limit: "15 docs / month",
+      description: "For small teams that send contracts regularly.",
+      isMostPopular: true,
       accent: "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100",
     },
     {
-      name: "PRO_UNLIMITED",
-      limit: "Unlimited volume",
+      name: "PRO",
+      displayName: "Pro",
+      price: "$89/mo",
+      annualPrice: "$74/mo annual",
+      limit: "50 docs / month",
+      description: "For growing businesses that need branding and analytics.",
+      isMostPopular: false,
+      accent: "border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100",
+    },
+    {
+      name: "SCALE",
+      displayName: "Scale",
+      price: "$229/mo",
+      annualPrice: "$190/mo annual",
+      limit: "150 docs / month",
+      description: "For high-volume teams that need priority support.",
+      isMostPopular: false,
       accent: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100",
     },
   ];
+  const currentPlanDisplay = planCards.find((p) => p.name === currentPlan)?.displayName ?? currentPlan;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1946,7 +1972,7 @@ function BillingPanel({
           <div className="flex flex-col items-start gap-3 xl:items-end">
             <div className="inline-flex items-center gap-3 rounded-full border border-blue-100 bg-white/90 px-4 py-3 text-slate-900 shadow-[0_10px_30px_rgba(37,99,235,0.10)] backdrop-blur dark:border-white/14 dark:bg-white/10 dark:text-white dark:shadow-none">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/60">Current plan</span>
-              <span className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">{currentPlan}</span>
+              <span className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">{currentPlanDisplay}</span>
             </div>
             <button
               type="button"
@@ -2064,7 +2090,7 @@ function BillingPanel({
             <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Overage visibility</div>
             <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">What happens next</h3>
             <div className="mt-5 grid gap-3">
-              <DetailRow icon={<CreditCard className="h-4 w-4" />} label="Current plan" value={currentPlan} />
+              <DetailRow icon={<CreditCard className="h-4 w-4" />} label="Current plan" value={currentPlanDisplay} />
               <DetailRow icon={<FileText className="h-4 w-4" />} label="Docs above plan" value={String(overageDocuments)} />
               <DetailRow icon={<WalletCards className="h-4 w-4" />} label="Price per extra doc" value={formatCurrency(overagePrice)} />
               <DetailRow icon={<WalletCards className="h-4 w-4" />} label="Estimated next charge" value={formatCurrency(nextInvoiceOverage)} />
@@ -2092,7 +2118,7 @@ function BillingPanel({
                 <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Need more documents?</div>
                 <h3 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Upgrade your plan before you hit the limit</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  Your current plan is <span className="font-semibold text-slate-900 dark:text-white">{currentPlan}</span>. Compare the next plans and choose the one that fits your monthly document volume.
+                  Your current plan is <span className="font-semibold text-slate-900 dark:text-white">{currentPlanDisplay}</span>. Compare the next plans and choose the one that fits your monthly document volume.
                 </p>
               </div>
               <button
@@ -2104,22 +2130,29 @@ function BillingPanel({
               </button>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {planCards.map((plan) => (
                 <div
                   key={plan.name}
                   className={cn(
-                    "rounded-[1.6rem] border p-5",
+                    "relative rounded-[1.6rem] border p-5",
                     plan.accent,
                     plan.name === currentPlan && "ring-2 ring-[#2563eb]/30",
                   )}
                 >
+                  {plan.isMostPopular && plan.name !== currentPlan && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="rounded-full bg-[#2563eb] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_4px_12px_rgba(37,99,235,0.35)]">
+                        Most popular
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-xs font-semibold uppercase tracking-[0.2em] opacity-70">
                         {plan.name === currentPlan ? "Current plan" : "Available plan"}
                       </div>
-                      <div className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{plan.name}</div>
+                      <div className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{plan.displayName}</div>
                     </div>
                     <span className={cn(
                       "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
@@ -2128,22 +2161,24 @@ function BillingPanel({
                       {plan.name === currentPlan ? "Current" : "Upgrade"}
                     </span>
                   </div>
-                  <div className="mt-4 text-sm opacity-85">{plan.limit}</div>
-                  <div className="mt-6 rounded-[1.2rem] bg-white/70 p-4 text-sm shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] dark:bg-slate-950/40 dark:shadow-none">
-                    {plan.name === "LAUNCH" ? "Best for early-stage teams with low monthly volume." : null}
-                    {plan.name === "SCALE" ? "Best if you are growing and need more room before overage charges kick in." : null}
-                    {plan.name === "PRO_UNLIMITED" ? "Best for teams that send documents constantly and want predictable billing." : null}
+                  <div className="mt-3">
+                    <span className="text-xl font-bold tracking-[-0.03em]">{plan.price}</span>
+                    <span className="ml-2 text-xs opacity-55">{plan.annualPrice}</span>
+                  </div>
+                  <div className="mt-2 text-sm font-medium opacity-75">{plan.limit}</div>
+                  <div className="mt-4 rounded-[1.2rem] bg-white/70 p-3 text-sm shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] dark:bg-slate-950/40 dark:shadow-none">
+                    {plan.description}
                   </div>
                   <button
                     type="button"
                     className={cn(
-                      "mt-6 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition",
+                      "mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition",
                       plan.name === currentPlan
                         ? "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400"
                         : "bg-[#2563eb] text-white hover:bg-blue-700",
                     )}
                   >
-                    {plan.name === currentPlan ? "You are on this plan" : `Choose ${plan.name}`}
+                    {plan.name === currentPlan ? "You are on this plan" : `Choose ${plan.displayName}`}
                   </button>
                 </div>
               ))}

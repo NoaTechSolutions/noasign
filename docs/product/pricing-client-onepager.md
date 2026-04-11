@@ -1,4 +1,4 @@
-# NTSsign Price List
+# NTSsign — Price List
 
 ## Why NTSsign
 
@@ -8,93 +8,172 @@ You are not only paying for a signature request.
 
 You are paying for:
 
-- faster document creation
-- cleaner team workflow
-- easier template management
+- faster document creation from a guided form
+- cleaner team workflow — no printing, no scanning
+- reusable templates ready to use every time
 - one workspace for documents, users, and billing
-- signed PDFs and audit trail in one place
+- signed PDFs and full audit trail in one place
+- your clients sign from any device, no account required
 
-## Plans
+---
 
-### Pay As You Go
+## Without a subscription
 
-Best for occasional use.
+### Pay-per-contract — `$12` per document
 
-- `USD 15` per document
-- no monthly commitment
-- includes:
-  - create document
-  - send for signature
-  - signed PDF access
-  - audit trail access
+No monthly commitment. Pay only when you send.
 
-### Launch
+Includes:
 
-Best for solo operators and one main workflow.
+- guided document creation
+- send for signature
+- signed PDF download
+- audit trail included
 
-- `USD 39/month`
-- up to `5` documents per month
-- `1` internal user
-- `1` active template
-- dashboard and billing visibility
-- extra documents: `USD 7` each
+Best for: 1–2 contracts per month, or trying the service before committing.
 
-### Growth
+> 3 or more documents per month? A subscription is more cost-effective.
 
-Best for small teams that send contracts every month.
+---
 
-- `USD 79/month`
-- up to `12` documents per month
-- up to `3` internal users
-- up to `3` active templates
-- multi-workflow setup
-- extra documents: `USD 5` each
+## Monthly plans
 
-### Scale
+### Starter — `$19/month`
 
-Best for recurring teams using NTSsign as an operational tool.
+_Save ~17% with annual billing: `$16/month` ($192/year)_
 
-- `USD 149/month`
-- up to `25` documents per month
-- up to `8` internal users
-- up to `5` active templates
-- higher-touch support
-- extra documents: `USD 4` each
+For solo operators with one main workflow.
+
+- 5 documents per month
+- 1 user
+- 1 active template
+- Full dashboard
+- Company profile and logo
+- Automatic reminders
+- Document expiration
+- 1 year document history
+
+Extra documents: `$4` each
+
+---
+
+### Launch — `$39/month` ⭐ Most Popular
+
+_Save ~17% with annual billing: `$32/month` ($384/year)_
+
+For small businesses that send contracts regularly.
+
+- 15 documents per month
+- 2 users
+- 3 active templates
+- Everything in Starter
+- Team and user management
+- Multi-signer / sequential signing
+- 2 years document history
+
+Extra documents: `$3.50` each
+
+---
+
+### Pro — `$89/month`
+
+_Save ~17% with annual billing: `$74/month` ($888/year)_
+
+For growing businesses that want branding and visibility.
+
+- 50 documents per month
+- 5 users
+- 10 active templates
+- Everything in Launch
+- Custom branding on documents
+- Analytics and reporting
+- Bulk send
+- SMS verification for signers
+- Downloadable audit trail PDF
+- 3 years document history
+
+Extra documents: `$2.50` each
+
+---
+
+### Scale — `$229/month`
+
+_Save ~17% with annual billing: `$190/month` ($2,280/year)_
+
+For high-volume teams that need priority support.
+
+- 150 documents per month
+- 15 users
+- Unlimited templates
+- Everything in Pro
+- Priority support
+- Bulk ZIP export of signed PDFs
+- 5 years document history
+
+Extra documents: `$1.50` each
+
+---
+
+## Annual billing savings
+
+| Plan | Monthly | Annual (billed yearly) | Annual total |
+|---|---|---|---|
+| Starter | $19/mo | $16/mo | $192/yr |
+| Launch ⭐ | $39/mo | $32/mo | $384/yr |
+| Pro | $89/mo | $74/mo | $888/yr |
+| Scale | $229/mo | $190/mo | $2,280/yr |
+
+---
 
 ## Additional services
 
-### Template setup
+### Template setup (one-time)
 
-If you already have a contract and want it adapted into NTSsign:
+Already have a contract? We adapt it into NTSsign — signature fields, form, and all.
 
-- from `USD 149`
+| Service | Price |
+|---|---|
+| Template setup | $49 |
+| Template setup + modifications | $79 |
+| Express delivery (48h) | +$29 |
 
-### Additional templates
+### Extra template slots
 
-For extra document workflows:
+Need more templates than your plan includes?
 
-- from `USD 99`
+| Plan | Price per extra template |
+|---|---|
+| Starter | $49 |
+| Launch | $49 |
+| Pro | $39 |
 
-### Workflow onboarding
+### Onboarding
 
-For team setup, process setup, and rollout support:
+Need help setting up your team and workflow?
 
-- from `USD 149`
+| Service | Price |
+|---|---|
+| Basic onboarding (2–3 people) | $149 |
+| Full team onboarding | $249 |
 
-## Planned premium upgrades
+---
 
-As NTSsign grows, higher plans will unlock:
+## Is e-signature legally valid?
 
-- saved customer directory
-- reusable customer records
-- customer history and notes
-- reminder automations
-- reporting and analytics
-- stronger white-labeling
+Yes. Signatures collected through NTSsign comply with the **ESIGN Act** (United States). Every signature includes a timestamp, IP address, and device record — generating a legally binding, tamper-evident PDF.
 
-## Notes
+---
 
-- monthly plans include document limits
-- extra usage may be billed separately
-- template setup is quoted based on complexity
-- some advanced workflow features may be released first in higher plans
+## How to get started
+
+1. We set up your template (your contract adapted for NTSsign) — from $49
+2. We activate your account on the plan that fits
+3. In less than 48 hours you're sending documents
+
+**Most popular combo for new clients:**
+Launch $39/mo + Template setup $49 = `$88 to start`
+Then just $39/month — or $32/month on annual.
+
+---
+
+Questions? **support@noatechsolutions.com**

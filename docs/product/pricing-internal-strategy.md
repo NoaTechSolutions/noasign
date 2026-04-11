@@ -31,35 +31,41 @@ Use three revenue layers:
 
 ### 1. Subscription
 
-Suggested public plans:
+Public plans:
 
-- `Launch`: `USD 39/month`
-- `Growth`: `USD 79/month`
-- `Scale`: `USD 149/month`
+| Plan | Monthly | Annual (billed yearly) |
+|---|---|---|
+| Starter | $19/mo | $16/mo ($192/yr) |
+| Launch ⭐ | $39/mo | $32/mo ($384/yr) |
+| Pro | $89/mo | $74/mo ($888/yr) |
+| Scale | $229/mo | $190/mo ($2,280/yr) |
 
 ### 2. Usage overage
 
-Suggested overages:
-
-- `Launch`: `USD 7` per extra document
-- `Growth`: `USD 5` per extra document
-- `Scale`: `USD 4` per extra document
+| Plan | Overage per extra document |
+|---|---|
+| Starter | $4.00 |
+| Launch | $3.50 |
+| Pro | $2.50 |
+| Scale | $1.50 |
 
 ### 3. Setup and implementation
 
-Suggested implementation charges:
-
-- simple template: `USD 149`
-- medium template: `USD 199`
-- complex template: `USD 249` to `USD 399`
-- extra template: `USD 99` to `USD 149`
-- workflow onboarding: `USD 149` to `USD 499`
+| Service | Price |
+|---|---|
+| Template setup (basic) | $49 |
+| Template setup + modifications | $79 |
+| Express +48h | +$29 |
+| Extra template slot (Starter/Launch) | $49 |
+| Extra template slot (Pro) | $39 |
+| Basic onboarding (2–3 people) | $149 |
+| Full team onboarding | $249 |
 
 ## Product packaging logic
 
 The plans should scale by business maturity:
 
-### Launch
+### Starter
 
 Good for:
 
@@ -69,52 +75,62 @@ Good for:
 
 Do not include:
 
-- saved customer directory
-- team workflow
-- high-touch onboarding
+- team features
+- multi-signer
 
-### Growth
+### Launch
 
 Good for:
 
-- small teams
-- multiple templates
+- small teams (2 users)
+- multiple templates (up to 3)
 - recurring document volume
 
-Use this as the default sales target for qualified customers.
+**This is the default sales target for qualified customers.**
 
-This is the first tier where we can introduce:
+This is the first tier where we unlock:
 
-- saved customer directory
-- reusable customer records
-- customer history and notes
+- team and user management
+- multi-signer / sequential signing
+
+### Pro
+
+Good for:
+
+- growing businesses that need branding and reporting
+- teams sending 15–50 documents per month
+
+Unlocks:
+
+- custom branding on documents
+- analytics and reporting
+- bulk send
+- SMS OTP signer verification
+- downloadable audit trail PDF
 
 ### Scale
 
 Good for:
 
-- recurring teams using NTSsign operationally
-- customers who need more support and more user seats
-- customers who can later justify higher-value workflow features
+- high-volume teams (150 docs/mo)
+- operations that need priority support and unlimited templates
 
-This is the best tier for releasing roadmap premium features first:
+Unlocks:
 
-- reminder automations
-- reporting and analytics
-- approval gates
-- richer workflow packs
+- unlimited templates
+- priority support
+- bulk ZIP PDF export
+- Roadmap: white-label signing portal
 
-## Pay As You Go role
+## Pay-per-contract role
 
 Use when:
 
-- the customer signs only a few documents
+- the customer signs only a few documents per month
 - the customer resists monthly commitment
 - the customer is still evaluating the service
 
-Suggested offer:
-
-- `USD 15` per document
+Price: `$12` per document
 
 Includes only the core signature workflow:
 
@@ -122,12 +138,14 @@ Includes only the core signature workflow:
 - send for signature
 - signed PDF
 - audit trail
+- 90-day document history
 
-It should not include:
+Does not include:
 
 - setup work
-- saved customer directory
-- team workflow features
+- dashboard or team features
+
+Break-even: 3+ documents/month → subscription is better value for the customer.
 
 ## Founder pricing guardrails
 
@@ -138,12 +156,13 @@ Rules:
 - use only for strategic early customers
 - define document limits clearly
 - define template limits clearly
-- never give away setup, monthly discount, and overage discount all at once
+- never give away subscription + setup + overage discounts all at once
+- maximum: $29/month, cap 10 docs/mo, 1 template, no included setup
 
 Safer founder example:
 
-- `USD 35/month`
-- up to `5` documents/month
+- `$29/month`
+- up to `10` documents/month
 - `1` template
 - no included setup work
 
@@ -164,7 +183,7 @@ Better options:
 Avoid:
 
 - unlimited documents at low monthly price
-- large template promises on Essentials capacity
+- large template promises on lower-tier capacity
 - selling roadmap items as if already shipped
 
 ## Roadmap-based upsells
@@ -177,28 +196,33 @@ These are good upgrade triggers once released:
 - workflow reminders
 - team approvals
 - analytics and reporting
-- stronger white-labeling
+- white-label signing portal (Scale+)
 - deeper onboarding services
 
 ## Core sales message
 
 Internally, always anchor on this:
 
-- NoaSign is not a commodity signature request
-- NoaSign is a workflow layer that adapts to the client's way of operating
+- NTSsign is not a commodity signature request
+- NTSsign is a workflow layer that adapts to the client's way of operating
 - the customer pays for speed, organization, setup, and control
 
 ## Recommended public offer
 
 Publicly communicate:
 
-- `Pay As You Go`
-- `Launch`
-- `Growth`
+- `Pay-per-contract`
+- `Starter`
+- `Launch` ← main sales target
+- `Pro`
 - `Scale`
 
 Internally reserve:
 
 - founder discounts
-- custom enterprise quotes
+- custom volume quotes for very high usage
 - roadmap-based premium upgrade paths
+
+> **Important:** The B2B API channel (NTSolutions internal integrations) is exclusively for
+> NTSolutions internal platforms. It is **not** part of the public NTSsign offer and should
+> never be mentioned in customer-facing sales or marketing materials.

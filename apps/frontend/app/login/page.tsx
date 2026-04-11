@@ -1,8 +1,8 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { LoginHeroCarousel } from "../components/login-hero-carousel";
-import { ThemeToggle } from "../components/theme-toggle";
+import { LoginHeroCarousel } from "../../components/login-hero-carousel";
+import { ThemeToggle } from "../../components/theme-toggle";
 import { LoginForm } from "./login-form";
 
 export default function Home() {

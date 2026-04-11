@@ -1,4 +1,4 @@
-# NoaSign — Product Roadmap
+# NTSsign — Product Roadmap
 
 _Last updated: 2026-04-06_
 
@@ -16,7 +16,7 @@ The current document creation form is hardcoded in the frontend. Every new clien
 **Core change:** `FormDefinition` gains a `schemaJson` field. The frontend renders forms dynamically from this schema. No code changes needed to onboard new clients.
 
 **Scenarios covered:**
-- Client brings their own PDF → upload to BoldSign, map fields, define schema in NoaSign
+- Client brings their own PDF → upload to BoldSign, map fields, define schema in NTSsign
 - Client has no document → use a BoldSign template, same setup flow
 
 **Multi-template per client:** Each client can have Contract, Invoice, Proforma, etc. — each with its own form and BoldSign template, all managed via `UserDocumentConfig`.
@@ -157,13 +157,13 @@ Documents are retained for a plan-defined period, then notified and deleted.
 
 ---
 
-### P1-07 · Viral Loop — "Sent with NoaSign" Branding
+### P1-07 · Viral Loop — "Sent with NTSsign" Branding
 **Priority:** High  
 **Type:** Growth / Feature
 
-Every document sent to a signer includes subtle NoaSign branding in the signing email and signing page footer. Clicking it leads to the marketing landing page.
+Every document sent to a signer includes subtle NTSsign branding in the signing email and signing page footer. Clicking it leads to the marketing landing page.
 
-**White-label:** Enterprise plan can disable this branding entirely.
+**White-label:** Scale plan can disable this branding entirely (roadmap).
 
 **Implementation:** Add branded footer to outgoing BoldSign emails via template customization. No schema change required.
 
@@ -272,11 +272,11 @@ $5/mo per additional year of document retention beyond the plan default.
 
 ---
 
-### P3-02 · Public API + Webhooks
+### P3-02 · Internal API + Webhooks (NTSolutions)
 **Priority:** Medium  
-**Type:** Feature — Scale+
+**Type:** Internal Infrastructure — NTSolutions only
 
-Developers and agencies can embed NoaSign into their own applications. Full REST API with webhook events for document lifecycle changes.
+REST API and webhook events for integrating NTSsign with other NTSolutions SaaS platforms (e.g. Daycare SaaS). This is **not a public API product** — it is an internal integration channel used exclusively by NTSolutions-built platforms. Do not reference in customer-facing materials.
 
 ---
 

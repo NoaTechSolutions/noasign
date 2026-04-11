@@ -88,7 +88,7 @@ When the user submits the form, the backend pre-fills those fields in the BoldSi
 
 1. Upload the PDF to BoldSign and place signature + text fields
 2. BoldSign provides a `templateId` and field IDs
-3. In NoaSign: create `SignatureTemplate` with `providerTemplateId` + `fieldMappingJson`
+3. In NTSsign: create `SignatureTemplate` with `providerTemplateId` + `fieldMappingJson`
 4. Create `FormDefinition` with `schemaJson` matching the fields in the PDF
 5. Assign via `UserDocumentConfig` to the client
 
