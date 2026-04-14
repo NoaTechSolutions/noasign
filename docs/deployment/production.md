@@ -17,6 +17,21 @@ Oracle Cloud VM — nginx (ports 80/443)
 - Frontend: `https://app.ntssign.com`
 - Backend API: `https://api.ntssign.com`
 
+---
+
+## Landing Page (ntssign.com)
+
+La landing page pública está hospedada como sitio estático 
+en SiteGround, separada de la aplicación Next.js.
+
+- URL: https://ntssign.com
+- Hosting: SiteGround (static files)
+- Archivos: index.html + img/ en public_html/
+- CDN: Cloudflare (activo)
+- SSL: Let's Encrypt (renovación automática)
+- Deploy: manual via File Manager o FTP
+  (pipeline automático pendiente — NOA-78)
+
 If the frontend and backend run on separate VMs, each VM has its own nginx
 instance. The steps below are identical on each VM — just apply them to the
 relevant app.

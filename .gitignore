@@ -91,3 +91,18 @@ Thumbs.db
 # Prisma generated client
 generated/prisma/
 **/generated/prisma/
+
+# Landing static export (SiteGround distributable)
+landing-static/
+landing-export/
+ntssign-landing-siteground.zip
+ntssign-landing-siteground.tar.gz
+
+# Stray .htaccess at root (belongs in landing-export)
+/.htaccess
+
+# Prisma compiled seed artifacts
+apps/backend/prisma/seed.js
+apps/backend/prisma/seed.d.ts
+apps/backend/prisma/seed.js.map
+apps/backend/prisma/seed_test_users.js

@@ -1,102 +1,99 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useTheme } from "next-themes";
-import { useLang } from "./LangContext";
+import { useState } from "react";
+import { useLang } from "./LandingContext";
+import { T } from "../../lib/landing-i18n";
 
-const faq = {
-  en: [
-    { q: "Does my client need to create an account to sign?", a: "No. They receive a link by email and sign directly from their browser. No registration, no downloads." },
-    { q: "Is the electronic signature legally valid?", a: "Yes. Every signature complies with the ESIGN Act (US) and includes a full audit trail — IP address, timestamp, and device record." },
-    { q: "Can I use my existing contract?", a: "Yes. We adapt it into NTSsign as part of the template setup service (from $49)." },
-    { q: "What happens if my client doesn't sign?", a: "NTSsign sends automatic reminders. You can also track the document status from your dashboard in real time." },
-    { q: "Can I cancel anytime?", a: "Yes. No long-term contracts. Cancel from your account settings whenever you want." },
-  ],
-  es: [
-    { q: "¿Mi cliente necesita crear una cuenta para firmar?", a: "No. Recibe un link por email y firma directamente desde su navegador. Sin registro, sin descargas." },
-    { q: "¿La firma electrónica tiene validez legal?", a: "Sí. Cada firma cumple con el ESIGN Act (EE.UU.) e incluye un audit trail completo — IP, timestamp y dispositivo." },
-    { q: "¿Puedo usar mi contrato actual?", a: "Sí. Lo adaptamos a NTSsign como parte del servicio de template setup (desde $49)." },
-    { q: "¿Qué pasa si mi cliente no firma?", a: "NTSsign envía reminders automáticos. También podés ver el estado del documento en tu dashboard en tiempo real." },
-    { q: "¿Puedo cancelar cuando quiera?", a: "Sí. Sin contratos de largo plazo. Cancelás desde la configuración de tu cuenta cuando quieras." },
-  ],
-};
+const faqKeys = [
+  { q: "fq1q", a: "fq1a" },
+  { q: "fq2q", a: "fq2a" },
+  { q: "fq3q", a: "fq3a" },
+  { q: "fq4q", a: "fq4a" },
+  { q: "fq5q", a: "fq5a" },
+  { q: "fq6q", a: "fq6a" },
+  { q: "fq7q", a: "fq7a" },
+  { q: "fq8q", a: "fq8a" },
+] as const;
+
+const ChevronSvg = () => (
+  <svg viewBox="0 0 16 16" fill="none">
+    <path
+      d="M4 6l4 4 4-4"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
 export function FaqSection() {
   const { lang } = useLang();
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  const [open, setOpen] = useState<number | null>(null);
-  useEffect(() => setMounted(true), []);
-  const isDark = mounted && resolvedTheme === "dark";
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
 
-  const items = faq[lang];
+  const toggle = (idx: number) => {
+    setOpenIdx(openIdx === idx ? null : idx);
+  };
+
+  const leftCol = faqKeys.slice(0, 4);
+  const rightCol = faqKeys.slice(4, 8);
+
+  const renderItem = (item: (typeof faqKeys)[number], idx: number) => {
+    const isOpen = openIdx === idx;
+    return (
+      <div className="faq-item" key={idx}>
+        <button
+          className={`faq-q${isOpen ? " open" : ""}`}
+          onClick={() => toggle(idx)}
+        >
+          <span className="faq-q-text">{T[lang][item.q]}</span>
+          <span className="faq-chevron" aria-hidden="true">
+            <ChevronSvg />
+          </span>
+        </button>
+        <div className={`faq-a${isOpen ? " open" : ""}`}>
+          <p>{T[lang][item.a]}</p>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <section
-      id="faq"
-      style={{ background: isDark ? "#0b0f1a" : "#ffffff", padding: "80px 20px" }}
-    >
-      <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        <h2
-          style={{
-            fontSize: 22, fontWeight: 500, textAlign: "center", marginBottom: 40,
-            color: isDark ? "#f0f4ff" : "#022977",
-          }}
-        >
-          FAQ
-        </h2>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {items.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                background: isDark ? "#161d30" : "#f7f8fa",
-                border: isDark ? "0.5px solid rgba(255,255,255,0.08)" : "0.5px solid rgba(2,41,119,0.10)",
-                borderRadius: 10,
-                overflow: "hidden",
-              }}
-            >
-              <button
-                onClick={() => setOpen(open === i ? null : i)}
-                style={{
-                  width: "100%", textAlign: "left", padding: "16px 18px",
-                  background: "transparent", border: "none", cursor: "pointer",
-                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 14, fontWeight: 500,
-                    color: isDark ? "#f0f4ff" : "#022977",
-                  }}
-                >
-                  {item.q}
-                </span>
-                <span
-                  style={{
-                    fontSize: 16, color: isDark ? "#05a5ff" : "#022977",
-                    transform: open === i ? "rotate(45deg)" : "none",
-                    transition: "transform 0.15s", flexShrink: 0,
-                  }}
-                >
-                  +
-                </span>
-              </button>
-
-              {open === i && (
-                <div
-                  style={{
-                    padding: "0 18px 16px",
-                    fontSize: 13, lineHeight: 1.7,
-                    color: isDark ? "rgba(200,216,240,0.65)" : "rgba(2,41,119,0.65)",
-                  }}
-                >
-                  {item.a}
-                </div>
-              )}
+    <section className="section sec-alt" id="faq">
+      <div className="wrap">
+        <div className="faq-header rv">
+          <div>
+            <div className="sec-lbl">
+              <span className="dot">&#9679;</span>
+              <span>{T[lang].faq_lbl}</span>
             </div>
-          ))}
+            <h2
+              className="sh2"
+              dangerouslySetInnerHTML={{ __html: T[lang].faq_h2 }}
+            />
+          </div>
+          <div className="faq-header-right">
+            <p className="faq-intro">{T[lang].faq_sub}</p>
+          </div>
+        </div>
+
+        <div className="faq-cols rv">
+          <div className="faq-col">
+            {leftCol.map((item, i) => renderItem(item, i))}
+          </div>
+          <div className="faq-col">
+            {rightCol.map((item, i) => renderItem(item, i + 4))}
+          </div>
+        </div>
+
+        <div className="faq-footer rv">
+          <p className="faq-intro">{T[lang].faq_sub}</p>
+          <a
+            href="mailto:support@noatechsolutions.com"
+            className="faq-contact-link"
+          >
+            {T[lang].faq_contact}
+          </a>
         </div>
       </div>
     </section>

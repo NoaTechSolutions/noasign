@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { LangProvider } from "../../components/marketing/LangContext";
+import { LangProvider } from "../../components/marketing/LandingContext";
+import "./landing.css";
 
 export const metadata: Metadata = {
   title: "NTSsign · Digital Contracts & E-Signatures for Service Businesses",

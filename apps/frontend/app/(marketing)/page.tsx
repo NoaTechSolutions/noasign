@@ -1,27 +1,40 @@
 import { Navbar } from "../../components/marketing/Navbar";
 import { HeroSection } from "../../components/marketing/HeroSection";
-import { ProblemSection } from "../../components/marketing/ProblemSection";
-import { HowItWorksSection } from "../../components/marketing/HowItWorksSection";
-import { FeaturesSection } from "../../components/marketing/FeaturesSection";
+import { LogosCarousel } from "../../components/marketing/LogosCarousel";
+import { BenefitSections } from "../../components/marketing/BenefitSections";
+import { FeaturesCarousel } from "../../components/marketing/FeaturesCarousel";
+import { DevicesSection } from "../../components/marketing/DevicesSection";
+import { HowItWorks } from "../../components/marketing/HowItWorks";
+import { MidCta } from "../../components/marketing/MidCta";
+import { SecuritySection } from "../../components/marketing/SecuritySection";
 import { PricingSection } from "../../components/marketing/PricingSection";
+import { BottomCta } from "../../components/marketing/BottomCta";
 import { FaqSection } from "../../components/marketing/FaqSection";
-import { CtaSection } from "../../components/marketing/CtaSection";
 import { Footer } from "../../components/marketing/Footer";
+import { FloatingControls } from "../../components/marketing/FloatingControls";
+import { ScrollReveal } from "../../components/marketing/ScrollReveal";
 
 export default function LandingPage() {
   return (
     <>
+      <ScrollReveal />
       <Navbar />
       <main>
         <HeroSection />
-        <ProblemSection />
-        <HowItWorksSection />
-        <FeaturesSection />
+        <LogosCarousel />
+        <BenefitSections />
+        <FeaturesCarousel />
+        <DevicesSection />
+        <HowItWorks />
+        <MidCta />
+        <SecuritySection />
+        {/* <Testimonials /> — hidden until real reviews are available */}
         <PricingSection />
+        <BottomCta />
         <FaqSection />
-        <CtaSection />
       </main>
       <Footer />
+      <FloatingControls />
     </>
   );
 }

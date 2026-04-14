@@ -169,6 +169,21 @@ Every document sent to a signer includes subtle NTSsign branding in the signing 
 
 ---
 
+## Landing Page Pública (NOA-39)
+
+**Status:** Parcialmente completado — ver epic NOA-56 para tareas restantes.
+
+- ✅ Landing page v1 — completada (ntssign-landing-v3.html)
+- ✅ EN/ES bilingüe
+- ✅ Dark/light mode
+- ✅ Deploy en SiteGround
+- ⬜ SEO meta tags (NOA-71)
+- ⬜ Analytics (NOA-74)
+- ⬜ CTAs conectados (NOA-73)
+- ⬜ Pipeline automático (NOA-78)
+
+---
+
 ## Phase 2 — Competitive Differentiation
 
 ### P2-01 · Audit Trail PDF (Downloadable)
