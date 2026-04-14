@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
 
@@ -63,7 +64,7 @@ export function Navbar() {
             <span></span>
           </button>
 
-          <a className="nav-logo" href="/" aria-label="NTSsign home">
+          <Link className="nav-logo" href="/" aria-label="NTSsign home">
             <img
               className="logo-img logo-light"
               src="/img/NTSSign_AzulDark_SinFondo.svg"
@@ -78,7 +79,7 @@ export function Navbar() {
               width={140}
               height={36}
             />
-          </a>
+          </Link>
 
           <ul className="nav-links" role="list">
             {navLinks.map((link) => (

@@ -5,19 +5,13 @@ import { useLang } from "./LandingContext";
 
 export function FloatingControls() {
   const { lang, setLang } = useLang();
-  const [dark, setDark] = useState(false);
-
-  /* On mount: detect stored theme or system preference */
-  useEffect(() => {
+  const [dark, setDark] = useState(() => {
+    if (typeof window === "undefined") return false;
     const stored = localStorage.getItem("nts-theme");
-    if (stored === "dark") {
-      setDark(true);
-    } else if (stored === "light") {
-      setDark(false);
-    } else {
-      setDark(window.matchMedia("(prefers-color-scheme:dark)").matches);
-    }
-  }, []);
+    if (stored === "dark") return true;
+    if (stored === "light") return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
 
   /* Apply dark class + logo visibility whenever dark changes */
   useEffect(() => {
