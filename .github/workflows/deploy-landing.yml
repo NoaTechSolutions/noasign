@@ -38,6 +38,7 @@ jobs:
         timeout-minutes: 20
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
+          NEXT_PUBLIC_API_URL: 'https://api.ntssign.com'
         run: bash scripts/export-landing.sh
 
       - name: Prune unreferenced PNG sources (keep only responsive variants)
