@@ -99,17 +99,45 @@ jobs:
           echo "=== Image variants ==="
           ls landing-export/img/ | head -30
 
-      - name: Deploy to SiteGround via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ftp.noatechsolutions.com
-          username: ${{ secrets.SITEGROUND_USER }}
-          password: ${{ secrets.SITEGROUND_PASSWORD }}
-          port: 21
-          local-dir: ./landing-export/
-          server-dir: /public_html/ntssign/
-          dangerous-clean-slate: true
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+      - name: Debug — inspect FTP server structure (home dir + public_html layout)
+        env:
+          FTP_USER: ${{ secrets.SITEGROUND_USER }}
+          FTP_PASS: ${{ secrets.SITEGROUND_PASSWORD }}
+        run: |
+          sudo apt-get install -y lftp > /dev/null
+          echo "=== FTP diagnostic: where does this user land and what can it see? ==="
+          lftp -u "$FTP_USER,$FTP_PASS" ftp.noatechsolutions.com <<'EOF'
+            set ssl:verify-certificate no
+            echo "--- pwd (login home) ---"
+            pwd
+            echo "--- ls -la (files in home) ---"
+            ls -la
+            echo "--- try: cd public_html ---"
+            cd public_html && pwd && ls -la || echo "NO public_html in home"
+            echo "--- try: cd / (root from here) ---"
+            cd /
+            pwd
+            ls -la
+            echo "--- try absolute: cd /public_html/ntssign ---"
+            cd /public_html/ntssign 2>&1 && pwd && ls -la || echo "CANNOT cd to /public_html/ntssign"
+            echo "--- try absolute: cd /home/noatechs/public_html/ntssign ---"
+            cd /home/noatechs/public_html/ntssign 2>&1 && pwd && ls -la || echo "CANNOT cd to /home/noatechs/public_html/ntssign"
+            bye
+          EOF
+
+      # Deploy step intentionally DISABLED during diagnostics.
+      # Re-enable once the correct server-dir is confirmed from the debug output above.
+      # - name: Deploy to SiteGround via FTP
+      #   uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      #   with:
+      #     server: ftp.noatechsolutions.com
+      #     username: ${{ secrets.SITEGROUND_USER }}
+      #     password: ${{ secrets.SITEGROUND_PASSWORD }}
+      #     port: 21
+      #     local-dir: ./landing-export/
+      #     server-dir: /public_html/ntssign/
+      #     dangerous-clean-slate: true
+      #     exclude: |
+      #       **/.git*
+      #       **/.git*/**
+      #       **/node_modules/**
