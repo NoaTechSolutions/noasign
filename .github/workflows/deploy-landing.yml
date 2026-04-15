@@ -99,31 +99,47 @@ jobs:
           echo "=== Image variants ==="
           ls landing-export/img/ | head -30
 
-      - name: Debug — inspect FTP server structure (home dir + public_html layout)
+      - name: Debug — probe domain folder + cleanup junk from previous attempts
         env:
           FTP_USER: ${{ secrets.SITEGROUND_USER }}
           FTP_PASS: ${{ secrets.SITEGROUND_PASSWORD }}
         run: |
           sudo apt-get install -y lftp > /dev/null
-          echo "=== FTP diagnostic: where does this user land and what can it see? ==="
-          lftp -u "$FTP_USER,$FTP_PASS" ftp.noatechsolutions.com <<'EOF'
+          echo "HELLO FROM FTP PROBE" > /tmp/ftp-probe-marker.txt
+          lftp -u "$FTP_USER,$FTP_PASS" ftp.noatechsolutions.com <<'LFTP_EOF'
             set ssl:verify-certificate no
-            echo "--- pwd (login home) ---"
+            set xfer:clobber on
+            !echo "=== A. cd into noatechsolutions.com (drwx--x--x) ==="
+            cd noatechsolutions.com
             pwd
-            echo "--- ls -la (files in home) ---"
+            !echo "=== B. try: ls (will likely fail on x-only dir) ==="
             ls -la
-            echo "--- try: cd public_html ---"
-            cd public_html && pwd && ls -la || echo "NO public_html in home"
-            echo "--- try: cd / (root from here) ---"
+            !echo "=== C. try: cd public_html (inside noatechsolutions.com) ==="
+            cd public_html
+            pwd
+            ls -la
+            !echo "=== D. try: cd ntssign (the real docroot per user) ==="
+            cd ntssign
+            pwd
+            ls -la
+            !echo "=== E. upload probe marker here ==="
+            put /tmp/ftp-probe-marker.txt -o ftp-probe-marker.txt
+            ls -la ftp-probe-marker.txt
+            !echo "=== F. back to /, same path via symlink ntssign.com ==="
             cd /
+            cd ntssign.com/public_html/ntssign 2>&1
             pwd
             ls -la
-            echo "--- try absolute: cd /public_html/ntssign ---"
-            cd /public_html/ntssign 2>&1 && pwd && ls -la || echo "CANNOT cd to /public_html/ntssign"
-            echo "--- try absolute: cd /home/noatechs/public_html/ntssign ---"
-            cd /home/noatechs/public_html/ntssign 2>&1 && pwd && ls -la || echo "CANNOT cd to /home/noatechs/public_html/ntssign"
+            !echo "=== G. cleanup junk dirs created by previous failed deploys ==="
+            cd /
+            !echo "(removing /ntssign)"
+            rm -rf ntssign
+            !echo "(removing /public_html)"
+            rm -rf public_html
+            !echo "--- final root listing ---"
+            ls -la
             bye
-          EOF
+          LFTP_EOF
 
       # Deploy step intentionally DISABLED during diagnostics.
       # Re-enable once the correct server-dir is confirmed from the debug output above.
