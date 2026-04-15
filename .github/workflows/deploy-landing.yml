@@ -15,6 +15,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -34,6 +35,9 @@ jobs:
         # scripts/export-landing.sh temporarily patches next.config.ts (output: export),
         # neuters proxy.ts, adds force-static to dynamic routes, builds, copies the
         # result to landing-export/, and restores all original files via `trap restore EXIT`.
+        timeout-minutes: 20
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
         run: bash scripts/export-landing.sh
 
       - name: Prune unreferenced PNG sources (keep only responsive variants)
