@@ -84,11 +84,9 @@ Use three revenue layers:
 - pay-per-document for low-volume customers
 - onboarding and template implementation fees
 
-This is the safest model while NTSsign runs on BoldSign Enterprise API.
-
 ## Recommended plans
 
-### Pay As You Go
+### Pay-per-contract
 
 Best for:
 
@@ -98,7 +96,7 @@ Best for:
 
 Price:
 
-- `USD 15` per document sent
+- `USD 12` per document
 
 Includes:
 
@@ -106,15 +104,17 @@ Includes:
 - send for signature
 - signed PDF download
 - audit trail access
+- document history: 90 days
 
 Does not include:
 
-- bundled monthly quota
-- saved customer directory
-- team workspace setup
-- custom onboarding
+- dashboard operativo
+- saved templates
+- team workspace or multiple users
 
-### Launch
+---
+
+### Starter — $19/month _(or $16/month billed annually — $192/year)_
 
 Best for:
 
@@ -122,168 +122,162 @@ Best for:
 - businesses with one main contract workflow
 - customers who want a simple monthly plan
 
-Price:
-
-- `USD 39/month`
-
 Includes:
 
 - up to `5` documents per month
 - `1` internal user
 - `1` active template
-- `1` main document workflow
-- document dashboard
-- billing dashboard
-- signed PDF history
+- full dashboard and billing visibility
+- company profile + logo
+- automatic reminders
+- document expiration
+- document history: 1 year
 
 Does not include:
 
-- saved customer directory
-- multi-user collaboration
-- advanced onboarding
+- multiple users
+- multi-signer / sequential signing
 
-Overage:
+Overage: `USD 4` per extra document
 
-- `USD 7` per extra document
+---
 
-### Growth
+### Launch — $39/month _(or $32/month billed annually — $384/year)_ ⭐ Most Popular
 
 Best for:
 
 - small teams sending contracts every month
-- companies that need multiple templates
-- customers who want the SaaS to remember recurring client information
-
-Price:
-
-- `USD 79/month`
+- companies that need multiple templates and user management
 
 Includes:
 
-- up to `12` documents per month
-- up to `3` internal users
-- up to `3` active templates
-- multiple document types
-- account-request and member management
-- standard onboarding support
+- up to `15` documents per month
+- `2` internal users
+- `3` active templates
+- everything in Starter
+- team user and role management
+- multi-signer / sequential signing
+- document history: 2 years
 
-Planned / premium roadmap for this tier:
+Does not include:
 
-- saved customer directory
-- reusable customer records
-- customer notes and customer-level history
+- custom branding on documents
+- analytics and reporting
+- bulk send
 
-Overage:
+Overage: `USD 3.50` per extra document
 
-- `USD 5` per extra document
+---
 
-### Scale
+### Pro — $89/month _(or $74/month billed annually — $888/year)_
 
 Best for:
 
-- recurring teams using NTSsign as an operational workspace
-- businesses with several sales or admin users
-- customers who need more structure, more setup, and more support
-
-Price:
-
-- `USD 149/month`
+- growing businesses with higher volume
+- teams that need custom branding and analytics
 
 Includes:
 
-- up to `25` documents per month
-- up to `8` internal users
-- up to `5` active templates
-- faster onboarding help
-- higher-touch support
-- stronger workflow configuration help
+- up to `50` documents per month
+- `5` internal users
+- `10` active templates
+- everything in Launch
+- custom branding on documents
+- analytics and reporting
+- bulk send
+- SMS OTP signer verification
+- downloadable audit trail PDF
+- document history: 3 years
 
-Planned / premium roadmap for this tier:
+Overage: `USD 2.50` per extra document
 
-- saved customer directory
-- reusable customer records
-- reminder automations
-- reporting and analytics
-- richer document workflow packs
-- approval checkpoints before send
+---
 
-Overage:
-
-- `USD 4` per extra document
-
-### Custom / High Volume
+### Scale — $229/month _(or $190/month billed annually — $2,280/year)_
 
 Best for:
 
-- customers with higher monthly volume
-- customers that need more implementation support
-- customers who want deeper workflow adaptation
+- high-volume teams
+- businesses that need priority support and unlimited templates
 
-Price:
+Includes:
 
-- custom quote
+- up to `150` documents per month
+- `15` internal users
+- unlimited templates
+- everything in Pro
+- priority support
+- bulk ZIP export of signed PDFs
+- document history: 5 years
+- Roadmap: white-label signing portal
 
-Use this only when:
+Overage: `USD 1.50` per extra document
 
-- the customer volume exceeds what Essentials can support comfortably
-- the customer expects implementation beyond standard setup
-- the customer is likely to justify an upgrade in provider cost later
+---
 
 ## Feature ladder by plan
 
-### Included today
+| Capability | Pay-per-contract | Starter | Launch | Pro | Scale |
+|---|---|---|---|---|---|
+| Guided document creation | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Send for signature | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Signed PDF download | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Audit trail access | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Full workspace dashboard | — | ✓ | ✓ | ✓ | ✓ |
+| Billing dashboard | — | ✓ | ✓ | ✓ | ✓ |
+| Company profile + logo | — | ✓ | ✓ | ✓ | ✓ |
+| Automatic reminders | — | ✓ | ✓ | ✓ | ✓ |
+| Document expiration | — | ✓ | ✓ | ✓ | ✓ |
+| Team user management | — | — | ✓ | ✓ | ✓ |
+| Multi-signer / sequential | — | — | ✓ | ✓ | ✓ |
+| Custom branding on docs | — | — | — | ✓ | ✓ |
+| Analytics and reporting | — | — | — | ✓ | ✓ |
+| Bulk send | — | — | — | ✓ | ✓ |
+| SMS OTP signer verification | — | — | — | ✓ | ✓ |
+| Audit trail PDF (download) | — | — | — | ✓ | ✓ |
+| Priority support | — | — | — | — | ✓ |
+| Unlimited templates | — | — | — | — | ✓ |
+| Bulk ZIP PDF export | — | — | — | — | ✓ |
 
-| Capability | Pay As You Go | Launch | Growth | Scale |
-| --- | --- | --- | --- | --- |
-| Guided document creation | Yes | Yes | Yes | Yes |
-| Send for signature | Yes | Yes | Yes | Yes |
-| Signed PDF download | Yes | Yes | Yes | Yes |
-| Audit trail access | Yes | Yes | Yes | Yes |
-| Workspace dashboard | Limited | Yes | Yes | Yes |
-| Billing visibility | No | Yes | Yes | Yes |
-| Team user management | No | No | Yes | Yes |
-| Account request review | No | No | Yes | Yes |
-| Multiple templates | No | No | Yes | Yes |
+## Onboarding and implementation fees
 
-### Planned premium roadmap
-
-| Capability | Pay As You Go | Launch | Growth | Scale |
-| --- | --- | --- | --- | --- |
-| Saved customer directory | No | No | Planned | Planned |
-| Reusable customer records | No | No | Planned | Planned |
-| Customer-level history | No | No | Planned | Planned |
-| Reminder automations | No | No | Planned | Planned |
-| Analytics and reporting | No | No | Planned | Planned |
-| Approval flow before send | No | No | Planned | Planned |
-| Stronger white-labeling | No | No | Future add-on | Future add-on |
-
-## Suggested onboarding and implementation fees
-
-These should stay separate from the monthly plan.
+These stay separate from the monthly plan.
 
 ### Template setup
 
-- simple template setup: `USD 149`
-- medium complexity template setup: `USD 199`
-- complex template setup: `USD 249` to `USD 399`
+If the customer already has a contract and wants it adapted into NTSsign:
+
+| Service | Price |
+|---|---|
+| Template setup (basic) | `USD 49` |
+| Template setup + modifications | `USD 79` |
+| Express delivery (+48h) | +`USD 29` |
 
 ### Additional templates
 
-- additional template: `USD 99` to `USD 149`
+For extra document workflows beyond the plan's included template slots:
 
-### Existing contract adaptation
-
-Use this when the customer already has a contract and wants it adapted into NTSsign.
-
-- base adaptation fee: `USD 149`
-- more complex adaptation: `USD 199` to `USD 299`
+| Plan | Extra template price |
+|---|---|
+| Starter | `USD 49` per slot |
+| Launch | `USD 49` per slot |
+| Pro | `USD 39` per slot |
+| Scale | Unlimited (included) |
 
 ### Workflow onboarding
 
-Use this when the customer wants help setting up their internal process, users, templates, and rollout.
+For team setup, process configuration, and rollout support:
 
-- basic onboarding package: `USD 149`
-- team onboarding package: `USD 249` to `USD 499`
+| Service | Price |
+|---|---|
+| Basic onboarding (2–3 people) | `USD 149` |
+| Team onboarding (full rollout) | `USD 249` |
+
+### Recommended combos for new clients
+
+- **Entry:** Starter $19/mo + Template setup $49 = $68 to start
+- **Recommended:** Launch $39/mo + Template setup $49 = $88 to start ⭐
+- **Full package:** Launch $39/mo + Setup+Modifications $79 + Team onboarding $149 = $267 to start
 
 ## Competitive positioning
 
@@ -315,10 +309,11 @@ Use language like this:
 
 For the current stage:
 
-- keep `Pay As You Go` for low-friction entry
-- make `Growth` the main target plan
-- use `Scale` for customers that need more users and more operational handholding
-- do not offer unlimited plans yet
+- keep `Pay-per-contract` for low-friction entry
+- make `Launch` the main target plan — most popular
+- use `Pro` for customers that need branding and analytics
+- use `Scale` for high-volume teams needing priority support
+- do not offer unlimited documents plans yet
 - do not promise white-label or advanced automation as already included if they are still roadmap
 
 ## Internal notes
@@ -327,3 +322,4 @@ For the current stage:
 - protect margin with setup fees and overage pricing
 - use roadmap features as upgrade conversation, not as fake current functionality
 - move customers into larger plans when they need saved customer records, more users, and more structured operations
+- the B2B API channel (NTSolutions internal integrations) is not part of this offer and should not be mentioned in sales conversations

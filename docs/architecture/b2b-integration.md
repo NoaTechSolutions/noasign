@@ -1,5 +1,10 @@
 # NTSsign — B2B API Integration Design
 
+> ⚠️ **Uso interno únicamente.** Este documento describe la integración B2B API
+> de NTSsign con plataformas SaaS de NTSolutions (ej. Daycare SaaS).
+> Esta API **no se ofrece al público** ni se menciona en materiales de marketing.
+> Audiencia: equipo de desarrollo de NTSolutions únicamente.
+
 ## Context
 
 NTSsign will be consumed by **external SaaS platforms** built by NTSolutions. These platforms have their own customers and their own product scope, but delegate document signing to NTSsign.

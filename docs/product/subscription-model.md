@@ -1,6 +1,10 @@
-# NoaSign — Subscription Model
+# NTSsign — Subscription Model
 
-_Last updated: 2026-04-06_
+> **Nota:** Este archivo es la fuente de verdad del modelo de suscripción público.
+> El canal B2B API (NTSolutions internal) se documenta separadamente y **NO**
+> forma parte de la oferta pública de NTSsign.
+
+_Last updated: 2026-04-10_
 
 ---
 
@@ -45,10 +49,9 @@ Break-even: 3+ contracts/month → subscription is more cost-effective.
 | Audit trail PDF (downloadable) | — | — | — | ✓ | ✓ | ✓ |
 | SMS OTP verification (signer) | — | — | — | ✓ | ✓ | ✓ |
 | Priority support | — | — | — | — | ✓ | ✓ |
-| API access + Webhooks | — | — | — | — | ✓ | ✓ |
 | Activity log (team audit) | — | — | — | — | ✓ | ✓ |
 | Granular roles (Owner/Admin/Agent/Viewer) | — | — | — | — | ✓ | ✓ |
-| White-label (remove NoaSign branding) | — | — | — | — | — | ✓ |
+| White-label (remove NTSsign branding) | — | — | — | — | — | ✓ |
 | In-person signing mode | — | — | — | — | — | ✓ |
 | HIPAA / compliance mode | — | — | — | — | — | ✓ |
 | Dedicated account manager | — | — | — | — | — | ✓ |

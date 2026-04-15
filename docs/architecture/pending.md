@@ -45,6 +45,61 @@ Replaces hardcoded form fields with a fully dynamic, schema-based system. Enable
 
 ---
 
+## Epic NOA-56 — Landing Page Pública NTSsign
+
+Publicar la landing page de NTSsign (ntssign-landing-v3.html) en producción bajo ntssign.com usando SiteGround como hosting estático, con CDN de Cloudflare para máxima velocidad de carga.
+
+### Tier 0 — Infraestructura SiteGround
+
+| Item | Linear | Tipo | Prioridad | Notas |
+|------|--------|------|-----------|-------|
+| Configurar dominio ntssign.com en SiteGround | NOA-57 | Task | Urgent | Agregar ntssign.com como dominio en Site Tools → Domains |
+| Instalar SSL Let's Encrypt en SiteGround para ntssign.com | NOA-58 | Task | Urgent | Site Tools → Security → SSL Manager → Let's Encrypt |
+| Actualizar registros DNS en Cloudflare | NOA-59 | Task | Urgent | A record raíz (@) → IP SiteGround. Mantener app.* y api.* → Oracle VM |
+| Crear archivo .htaccess con caché, gzip y headers de seguridad | NOA-60 | Task | High | Ver siteground.md para contenido exacto |
+| Activar CDN Cloudflare para ntssign.com desde SiteGround | NOA-61 | Task | High | Site Tools → Speed → Cloudflare. Cache rule para /img/* |
+
+### Tier 1 — Archivos de la landing
+
+| Item | Linear | Tipo | Prioridad | Notas |
+|------|--------|------|-----------|-------|
+| Preparar carpeta de deploy: index.html + img/ | NOA-62 | Task | Urgent | Renombrar ntssign-landing-v3.html → index.html. Incluir las 4 imágenes 3D |
+| Subir landing page a SiteGround via File Manager o FTP | NOA-63 | Task | Urgent | Subir index.html y carpeta img/ a public_html/ |
+| Verificar carga correcta en https://ntssign.com | NOA-64 | Task | Urgent | Checklist completo: HTTPS, imágenes, dark mode, EN/ES toggle, secciones visibles |
+| Verificar que app.ntssign.com y api.ntssign.com no fueron afectados | NOA-65 | Task | Urgent | Los subdominios siguen apuntando a Oracle Cloud VM |
+
+### Tier 2 — Imágenes 3D
+
+| Item | Linear | Tipo | Prioridad | Notas |
+|------|--------|------|-----------|-------|
+| Regenerar hero-3d.png a alta resolución (mínimo 2048px) | NOA-66 | Task | High | Usar prompt sin sombras/glow. Quitar fondo en Canva → PNG transparente |
+| Regenerar security-3d.png a alta resolución | NOA-67 | Task | High | Mismo proceso que NOA-66 |
+| Regenerar workflow-3d.png a alta resolución | NOA-68 | Task | High | Mismo proceso que NOA-66 |
+| Crear y subir devices-3d.png (teléfono + laptop + tablet) | NOA-69 | Task | High | Nueva imagen. Reemplaza mockups CSS en sección devices |
+| Implementar devices-3d.png en sección devices (reemplaza mockups CSS) | NOA-70 | Task | High | Ver instrucción en CLAUDE_CODE_INSTRUCTIONS.md §devices |
+
+### Tier 3 — Optimización y SEO
+
+| Item | Linear | Tipo | Prioridad | Notas |
+|------|--------|------|-----------|-------|
+| Agregar meta tags SEO a index.html | NOA-71 | Task | Medium | og:title, og:description, og:image, canonical, description, keywords |
+| Crear og:image (1200×630px) para compartir en redes sociales | NOA-72 | Task | Medium | Versión de la landing adaptada a esa proporción. Generar en Canva |
+| Conectar botones CTA con flujo real de signup | NOA-73 | Task | Medium | "Request access" y "Get started" deben apuntar a app.ntssign.com/request-access |
+| Agregar Google Analytics o Plausible a la landing | NOA-74 | Task | Medium | Tracking de visitas, conversiones y clicks en CTA |
+| PageSpeed Insights > 90 en desktop y > 75 en mobile | NOA-75 | Task | Medium | Verificar con https://pagespeed.web.dev después del deploy |
+| Agregar links reales a redes sociales en el footer | NOA-76 | Task | Low | LinkedIn, Instagram, Facebook, X, YouTube de NoaTechSolutions |
+| Reemplazar email placeholder con email de producción | NOA-77 | Task | Low | support@noatechsolutions.com ya está en el HTML, verificar que sea correcto |
+
+### Tier 4 — Post-launch
+
+| Item | Linear | Tipo | Prioridad | Notas |
+|------|--------|------|-----------|-------|
+| Setup pipeline de deploy automático para la landing | NOA-78 | Task | Low | GitHub Action que sube a SiteGround via FTP/SFTP en push a main |
+| Agregar favicon y apple-touch-icon | NOA-79 | Task | Low | Generar en Canva desde el logo. Tamaños: 16, 32, 180, 192, 512px |
+| Implementar formulario de contacto funcional | NOA-80 | Task | Low | Conectar el email "Still have questions?" con un backend o Formspree |
+
+---
+
 ## Tier 1 — Fase 1: B2B API foundation
 
 Requerido antes de que una integración externa pueda usar NTSSign como plataforma.
@@ -115,7 +170,7 @@ Ordenado por prioridad e impacto en competitividad. Las primeras tres features f
 |------|--------|-------|
 | Bulk Send — envío masivo a múltiples clientes | NOA-43 | Requiere NOA-40 + NOA-41. N documentos en una operación |
 | Multi-signer — firmantes múltiples con orden | NOA-44 | Secuencial o paralelo. BoldSign ya lo soporta |
-| Landing page pública NTSsign | NOA-39 | Value prop, brand, responsive, dark/light mode |
+| Landing page pública NTSsign | NOA-39 | ✅ Landing v1 completada · ✅ EN/ES bilingüe · ✅ Dark/light mode · ✅ Deploy en SiteGround · ⬜ SEO (NOA-71) · ⬜ Analytics (NOA-74) · ⬜ CTAs (NOA-73) · ⬜ Pipeline (NOA-78) |
 
 ### Fase C — Experiencia avanzada
 

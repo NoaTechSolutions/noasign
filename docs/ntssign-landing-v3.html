@@ -1,0 +1,2891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NTSsign — The Smart eSignature Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+:root{
+  --navy:#022977;--electric:#0400f0;--sky:#05a5ff;
+  --amber:#ff9900;--amber-h:#cc7a00;
+  --bg:#fff;--bg-s:#f0f4ff;--bg-c:#f7f8fa;
+  --th:#022977;--tb:rgba(2,41,119,.72);--tl:rgba(2,41,119,.5);--tt:rgba(2,41,119,.4);
+  --bd:rgba(2,41,119,.1);--bdm:rgba(2,41,119,.18);
+  --ib:#e8eeff;
+  --sc:0 2px 28px rgba(2,41,119,.08);
+  --sp:0 14px 55px rgba(2,41,119,.18);
+  --fd:'Bricolage Grotesque',sans-serif;
+  --fb:'DM Sans',sans-serif;
+}
+.dark{
+  --bg:#0b0f1a;--bg-s:#0f1628;--bg-c:#161d30;
+  --th:#f0f4ff;--tb:#c8d8f0;--tl:rgba(200,216,240,.6);--tt:rgba(200,216,240,.4);
+  --bd:rgba(255,255,255,.07);--bdm:rgba(255,255,255,.13);
+  --ib:rgba(5,165,255,.12);
+  --sc:0 2px 28px rgba(0,0,0,.38);
+  --sp:0 14px 60px rgba(0,0,0,.58);
+}
+body{font-family:var(--fb);font-size:16px;line-height:1.75;background:var(--bg);color:var(--tb);overflow-x:hidden;transition:background .25s,color .25s}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bdm);border-radius:3px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 2rem}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+a{text-decoration:none;color:inherit}
+img{max-width:100%;display:block}
+
+/* ── BUTTONS ── */
+.btn{font-family:var(--fb);font-size:14px;font-weight:500;padding:11px 26px;border-radius:8px;cursor:pointer;border:none;transition:all .18s;display:inline-flex;align-items:center;gap:7px}
+.btn-sm{font-size:12px;padding:7px 16px}
+.btn-p{background:var(--navy);color:#fff}
+.btn-p:hover{background:var(--electric);transform:translateY(-1px)}
+.dark .btn-p{background:var(--sky);color:#00183a}
+.dark .btn-p:hover{background:#33b8ff}
+.btn-a{background:var(--amber);color:#fff}
+.btn-a:hover{background:var(--amber-h);transform:translateY(-1px)}
+.btn-g{background:var(--bg);color:var(--navy);border:2px solid var(--navy)}
+.btn-g:hover{background:var(--navy);color:#fff}
+.dark .btn-g{background:transparent;color:var(--sky);border-color:var(--sky)}
+.dark .btn-g:hover{background:var(--sky);color:#00183a}
+.btn-wo{background:transparent;color:#fff;border:2px solid rgba(255,255,255,.55)}
+.btn-wo:hover{background:rgba(255,255,255,.12);border-color:#fff}
+
+/* ── NAV ── */
+.site-nav{
+  position:sticky;top:0;z-index:500;
+  background:rgba(255,255,255,.85);
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border-bottom:.5px solid var(--bd);
+  transition:background .25s,box-shadow .3s,border-color .3s;
+}
+.site-nav.scrolled{
+  background:rgba(255,255,255,.95);
+  box-shadow:0 4px 32px rgba(2,41,119,.08);
+  border-bottom-color:var(--bdm);
+}
+.dark .site-nav{background:rgba(11,15,26,.85)}
+.dark .site-nav.scrolled{background:rgba(11,15,26,.96);box-shadow:0 4px 32px rgba(0,0,0,.3)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px;max-width:1120px;margin:0 auto;padding:0 2rem}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;transition:transform .2s}
+.nav-logo:hover{transform:scale(1.03)}
+.logo-img{height:36px;width:auto}
+.logo-light{display:block}
+.logo-dark-img{display:none}
+.dark .logo-light{display:none}
+.dark .logo-dark-img{display:block}
+/* links with animated underline */
+.nav-links{display:flex;gap:.25rem;list-style:none}
+.nav-links a{
+  font-size:13px;color:var(--tl);font-weight:400;
+  padding:6px 12px;border-radius:8px;
+  position:relative;transition:color .18s,background .18s;
+  text-decoration:none;display:block;
+}
+.nav-links a::after{
+  content:'';position:absolute;left:12px;right:12px;bottom:2px;
+  height:2px;background:var(--navy);border-radius:1px;
+  transform:scaleX(0);transition:transform .22s cubic-bezier(.34,1.56,.64,1);
+  transform-origin:center;
+}
+.dark .nav-links a::after{background:var(--sky)}
+.nav-links a:hover{color:var(--th);background:var(--bg-s)}
+.nav-links a:hover::after{transform:scaleX(1)}
+.nav-links a.active{color:var(--navy);font-weight:500}
+.dark .nav-links a.active{color:var(--sky)}
+.nav-links a.active::after{transform:scaleX(1)}
+.nav-right{display:flex;align-items:center;gap:8px}
+.lang-sw{display:flex;border:.5px solid var(--bdm);border-radius:7px;overflow:hidden}
+.lang-btn{font-family:var(--fb);font-size:11px;font-weight:500;padding:5px 10px;cursor:pointer;border:none;background:transparent;color:var(--tl);transition:all .15s}
+.lang-btn.on{background:var(--navy);color:#fff}
+.dark .lang-btn.on{background:var(--sky);color:#00183a}
+.thm-btn{width:44px;height:24px;border-radius:12px;background:var(--navy);border:none;cursor:pointer;padding:3px;position:relative;transition:background .25s;flex-shrink:0}
+.dark .thm-btn{background:var(--sky)}
+.thm-knob{width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:transform .22s cubic-bezier(.34,1.56,.64,1);display:flex;align-items:center;justify-content:center;font-size:9px;pointer-events:none}
+.dark .thm-knob{transform:translateX(20px)}
+.ham{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:6px;background:none;border:none}
+.ham span{width:22px;height:2px;background:var(--th);border-radius:2px;transition:all .3s;display:block}
+.mob-menu{display:none;position:fixed;inset:64px 0 0 0;background:var(--bg);z-index:400;padding:2rem;flex-direction:column;gap:1.5rem;border-top:.5px solid var(--bd);overflow-y:auto}
+.mob-menu.open{display:flex}
+.mob-menu a{font-size:16px;color:var(--th);font-weight:500}
+
+/* ── HERO ── */
+.hero{background:var(--bg-s);padding:90px 0 0;overflow:hidden;position:relative}
+.hero::before{content:'';position:absolute;inset:0;background-image:linear-gradient(var(--bd) 1px,transparent 1px),linear-gradient(90deg,var(--bd) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;opacity:.5}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;will-change:transform}
+.b1{width:580px;height:580px;background:#022977;opacity:.26;top:-200px;right:-130px;animation:bf1 9s ease-in-out infinite alternate}
+.b2{width:430px;height:430px;background:var(--amber);opacity:.13;bottom:-80px;left:-100px;animation:bf2 7s ease-in-out infinite alternate}
+.b3{width:300px;height:300px;background:var(--sky);opacity:.1;top:40%;left:42%;animation:bf1 11s ease-in-out infinite alternate}
+.dark .b1{opacity:.44}.dark .b2{opacity:.17}
+@keyframes bf1{from{transform:translate(0,0) scale(1)}to{transform:translate(25px,35px) scale(1.06)}}
+@keyframes bf2{from{transform:translate(0,0) scale(1)}to{transform:translate(-20px,20px) scale(1.04)}}
+
+.hero-grid{max-width:1120px;margin:0 auto;padding:0 2rem;display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;position:relative;z-index:1}
+.hero-left{padding-bottom:90px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:var(--tl);margin-bottom:1.5rem}
+.ey-dot{color:var(--amber);font-size:13px}
+h1.h1{font-family:var(--fd);font-size:clamp(2.2rem,4.5vw,3.5rem);font-weight:500;color:var(--th);line-height:1.1;letter-spacing:-1.5px;margin-bottom:1.25rem}
+h1.h1 .acc{color:var(--amber)}
+h1.h1 .ul{position:relative;display:inline}
+/* animated word highlight in hero */
+.h1 .acc .ul::after{animation-delay:.4s}
+/* hero subtle animated gradient bg on eyebrow */
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.14em;color:var(--tl);margin-bottom:1.5rem;
+  padding:5px 14px;border-radius:20px;
+  background:linear-gradient(135deg,var(--ib),rgba(240,244,255,0));
+  border:.5px solid var(--bd);
+  animation:eyebrow-in .5s ease both;
+}
+@keyframes eyebrow-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+/* staggered hero text entrance */
+.hero-left > *{animation:slide-up .5s ease both}
+.hero-left .eyebrow{animation-delay:0s}
+.hero-left h1{animation-delay:.12s}
+.hero-left .hero-sub{animation-delay:.22s}
+.hero-left .hero-btns{animation-delay:.32s}
+.hero-left .trust{animation-delay:.4s}
+@keyframes slide-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+h1.h1 .ul::after{content:'';position:absolute;left:0;bottom:-4px;width:100%;height:3px;background:var(--amber);border-radius:2px;transform:scaleX(0);transform-origin:left;animation:ulin .6s .6s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes ulin{to{transform:scaleX(1)}}
+.hero-sub{font-size:17px;color:var(--tb);max-width:460px;line-height:1.75;margin-bottom:2rem;font-weight:300}
+.hero-btns{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.25rem}
+.trust{font-size:12px;color:var(--tt);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.t-sep{color:rgba(255,153,0,.6);font-size:10px}
+.hero-right{position:relative;perspective:1000px;padding-bottom:50px}
+.hero-img-wrap{transform:rotateY(-6deg) rotateX(3deg);transition:transform .5s ease;animation:cfl 5s ease-in-out infinite alternate;will-change:transform;filter:drop-shadow(0 24px 48px rgba(2,41,119,.25))}
+.hero-img-wrap:hover{transform:rotateY(-2deg) rotateX(1deg)}
+@keyframes cfl{from{transform:rotateY(-6deg) rotateX(3deg) translateY(0)}to{transform:rotateY(-4deg) rotateX(2deg) translateY(-14px)}}
+
+/* ── LOGOS ── */
+.logos{padding:1.5rem 0;background:var(--bg);border-top:.5px solid var(--bd);border-bottom:.5px solid var(--bd);overflow:hidden;position:relative}
+/* fade edges */
+.logos::before,.logos::after{content:'';position:absolute;top:0;bottom:0;width:100px;z-index:2;pointer-events:none}
+.logos::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
+.logos::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
+.logos-track{display:flex;width:max-content;animation:marquee 28s linear infinite}
+.logos-track:hover{animation-play-state:paused}
+.logos-set{display:flex;align-items:center;gap:1rem;padding:0 .5rem;flex-shrink:0}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.logos-lbl{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.12em;color:var(--tt);white-space:nowrap;padding:0 .75rem;opacity:.7}
+.lp{font-family:var(--fd);font-size:13px;font-weight:400;color:var(--tl);padding:6px 18px;border-radius:20px;border:.5px solid var(--bd);white-space:nowrap;transition:all .2s;cursor:default;flex-shrink:0}
+.lp:hover{color:var(--th);border-color:var(--bdm);background:var(--bg-s)}
+
+/* ── SECTIONS ── */
+.section{padding:90px 0}
+.sec-alt{background:var(--bg-s)}
+.sec-lbl{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:var(--tl);margin-bottom:.75rem;display:flex;align-items:center;gap:7px}
+.sec-lbl .dot{color:var(--amber)}
+h2.sh2{font-family:var(--fd);font-size:clamp(1.7rem,3vw,2.35rem);font-weight:500;color:var(--th);line-height:1.2;letter-spacing:-1px;margin-bottom:.75rem}
+.ssub{font-size:15px;color:var(--tb);max-width:520px;line-height:1.75;font-weight:300}
+
+/* ── STATS ── */
+/* ── BENEFIT SECTIONS (2-col alternating) ── */
+.bsec-grid{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center}
+.bsec-grid--rev{direction:rtl}.bsec-grid--rev>*{direction:ltr}
+.bsec-lead{font-size:16px;color:var(--tb);line-height:1.8;margin:1rem 0 1.75rem;font-weight:300}
+.bsec-points{display:flex;flex-direction:column;gap:1.1rem}
+.bsec-pt{display:flex;gap:.85rem;align-items:flex-start}
+.bsec-pt-ico{color:var(--navy);font-size:13px;margin-top:2px;flex-shrink:0;opacity:.6}
+.dark .bsec-pt-ico{color:var(--sky)}
+.bsec-pt-ttl{font-size:14px;font-weight:500;color:var(--th);margin-bottom:3px}
+.bsec-pt-dsc{font-size:13px;color:var(--tb);line-height:1.65}
+.bsec-btn{margin-top:2rem}
+
+/* image card container */
+.bsec-img-wrap{position:relative}
+.bsec-img-card{border-radius:20px;background:var(--bg-c);border:.5px solid var(--bd);padding:1.5rem;box-shadow:var(--sp);position:relative;overflow:visible;transition:transform .4s ease;animation:imgfl 7s ease-in-out infinite alternate}
+.bsec-img-card:hover{transform:translateY(-6px) scale(1.01)!important}
+
+/* floating badges */
+.bsec-float-badge{position:absolute;display:flex;align-items:center;gap:.65rem;background:var(--bg);border:.5px solid var(--bdm);border-radius:14px;padding:8px 14px;box-shadow:0 8px 28px rgba(2,41,119,.12);z-index:3;min-width:140px}
+.dark .bsec-float-badge{background:var(--bg-c);box-shadow:0 8px 28px rgba(0,0,0,.3)}
+.bsec-float-badge--tl{top:-18px;left:-18px}
+.bsec-float-badge--tr{top:-18px;right:-18px}
+.bsec-float-badge--br{bottom:-18px;right:-18px}
+.bfb-ttl{font-size:12px;font-weight:500;color:var(--th)}
+.bfb-sub{font-size:11px;color:var(--tl)}
+
+/* ── MOCKUP A — signing screen ── */
+.bsec-mockup-screen{display:flex;flex-direction:column;gap:.85rem}
+.bsec-mock-topbar{display:flex;align-items:center;justify-content:space-between;padding-bottom:.75rem;border-bottom:.5px solid var(--bd)}
+.bsec-mock-logo{display:flex;align-items:center;gap:.5rem}
+.bsec-mock-status{display:flex;align-items:center;gap:.5rem}
+.bsec-mock-doc{display:flex;flex-direction:column;gap:.6rem}
+.bsec-mock-doc-header{padding-bottom:.75rem;border-bottom:.5px solid var(--bd)}
+.bsec-mock-doc-body{display:flex;flex-direction:column;gap:6px;padding:.75rem 0}
+.bsec-mock-line{height:8px;border-radius:4px;background:var(--bd);width:100%}
+.bsec-mock-sig-area{border:.5px solid var(--bdm);border-radius:10px;padding:.75rem}
+.bsec-mock-sig-label{font-size:10px;color:var(--tl);margin-bottom:.4rem}
+.bsec-mock-sig-box{background:var(--ib);border-radius:6px;height:48px;display:flex;align-items:center;justify-content:center}
+.bsec-mock-footer{display:flex;align-items:center;justify-content:space-between;padding-top:.75rem;border-top:.5px solid var(--bd)}
+.bsec-mock-devices{display:flex;gap:6px}
+.bsec-mock-cta-btn{background:var(--amber);color:#fff;padding:8px 18px;border-radius:7px;font-size:12px;font-weight:500;white-space:nowrap}
+
+/* ── MOCKUP B — dashboard ── */
+.bsec-dash{display:flex;flex-direction:column;gap:.85rem}
+.bsec-dash-topbar{display:flex;align-items:center;justify-content:space-between;padding-bottom:.75rem;border-bottom:.5px solid var(--bd)}
+.bsec-dash-rows{display:flex;flex-direction:column;gap:6px}
+.bsec-dash-row{display:flex;align-items:center;justify-content:space-between;padding:.65rem .85rem;border-radius:10px;background:var(--bg);border:.5px solid var(--bd)}
+.bsec-dash-row-info{display:flex;align-items:center;gap:.65rem}
+.dash-status{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.dash-completed{background:#dcfce7;color:#166534}
+.dark .dash-completed{background:rgba(34,197,94,.15);color:#86efac}
+.dash-sent{background:rgba(255,255,255,.2);color:#fff}
+.dash-viewed{background:#fef9c3;color:#854d0e}
+.dark .dash-viewed{background:rgba(250,204,21,.15);color:#fde047}
+.dash-draft{background:var(--ib);color:var(--navy)}
+.dark .dash-draft{background:rgba(5,165,255,.12);color:#7dcfff}
+.bsec-dash-footer{display:flex;gap:1rem;padding-top:.75rem;border-top:.5px solid var(--bd)}
+.bsec-dash-stat{text-align:center;flex:1}
+.bds-n{font-family:var(--fd);font-size:1.5rem;font-weight:500;color:var(--th);letter-spacing:-1px;line-height:1}
+.bds-l{font-size:11px;color:var(--tl);margin-top:2px}
+
+/* ── MOCKUP C — flow timeline ── */
+.bsec-flow{display:flex;flex-direction:column;gap:0}
+.bsec-flow-step{display:flex;align-items:center;gap:.85rem;padding:.75rem 0}
+.bfs-ico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0;border:.5px solid var(--bd)}
+.bsec-flow-done .bfs-ico{background:#22c55e;color:#fff;border-color:#22c55e}
+.bsec-flow-active .bfs-ico{background:var(--navy);color:#fff;border-color:var(--navy);animation:pulse 1.5s infinite}
+.dark .bsec-flow-active .bfs-ico{background:var(--sky)}
+.bfs-ico--pulse{animation:pulse 1.5s infinite}
+.bsec-flow-pending .bfs-ico{background:transparent;color:var(--tl)}
+.bfs-ttl{font-size:14px;font-weight:500;color:var(--th)}
+.bfs-sub{font-size:12px;color:var(--tl)}
+.bsec-flow-done .bfs-ttl{color:var(--navy)}
+.dark .bsec-flow-done .bfs-ttl{color:var(--sky)}
+.bsec-flow-active .bfs-ttl{color:var(--navy)}
+.dark .bsec-flow-active .bfs-ttl{color:var(--sky)}
+.bsec-flow-line{width:2px;height:24px;background:var(--bd);margin-left:13px}
+.bsec-flow-line--done{background:#22c55e}
+
+/* ── MOCKUP D — certificate ── */
+.bsec-cert{display:flex;flex-direction:column;gap:.85rem}
+.bsec-cert-header{display:flex;align-items:center;gap:.85rem;padding-bottom:.85rem;border-bottom:.5px solid var(--bd)}
+.bsc-ttl{font-size:14px;font-weight:500;color:var(--th)}
+.bsc-sub{font-size:11px;color:var(--tl)}
+.bsec-cert-rows{display:flex;flex-direction:column;gap:0}
+.bsc-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid var(--bd);gap:1rem}
+.bsc-row:last-child{border-bottom:none}
+.bsc-lbl{font-size:11px;font-weight:500;color:var(--tl);flex-shrink:0}
+.bsc-val{font-size:12px;color:var(--th);text-align:right}
+.bsec-cert-footer{display:flex;gap:.65rem;padding-top:.75rem;flex-wrap:wrap}
+.bsc-badge{font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;background:#dcfce7;color:#166534}
+.dark .bsc-badge{background:rgba(34,197,94,.15);color:#86efac}
+
+/* ── DEVICES SECTION ── */
+.devices-section{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--bg-s) 0%,var(--bg) 100%);padding:90px 0 0}
+.dark .devices-section{background:linear-gradient(180deg,var(--bg-s) 0%,var(--bg) 100%)}
+.devices-section::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 20% 50%,rgba(2,41,119,.06) 0%,transparent 55%),radial-gradient(circle at 80% 30%,rgba(5,165,255,.05) 0%,transparent 55%);pointer-events:none}
+.devices-inner{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:0 2rem}
+.devices-text{text-align:center;max-width:600px;margin:0 auto 4rem}
+/* floating devices stage */
+.devices-stage{position:relative;height:420px;overflow:hidden;margin-top:2rem}
+.dev-scene{display:flex;align-items:flex-end;justify-content:center;gap:0;position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:900px}
+/* individual device cards */
+.dev-card{flex-shrink:0;border-radius:20px;overflow:hidden;transition:transform .6s cubic-bezier(.22,1,.36,1);will-change:transform;position:relative}
+.dev-screen{width:100%;height:100%;display:flex;flex-direction:column;background:linear-gradient(145deg,#022977,#0a3fa0);padding:10px;gap:6px}
+.dark .dev-screen{background:linear-gradient(145deg,#0a1a3a,#152d5e)}
+.dev-topbar{display:flex;gap:4px;padding:4px 0}
+.dev-dot{width:7px;height:7px;border-radius:50%;opacity:.8}
+.dev-row{height:8px;border-radius:4px;background:rgba(255,255,255,.12)}
+.dev-row.w80{width:80%}
+.dev-row.w60{width:60%}
+.dev-row.w90{width:90%}
+.dev-row.w40{width:40%}
+.dev-row.accent{background:rgba(255,153,0,.45);height:10px}
+.dev-chip{height:18px;width:55%;border-radius:6px;background:rgba(5,165,255,.2);margin:4px 0}
+/* laptop */
+.dev-laptop{width:340px;margin-bottom:0;z-index:2}
+.dev-laptop-body{background:linear-gradient(135deg,#1a2540,#0d1a33);border-radius:14px 14px 0 0;padding:8px;border:2.5px solid rgba(255,255,255,.1)}
+.dev-laptop-screen{height:190px;border-radius:8px;overflow:hidden}
+.dev-laptop-base{height:14px;background:linear-gradient(135deg,#222b40,#111825);border-radius:0 0 8px 8px;border:2.5px solid rgba(255,255,255,.08);border-top:none;position:relative}
+.dev-laptop-base::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:60px;height:4px;border-radius:2px;background:rgba(255,255,255,.06)}
+/* tablet */
+.dev-tablet{width:200px;margin-bottom:0;z-index:1;margin-right:-20px}
+.dev-tablet-body{background:linear-gradient(135deg,#1a2540,#0d1a33);border-radius:16px;padding:8px;border:2.5px solid rgba(255,255,255,.1)}
+.dev-tablet-screen{height:260px;border-radius:10px;overflow:hidden}
+.dev-tablet-btn{width:30px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);margin:6px auto 0}
+/* phone */
+.dev-phone{width:120px;margin-bottom:24px;z-index:3;margin-left:-10px}
+.dev-phone-body{background:linear-gradient(135deg,#1a2540,#0d1a33);border-radius:24px;padding:6px;border:2px solid rgba(255,255,255,.1)}
+.dev-phone-notch{width:40px;height:8px;border-radius:4px;background:rgba(0,0,0,.4);margin:0 auto 6px}
+.dev-phone-screen{height:210px;border-radius:16px;overflow:hidden}
+.dev-phone-chin{height:4px;background:rgba(0,0,0,.3);border-radius:2px;margin:6px auto 0;width:30px}
+/* device labels */
+.dev-label{position:absolute;bottom:-44px;left:50%;transform:translateX(-50%);text-align:center;white-space:nowrap}
+.dev-label-name{font-size:12px;font-weight:500;color:var(--th)}
+.dev-label-sub{font-size:11px;color:var(--tl)}
+/* floating animation per device */
+.dev-laptop{animation:devfloat1 5s ease-in-out infinite alternate}
+.dev-tablet{animation:devfloat2 6s ease-in-out infinite alternate}
+.dev-phone{animation:devfloat3 4.5s ease-in-out infinite alternate}
+@keyframes devfloat1{from{transform:translateY(0)}to{transform:translateY(-12px)}}
+@keyframes devfloat2{from{transform:translateY(0)}to{transform:translateY(-18px)}}
+@keyframes devfloat3{from{transform:translateY(0)}to{transform:translateY(-22px)}}
+/* scroll-driven parallax via JS — each device gets translateY from data-parallax */
+.devices-bottom{display:flex;justify-content:center;gap:3rem;padding:3rem 2rem 0;flex-wrap:wrap;position:relative;z-index:2}
+.dev-feature{display:flex;align-items:center;gap:.65rem;font-size:13px;color:var(--tb)}
+.dev-feature-icon{width:32px;height:32px;border-radius:8px;background:var(--ib);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+
+/* ── WHY US — BIG VALUE SECTION ── */
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;margin-top:4rem}
+.why-img{border-radius:20px;overflow:hidden;filter:drop-shadow(0 20px 50px rgba(2,41,119,.2));animation:imgfl 6s ease-in-out infinite alternate;will-change:transform;transform:perspective(900px) rotateY(4deg)}
+.why-img:hover{transform:perspective(900px) rotateY(1deg) scale(1.02)}
+@keyframes imgfl{from{transform:perspective(900px) rotateY(4deg) translateY(0)}to{transform:perspective(900px) rotateY(3deg) translateY(-10px)}}
+.why-points{display:flex;flex-direction:column;gap:1.5rem;margin-top:2rem}
+.why-pt{display:flex;gap:1rem;align-items:flex-start;padding:1.25rem;border-radius:14px;border:.5px solid var(--bd);background:var(--bg-c);transition:all .22s}
+.why-pt:hover{border-color:var(--bdm);box-shadow:var(--sc);transform:translateX(6px)}
+.why-ico{width:42px;height:42px;border-radius:10px;background:var(--ib);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .22s}
+.why-pt:hover .why-ico{background:var(--navy)}
+.dark .why-pt:hover .why-ico{background:var(--sky)}
+.why-ico svg{width:20px;height:20px;stroke:var(--navy);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .22s}
+.dark .why-ico svg{stroke:var(--sky)}
+.why-pt:hover .why-ico svg{stroke:#fff}
+.dark .why-pt:hover .why-ico svg{stroke:#00183a}
+.why-ttl{font-size:14px;font-weight:500;color:var(--th);margin-bottom:4px}
+.why-dsc{font-size:13px;color:var(--tb);line-height:1.6}
+
+/* ── PERSONALIZATION SECTION ── */
+.pers-grid{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;margin-top:4rem}
+.pers-img-side{position:relative}
+.pers-img{border-radius:20px;width:100%;filter:drop-shadow(0 20px 50px rgba(2,41,119,.2));transform:perspective(900px) rotateY(-4deg);transition:transform .4s;animation:imgfl2 7s ease-in-out infinite alternate}
+.pers-img:hover{transform:perspective(900px) rotateY(-1deg) scale(1.02)}
+@keyframes imgfl2{from{transform:perspective(900px) rotateY(-4deg) translateY(0)}to{transform:perspective(900px) rotateY(-3deg) translateY(-12px)}}
+.pers-badge{position:absolute;bottom:-18px;right:-12px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:14px;font-size:12px;font-weight:500;box-shadow:0 6px 24px rgba(2,41,119,.35);display:flex;align-items:center;gap:8px}
+.dark .pers-badge{background:var(--sky);color:#00183a}
+.pb-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.75)}}
+.pers-text .sec-lbl{margin-top:0}
+.pers-list{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.pl-item{display:flex;align-items:flex-start;gap:.9rem}
+.pl-num{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;margin-top:2px}
+.dark .pl-num{background:var(--sky);color:#00183a}
+.pl-ttl{font-size:14px;font-weight:500;color:var(--th);margin-bottom:3px}
+.pl-dsc{font-size:13px;color:var(--tb);line-height:1.6}
+
+/* ── FEATURES GRID ── */
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:3rem;perspective:1200px}
+/* 3D card wrapper — JS applies inline transform on mousemove */
+.fc{
+  background:var(--bg-c);border:.5px solid var(--bd);border-radius:16px;padding:1.5rem;
+  position:relative;overflow:hidden;cursor:default;
+  transform-style:preserve-3d;
+  transition:transform .12s ease,box-shadow .25s,border-color .25s;
+  will-change:transform;
+}
+/* sheen overlay — follows cursor */
+.fc::before{
+  content:'';position:absolute;inset:0;border-radius:16px;
+  background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.18) 0%,transparent 65%);
+  opacity:0;transition:opacity .2s;pointer-events:none;
+}
+/* bottom edge glow on hover */
+.fc::after{
+  content:'';position:absolute;bottom:0;left:10%;right:10%;height:2px;
+  background:linear-gradient(90deg,transparent,var(--navy),transparent);
+  border-radius:2px;opacity:0;transition:opacity .3s;
+}
+.dark .fc::after{background:linear-gradient(90deg,transparent,var(--sky),transparent)}
+.fc.hovered{
+  box-shadow:0 20px 50px rgba(2,41,119,.18),0 4px 12px rgba(2,41,119,.08);
+  border-color:var(--bdm);
+}
+.fc.hovered::before{opacity:1}
+.fc.hovered::after{opacity:1}
+.dark .fc.hovered{box-shadow:0 20px 50px rgba(0,0,0,.4),0 4px 12px rgba(0,0,0,.2)}
+/* icon 3D lift on hover */
+.fi{
+  width:48px;height:48px;border-radius:12px;background:var(--ib);
+  display:flex;align-items:center;justify-content:center;margin-bottom:1rem;
+  transition:background .25s,transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .3s;
+  transform:translateZ(0);
+}
+.fc.hovered .fi{
+  background:var(--navy);
+  transform:translateZ(18px) scale(1.1) rotate(-6deg);
+  box-shadow:0 8px 24px rgba(2,41,119,.3);
+}
+.dark .fc.hovered .fi{background:var(--sky);box-shadow:0 8px 24px rgba(5,165,255,.25)}
+.fi svg{width:20px;height:20px;stroke:var(--navy);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .25s}
+.dark .fi svg{stroke:var(--sky)}
+.fc.hovered .fi svg{stroke:#fff}
+.dark .fc.hovered .fi svg{stroke:#00183a}
+/* title lift */
+.fc-ttl{font-size:15px;font-weight:500;color:var(--th);margin-bottom:6px;transition:transform .25s,color .2s;transform:translateZ(0)}
+.fc.hovered .fc-ttl{transform:translateZ(8px);color:var(--navy)}
+.dark .fc.hovered .fc-ttl{color:var(--sky)}
+.fc-dsc{font-size:13px;color:var(--tb);line-height:1.65;transition:transform .25s;transform:translateZ(0)}
+.fc.hovered .fc-dsc{transform:translateZ(4px)}
+
+/* ── HOW IT WORKS ── */
+.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:start;margin-top:3rem}
+.step-row{display:flex;gap:1.25rem;padding:1.5rem 0;border-bottom:.5px solid var(--bd);cursor:pointer;transition:all .2s}
+.step-row:last-child{border-bottom:none}
+.step-row.on .sn{background:var(--navy);color:#fff;border-color:var(--navy)}
+.dark .step-row.on .sn{background:var(--sky);color:#00183a;border-color:var(--sky)}
+.step-row.on .st{color:var(--navy)}
+.dark .step-row.on .st{color:var(--sky)}
+.sn{width:34px;height:34px;border-radius:50%;flex-shrink:0;border:.5px solid var(--bdm);background:transparent;color:var(--tl);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;transition:all .22s}
+.st{font-size:15px;font-weight:500;color:var(--th);margin-bottom:4px;transition:color .2s}
+.sd{font-size:13px;color:var(--tb);line-height:1.65;max-height:0;overflow:hidden;transition:max-height .35s ease}
+.step-row.on .sd{max-height:120px}
+.browser{background:var(--bg);border:.5px solid var(--bdm);border-radius:16px;box-shadow:var(--sp);overflow:hidden;animation:screenfloat 5s ease-in-out infinite alternate;transition:transform .4s;transform:perspective(900px) rotateY(5deg)}
+.dark .browser{background:#161d30}
+.browser:hover{transform:perspective(900px) rotateY(1deg) translateY(-4px)}
+@keyframes screenfloat{from{transform:perspective(900px) rotateY(5deg) translateY(0)}to{transform:perspective(900px) rotateY(3deg) translateY(-14px)}}
+.browser-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:.5px solid var(--bd);background:var(--bg-s)}
+.dark .browser-bar{background:rgba(255,255,255,.04)}
+.bdot{width:10px;height:10px;border-radius:50%}
+.browser-url{flex:1;background:var(--bg);border-radius:6px;font-size:11px;color:var(--tl);padding:4px 10px;margin-left:6px}
+.dark .browser-url{background:rgba(255,255,255,.06)}
+.brows-rows{padding:14px;display:flex;flex-direction:column;gap:8px}
+.brow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;background:var(--bg-s);transition:background .2s}
+.dark .brow{background:rgba(5,165,255,.04)}
+.brow:first-child{background:var(--ib);border:.5px solid var(--bdm)}
+.brow-n{font-size:12px;font-weight:500;color:var(--th);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spill{font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.s-ok{background:#e6f9f0;color:#0a5c38}
+.dark .s-ok{background:rgba(28,200,120,.15);color:#4de8a8}
+.s-vw{background:#e8eeff;color:var(--navy)}
+.dark .s-vw{background:rgba(5,165,255,.12);color:#7dcfff}
+.s-st{background:#fff3e0;color:#b36b00}
+.dark .s-st{background:rgba(255,153,0,.12);color:#ffb84d}
+
+/* ── SECURITY SECTION ── */
+.sec-layout{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;margin-top:4rem}
+.sec-img{width:100%;border-radius:20px;filter:drop-shadow(0 20px 50px rgba(2,41,119,.2));transform:perspective(900px) rotateY(4deg);animation:imgfl 7s ease-in-out infinite alternate;transition:transform .4s}
+.sec-img:hover{transform:perspective(900px) rotateY(1deg) scale(1.02)}
+.trust-badges{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2rem}
+.tb-card{background:var(--bg-c);border:.5px solid var(--bd);border-radius:12px;padding:1rem;transition:all .22s}
+.tb-card:hover{border-color:var(--bdm);box-shadow:var(--sc);transform:translateY(-2px)}
+.tb-icon{font-size:22px;margin-bottom:.5rem}
+.tb-ttl{font-size:13px;font-weight:500;color:var(--th);margin-bottom:3px}
+.tb-dsc{font-size:12px;color:var(--tb)}
+
+/* ── HOW IT WORKS STEPPER ── */
+function setStep(n){
+  document.querySelectorAll('.how-step').forEach((el,i)=>{
+    el.classList.toggle('how-step--active',i===n);
+  });
+}
+
+/* ── FEATURES CAROUSEL ── */
+.feat-carousel-outer{
+  overflow:hidden;position:relative;padding:2.5rem 0;
+}
+.feat-carousel-outer::before,.feat-carousel-outer::after{
+  content:'';position:absolute;top:0;bottom:0;width:120px;z-index:2;pointer-events:none;
+}
+.feat-carousel-outer::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
+.feat-carousel-outer::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
+.feat-carousel-track{
+  display:flex;gap:14px;width:max-content;
+  animation:feat-scroll 32s linear infinite;
+}
+.feat-carousel-track:hover{animation-play-state:paused}
+@keyframes feat-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.fc-slide{
+  width:220px;flex-shrink:0;
+  background:var(--bg-c);border:.5px solid var(--bd);border-radius:16px;
+  padding:1.5rem 1.25rem;
+  display:flex;flex-direction:column;gap:.75rem;
+  cursor:default;
+  transition:transform .25s,box-shadow .25s,border-color .25s;
+  transform-style:preserve-3d;
+  will-change:transform;
+}
+.fc-slide:hover{
+  transform:perspective(800px) rotateX(-4deg) translateY(-6px);
+  box-shadow:0 16px 40px rgba(2,41,119,.14);
+  border-color:var(--bdm);
+}
+.dark .fc-slide:hover{box-shadow:0 16px 40px rgba(0,0,0,.35)}
+.fc-slide--accent{
+  background:var(--navy);border-color:var(--navy);
+}
+.dark .fc-slide--accent{background:#0a1a3a;border-color:var(--sky)}
+.fc-slide-icon{
+  width:44px;height:44px;border-radius:12px;background:var(--ib);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .25s;
+}
+.fc-slide:hover .fc-slide-icon{transform:scale(1.12) rotate(-6deg);background:var(--navy)}
+.dark .fc-slide:hover .fc-slide-icon{background:var(--sky)}
+.fc-slide--accent .fc-slide:hover .fc-slide-icon{background:rgba(255,255,255,.2)}
+.fc-slide-icon--light{background:rgba(255,255,255,.15)}
+.fc-slide-icon svg{width:20px;height:20px;stroke:var(--navy);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .25s}
+.dark .fc-slide-icon svg{stroke:var(--sky)}
+.fc-slide:hover .fc-slide-icon svg{stroke:#fff}
+.dark .fc-slide:hover .fc-slide-icon svg{stroke:#00183a}
+.fc-slide--accent .fc-slide-icon svg{stroke:#fff}
+.fc-slide-ttl{font-size:14px;font-weight:500;color:var(--th)}
+.fc-slide-ttl--light{color:#fff}
+.fc-slide-dsc{font-size:12px;color:var(--tb);line-height:1.6}
+.fc-slide-dsc--light{color:rgba(255,255,255,.7)}
+
+/* ── DEVICES LAYOUT (2-col) ── */
+.dev-layout{
+  display:grid;grid-template-columns:1fr 1fr;gap:4rem;
+  align-items:center;margin-top:3rem;
+  position:relative;
+}
+.dev-mockups{
+  position:relative;
+  height:380px;
+}
+/* Laptop positioned in mockups area */
+.dev-layout .dev-laptop{
+  position:absolute;
+  bottom:0;left:0;right:60px;
+  animation:devfloat1 5s ease-in-out infinite alternate;
+}
+.dev-layout .dev-laptop-body{
+  background:linear-gradient(135deg,#1a2540,#0d1a33);
+  border-radius:12px 12px 0 0;
+  padding:6px;
+  border:2px solid rgba(255,255,255,.1);
+}
+.dev-layout .dev-laptop-screen{
+  height:160px;border-radius:6px;overflow:hidden;
+}
+.dev-layout .dev-laptop-base{
+  height:12px;
+  background:linear-gradient(135deg,#222b40,#111825);
+  border-radius:0 0 8px 8px;
+  border:2px solid rgba(255,255,255,.08);border-top:none;
+}
+/* Phone overlapping top-right of laptop */
+.dev-layout .dev-phone{
+  position:absolute;
+  top:0;right:0;
+  width:90px;
+  animation:devfloat3 4.5s ease-in-out infinite alternate;
+  z-index:3;
+}
+.dev-layout .dev-phone-body{
+  background:linear-gradient(135deg,#1a2540,#0d1a33);
+  border-radius:18px;padding:5px;
+  border:2px solid rgba(255,255,255,.12);
+  box-shadow:0 16px 40px rgba(0,0,0,.45);
+}
+.dev-layout .dev-phone-notch{
+  width:32px;height:7px;border-radius:3px;
+  background:rgba(0,0,0,.4);margin:0 auto 5px;
+}
+.dev-layout .dev-phone-screen{height:170px;border-radius:12px;overflow:hidden}
+.dev-layout .dev-phone-chin{
+  height:3px;border-radius:2px;
+  background:rgba(0,0,0,.3);margin:5px auto 0;width:24px;
+}
+
+/* Right column */
+.dev-right{display:flex;flex-direction:column;gap:1.25rem}
+.dev-right .dev-tabs{justify-content:flex-start}
+.dev-right-pills{display:flex;flex-direction:column;gap:.65rem}
+.dev-pill{
+  display:flex;align-items:flex-start;gap:.85rem;
+  padding:.85rem 1rem;border-radius:12px;
+  background:var(--bg-c);border:.5px solid var(--bd);
+  transition:all .22s;cursor:default;
+}
+.dev-pill:hover{border-color:var(--bdm);transform:translateX(4px);box-shadow:var(--sc)}
+.dev-pill-ico{font-size:18px;flex-shrink:0;margin-top:1px}
+.dev-pill-ttl{font-size:13px;font-weight:500;color:var(--th);margin-bottom:2px}
+.dev-pill-dsc{font-size:12px;color:var(--tl);line-height:1.5}
+.dev-status-badge{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.85rem 1rem;border-radius:12px;
+  background:var(--navy);border:.5px solid rgba(255,255,255,.12);
+  color:#fff;margin-top:.25rem;
+  animation:badgepulse 3s ease-in-out infinite;
+}
+.dark .dev-status-badge{background:#0a2050;border-color:var(--sky)}
+.dev-status-dot{width:10px;height:10px;border-radius:50%;background:#28ca41;flex-shrink:0;animation:pulse 1.5s infinite}
+.dev-status-ttl{font-size:13px;font-weight:500}
+.dev-status-sub{font-size:11px;opacity:.65}
+.dev-status-check{width:24px;height:24px;border-radius:50%;background:#28ca41;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-left:auto}
+
+/* ── HOW STEPPER ── */
+.how-stepper{display:flex;flex-direction:column;gap:0;max-width:820px;margin:0 auto}
+.how-step{display:flex;gap:1.5rem;cursor:pointer}
+.how-step-left{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:52px}
+.how-step-num{
+  width:52px;height:52px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg-c);border:2px solid var(--bd);
+  position:relative;transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  flex-shrink:0;
+}
+.hsn-num{font-family:var(--fd);font-size:16px;font-weight:500;color:var(--tl);transition:color .3s;z-index:1}
+.hsn-ring{
+  position:absolute;inset:-6px;border-radius:50%;
+  border:2px solid transparent;
+  transition:border-color .3s,transform .4s;
+}
+.how-step--active .how-step-num{
+  background:var(--navy);border-color:var(--navy);
+  box-shadow:0 8px 28px rgba(2,41,119,.35);
+  transform:scale(1.08);
+}
+.dark .how-step--active .how-step-num{background:var(--sky);border-color:var(--sky);box-shadow:0 8px 28px rgba(5,165,255,.3)}
+.how-step--active .hsn-num{color:#fff}
+.how-step--active .hsn-ring{border-color:var(--amber);transform:rotate(120deg)}
+.how-step-line{flex:1;width:2px;background:var(--bd);margin:8px 0;min-height:20px;transition:background .4s}
+.how-step--active .how-step-line{background:linear-gradient(to bottom,var(--navy),var(--bd))}
+.dark .how-step--active .how-step-line{background:linear-gradient(to bottom,var(--sky),var(--bd))}
+
+.how-step-content{padding:0 0 2.5rem 0;flex:1}
+.how-step--last .how-step-content{padding-bottom:.5rem}
+.how-step-header{display:flex;align-items:center;gap:.85rem;margin-bottom:0;height:52px}
+.how-step-icon{font-size:24px;transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.how-step--active .how-step-icon{transform:scale(1.2)}
+.how-step-ttl{font-size:18px;font-weight:500;color:var(--tl);transition:color .3s,font-size .3s}
+.how-step--active .how-step-ttl{color:var(--th);font-size:20px}
+.how-step-tag{font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;background:var(--ib);color:var(--navy);margin-top:4px;display:inline-block;opacity:0;transform:translateX(-6px);transition:opacity .3s,transform .3s}
+.dark .how-step-tag{background:rgba(5,165,255,.12);color:#7dcfff}
+.how-step--active .how-step-tag{opacity:1;transform:translateX(0)}
+
+/* body expands with animation */
+.how-step-body{
+  max-height:0;overflow:hidden;
+  transition:max-height .5s cubic-bezier(.4,0,.2,1),opacity .4s ease;
+  opacity:0;
+}
+.how-step--active .how-step-body{max-height:500px;opacity:1}
+.how-step-body p{font-size:14px;color:var(--tb);line-height:1.8;margin-bottom:1.25rem}
+
+/* step preview cards */
+.how-step-preview{border-radius:14px;background:var(--bg-c);border:.5px solid var(--bd);padding:1.25rem;overflow:hidden}
+
+/* Form preview */
+.hsp-form{display:flex;flex-direction:column;gap:.75rem}
+.hsp-field{display:flex;flex-direction:column;gap:4px}
+.hsp-label{font-size:11px;font-weight:500;color:var(--tl);text-transform:uppercase;letter-spacing:.08em}
+.hsp-input{padding:8px 12px;border-radius:8px;border:.5px solid var(--bd);font-size:13px;color:var(--tb);background:var(--bg);transition:all .3s}
+.hsp-input--filled{border-color:var(--navy);color:var(--th);background:var(--ib)}
+.dark .hsp-input--filled{border-color:var(--sky);background:rgba(5,165,255,.08)}
+.hsp-input--amount{font-family:var(--fd);font-size:15px;font-weight:500;color:var(--navy)}
+.dark .hsp-input--amount{color:var(--sky)}
+.hsp-send-btn{
+  background:var(--navy);color:#fff;padding:11px 18px;border-radius:9px;
+  font-size:13px;font-weight:500;text-align:center;margin-top:.25rem;
+  cursor:pointer;transition:all .2s;
+  animation:pulse-btn 2s ease-in-out infinite;
+}
+.dark .hsp-send-btn{background:var(--sky);color:#00183a}
+@keyframes pulse-btn{0%,100%{box-shadow:0 0 0 0 rgba(2,41,119,.3)}50%{box-shadow:0 0 0 8px rgba(2,41,119,0)}}
+.dark .hsp-send-btn{animation:pulse-btn-dark 2s ease-in-out infinite}
+@keyframes pulse-btn-dark{0%,100%{box-shadow:0 0 0 0 rgba(5,165,255,.3)}50%{box-shadow:0 0 0 8px rgba(5,165,255,0)}}
+
+/* Email preview */
+.hsp-email{display:flex;flex-direction:column;gap:0}
+.hsp-email-header{padding-bottom:.75rem;border-bottom:.5px solid var(--bd);display:flex;flex-direction:column;gap:4px}
+.hsp-email-from{font-size:11px;color:var(--tl)}
+.hsp-email-subj{font-size:13px;font-weight:500;color:var(--th)}
+.hsp-email-body{padding:.85rem 0;display:flex;flex-direction:column;gap:6px}
+.hsp-email-line{height:8px;border-radius:4px;background:var(--bd);width:100%}
+.hsp-email-cta{
+  background:var(--amber);color:#fff;padding:10px 20px;
+  border-radius:8px;font-size:13px;font-weight:500;text-align:center;
+  margin:6px 0;cursor:pointer;
+}
+
+/* Status timeline */
+.hsp-status{display:flex;flex-direction:column;gap:0}
+.hsp-status-row{
+  display:flex;align-items:center;gap:.75rem;padding:.65rem 0;
+  border-bottom:.5px solid var(--bd);font-size:13px;color:var(--tl);
+  transition:color .3s;
+}
+.hsp-status-row:last-child{border-bottom:none}
+.hsp-status--done{color:var(--th)}
+.hsp-status--active{color:var(--navy);font-weight:500}
+.dark .hsp-status--active{color:var(--sky)}
+.hsp-status-dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--bd);flex-shrink:0;transition:all .3s}
+.hsp-status-dot--done{background:#22c55e;border-color:#22c55e}
+.hsp-status-dot--active{background:var(--navy);border-color:var(--navy);animation:pulse 1.5s infinite}
+.dark .hsp-status-dot--active{background:var(--sky);border-color:var(--sky)}
+.hsp-status-time{margin-left:auto;font-size:11px;color:var(--tl)}
+.hsp-status-time--active{color:var(--amber);font-weight:500}
+
+/* ── UPDATE i18n keys placeholder ── */
+
+/* ── NAV LOGO TEXT ── */
+.nav-logo-text{font-family:var(--fd);font-size:17px;font-weight:500;color:var(--navy);letter-spacing:-.3px}
+.dark .nav-logo-text{color:var(--sky)}
+
+/* ── FLOATING CONTROLS ── */
+.float-controls{
+  position:fixed;right:0;top:50%;transform:translateY(-50%);
+  z-index:600;
+  display:flex;flex-direction:column;gap:0;
+  background:var(--bg);
+  border:.5px solid var(--bdm);
+  border-right:none;
+  border-radius:12px 0 0 12px;
+  overflow:hidden;
+  box-shadow:-4px 4px 20px rgba(2,41,119,.1);
+}
+.dark .float-controls{box-shadow:-4px 4px 20px rgba(0,0,0,.3)}
+.float-ctrl-btn-wrap{padding:10px 10px 6px;border-bottom:.5px solid var(--bd)}
+.float-lang{display:flex;flex-direction:column}
+.float-lang-btn{
+  font-family:var(--fb);font-size:11px;font-weight:500;
+  padding:8px 14px;cursor:pointer;border:none;
+  background:transparent;color:var(--tl);
+  transition:all .15s;line-height:1;
+}
+.float-lang-btn:first-child{border-bottom:.5px solid var(--bd)}
+.float-lang-btn.on{background:var(--navy);color:#fff}
+.dark .float-lang-btn.on{background:var(--sky);color:#00183a}
+.float-lang-btn:hover:not(.on){background:var(--bg-s);color:var(--th)}
+/* Override thm-btn inside float */
+.float-controls .thm-btn{
+  width:36px;height:20px;border-radius:10px;
+  background:var(--navy);border:none;cursor:pointer;
+  padding:2px;position:relative;transition:background .25s;display:block;margin:0 auto;
+}
+.dark .float-controls .thm-btn{background:var(--sky)}
+.float-controls .thm-knob{
+  width:16px;height:16px;border-radius:50%;background:#fff;
+  position:absolute;top:2px;left:2px;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1);
+  font-size:8px;display:flex;align-items:center;justify-content:center;pointer-events:none;
+}
+.dark .float-controls .thm-knob{transform:translateX(16px)}
+
+/* ── TABLET-SM device in devices section ── */
+.dev-tablet-sm{position:absolute;top:10px;left:-10px;z-index:1;animation:devfloat2 6s ease-in-out infinite alternate}
+.dev-tablet-sm-body{background:linear-gradient(135deg,#1a2540,#0d1a33);border-radius:14px;padding:6px;border:2px solid rgba(255,255,255,.1);box-shadow:0 12px 36px rgba(0,0,0,.4)}
+.dev-tablet-sm-screen{height:180px;width:130px;border-radius:8px;overflow:hidden}
+.dev-tablet-sm-btn{width:24px;height:3px;border-radius:2px;background:rgba(255,255,255,.08);margin:5px auto 0}
+.dev-layout .dev-laptop{left:80px;right:0}
+.dev-mockups{min-height:380px}
+
+/* ── COMPACT MID-CTA ── */
+.mid-cta-compact{display:flex;align-items:center;justify-content:space-between;gap:2rem;padding:2.5rem 3rem;background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.14);border-radius:20px;backdrop-filter:blur(10px);flex-wrap:wrap}
+.mcc-left{display:flex;flex-direction:column;gap:.85rem}
+.mcc-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.1em}
+.mcc-title{font-family:var(--fd);font-size:1.9rem;font-weight:500;color:#fff;letter-spacing:-1px;display:flex;align-items:baseline;gap:.6rem;line-height:1}
+.mcc-price{font-size:1.5rem;color:var(--amber);font-weight:500}
+.mcc-per{font-size:.95rem;font-weight:400;color:rgba(255,255,255,.5);letter-spacing:0}
+.mcc-pills{display:flex;gap:.5rem;flex-wrap:wrap}
+.mcc-pill{font-size:12px;font-weight:500;padding:5px 12px;border-radius:20px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);border:.5px solid rgba(255,255,255,.12);white-space:nowrap}
+.mcc-right{display:flex;flex-direction:column;align-items:flex-end;gap:.65rem;flex-shrink:0}
+
+/* ── FAQ ── */
+.faq-header{margin-bottom:3rem}
+.faq-footer{display:flex;align-items:center;justify-content:space-between;gap:2rem;margin-top:2.5rem;padding:1.25rem 1.5rem;background:var(--bg-c);border:.5px solid var(--bd);border-radius:14px;flex-wrap:wrap}
+.faq-intro{font-size:14px;color:var(--tb);line-height:1.7}
+.faq-contact-link{font-size:14px;font-weight:500;color:var(--navy);white-space:nowrap;display:inline-flex;align-items:center;gap:5px;transition:gap .2s}
+.faq-contact-link:hover{gap:10px}
+.dark .faq-contact-link{color:var(--sky)}
+
+/* 2-col layout */
+.faq-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+.faq-col{display:flex;flex-direction:column;gap:8px}
+
+/* item card */
+.faq-item{
+  background:var(--bg-c);
+  border:.5px solid var(--bd);
+  border-radius:14px;
+  overflow:hidden;
+  transition:border-color .25s,box-shadow .25s,transform .25s;
+}
+.faq-item:hover{border-color:var(--bdm);transform:translateY(-2px);box-shadow:var(--sc)}
+.faq-item:has(.faq-q.open){
+  border-color:var(--navy);
+  box-shadow:0 6px 28px rgba(2,41,119,.12);
+  transform:translateY(-2px);
+}
+.dark .faq-item:has(.faq-q.open){border-color:var(--sky);box-shadow:0 6px 28px rgba(5,165,255,.14)}
+
+/* question button */
+.faq-q{
+  width:100%;text-align:left;
+  padding:1.1rem 1.25rem;
+  border:none;cursor:pointer;
+  background:transparent;
+  display:flex;align-items:center;gap:.85rem;
+  transition:background .2s;
+}
+.faq-q:hover{background:var(--bg)}
+.faq-q.open{background:var(--navy)}
+.dark .faq-q.open{background:#0a1a3a}
+
+/* question text */
+.faq-q-text{
+  font-family:var(--fb);font-size:14px;font-weight:500;
+  color:var(--th);flex:1;line-height:1.4;
+  transition:color .2s;
+}
+.faq-q.open .faq-q-text{color:#fff}
+
+/* animated icon: morphs from > to — */
+.faq-chevron{
+  flex-shrink:0;width:22px;height:22px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.faq-chevron svg{width:16px;height:16px;stroke:var(--tl);transition:stroke .2s,opacity .2s,transform .35s cubic-bezier(.34,1.56,.64,1)}
+.faq-q.open .faq-chevron svg{stroke:rgba(255,255,255,.7);transform:rotate(180deg) scaleX(1.2)}
+
+/* Sliding bar indicator on open */
+.faq-q.open::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--amber);border-radius:0 2px 2px 0;
+}
+.faq-q{position:relative}
+
+/* answer — slides in with fade */
+.faq-a{
+  max-height:0;overflow:hidden;
+  transition:max-height .42s cubic-bezier(.4,0,.2,1),opacity .3s ease;
+  opacity:0;
+}
+.faq-a.open{max-height:240px;opacity:1}
+.faq-a p{
+  padding:.9rem 1.25rem 1.1rem 1.25rem;
+  font-size:13px;color:var(--tb);line-height:1.85;
+  border-top:.5px solid var(--bd);
+  animation:faqSlideIn .3s ease both;
+}
+@keyframes faqSlideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+/* responsive */
+@media(max-width:768px){
+  .faq-header{grid-template-columns:1fr}
+  .faq-cols{grid-template-columns:1fr}
+  .faq-footer{flex-direction:column;align-items:flex-start;gap:.75rem}
+}
+
+/* ── FOOTER SOCIAL ICONS ── */
+.foot-social{display:flex;gap:.65rem;margin-top:.75rem;align-items:center}
+.foot-soc-ico{width:34px;height:34px;border-radius:8px;background:var(--bg);border:.5px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--tl);transition:all .18s;flex-shrink:0}
+.foot-soc-ico svg{width:16px;height:16px}
+.foot-soc-ico:hover{background:var(--navy);color:#fff;border-color:var(--navy);transform:translateY(-2px)}
+.dark .foot-soc-ico{background:var(--bg-c)}
+.dark .foot-soc-ico:hover{background:var(--sky);color:#00183a;border-color:var(--sky)}
+
+/* ── BSEC missing classes ── */
+.bsec{/* section spacing handled by .section */}
+.bsec-text{display:flex;flex-direction:column;justify-content:center}
+.bsec-img-card--a{animation:imgfl2 7s ease-in-out infinite alternate}
+.bsec-img-card--b{animation:imgfl 6s ease-in-out infinite alternate}
+.bsec-img-card--c{animation:imgfl2 8s ease-in-out infinite alternate}
+.bsec-img-card--d{animation:imgfl 7.5s ease-in-out infinite alternate}
+.mid-cta-left{display:flex;flex-direction:column;justify-content:center}
+.mid-cta-right{display:flex;flex-direction:column;justify-content:center}
+.pc-side{/* inherits .pc */}
+.pricing-header-left{flex:1}
+.p-num{display:inline}
+/* Device tab */
+.dev-tab{font-family:var(--fb);font-size:13px;font-weight:500;padding:9px 22px;border-radius:9px;cursor:pointer;border:.5px solid var(--bd);background:var(--bg-c);color:var(--tl);transition:all .2s}
+.dev-tab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.dark .dev-tab.on{background:var(--sky);color:#00183a;border-color:var(--sky)}
+.dev-tab:hover:not(.on){color:var(--th);border-color:var(--bdm)}
+/* dscr classes — shown/hidden by JS */
+.dscr-sign,.dscr-manage{flex-direction:column;gap:4px}
+/* How step icon empty state */
+.bfs-ico--empty{opacity:.4}
+/* Scroll reveal util */
+.rv5{transition-delay:.5s}.rv6{transition-delay:.6s}
+
+/* ── MID-PAGE CTA (Launch) ── */
+.mid-cta-band{background:var(--navy);padding:64px 0;position:relative;overflow:hidden}
+.mid-cta-band::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 80% at 20% 50%,rgba(5,165,255,.12),transparent);pointer-events:none}
+.mid-cta-inner{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:start}
+.mid-cta-eyebrow{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.55);margin-bottom:.75rem}
+.mid-cta-h2{font-family:var(--fd);font-size:clamp(1.6rem,3vw,2.2rem);font-weight:500;color:#fff;line-height:1.2;letter-spacing:-1px;margin-bottom:.75rem}
+.mid-cta-h2 .acc{color:var(--amber)}
+.mid-cta-sub{font-size:15px;color:rgba(255,255,255,.65);line-height:1.75;font-weight:300}
+.mid-cta-launch-card{background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.18);border-radius:18px;padding:1.5rem;backdrop-filter:blur(10px)}
+.mlc-title{font-family:var(--fd);font-size:18px;font-weight:500;color:#fff;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:.5px solid rgba(255,255,255,.15)}
+.mlc-why-list{display:flex;flex-direction:column;gap:1rem}
+.mlc-why{display:flex;gap:.85rem;align-items:flex-start}
+.mlc-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.mlc-why-ttl{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
+.mlc-why-dsc{font-size:12px;color:rgba(255,255,255,.6);line-height:1.55}
+.mid-cta-trust{font-size:11px;color:rgba(255,255,255,.38);text-align:center;margin-top:.75rem}
+
+/* ── SECURITY SECTION ── */
+.sec-layout{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center}
+.sec-img{border-radius:20px;width:100%;filter:drop-shadow(0 20px 50px rgba(2,41,119,.2));transform:perspective(900px) rotateY(4deg);transition:transform .4s;animation:imgfl 7s ease-in-out infinite alternate}
+.sec-img:hover{transform:perspective(900px) rotateY(1deg) scale(1.02)!important}
+
+/* ── TESTIMONIALS ── */
+.carousel-wrap{position:relative;overflow:hidden}
+.carousel-track{display:flex;transition:transform .45s cubic-bezier(.4,0,.2,1)}
+.car-card{min-width:100%;background:var(--bg-c);border:.5px solid var(--bd);border-radius:20px;padding:2rem;box-sizing:border-box}
+.car-stars{color:var(--amber);font-size:18px;margin-bottom:1rem;letter-spacing:2px}
+.car-quote{font-size:16px;color:var(--tb);line-height:1.8;margin-bottom:1.5rem;font-style:italic;font-weight:300}
+.car-author{display:flex;align-items:center;gap:.85rem}
+.car-av{width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0}
+.dark .car-av{background:var(--sky);color:#00183a}
+.car-nm{font-size:14px;font-weight:500;color:var(--th)}
+.car-rl{font-size:12px;color:var(--tl)}
+.car-controls{display:flex;align-items:center;justify-content:center;gap:1rem;margin-top:1.5rem}
+.car-btn{width:40px;height:40px;border-radius:50%;background:var(--bg-c);border:.5px solid var(--bd);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--th);transition:all .18s}
+.car-btn:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.dark .car-btn:hover{background:var(--sky);color:#00183a}
+.car-dots{display:flex;gap:6px;align-items:center}
+.car-dot{width:7px;height:7px;border-radius:50%;background:var(--bd);cursor:pointer;transition:all .25s}
+.car-dot.on{background:var(--navy);width:20px;border-radius:4px}
+.dark .car-dot.on{background:var(--sky)}
+
+/* ── PRICING HEADER ── */
+.pricing-header{display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;margin-bottom:2.5rem;flex-wrap:wrap}
+.pricing-header-right{display:flex;flex-direction:column;align-items:flex-end;gap:.75rem}
+.billing-toggle{display:flex;align-items:center;gap:10px}
+.bt-lbl{font-size:13px;font-weight:500;color:var(--tl);cursor:pointer;user-select:none}
+.bt-switch{width:48px;height:26px;border-radius:13px;background:var(--bd);border:.5px solid var(--bdm);cursor:pointer;position:relative;transition:background .25s;flex-shrink:0}
+.bt-switch.on{background:var(--navy)}
+.dark .bt-switch.on{background:var(--sky)}
+.bt-knob{width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:transform .22s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.bt-switch.on .bt-knob{transform:translateX(22px)}
+.bt-save{font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;background:#e8eeff;color:var(--navy)}
+.dark .bt-save{background:rgba(5,165,255,.12);color:#7dcfff}
+.plan-tabs{display:flex;border:.5px solid var(--bd);border-radius:9px;overflow:hidden;background:var(--bg-c)}
+.pt-tab{font-family:var(--fb);font-size:12px;font-weight:500;padding:8px 20px;cursor:pointer;border:none;background:transparent;color:var(--tl);transition:all .18s}
+.pt-tab.on{background:var(--navy);color:#fff}
+.dark .pt-tab.on{background:var(--sky);color:#00183a}
+
+/* ── PRICE CARDS ── */
+.price-row{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:16px;align-items:end;padding-bottom:8px}
+.price-row-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;max-width:700px}
+.pc{display:flex;flex-direction:column;background:var(--bg-c);border:.5px solid var(--bd);border-radius:14px;padding:1.25rem;transition:all .22s;position:relative}
+.pc:hover{transform:translateY(-3px);box-shadow:var(--sc);border-color:var(--bdm)}
+.pc-name{font-family:var(--fd);font-size:17px;font-weight:500;color:var(--th);margin-bottom:.4rem}
+.pc-price{font-family:var(--fd);font-size:2.2rem;font-weight:500;color:var(--th);letter-spacing:-1.5px;line-height:1}
+.pc-price sup{font-size:13px;vertical-align:super;font-weight:400;letter-spacing:0}
+.pc-per{font-size:11px;color:var(--tl);margin-bottom:.5rem}
+.pc-ov{font-size:11px;font-weight:500;padding:3px 8px;border-radius:6px;background:#e8eeff;color:var(--navy);margin-bottom:.75rem;width:fit-content}
+.dark .pc-ov{background:rgba(5,165,255,.1);color:#7dcfff}
+.pc-div{height:.5px;background:var(--bd);margin:.75rem 0}
+.pc-feats{display:flex;flex-direction:column;gap:6px;flex:1;margin-bottom:1rem}
+.pc-btn{width:100%;justify-content:center;font-size:13px;padding:10px 16px}
+.pc-hint{font-size:11px;color:var(--amber);text-align:center;margin-top:.6rem}
+.pfc-no{color:var(--tl);flex-shrink:0;font-size:13px;margin-top:1px}
+.ann-save-tag{display:none;font-size:11px;font-weight:500;background:#e8eeff;color:var(--navy);padding:2px 8px;border-radius:6px;width:fit-content;margin:.25rem 0}
+.dark .ann-save-tag{background:rgba(5,165,255,.1);color:#7dcfff}
+.ann-save-dark{background:rgba(255,255,255,.18)!important;color:#fff!important}
+.ann-note{display:none}
+
+/* ── LAUNCH PLAN CARD ── */
+.pc-launch{background:var(--navy);border:none;border-radius:18px;padding:1.5rem 1.25rem 1.35rem;margin-top:-20px;box-shadow:0 20px 60px rgba(2,41,119,.45);position:relative;overflow:hidden;transition:transform .25s,box-shadow .25s;z-index:2}
+.dark .pc-launch{background:#0a1a3a;box-shadow:0 20px 60px rgba(0,0,0,.6);border:1.5px solid var(--sky)}
+.pc-launch:hover{transform:translateY(-6px) scale(1.01);box-shadow:0 28px 70px rgba(2,41,119,.55)}
+.pc-launch-glow{position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;background:var(--sky);opacity:.12;filter:blur(50px);pointer-events:none}
+.pc-launch-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;background:var(--amber);color:#fff;padding:4px 12px;border-radius:20px;margin-bottom:1rem;width:fit-content;box-shadow:0 2px 12px rgba(255,153,0,.4);animation:badgepulse 2.5s ease-in-out infinite}
+.pc-launch-name{font-family:var(--fd);font-size:20px;font-weight:500;color:#fff;margin-bottom:.4rem}
+.pc-launch-price{font-family:var(--fd);font-size:2.8rem;font-weight:500;color:#fff;letter-spacing:-2px;line-height:1}
+.pc-launch-price sup{font-size:15px;vertical-align:super;font-weight:400;letter-spacing:0;color:rgba(255,255,255,.8)}
+.pc-ov-light{background:rgba(255,255,255,.15)!important;color:rgba(255,255,255,.85)!important}
+.pc-div-light{background:rgba(255,255,255,.15)!important}
+.pf-light{color:#c8d8f0}
+.pfc-light{color:#7dcfff;flex-shrink:0;font-size:13px;margin-top:1px}
+.pc-launch-btn{background:var(--amber);color:#fff;border:none;font-size:14px;font-weight:500;padding:13px 20px;border-radius:8px;width:100%;justify-content:center;box-shadow:0 4px 16px rgba(255,153,0,.35);transition:all .18s;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.pc-launch-btn:hover{background:var(--amber-h);transform:translateY(-1px);box-shadow:0 6px 24px rgba(255,153,0,.5)}
+.pc-launch-trust{font-size:11px;color:rgba(255,255,255,.45);text-align:center;margin-top:.6rem}
+
+/* ── PLAN items ── */
+.pf{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--tb)}
+.pfc{color:var(--navy);font-size:13px;flex-shrink:0;margin-top:1px}
+.dark .pfc{color:var(--sky)}
+.pn{font-family:var(--fd);font-size:20px;font-weight:500;color:var(--th);margin-bottom:.3rem}
+.pp{font-family:var(--fd);font-size:2.5rem;font-weight:500;color:var(--th);letter-spacing:-2px;line-height:1}
+.pp sup{font-size:14px;vertical-align:super;font-weight:400;letter-spacing:0}
+.ppr{font-size:12px;color:var(--tl);margin-bottom:.5rem}
+.pov{font-size:11px;font-weight:500;padding:3px 8px;border-radius:6px;background:#e8eeff;color:var(--navy);margin-bottom:.75rem;width:fit-content}
+.dark .pov{background:rgba(5,165,255,.1);color:#7dcfff}
+.pdiv{height:.5px;background:var(--bd);margin:.75rem 0}
+.pfs{display:flex;flex-direction:column;gap:6px;margin-bottom:1rem;flex:1}
+.ptag{display:inline-block;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;margin-bottom:.65rem;width:fit-content}
+.t0{background:#e8eeff;color:var(--navy)}
+.dark .t0{background:rgba(5,165,255,.12);color:#7dcfff}
+.t1{background:var(--navy);color:#fff}
+.dark .t1{background:var(--sky);color:#00183a}
+.t2{background:#fff3e0;color:#b36b00}
+.dark .t2{background:rgba(255,153,0,.15);color:#ffb84d}
+.t3{background:#f3e8ff;color:#6b00b3}
+.dark .t3{background:rgba(138,43,226,.15);color:#c084fc}
+.plan{background:var(--bg-c);border:.5px solid var(--bd);border-radius:14px;padding:1.25rem;display:flex;flex-direction:column;transition:box-shadow .22s,transform .22s}
+.plan:hover{box-shadow:var(--sc);transform:translateY(-2px)}
+.plan.pop{background:var(--bg);border:2.5px solid var(--navy);transform:scale(1.03);box-shadow:var(--sp)}
+.dark .plan.pop{background:#0a1a3a;border-color:var(--sky)}
+.plan.pop:hover{transform:scale(1.03) translateY(-3px)}
+
+/* ── FLEX PANEL (services) ── */
+.flex-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.flex-plan{display:flex;flex-direction:column}
+.flex-plan-icon{font-size:24px;margin-bottom:.5rem}
+.flex-desc{font-size:13px;color:var(--tb);line-height:1.65;margin-bottom:1rem}
+.flex-hint{font-size:11px;color:var(--amber);margin-top:.75rem;text-align:center}
+.setup-plan{background:var(--bg);border-color:var(--amber)!important}
+.dark .setup-plan{background:rgba(255,153,0,.05)}
+.setup-prices{display:flex;flex-direction:column;gap:0;margin:.5rem 0 .25rem}
+.setup-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid var(--bd)}
+.setup-row:last-child{border-bottom:none}
+.setup-name{font-size:13px;color:var(--tb)}
+.setup-price{font-size:14px;font-weight:500;color:var(--th)}
+.price-combo{display:flex;align-items:center;gap:.75rem;margin-top:1.75rem;padding:1rem 1.25rem;background:var(--bg);border:.5px solid var(--bdm);border-radius:12px;font-size:14px;color:var(--tb)}
+.combo-star{font-size:16px;flex-shrink:0}
+.dark .price-combo{background:var(--bg-c)}
+.plans-panel{}
+
+/* ── BOTTOM CTA ── */
+.cta-band{background:var(--navy);padding:80px 0;text-align:center;position:relative;overflow:hidden}
+.cta-band::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(5,165,255,.1),transparent);pointer-events:none}
+.cta-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:1rem}
+.cta-inner h2{font-family:var(--fd);font-size:clamp(1.8rem,4vw,3rem);font-weight:500;color:#fff;line-height:1.15;letter-spacing:-1.5px}
+.cta-inner h2 .acc{color:var(--amber)}
+.cta-inner p{font-size:16px;color:rgba(255,255,255,.65);max-width:520px;line-height:1.75}
+.cta-starter-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);border:.5px solid rgba(255,255,255,.2);border-radius:20px;padding:6px 16px;font-size:12px;font-weight:500;color:#fff;margin-bottom:.5rem}
+.cta-plan-preview{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:center;padding:.85rem 1.25rem;background:rgba(255,255,255,.07);border-radius:12px;border:.5px solid rgba(255,255,255,.12)}
+.cpp-item{display:flex;align-items:center;gap:5px;font-size:13px;color:rgba(255,255,255,.8)}
+.cpp-icon{color:#28ca41;font-size:13px}
+.cpp-sep{color:rgba(255,255,255,.25);font-size:16px}
+.cta-btns{display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center;margin-top:.5rem}
+.cta-annual-hint{font-size:13px;color:rgba(255,255,255,.55);padding:.65rem 1.25rem;background:rgba(255,153,0,.1);border-radius:8px;border:.5px solid rgba(255,153,0,.2)}
+.cta-tr{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:center;font-size:12px;color:rgba(255,255,255,.45);margin-top:.25rem}
+.cta-tr-s{color:rgba(255,255,255,.2)}
+
+/* ── FOOTER ── */
+.footer{background:var(--bg-s);padding:60px 0 0;border-top:.5px solid var(--bd)}
+.foot-grid{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:3rem;padding-bottom:3rem}
+.foot-brand{display:flex;flex-direction:column;gap:.75rem}
+.foot-logo{height:38px;width:auto}
+.foot-tag{font-size:13px;color:var(--tl);line-height:1.65;font-weight:300;max-width:280px}
+.foot-mail a{font-size:13px;color:var(--navy);transition:color .15s}
+.foot-mail a:hover{color:var(--th)}
+.dark .foot-mail a{color:var(--sky)}
+.foot-col h4{font-size:12px;font-weight:500;color:var(--th);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem}
+.foot-col ul{list-style:none;display:flex;flex-direction:column;gap:.65rem}
+.foot-col a{font-size:13px;color:var(--tl);transition:color .15s}
+.foot-col a:hover{color:var(--th)}
+.foot-bottom{border-top:.5px solid var(--bd);padding:1.5rem 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem}
+.foot-copy{font-size:12px;color:rgba(2,41,119,.33)}
+.dark .foot-copy{color:rgba(200,216,240,.28)}
+.foot-powered{font-size:12px;color:var(--tt);display:flex;align-items:center;gap:5px;font-weight:400}
+.foot-powered strong{color:var(--navy);font-weight:500}
+.dark .foot-powered strong{color:var(--sky)}
+.foot-legal{display:flex;gap:1.5rem}
+.foot-legal a{font-size:12px;color:var(--tt)}
+.foot-legal a:hover{color:var(--tl)}
+
+/* ── FAQ ACCORDION ── */
+function toggleFaq(btn){
+  const a=btn.nextElementSibling;
+  const isOpen=btn.classList.contains('open');
+  // close all
+  document.querySelectorAll('.faq-q.open').forEach(b=>{b.classList.remove('open');b.nextElementSibling.classList.remove('open')});
+  if(!isOpen){btn.classList.add('open');a.classList.add('open')}
+}
+
+/* ── SCROLL REVEAL ── */
+.rv{opacity:0;transform:translateY(28px);transition:opacity .55s ease,transform .55s ease}
+.rv.in{opacity:1;transform:translateY(0)}
+.rv1{transition-delay:.1s}.rv2{transition-delay:.2s}.rv3{transition-delay:.3s}.rv4{transition-delay:.4s}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1024px){
+  .bsec-grid,.bsec-grid--rev{gap:3rem}
+  .sec-layout{grid-template-columns:1fr 1fr}
+  .why-grid,.pers-grid,.how-grid{grid-template-columns:1fr}
+  .hero-right,.sec-img-col{order:-1}
+  .mid-cta-inner{grid-template-columns:1fr}
+  .price-row{grid-template-columns:1fr 1fr 1fr;row-gap:14px}
+  .pc-launch{margin-top:0}
+}
+@media(max-width:768px){
+  .bsec-grid,.bsec-grid--rev{grid-template-columns:1fr;direction:ltr;gap:2.5rem}
+  .mid-cta-compact{flex-direction:column;padding:1.75rem;gap:1.25rem}
+  .mcc-right{align-items:flex-start}
+  .dev-tablet-sm{display:none}
+  .dev-layout{grid-template-columns:1fr;gap:2rem}
+  .dev-mockups{height:280px}
+  .sec-layout{grid-template-columns:1fr}
+  .mid-cta-inner{grid-template-columns:1fr}
+  .hero-right{display:none}
+  .hero-btns,.trust{justify-content:center}
+  .foot-grid{grid-template-columns:1fr 1fr}
+  .nav-links{display:none}
+  .ham{display:flex}
+  .price-row{grid-template-columns:1fr 1fr}
+  .plan.pop{transform:scale(1)}
+  .foot-grid{grid-template-columns:1fr 1fr}
+  .cpp-sep{display:none}
+}
+@media(max-width:600px){
+  .wrap{padding:0 1.25rem}
+  .nav-inner{padding:0 1.25rem}
+  .section{padding:60px 0}
+  .flex-grid{grid-template-columns:1fr}
+  .price-row{grid-template-columns:1fr}
+  .foot-grid{grid-template-columns:1fr}
+  .foot-bottom{flex-direction:column;align-items:flex-start}
+  .pricing-header{flex-direction:column;align-items:flex-start}
+  .pricing-header-right{align-items:flex-start}
+  .dev-layout{grid-template-columns:1fr}
+  .dev-mockups{height:220px}
+  .bsec-grid,.bsec-grid--rev{gap:2.5rem}
+}
+</style>
+</head>
+<body>
+<!-- NAV -->
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a class="nav-logo" href="#" aria-label="NTSsign home">
+      <img class="logo-img logo-light" src="img/logo-transparent.svg" alt="NTSsign" onerror="this.style.display='none'"/>
+      <img class="logo-img logo-dark-img" src="img/logo-dark.svg" alt="NTSsign" style="display:none"/>
+      <span class="nav-logo-text">NTSsign</span>
+    </a>
+    <ul class="nav-links" role="list">
+      <li><a href="#features" data-i="nav_f">Features</a></li>
+      <li><a href="#how" data-i="nav_h">How it works</a></li>
+      <li><a href="#pricing" data-i="nav_pr">Pricing</a></li>
+      <li><a href="#testimonials" data-i="nav_t">Reviews</a></li>
+      <li><a href="#faq" data-i="nav_faq">FAQ</a></li>
+    </ul>
+    <div class="nav-right">
+      <a href="#" class="btn btn-g btn-sm" data-i="nav_li">Log in</a>
+      <a href="#" class="btn btn-p btn-sm" data-i="nav_ct">Request access</a>
+      <button class="ham" id="hamBtn" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- MOBILE MENU -->
+<div class="mob-menu" id="mobMenu" role="navigation">
+  <a href="#features" data-i="nav_f" onclick="closeMob()">Features</a>
+  <a href="#how" data-i="nav_h" onclick="closeMob()">How it works</a>
+  <a href="#pricing" data-i="nav_pr" onclick="closeMob()">Pricing</a>
+  <a href="#testimonials" data-i="nav_t" onclick="closeMob()">Reviews</a>
+  <a href="#faq" data-i="nav_faq" onclick="closeMob()">FAQ</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.5rem">
+    <a href="#" class="btn btn-g btn-sm" data-i="nav_li">Log in</a>
+    <a href="#" class="btn btn-p btn-sm" data-i="nav_ct">Request access</a>
+  </div>
+</div>
+
+<!-- ① HERO -->
+<section class="hero" aria-labelledby="hero-h1">
+  <div class="blob b1" aria-hidden="true"></div>
+  <div class="blob b2" aria-hidden="true"></div>
+  <div class="blob b3" aria-hidden="true"></div>
+  <div class="hero-grid">
+    <div class="hero-left">
+      <div class="eyebrow"><span data-i="ey1">Electronic signature</span><span class="ey-dot">●</span><span data-i="ey2">Adapted to you</span><span class="ey-dot">●</span><span>NoaTechSolutions</span></div>
+      <h1 class="h1" id="hero-h1" data-ih="hero_h1">The workspace that<br><span class="acc"><span class="ul">adapts to you</span></span></h1>
+      <p class="hero-sub" data-i="hero_s">Other tools make you adapt to them. NTSsign builds around your workflow, your forms, your team — from day one.</p>
+      <div class="hero-btns">
+        <a href="#" class="btn btn-p" data-i="h_b1">Request access</a>
+        <a href="#how" class="btn btn-a" data-i="h_b2">See how it works ↓</a>
+      </div>
+      <div class="trust">
+        <span data-i="tr1">No credit card</span><span class="t-sep">•</span>
+        <span data-i="tr2">ESIGN Act compliant</span><span class="t-sep">•</span>
+        <span data-i="tr3">Setup in 48h</span><span class="t-sep">•</span>
+        <span data-i="tr4">Personal onboarding</span>
+      </div>
+    </div>
+    <div class="hero-right" aria-hidden="true">
+      <div class="hero-img-wrap" id="hero3dCard">
+        <img src="img/hero-3d.png" alt="NTSsign dashboard" style="width:100%;border-radius:16px"/>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOGOS — infinite marquee -->
+<div class="logos" aria-label="Industries we serve">
+  <div class="logos-track">
+    <!-- first set -->
+    <div class="logos-set">
+      <span class="logos-lbl" data-i="log_l">Trusted by teams in</span>
+      <span class="lp">🏗️ Construction</span>
+      <span class="lp">🧒 Childcare</span>
+      <span class="lp">🏠 Real Estate</span>
+      <span class="lp">🛡️ Insurance</span>
+      <span class="lp">⚖️ Legal Services</span>
+      <span class="lp">🎵 Entertainment</span>
+      <span class="lp">🔧 HVAC & Trades</span>
+      <span class="lp">💼 Freelancers</span>
+      <span class="lp">🌿 Landscaping</span>
+      <span class="lp">🏥 Healthcare</span>
+    </div>
+    <!-- duplicate for seamless loop -->
+    <div class="logos-set" aria-hidden="true">
+      <span class="logos-lbl" data-i="log_l">Trusted by teams in</span>
+      <span class="lp">🏗️ Construction</span>
+      <span class="lp">🧒 Childcare</span>
+      <span class="lp">🏠 Real Estate</span>
+      <span class="lp">🛡️ Insurance</span>
+      <span class="lp">⚖️ Legal Services</span>
+      <span class="lp">🎵 Entertainment</span>
+      <span class="lp">🔧 HVAC & Trades</span>
+      <span class="lp">💼 Freelancers</span>
+      <span class="lp">🌿 Landscaping</span>
+      <span class="lp">🏥 Healthcare</span>
+    </div>
+  </div>
+</div>
+
+<!-- ② BENEFIT SECTIONS — alternating 2-col layout -->
+
+<!-- 2a — Client experience (text left, image right) -->
+<section class="section bsec" id="client-experience">
+  <div class="wrap">
+    <div class="bsec-grid">
+      <div class="bsec-text rv">
+        <div class="sec-lbl"><span class="dot">●</span><span data-i="bs1_lbl">Client experience</span></div>
+        <h2 class="sh2" data-ih="bs1_h2">Give your clients the<br><span class="acc">experience they deserve.</span></h2>
+        <p class="bsec-lead" data-i="bs1_lead">Customers, partners, employees and vendors expect fast, frictionless signing. Let them sign any agreement, on any device, without creating an account or downloading an app.</p>
+        <div class="bsec-points">
+          <div class="bsec-pt rv rv1">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs1_p1t">Your brand, front and center</div>
+              <div class="bsec-pt-dsc" data-i="bs1_p1d">Custom templates with your logo and colors. Every document your client receives feels like it came from you — not a generic signing portal.</div>
+            </div>
+          </div>
+          <div class="bsec-pt rv rv2">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs1_p2t">Adaptive signing on every screen</div>
+              <div class="bsec-pt-dsc" data-i="bs1_p2d">Phone, tablet, laptop, desktop — the signing flow adapts perfectly. Clients sign with their finger on mobile or mouse on desktop. Fast, intuitive, done in seconds.</div>
+            </div>
+          </div>
+          <div class="bsec-pt rv rv3">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs1_p3t">Multi-step workflows without the chaos</div>
+              <div class="bsec-pt-dsc" data-i="bs1_p3d">Handle complex agreements with multiple signers, sequential signing order, and automatic notifications at each step. Everyone knows what to do and when.</div>
+            </div>
+          </div>
+        </div>
+        <a href="#" class="btn btn-p bsec-btn rv rv4" data-i="bs1_cta">Start improving your client experience →</a>
+      </div>
+      <div class="bsec-img-wrap rv rv1">
+        <div class="bsec-img-card bsec-img-card--a">
+          <div class="bsec-mockup-screen">
+            <!-- Signing experience mockup -->
+            <div class="bsec-mock-topbar">
+              <div class="bsec-mock-logo">
+                <div style="width:22px;height:22px;border-radius:5px;background:var(--navy)"></div>
+                <div style="width:60px;height:8px;border-radius:4px;background:var(--navy);opacity:.7"></div>
+              </div>
+              <div class="bsec-mock-status">
+                <div style="width:8px;height:8px;border-radius:50%;background:#28ca41;animation:pulse 1.5s infinite"></div>
+                <div style="width:50px;height:7px;border-radius:3px;background:var(--bd)"></div>
+              </div>
+            </div>
+            <div class="bsec-mock-doc">
+              <div class="bsec-mock-doc-header">
+                <div style="width:40%;height:10px;border-radius:4px;background:var(--bdm)"></div>
+                <div style="width:60%;height:7px;border-radius:3px;background:var(--bd);margin-top:6px"></div>
+                <div style="width:50%;height:7px;border-radius:3px;background:var(--bd);margin-top:4px"></div>
+              </div>
+              <div class="bsec-mock-doc-body">
+                <div class="bsec-mock-line"></div>
+                <div class="bsec-mock-line" style="width:85%"></div>
+                <div class="bsec-mock-line" style="width:70%"></div>
+                <div class="bsec-mock-line" style="width:90%"></div>
+                <div class="bsec-mock-line" style="width:60%"></div>
+              </div>
+              <div class="bsec-mock-sig-area">
+                <div class="bsec-mock-sig-label" data-i="bs1_sign_lbl">Sign here</div>
+                <div class="bsec-mock-sig-box">
+                  <svg viewBox="0 0 120 40" style="width:100%;opacity:.6">
+                    <path d="M10 30 C 20 10, 35 35, 50 20 C 65 5, 75 35, 90 20 C 100 10, 108 25, 115 22" stroke="var(--navy)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="bsec-mock-footer">
+              <div class="bsec-mock-devices">
+                <span style="font-size:14px">📱</span>
+                <span style="font-size:14px">💻</span>
+                <span style="font-size:14px">🖥️</span>
+              </div>
+              <a class="bsec-mock-cta-btn" data-i="bs1_mock_btn">Complete signing</a>
+            </div>
+          </div>
+          <!-- floating badge -->
+          <div class="bsec-float-badge bsec-float-badge--tl">
+            <span style="font-size:18px">✍️</span>
+            <div>
+              <div class="bfb-ttl" data-i="bs1_b1t">Signed</div>
+              <div class="bfb-sub" data-i="bs1_b1s">Just now · from iPhone</div>
+            </div>
+          </div>
+          <div class="bsec-float-badge bsec-float-badge--br">
+            <span style="font-size:18px">🔐</span>
+            <div>
+              <div class="bfb-ttl" data-i="bs1_b2t">ESIGN Act</div>
+              <div class="bfb-sub" data-i="bs1_b2s">Legally binding</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2b — Professional documents (image left, text right) -->
+<section class="section sec-alt bsec">
+  <div class="wrap">
+    <div class="bsec-grid">
+      <div class="bsec-img-wrap rv">
+        <div class="bsec-img-card bsec-img-card--b">
+          <!-- Dashboard mockup -->
+          <div class="bsec-dash">
+            <div class="bsec-dash-topbar">
+              <div style="width:90px;height:8px;border-radius:4px;background:var(--bdm)"></div>
+              <div style="display:flex;gap:6px">
+                <div style="width:60px;height:22px;border-radius:6px;background:var(--ib)"></div>
+                <div style="width:22px;height:22px;border-radius:6px;background:var(--navy);opacity:.8"></div>
+              </div>
+            </div>
+            <div class="bsec-dash-rows">
+              <div class="bsec-dash-row">
+                <div class="bsec-dash-row-info">
+                  <div style="width:10px;height:10px;border-radius:3px;background:var(--navy);opacity:.7;flex-shrink:0"></div>
+                  <div>
+                    <div style="width:140px;height:8px;border-radius:3px;background:var(--bdm)"></div>
+                    <div style="width:80px;height:6px;border-radius:3px;background:var(--bd);margin-top:4px"></div>
+                  </div>
+                </div>
+                <div class="dash-status dash-completed" data-i="ds_comp">Completed</div>
+              </div>
+              <div class="bsec-dash-row" style="background:var(--navy);border-color:var(--navy)">
+                <div class="bsec-dash-row-info">
+                  <div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,.5);flex-shrink:0"></div>
+                  <div>
+                    <div style="width:120px;height:8px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+                    <div style="width:70px;height:6px;border-radius:3px;background:rgba(255,255,255,.15);margin-top:4px"></div>
+                  </div>
+                </div>
+                <div class="dash-status dash-sent" data-i="ds_sent">Sent</div>
+              </div>
+              <div class="bsec-dash-row">
+                <div class="bsec-dash-row-info">
+                  <div style="width:10px;height:10px;border-radius:3px;background:var(--navy);opacity:.7;flex-shrink:0"></div>
+                  <div>
+                    <div style="width:100px;height:8px;border-radius:3px;background:var(--bdm)"></div>
+                    <div style="width:90px;height:6px;border-radius:3px;background:var(--bd);margin-top:4px"></div>
+                  </div>
+                </div>
+                <div class="dash-status dash-viewed" data-i="ds_view">Viewed</div>
+              </div>
+              <div class="bsec-dash-row">
+                <div class="bsec-dash-row-info">
+                  <div style="width:10px;height:10px;border-radius:3px;background:var(--navy);opacity:.7;flex-shrink:0"></div>
+                  <div>
+                    <div style="width:130px;height:8px;border-radius:3px;background:var(--bdm)"></div>
+                    <div style="width:60px;height:6px;border-radius:3px;background:var(--bd);margin-top:4px"></div>
+                  </div>
+                </div>
+                <div class="dash-status dash-draft" data-i="ds_draft">Draft</div>
+              </div>
+            </div>
+            <div class="bsec-dash-footer">
+              <div class="bsec-dash-stat"><div class="bds-n">12</div><div class="bds-l" data-i="ds_sent_mo">Sent this month</div></div>
+              <div class="bsec-dash-stat"><div class="bds-n" style="color:#28ca41">9</div><div class="bds-l" data-i="ds_signed_mo">Completed</div></div>
+              <div class="bsec-dash-stat"><div class="bds-n" style="color:var(--amber)">3</div><div class="bds-l" data-i="ds_pend_mo">Pending</div></div>
+            </div>
+          </div>
+          <div class="bsec-float-badge bsec-float-badge--tr">
+            <span style="font-size:18px">📊</span>
+            <div>
+              <div class="bfb-ttl" data-i="bs2_b1t">Real-time tracking</div>
+              <div class="bfb-sub" data-i="bs2_b1s">Updated instantly</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bsec-text rv rv1">
+        <div class="sec-lbl"><span class="dot">●</span><span data-i="bs2_lbl">Document management</span></div>
+        <h2 class="sh2" data-ih="bs2_h2">Make your documents look<br><span class="acc">as professional as your work.</span></h2>
+        <p class="bsec-lead" data-i="bs2_lead">Your contracts reflect your brand. NTSsign gives you full control over how your documents look, how they're tracked, and how your team manages every step of the signing process.</p>
+        <div class="bsec-points">
+          <div class="bsec-pt rv rv1">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs2_p1t">Live dashboard for every document</div>
+              <div class="bsec-pt-dsc" data-i="bs2_p1d">See exactly where each contract stands — Draft, Sent, Viewed, Signed, Completed. Your team always knows what's waiting and what's done.</div>
+            </div>
+          </div>
+          <div class="bsec-pt rv rv2">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs2_p2t">Audit trail included in every PDF</div>
+              <div class="bsec-pt-dsc" data-i="bs2_p2d">Every signed document includes a tamper-evident certificate with timestamp, IP address, and device info. Legal protection built in, automatically.</div>
+            </div>
+          </div>
+          <div class="bsec-pt rv rv3">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs2_p3t">Your team, your rules</div>
+              <div class="bsec-pt-dsc" data-i="bs2_p3d">Assign roles, manage users, and control who can create, send, or view documents. Keep your workflow clean as your team grows.</div>
+            </div>
+          </div>
+        </div>
+        <a href="#" class="btn btn-p bsec-btn rv rv4" data-i="bs2_cta">See how it works →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2c — Speed & automation (image left, text right) -->
+<section class="section bsec">
+  <div class="wrap">
+    <div class="bsec-grid bsec-grid--rev">
+      <div class="bsec-text rv">
+        <div class="sec-lbl"><span class="dot">●</span><span data-i="bs3_lbl">Automation</span></div>
+        <h2 class="sh2" data-ih="bs3_h2">Send faster.<br><span class="acc">Follow up never.</span></h2>
+        <p class="bsec-lead" data-i="bs3_lead">Creating a contract used to mean opening a template, copy-pasting client data, saving as PDF, attaching to an email, and then following up days later. NTSsign replaces all of that with one guided flow.</p>
+        <div class="bsec-points">
+          <div class="bsec-pt rv rv1">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs3_p1t">From blank form to sent document in minutes</div>
+              <div class="bsec-pt-dsc" data-i="bs3_p1d">Fill a smart form with your client's details. NTSsign pre-fills your template and sends the signing invitation — all in one flow, no copy-pasting.</div>
+            </div>
+          </div>
+          <div class="bsec-pt rv rv2">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs3_p2t">Automatic reminders until it's signed</div>
+              <div class="bsec-pt-dsc" data-i="bs3_p2d">Set it and forget it. If your client hasn't signed within your defined window, NTSsign sends a reminder automatically. You only get involved when it's done.</div>
+            </div>
+          </div>
+          <div class="bsec-pt rv rv3">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs3_p3t">Contracts that expire on their own</div>
+              <div class="bsec-pt-dsc" data-i="bs3_p3d">Set an expiration date when you send. If the client misses the deadline, the document cancels itself and you get notified. No stale contracts, no manual cleanup.</div>
+            </div>
+          </div>
+        </div>
+        <a href="#" class="btn btn-p bsec-btn rv rv4" data-i="bs3_cta">See the full workflow →</a>
+      </div>
+      <div class="bsec-img-wrap rv rv1">
+        <div class="bsec-img-card bsec-img-card--c">
+          <!-- Timeline / flow mockup -->
+          <div class="bsec-flow">
+            <div class="bsec-flow-step bsec-flow-done">
+              <div class="bfs-ico">✓</div>
+              <div>
+                <div class="bfs-ttl" data-i="bsf1t">Form filled</div>
+                <div class="bfs-sub" data-i="bsf1s">Client details entered</div>
+              </div>
+            </div>
+            <div class="bsec-flow-line bsec-flow-line--done"></div>
+            <div class="bsec-flow-step bsec-flow-done">
+              <div class="bfs-ico">✓</div>
+              <div>
+                <div class="bfs-ttl" data-i="bsf2t">Email sent</div>
+                <div class="bfs-sub" data-i="bsf2s">Signing link delivered</div>
+              </div>
+            </div>
+            <div class="bsec-flow-line bsec-flow-line--done"></div>
+            <div class="bsec-flow-step bsec-flow-active">
+              <div class="bfs-ico bfs-ico--pulse">●</div>
+              <div>
+                <div class="bfs-ttl" data-i="bsf3t">Client signing…</div>
+                <div class="bfs-sub" data-i="bsf3s">Opened 2 min ago</div>
+              </div>
+            </div>
+            <div class="bsec-flow-line"></div>
+            <div class="bsec-flow-step bsec-flow-pending">
+              <div class="bfs-ico bfs-ico--empty">○</div>
+              <div>
+                <div class="bfs-ttl" data-i="bsf4t">PDF ready</div>
+                <div class="bfs-sub" data-i="bsf4s">Waiting for signature</div>
+              </div>
+            </div>
+          </div>
+          <div class="bsec-float-badge bsec-float-badge--tl">
+            <span style="font-size:18px">🔔</span>
+            <div>
+              <div class="bfb-ttl" data-i="bs3_b1t">Auto-reminder</div>
+              <div class="bfb-sub" data-i="bs3_b1s">Sent after 24h</div>
+            </div>
+          </div>
+          <div class="bsec-float-badge bsec-float-badge--br">
+            <span style="font-size:18px">⚡</span>
+            <div>
+              <div class="bfb-ttl" data-i="bs3_b2t">3 min avg</div>
+              <div class="bfb-sub" data-i="bs3_b2s">To create &amp; send</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2d — Legal protection (text left, image right) -->
+<section class="section sec-alt bsec">
+  <div class="wrap">
+    <div class="bsec-grid bsec-grid--rev">
+      <div class="bsec-img-wrap rv">
+        <div class="bsec-img-card bsec-img-card--d">
+          <!-- Certificate mockup -->
+          <div class="bsec-cert">
+            <div class="bsec-cert-header">
+              <div style="font-size:24px">🛡️</div>
+              <div>
+                <div class="bsc-ttl" data-i="bsc_ttl">Certificate of Completion</div>
+                <div class="bsc-sub" data-i="bsc_sub">NTSsign · BoldSign powered</div>
+              </div>
+            </div>
+            <div class="bsec-cert-rows">
+              <div class="bsc-row"><span class="bsc-lbl" data-i="bsc_doc">Document</span><span class="bsc-val">Construction Contract #0042</span></div>
+              <div class="bsc-row"><span class="bsc-lbl" data-i="bsc_sig">Signed by</span><span class="bsc-val">John Smith</span></div>
+              <div class="bsc-row"><span class="bsc-lbl" data-i="bsc_ts">Timestamp</span><span class="bsc-val">Apr 11, 2026 · 14:32 UTC</span></div>
+              <div class="bsc-row"><span class="bsc-lbl" data-i="bsc_ip">IP address</span><span class="bsc-val">192.168.1.xxx</span></div>
+              <div class="bsc-row"><span class="bsc-lbl" data-i="bsc_dev">Device</span><span class="bsc-val">iPhone 15 · Safari</span></div>
+            </div>
+            <div class="bsec-cert-footer">
+              <div class="bsc-badge" data-i="bsc_esign">✓ ESIGN Act compliant</div>
+              <div class="bsc-badge" data-i="bsc_tamper">✓ Tamper-evident</div>
+            </div>
+          </div>
+          <div class="bsec-float-badge bsec-float-badge--tr">
+            <span style="font-size:18px">📜</span>
+            <div>
+              <div class="bfb-ttl" data-i="bs4_b1t">Full audit trail</div>
+              <div class="bfb-sub" data-i="bs4_b1s">Every action logged</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bsec-text rv rv1">
+        <div class="sec-lbl"><span class="dot">●</span><span data-i="bs4_lbl">Legal protection</span></div>
+        <h2 class="sh2" data-ih="bs4_h2">Every signature carries<br><span class="acc">full legal weight.</span></h2>
+        <p class="bsec-lead" data-i="bs4_lead">A signature on paper can be disputed. A signature through NTSsign cannot. Every document is backed by a complete, verifiable chain of evidence that protects you if a dispute ever arises.</p>
+        <div class="bsec-points">
+          <div class="bsec-pt rv rv1">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs4_p1t">ESIGN Act compliant in the US</div>
+              <div class="bsec-pt-dsc" data-i="bs4_p1d">NTSsign uses BoldSign as its signing engine — the same technology trusted by enterprises. Every signature meets the full legal requirements of the ESIGN Act.</div>
+            </div>
+          </div>
+          <div class="bsec-pt rv rv2">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs4_p2t">Certificate of completion in every PDF</div>
+              <div class="bsec-pt-dsc" data-i="bs4_p2d">Timestamp, IP address, device, and action log — attached directly to every signed document. If anyone ever disputes a signature, you have proof.</div>
+            </div>
+          </div>
+          <div class="bsec-pt rv rv3">
+            <div class="bsec-pt-ico">✦</div>
+            <div>
+              <div class="bsec-pt-ttl" data-i="bs4_p3t">Tamper-evident — any change is detectable</div>
+              <div class="bsec-pt-dsc" data-i="bs4_p3d">Once signed, the document is sealed. Any modification after signing is cryptographically detectable. What was agreed is what stands.</div>
+            </div>
+          </div>
+        </div>
+        <a href="#" class="btn btn-p bsec-btn rv rv4" data-i="bs4_cta">Learn about our compliance →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ③ FEATURES — infinite carousel -->
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="sec-lbl rv" style="justify-content:center"><span class="dot">●</span><span data-i="fl">What you get</span></div>
+    <h2 class="sh2 rv" style="text-align:center" data-ih="fh2">Every tool your team needs<br>to sign faster, smarter.</h2>
+  </div>
+  <!-- full-bleed carousel — no wrap constraint -->
+  <div class="feat-carousel-outer rv">
+    <div class="feat-carousel-track" id="featTrack">
+      <!-- SET 1 -->
+      <div class="fc-slide">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f1t">Guided creation</div>
+        <div class="fc-slide-dsc" data-i="f1ds">Fill a form — NTSsign builds the document. Pre-filled, ready to send.</div>
+      </div>
+      <div class="fc-slide">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f2t">Live tracking</div>
+        <div class="fc-slide-dsc" data-i="f2ds">See the moment your client opens, signs, or declines. Instant dashboard updates.</div>
+      </div>
+      <div class="fc-slide">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f3t">Multi-signer</div>
+        <div class="fc-slide-dsc" data-i="f3ds">Set signing order. Each signer is notified automatically when it's their turn.</div>
+      </div>
+      <div class="fc-slide">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f4t">Auto reminders</div>
+        <div class="fc-slide-dsc" data-i="f4ds">Unsigned? NTSsign follows up automatically. Expiry dates cancel old contracts.</div>
+      </div>
+      <div class="fc-slide">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f5t">ESIGN Act</div>
+        <div class="fc-slide-dsc" data-i="f5ds">Full audit trail on every PDF. IP, timestamp, device. Legally binding always.</div>
+      </div>
+      <div class="fc-slide">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f6t">Any device</div>
+        <div class="fc-slide-dsc" data-i="f6ds">Clients sign from phone, tablet, or laptop. No app. No account. Just sign.</div>
+      </div>
+      <div class="fc-slide fc-slide--accent">
+        <div class="fc-slide-icon fc-slide-icon--light"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></div>
+        <div class="fc-slide-ttl fc-slide-ttl--light" data-i="f7t">Custom forms</div>
+        <div class="fc-slide-dsc fc-slide-dsc--light" data-i="f7ds">Every client sees only their relevant fields. Tailored, not generic.</div>
+      </div>
+      <div class="fc-slide">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f8t">Team workspace</div>
+        <div class="fc-slide-dsc" data-i="f8ds">Multiple users, roles, shared dashboard. Everyone works from the same place.</div>
+      </div>
+      <!-- SET 2 — duplicate for seamless loop -->
+      <div class="fc-slide" aria-hidden="true">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f1t">Guided creation</div>
+        <div class="fc-slide-dsc" data-i="f1ds">Fill a form — NTSsign builds the document. Pre-filled, ready to send.</div>
+      </div>
+      <div class="fc-slide" aria-hidden="true">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f2t">Live tracking</div>
+        <div class="fc-slide-dsc" data-i="f2ds">See the moment your client opens, signs, or declines. Instant dashboard updates.</div>
+      </div>
+      <div class="fc-slide" aria-hidden="true">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f3t">Multi-signer</div>
+        <div class="fc-slide-dsc" data-i="f3ds">Set signing order. Each signer is notified automatically when it's their turn.</div>
+      </div>
+      <div class="fc-slide" aria-hidden="true">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f4t">Auto reminders</div>
+        <div class="fc-slide-dsc" data-i="f4ds">Unsigned? NTSsign follows up automatically. Expiry dates cancel old contracts.</div>
+      </div>
+      <div class="fc-slide" aria-hidden="true">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f5t">ESIGN Act</div>
+        <div class="fc-slide-dsc" data-i="f5ds">Full audit trail on every PDF. IP, timestamp, device. Legally binding always.</div>
+      </div>
+      <div class="fc-slide" aria-hidden="true">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f6t">Any device</div>
+        <div class="fc-slide-dsc" data-i="f6ds">Clients sign from phone, tablet, or laptop. No app. No account. Just sign.</div>
+      </div>
+      <div class="fc-slide fc-slide--accent" aria-hidden="true">
+        <div class="fc-slide-icon fc-slide-icon--light"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></div>
+        <div class="fc-slide-ttl fc-slide-ttl--light" data-i="f7t">Custom forms</div>
+        <div class="fc-slide-dsc fc-slide-dsc--light" data-i="f7ds">Every client sees only their relevant fields. Tailored, not generic.</div>
+      </div>
+      <div class="fc-slide" aria-hidden="true">
+        <div class="fc-slide-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="fc-slide-ttl" data-i="f8t">Team workspace</div>
+        <div class="fc-slide-dsc" data-i="f8ds">Multiple users, roles, shared dashboard. Everyone works from the same place.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ④½ DEVICES — sign & manage from anywhere -->
+<section class="devices-section" id="devices">
+  <div class="devices-inner">
+
+    <!-- Header centered -->
+    <div class="sec-lbl rv" style="justify-content:center"><span class="dot">●</span><span data-i="dev_l">Works everywhere</span></div>
+    <div class="devices-text rv">
+      <h2 class="sh2" data-ih="dev_h2">Sign, send &amp; manage<br><span style="color:var(--amber)">from any screen, anywhere.</span></h2>
+      <p class="ssub" data-i="dev_s">Your clients sign from their phone. Your team tracks from their laptop. You approve from your tablet on the go. NTSsign adapts to every device perfectly — no app, no account needed.</p>
+    </div>
+
+    <!-- 2-col: devices left, tabs+features right -->
+    <div class="dev-layout rv">
+
+      <!-- LEFT: device mockups floating -->
+      <div class="dev-mockups" id="devScene">
+        <!-- Tablet (back-left) -->
+        <div class="dev-tablet-sm" id="devTablet">
+          <div class="dev-tablet-sm-body">
+            <div class="dev-tablet-sm-screen">
+              <div class="dev-screen" style="gap:4px;padding:8px">
+                <div class="dev-topbar" style="margin-bottom:4px">
+                  <div class="dev-dot" style="background:#ff5f57"></div>
+                  <div class="dev-dot" style="background:#ffbd2e"></div>
+                  <div class="dev-dot" style="background:#28ca41"></div>
+                </div>
+                <div class="dev-chip" style="width:70%;height:9px"></div>
+                <div class="dev-row w80"></div>
+                <div class="dev-row w60"></div>
+                <div class="dev-row accent" style="margin-top:6px"></div>
+                <div class="dev-row w90"></div>
+                <div class="dev-row w50" style="width:50%"></div>
+                <div style="margin-top:8px;height:22px;border-radius:5px;background:rgba(255,153,0,.45)"></div>
+              </div>
+            </div>
+            <div class="dev-tablet-sm-btn"></div>
+          </div>
+        </div>
+        <!-- Laptop -->
+        <div class="dev-laptop" id="devLaptop">
+          <div class="dev-laptop-body">
+            <div class="dev-laptop-screen">
+              <div class="dev-screen" style="gap:4px">
+                <div class="dev-topbar">
+                  <div class="dev-dot" style="background:#ff5f57"></div>
+                  <div class="dev-dot" style="background:#ffbd2e"></div>
+                  <div class="dev-dot" style="background:#28ca41"></div>
+                  <div style="flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;margin-left:6px"></div>
+                </div>
+                <div class="dscr-sign" style="display:flex;flex-direction:column;gap:4px">
+                  <div class="dev-chip" style="width:65%;height:11px"></div>
+                  <div class="dev-row w80"></div>
+                  <div class="dev-row w60"></div>
+                  <div class="dev-row accent"></div>
+                  <div class="dev-row w90"></div>
+                  <div style="margin-top:6px;height:28px;border-radius:6px;background:rgba(255,153,0,.55)"></div>
+                </div>
+                <div class="dscr-manage" style="display:none;flex-direction:column;gap:3px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+                    <div style="width:70px;height:7px;border-radius:3px;background:rgba(255,255,255,.2)"></div>
+                    <div style="width:44px;height:14px;border-radius:5px;background:rgba(255,153,0,.5)"></div>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 5px;border-radius:5px;background:rgba(255,255,255,.08)">
+                    <div style="width:80px;height:6px;border-radius:3px;background:rgba(255,255,255,.25)"></div>
+                    <div style="padding:2px 7px;border-radius:8px;background:#22c55e;font-size:7px;color:#fff;font-weight:600">Done</div>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 5px;border-radius:5px;background:rgba(255,255,255,.05)">
+                    <div style="width:60px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)"></div>
+                    <div style="padding:2px 7px;border-radius:8px;background:rgba(5,165,255,.6);font-size:7px;color:#fff;font-weight:600">Sent</div>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 5px;border-radius:5px;background:rgba(255,255,255,.05)">
+                    <div style="width:70px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)"></div>
+                    <div style="padding:2px 7px;border-radius:8px;background:rgba(250,204,21,.6);font-size:7px;color:#fff;font-weight:600">Open</div>
+                  </div>
+                  <div style="display:flex;gap:3px;margin-top:3px">
+                    <div style="flex:1;background:rgba(255,255,255,.06);border-radius:4px;padding:3px;text-align:center"><div style="font-size:11px;font-weight:700;color:#fff">12</div></div>
+                    <div style="flex:1;background:rgba(255,255,255,.06);border-radius:4px;padding:3px;text-align:center"><div style="font-size:11px;font-weight:700;color:#22c55e">9</div></div>
+                    <div style="flex:1;background:rgba(255,255,255,.06);border-radius:4px;padding:3px;text-align:center"><div style="font-size:11px;font-weight:700;color:#fb923c">3</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="dev-laptop-base"></div>
+        </div>
+
+        <!-- Phone floating over laptop -->
+        <div class="dev-phone" id="devPhone">
+          <div class="dev-phone-body">
+            <div class="dev-phone-notch"></div>
+            <div class="dev-phone-screen">
+              <div class="dev-screen" style="gap:4px;padding:7px">
+                <div class="dev-chip" style="width:55%;height:9px;margin:0 auto"></div>
+                <div class="dev-row w90"></div>
+                <div class="dev-row" style="width:70%"></div>
+                <div class="dev-row accent" style="margin-top:5px"></div>
+                <div class="dev-row w90"></div>
+                <div style="margin-top:8px;height:26px;border-radius:7px;background:rgba(255,153,0,.5)"></div>
+                <div style="height:13px;border-radius:3px;background:rgba(255,255,255,.06);margin-top:3px"></div>
+              </div>
+            </div>
+            <div class="dev-phone-chin"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: tab switcher + feature pills -->
+      <div class="dev-right">
+        <div class="dev-tabs">
+          <button class="dev-tab on" id="dtab-sign" onclick="setDevTab('sign')" data-i="dtab_sign">✍️ Signing</button>
+          <button class="dev-tab" id="dtab-manage" onclick="setDevTab('manage')" data-i="dtab_manage">📊 Dashboard</button>
+        </div>
+
+        <div class="dev-right-pills">
+          <div class="dev-pill" data-i="devf1">
+            <span class="dev-pill-ico">📱</span>
+            <div>
+              <div class="dev-pill-ttl" data-i="devf1t">Sign from any device</div>
+              <div class="dev-pill-dsc" data-i="devf1d">Phone, tablet, laptop — any browser works</div>
+            </div>
+          </div>
+          <div class="dev-pill" data-i="devf2">
+            <span class="dev-pill-ico">📊</span>
+            <div>
+              <div class="dev-pill-ttl" data-i="devf2t">Manage on the go</div>
+              <div class="dev-pill-dsc" data-i="devf2d">Full dashboard access from mobile or desktop</div>
+            </div>
+          </div>
+          <div class="dev-pill" data-i="devf3">
+            <span class="dev-pill-ico">🔔</span>
+            <div>
+              <div class="dev-pill-ttl" data-i="devf3t">Instant notifications</div>
+              <div class="dev-pill-dsc" data-i="devf3d">Get notified the moment your client signs</div>
+            </div>
+          </div>
+          <div class="dev-pill" data-i="devf4">
+            <span class="dev-pill-ico">🔗</span>
+            <div>
+              <div class="dev-pill-ttl" data-i="devf4t">No app · No account</div>
+              <div class="dev-pill-dsc" data-i="devf4d">Clients just open the link and sign — nothing to install</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating status badge -->
+        <div class="dev-status-badge">
+          <div class="dev-status-dot"></div>
+          <div>
+            <div class="dev-status-ttl" data-i="dev_badge_t">John Smith just signed</div>
+            <div class="dev-status-sub" data-i="dev_badge_s">Construction Contract · PDF ready</div>
+          </div>
+          <div class="dev-status-check">✓</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+
+<!-- ④ HOW IT WORKS — animated stepper -->
+<section class="section sec-alt" id="how">
+  <div class="wrap">
+    <div class="sec-lbl rv" style="justify-content:center"><span class="dot">●</span><span data-i="hl">How it works</span></div>
+    <h2 class="sh2 rv" style="text-align:center" data-ih="hh2">From blank form to<br>signed PDF in 3 steps</h2>
+    <p class="ssub rv" style="text-align:center;margin-bottom:3.5rem" data-i="how_sub">No training required. No complexity. Just fill, send, done.</p>
+
+    <div class="how-stepper">
+
+      <!-- Step 01 -->
+      <div class="how-step how-step--active" id="step-0" onclick="setStep(0)">
+        <div class="how-step-left">
+          <div class="how-step-num">
+            <span class="hsn-num">01</span>
+            <div class="hsn-ring"></div>
+          </div>
+          <div class="how-step-line"></div>
+        </div>
+        <div class="how-step-content">
+          <div class="how-step-header">
+            <div class="how-step-icon">📝</div>
+            <div>
+              <div class="how-step-ttl" data-i="s1t">Fill the guided form</div>
+              <div class="how-step-tag" data-i="s1tag">~2 minutes</div>
+            </div>
+          </div>
+          <div class="how-step-body">
+            <p data-i="s1d">Your personalized form shows only the relevant fields for that client and document type. Fill in the details — NTSsign automatically pre-fills your BoldSign template. No blank PDFs, no copy-paste errors, no formatting headaches.</p>
+            <div class="how-step-preview">
+              <div class="hsp-form">
+                <div class="hsp-field">
+                  <div class="hsp-label" data-i="s1f1">Customer name</div>
+                  <div class="hsp-input hsp-input--filled">John Smith</div>
+                </div>
+                <div class="hsp-field">
+                  <div class="hsp-label" data-i="s1f2">Email</div>
+                  <div class="hsp-input hsp-input--filled"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="23494c4b4d63465b424e534f460d404c4e">[email&#160;protected]</a></div>
+                </div>
+                <div class="hsp-field">
+                  <div class="hsp-label" data-i="s1f3">Contract amount</div>
+                  <div class="hsp-input hsp-input--filled hsp-input--amount">$15,000</div>
+                </div>
+                <div class="hsp-send-btn" data-i="s1btn">Send for signature →</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 02 -->
+      <div class="how-step" id="step-1" onclick="setStep(1)">
+        <div class="how-step-left">
+          <div class="how-step-num">
+            <span class="hsn-num">02</span>
+            <div class="hsn-ring"></div>
+          </div>
+          <div class="how-step-line"></div>
+        </div>
+        <div class="how-step-content">
+          <div class="how-step-header">
+            <div class="how-step-icon">📧</div>
+            <div>
+              <div class="how-step-ttl" data-i="s2t">Client gets a secure link</div>
+              <div class="how-step-tag" data-i="s2tag">Instant delivery</div>
+            </div>
+          </div>
+          <div class="how-step-body">
+            <p data-i="s2d">The moment you send, a unique signing link lands in your client's inbox. No account creation, no app download, no logins. They open the link on their phone, tablet, or laptop — review the document and sign in under a minute.</p>
+            <div class="how-step-preview">
+              <div class="hsp-email">
+                <div class="hsp-email-header">
+                  <div class="hsp-email-from" data-i="s2from">From: NTSsign on behalf of Your Company</div>
+                  <div class="hsp-email-subj" data-i="s2subj">🖊 Construction Contract ready for your signature</div>
+                </div>
+                <div class="hsp-email-body">
+                  <div class="hsp-email-line"></div>
+                  <div class="hsp-email-line" style="width:80%"></div>
+                  <div class="hsp-email-cta" data-i="s2cta">Review & Sign →</div>
+                  <div class="hsp-email-line" style="width:60%;margin-top:8px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 03 -->
+      <div class="how-step how-step--last" id="step-2" onclick="setStep(2)">
+        <div class="how-step-left">
+          <div class="how-step-num">
+            <span class="hsn-num">03</span>
+            <div class="hsn-ring"></div>
+          </div>
+        </div>
+        <div class="how-step-content">
+          <div class="how-step-header">
+            <div class="how-step-icon">✅</div>
+            <div>
+              <div class="how-step-ttl" data-i="s3t">Dashboard updates live</div>
+              <div class="how-step-tag" data-i="s3tag">Automatic</div>
+            </div>
+          </div>
+          <div class="how-step-body">
+            <p data-i="s3d">The moment your client signs, your dashboard updates automatically. Sent → Viewed → Signed → Completed. Your final PDF with its completion certificate is ready to download — no chasing, no checking, no manual work.</p>
+            <div class="how-step-preview">
+              <div class="hsp-status">
+                <div class="hsp-status-row hsp-status--done">
+                  <div class="hsp-status-dot hsp-status-dot--done"></div>
+                  <span data-i="hss1">Sent</span>
+                  <span class="hsp-status-time" data-i="hss1t">Mon 9:01am</span>
+                </div>
+                <div class="hsp-status-row hsp-status--done">
+                  <div class="hsp-status-dot hsp-status-dot--done"></div>
+                  <span data-i="hss2">Viewed</span>
+                  <span class="hsp-status-time" data-i="hss2t">Mon 11:34am</span>
+                </div>
+                <div class="hsp-status-row hsp-status--done">
+                  <div class="hsp-status-dot hsp-status-dot--done"></div>
+                  <span data-i="hss3">Signed</span>
+                  <span class="hsp-status-time" data-i="hss3t">Mon 11:36am</span>
+                </div>
+                <div class="hsp-status-row hsp-status--active">
+                  <div class="hsp-status-dot hsp-status-dot--active"></div>
+                  <span data-i="hss4">Completed — PDF ready</span>
+                  <span class="hsp-status-time hsp-status-time--active" data-i="hss4t">Download ↓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end how-stepper -->
+  </div>
+</section>
+
+
+<!-- ⑥ MID-PAGE CTA — Launch plan -->
+<section class="mid-cta-band">
+  <div class="wrap">
+    <div class="mid-cta-compact rv">
+      <div class="mcc-left">
+        <div class="mcc-badge" data-i="mcta_ey">⭐ Most popular plan</div>
+        <div class="mcc-title">Launch <span class="mcc-price">$39<span class="mcc-per">/mo</span></span></div>
+        <div class="mcc-pills">
+          <span class="mcc-pill">👥 <span data-i="mlc1t">Team ready</span></span>
+          <span class="mcc-pill">📋 <span data-i="mlc2t">3 templates</span></span>
+          <span class="mcc-pill">✍️ <span data-i="mlc3t">Multi-signer</span></span>
+          <span class="mcc-pill">🔔 <span data-i="mlc4t">Auto reminders</span></span>
+        </div>
+      </div>
+      <div class="mcc-right">
+        <a href="#pricing" class="btn btn-a" style="font-size:15px;padding:13px 28px;white-space:nowrap" data-i="mcta_btn">See the Launch plan →</a>
+        <div class="mid-cta-trust" data-i="mcta_tr">Personal setup · Cancel anytime · Live in 48h</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑦ SECURITY -->
+<section class="section sec-alt">
+  <div class="wrap">
+    <div class="sec-layout">
+      <div>
+        <div class="sec-lbl rv"><span class="dot">●</span><span data-i="sel">Security &amp; compliance</span></div>
+        <h2 class="sh2 rv" data-ih="seh2">Every signature is<br>legally defensible.</h2>
+        <p class="ssub rv" data-i="ses">NTSsign uses BoldSign as its signing engine. Every document meets the full requirements of the ESIGN Act.</p>
+        <div style="display:flex;flex-direction:column;gap:.75rem;margin-top:2rem">
+          <div class="tb-card rv" style="display:flex;align-items:center;gap:1rem"><div style="font-size:20px">🔐</div><div><div class="tb-ttl" data-i="se1t">ESIGN Act compliant</div><div class="tb-dsc" data-i="se1d">Full legal validity across the United States</div></div></div>
+          <div class="tb-card rv rv1" style="display:flex;align-items:center;gap:1rem"><div style="font-size:20px">🕵️</div><div><div class="tb-ttl" data-i="se2t">Complete audit trail</div><div class="tb-dsc" data-i="se2d">IP address, device, timestamp, and action log — every event recorded and attached to the PDF</div></div></div>
+          <div class="tb-card rv rv2" style="display:flex;align-items:center;gap:1rem"><div style="font-size:20px">📜</div><div><div class="tb-ttl" data-i="se3t">Tamper-evident certificate</div><div class="tb-dsc" data-i="se3d">The signed PDF includes a completion certificate that detects any post-signature changes</div></div></div>
+          <div class="tb-card rv rv3" style="display:flex;align-items:center;gap:1rem"><div style="font-size:20px">🔒</div><div><div class="tb-ttl" data-i="se4t">No account needed to sign</div><div class="tb-dsc" data-i="se4d">Recipients sign via a unique secure link. Nothing to create, nothing to install</div></div></div>
+        </div>
+      </div>
+      <div class="rv rv1">
+        <img class="sec-img" src="img/security-3d.png" alt="Security shield" style="width:100%;border-radius:20px"/>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑧ TESTIMONIALS -->
+<section class="section" id="testimonials">
+  <div class="wrap">
+    <div class="sec-lbl rv"><span class="dot">●</span><span data-i="tl">What our clients say</span></div>
+    <h2 class="sh2 rv" data-i="th2">Real results from real teams</h2>
+    <div class="carousel-wrap rv">
+      <div class="carousel-track" id="track">
+        <div class="car-card"><div class="car-stars">★★★★★</div><p class="car-quote" data-i="q1">We used to spend 30 minutes on every contract. Now it takes 3. The guided form alone is worth every cent.</p><div class="car-author"><div class="car-av">MR</div><div><div class="car-nm">Marcus R.</div><div class="car-rl" data-i="r1">Owner, Construction Co.</div></div></div></div>
+        <div class="car-card"><div class="car-stars">★★★★★</div><p class="car-quote" data-i="q2">NTSsign built our form exactly as we needed it. Clients sign from their phones without creating an account. Setup took less than 2 days.</p><div class="car-author"><div class="car-av">SL</div><div><div class="car-nm">Sandra L.</div><div class="car-rl" data-i="r2">Director, Childcare Center</div></div></div></div>
+        <div class="car-card"><div class="car-stars">★★★★★</div><p class="car-quote" data-i="q3">They took our 8-page contract and had it live in 48 hours. I didn't touch a single setting — they handled everything.</p><div class="car-author"><div class="car-av">JP</div><div><div class="car-nm">James P.</div><div class="car-rl" data-i="r3">Real Estate Agent</div></div></div></div>
+        <div class="car-card"><div class="car-stars">★★★★★</div><p class="car-quote" data-i="q4">Our contractors sign the same day we send. Zero back-and-forth. The automatic reminders saved us hours every week.</p><div class="car-author"><div class="car-av">AL</div><div><div class="car-nm">Ana L.</div><div class="car-rl" data-i="r4">Operations Manager, HVAC</div></div></div></div>
+        <div class="car-card"><div class="car-stars">★★★★★</div><p class="car-quote" data-i="q5">The 1:1 onboarding made all the difference. Someone walked us through it live. We were sending documents before the call ended.</p><div class="car-author"><div class="car-av">DM</div><div><div class="car-nm">David M.</div><div class="car-rl" data-i="r5">CFO, Insurance Agency</div></div></div></div>
+      </div>
+      <div class="car-controls">
+        <button class="car-btn" id="carPrev" aria-label="Previous">&#8592;</button>
+        <div class="car-dots" id="carDots"></div>
+        <button class="car-btn" id="carNext" aria-label="Next">&#8594;</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ⑨ PRICING -->
+<section class="section sec-alt" id="pricing">
+  <div class="wrap">
+    <div class="pricing-header rv">
+      <div class="pricing-header-left">
+        <div class="sec-lbl"><span class="dot">●</span><span data-i="pl">Pricing</span></div>
+        <h2 class="sh2" data-ih="ph2p">Simple pricing.<br>No surprises.</h2>
+        <p class="ssub" data-i="ps">Every plan includes personal onboarding. Switch or cancel anytime.</p>
+      </div>
+      <div class="pricing-header-right">
+        <div class="billing-toggle" id="billingToggle">
+          <span class="bt-lbl" data-i="bt_mo">Monthly</span>
+          <div class="bt-switch" onclick="setBilling(billingMode==='monthly'?'annual':'monthly')" id="btSwitch"><div class="bt-knob" id="btKnob"></div></div>
+          <span class="bt-lbl" data-i="bt_an">Annual</span>
+          <span class="bt-save" data-i="bt_save">Save 17%</span>
+        </div>
+        <div class="plan-tabs">
+          <button class="pt-tab on" id="tab-sub" onclick="setPlanTab('sub')" data-i="tab_sub">Plans</button>
+          <button class="pt-tab" id="tab-extra" onclick="setPlanTab('extra')" data-i="tab_extra">More options</button>
+          <button class="pt-tab" id="tab-flex" onclick="setPlanTab('flex')" data-i="tab_flex">Services</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN PLANS: Starter · Launch · Pro -->
+    <div class="plans-panel" id="panel-sub">
+      <div class="price-row rv">
+
+        <!-- Starter -->
+        <div class="pc pc-side">
+          <span class="ptag t0" data-i="p1tg">Solo</span>
+          <div class="pc-name">Starter</div>
+          <div class="pc-price"><sup>$</sup><span class="p-num" data-mo="19" data-an="16">19</span></div>
+          <div class="pc-per"><span data-i="p1pr">/mo</span><span class="ann-note" style="display:none" data-i="billed_an"> · annual</span></div>
+          <div class="ann-save-tag" style="display:none" data-i="save_starter">Save $36/yr</div>
+          <div class="pc-ov" data-i="p1ov">Overage $4/doc</div>
+          <div class="pc-div"></div>
+          <div class="pc-feats">
+            <div class="pf"><span class="pfc">✓</span><span data-i="p1f1">5 docs/mo · 1 user</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p1f2">1 active template</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p1f3">Full dashboard</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p1f4">Auto reminders</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p1f5">1-year history</span></div>
+          </div>
+          <a href="#" class="btn btn-g pc-btn" data-i="bs">Get started</a>
+        </div>
+
+        <!-- LAUNCH — BESTSELLER elevated card -->
+        <div class="pc pc-launch">
+          <div class="pc-launch-glow" aria-hidden="true"></div>
+          <div class="pc-launch-badge" data-i="p2tg">⭐ Best seller</div>
+          <div class="pc-name pc-launch-name">Launch</div>
+          <div class="pc-price pc-launch-price"><sup>$</sup><span class="p-num" data-mo="39" data-an="32">39</span></div>
+          <div class="pc-per" style="color:rgba(255,255,255,.65)"><span data-i="p2pr">/mo</span><span class="ann-note" style="display:none" data-i="billed_an"> · annual</span></div>
+          <div class="ann-save-tag ann-save-dark" style="display:none" data-i="save_launch">Save $84/yr</div>
+          <div class="pc-ov pc-ov-light" data-i="p2ov">Overage $3.50/doc</div>
+          <div class="pc-div pc-div-light"></div>
+          <div class="pc-feats">
+            <div class="pf pf-light"><span class="pfc-light">✓</span><span data-i="p2f1">15 docs/mo · 2 users</span></div>
+            <div class="pf pf-light"><span class="pfc-light">✓</span><span data-i="p2f2">3 active templates</span></div>
+            <div class="pf pf-light"><span class="pfc-light">✓</span><span data-i="p2f3">Team &amp; user management</span></div>
+            <div class="pf pf-light"><span class="pfc-light">✓</span><span data-i="p2f4">Multi-signer / sequential</span></div>
+            <div class="pf pf-light"><span class="pfc-light">✓</span><span data-i="p2f5">2-year history</span></div>
+          </div>
+          <a href="#" class="btn pc-launch-btn pc-btn" data-i="launch_cta">Start with Launch →</a>
+          <div class="pc-launch-trust" data-i="launch_trust">Most teams are live in 48h</div>
+        </div>
+
+        <!-- Pro -->
+        <div class="pc pc-side">
+          <span class="ptag t2" data-i="p3tg">Growth</span>
+          <div class="pc-name">Pro</div>
+          <div class="pc-price"><sup>$</sup><span class="p-num" data-mo="89" data-an="74">89</span></div>
+          <div class="pc-per"><span data-i="p3pr">/mo</span><span class="ann-note" style="display:none" data-i="billed_an"> · annual</span></div>
+          <div class="ann-save-tag" style="display:none" data-i="save_pro">Save $180/yr</div>
+          <div class="pc-ov" data-i="p3ov">Overage $2.50/doc</div>
+          <div class="pc-div"></div>
+          <div class="pc-feats">
+            <div class="pf"><span class="pfc">✓</span><span data-i="p3f1">50 docs/mo · 5 users</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p3f2">10 templates · Branding</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p3f3">Analytics &amp; reporting</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p3f4">Bulk send · SMS OTP</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p3f5">3-year history</span></div>
+          </div>
+          <a href="#" class="btn btn-g pc-btn" data-i="bs">Get started</a>
+        </div>
+
+
+      </div>
+
+    </div>
+
+    <!-- EXTRA OPTIONS panel: Pay-per-doc + Scale -->
+    <div class="plans-panel" id="panel-extra" style="display:none">
+      <div class="price-row-2 rv">
+
+        <!-- Pay per contract -->
+        <div class="pc pc-side">
+          <span class="ptag t0" data-i="p0tg">Occasional</span>
+          <div class="pc-name">Pay-per-contract</div>
+          <div class="pc-price"><sup>$</sup>12</div>
+          <div class="pc-per" data-i="p0pr">per document · no subscription</div>
+          <div class="pc-div"></div>
+          <div class="pc-feats">
+            <div class="pf"><span class="pfc">✓</span><span data-i="p0f1">Create &amp; send document</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p0f2">Signed PDF + audit trail</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p0f3">90-day history</span></div>
+            <div class="pf"><span class="pfc-no">—</span><span style="color:var(--tl)" data-i="p0x1">No dashboard</span></div>
+            <div class="pf"><span class="pfc-no">—</span><span style="color:var(--tl)" data-i="p0x2">No templates</span></div>
+          </div>
+          <a href="#" class="btn btn-g pc-btn" data-i="bs">Get started</a>
+          <div class="pc-hint" data-i="p0hint">3+ docs/month? A plan saves you money.</div>
+        </div>
+
+        <!-- Scale -->
+        <div class="pc pc-side">
+          <span class="ptag t3" data-i="p4tg">Scale</span>
+          <div class="pc-name">Scale</div>
+          <div class="pc-price"><sup>$</sup><span class="p-num" data-mo="229" data-an="190">229</span></div>
+          <div class="pc-per"><span data-i="scale_per">/mo</span><span class="ann-note" style="display:none" data-i="billed_an"> · annual</span></div>
+          <div class="ann-save-tag" style="display:none" data-i="save_scale">Save $468/yr</div>
+          <div class="pc-ov" data-i="p4ov">Overage $1.50/doc</div>
+          <div class="pc-div"></div>
+          <div class="pc-feats">
+            <div class="pf"><span class="pfc">✓</span><span data-i="p4f1">150 docs/mo · 15 users</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p4f2">Unlimited templates</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p4f3">Priority support</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p4f4">Bulk ZIP PDF export</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p4f5">5-year history</span></div>
+          </div>
+          <a href="#" class="btn btn-g pc-btn" data-i="bs">Get started</a>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SERVICES panel -->
+    <div class="plans-panel" id="panel-flex" style="display:none">
+      <div class="flex-grid rv">
+        <div class="plan flex-plan rv">
+          <div class="flex-plan-icon">📄</div>
+          <span class="ptag t0" data-i="p0tg">No subscription</span>
+          <div class="pn">Pay-per-contract</div>
+          <div class="pp"><sup>$</sup>12</div>
+          <div class="ppr" data-i="p0pr">per document · pay as you go</div>
+          <div class="pdiv"></div>
+          <p class="flex-desc" data-i="p0desc">Perfect if you sign 1–2 contracts a month. Pay only for what you send.</p>
+          <div class="pfs">
+            <div class="pf"><span class="pfc">✓</span><span data-i="p0f1">Create &amp; send document</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p0f2">Signed PDF + audit trail</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="p0f3">90-day history</span></div>
+          </div>
+          <a href="#" class="btn btn-g" style="width:100%;justify-content:center" data-i="bs">Get started</a>
+        </div>
+        <div class="plan flex-plan setup-plan rv rv1">
+          <div class="flex-plan-icon">⚡</div>
+          <span class="ptag" style="background:var(--amber);color:#fff">One-time</span>
+          <div class="pn" data-i="setup_title">Template Setup Service</div>
+          <div class="setup-prices">
+            <div class="setup-row"><div class="setup-name" data-i="su1n">Basic setup</div><div class="setup-price">$49</div></div>
+            <div class="setup-row"><div class="setup-name" data-i="su2n">Setup + modifications</div><div class="setup-price">$79</div></div>
+            <div class="setup-row"><div class="setup-name" data-i="su3n">Express (48h)</div><div class="setup-price">+$29</div></div>
+          </div>
+          <div class="pdiv"></div>
+          <p class="flex-desc" data-i="setup_desc">Send us your PDF and we configure everything. You don't touch a single setting.</p>
+          <div class="pfs">
+            <div class="pf"><span class="pfc">✓</span><span data-i="su_f1">Custom form schema</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="su_f2">BoldSign template configured</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="su_f3">Field mapping &amp; signatures</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="su_f4">1:1 team walkthrough</span></div>
+          </div>
+          <a href="#" class="btn btn-a" style="width:100%;justify-content:center" data-i="setup_btn">Request setup</a>
+        </div>
+        <div class="plan flex-plan rv rv2">
+          <div class="flex-plan-icon">👥</div>
+          <span class="ptag t0" data-i="onb_tag">Team onboarding</span>
+          <div class="pn" data-i="onb_title">Onboarding Packages</div>
+          <div class="setup-prices">
+            <div class="setup-row"><div class="setup-name" data-i="ob1n">Basic (2–3 people)</div><div class="setup-price">$149</div></div>
+            <div class="setup-row"><div class="setup-name" data-i="ob2n">Full team rollout</div><div class="setup-price">$249</div></div>
+          </div>
+          <div class="pdiv"></div>
+          <p class="flex-desc" data-i="onb_desc">We train your team, configure roles, and make sure everyone knows NTSsign before we leave.</p>
+          <div class="pfs">
+            <div class="pf"><span class="pfc">✓</span><span data-i="ob_f1">Accounts &amp; roles configured</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="ob_f2">Live training session</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="ob_f3">Workflow walkthrough &amp; Q&amp;A</span></div>
+            <div class="pf"><span class="pfc">✓</span><span data-i="ob_f4">30-day follow-up support</span></div>
+          </div>
+          <a href="#" class="btn btn-g" style="width:100%;justify-content:center" data-i="ob_btn">Book onboarding</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ⑩ BOTTOM CTA -->
+<section class="cta-band" id="cta">
+  <div class="wrap cta-inner">
+    <div class="cta-starter-badge" data-i="cta_badge">Start with Starter — $19/month</div>
+    <h2 data-ih="ctah">Everything you need to start<br><span class="acc">sending contracts today.</span></h2>
+    <p data-i="ctap">The Starter plan gives you a full dashboard, 5 documents/month, automatic reminders, and your first template configured by our team.</p>
+    <div class="cta-plan-preview">
+      <div class="cpp-item"><span class="cpp-icon">✓</span><span data-i="cpp1">5 documents/month</span></div>
+      <div class="cpp-sep">·</div>
+      <div class="cpp-item"><span class="cpp-icon">✓</span><span data-i="cpp2">1 custom template</span></div>
+      <div class="cpp-sep">·</div>
+      <div class="cpp-item"><span class="cpp-icon">✓</span><span data-i="cpp3">Full dashboard</span></div>
+      <div class="cpp-sep">·</div>
+      <div class="cpp-item"><span class="cpp-icon">✓</span><span data-i="cpp4">Auto reminders</span></div>
+      <div class="cpp-sep">·</div>
+      <div class="cpp-item"><span class="cpp-icon">✓</span><span data-i="cpp5">1-year history</span></div>
+    </div>
+    <div class="cta-btns">
+      <a href="#" class="btn btn-a" style="font-size:16px;padding:14px 32px" data-i="ctab1">Start for $19/month →</a>
+      <a href="#pricing" class="btn btn-wo" data-i="ctab2">See all plans</a>
+    </div>
+    <div class="cta-annual-hint" data-i="cta_annual">💡 Annual billing: just $16/month — save $36/year.</div>
+    <div class="cta-tr">
+      <span data-i="ct1">Personal setup included</span><span class="cta-tr-s">•</span>
+      <span data-i="ct2">Ready in 48h</span><span class="cta-tr-s">•</span>
+      <span data-i="ct3">No long-term commitment</span><span class="cta-tr-s">•</span>
+      <span data-i="ct4">ESIGN Act compliant</span>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section sec-alt" id="faq">
+  <div class="wrap">
+
+    <!-- header 2-col: left title, right subtext -->
+    <div class="faq-header rv">
+      <div>
+        <div class="sec-lbl"><span class="dot">●</span><span data-i="faq_lbl">FAQ</span></div>
+        <h2 class="sh2" data-i="faq_h2">Questions we get<br>all the time</h2>
+      </div>
+      <div class="faq-header-right">
+        <p class="faq-intro" data-i="faq_sub">No sales pitch. Straight answers to what actually matters before you decide.</p>
+        <a href="/cdn-cgi/l/email-protection#9ae9efeaeaf5e8eedaf4f5fbeefff9f2e9f5f6efeef3f5f4e9b4f9f5f7" class="faq-contact-link" data-i="faq_contact">Still have questions? Email us →</a>
+      </div>
+    </div>
+
+    <!-- FAQ items: 2 columns -->
+    <div class="faq-cols rv">
+
+      <!-- LEFT column -->
+      <div class="faq-col">
+
+        <div class="faq-item">
+          <button class="faq-q" onclick="toggleFaq(this)">
+            <span class="faq-q-text" data-i="fq1q">Does my client need an account to sign?</span>
+            <span class="faq-chevron" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="faq-a">
+            <p data-i="fq1a">No. Your client receives a unique secure link by email. They click, review, and sign in their browser — no account, no app, no registration. Under a minute on any device.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" onclick="toggleFaq(this)">
+            <span class="faq-q-text" data-i="fq2q">Is the electronic signature legally valid in the US?</span>
+            <span class="faq-chevron" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="faq-a">
+            <p data-i="fq2a">Yes. NTSsign uses BoldSign, fully compliant with the ESIGN Act. Every signed document includes a tamper-evident certificate — IP address, timestamp, device info — the same legal standard as DocuSign.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" onclick="toggleFaq(this)">
+            <span class="faq-q-text" data-i="fq3q">How quickly can we start sending contracts?</span>
+            <span class="faq-chevron" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="faq-a">
+            <p data-i="fq3a">48 hours. Send us your existing PDF on Monday — by Wednesday your team is sending contracts. We configure everything: form schema, template, field mapping, user roles. You don't touch a single setting.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" onclick="toggleFaq(this)">
+            <span class="faq-q-text" data-i="fq4q">Can I use my existing contract design and PDF?</span>
+            <span class="faq-chevron" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="faq-a">
+            <p data-i="fq4a">Absolutely. We take your existing PDF — your branding, layout, and clauses — and configure it inside NTSsign. Your clients receive a document that looks 100% like it came from you, not a generic portal.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT column -->
+      <div class="faq-col">
+
+        <div class="faq-item">
+          <button class="faq-q" onclick="toggleFaq(this)">
+            <span class="faq-q-text" data-i="fq5q">What if my client doesn't sign?</span>
+            <span class="faq-chevron" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="faq-a">
+            <p data-i="fq5a">NTSsign follows up automatically. Set a time window when you send — if the client doesn't sign within it, they get a reminder. You're only notified when it's done. Zero manual follow-up.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" onclick="toggleFaq(this)">
+            <span class="faq-q-text" data-i="fq6q">Can multiple people sign the same document?</span>
+            <span class="faq-chevron" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="faq-a">
+            <p data-i="fq6a">Yes. Multi-signer with sequential or parallel order. You define who signs first, second, etc. Each signer is notified automatically when it's their turn — couples, partners, co-signers, all covered.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" onclick="toggleFaq(this)">
+            <span class="faq-q-text" data-i="fq7q">What's included in the personal onboarding?</span>
+            <span class="faq-chevron" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="faq-a">
+            <p data-i="fq7a">A real person builds your setup and walks your team through it live — not a tutorial video. Form schema, BoldSign template, field mapping, user roles. We don't finish until everyone knows exactly what to do. Included with every plan.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-q" onclick="toggleFaq(this)">
+            <span class="faq-q-text" data-i="fq8q">Can I cancel anytime?</span>
+            <span class="faq-chevron" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="faq-a">
+            <p data-i="fq8a">Yes. No long-term contracts, no cancellation fees. Monthly plans cancel anytime. Annual plans keep access for the rest of the period. Your signed PDFs stay accessible and downloadable.</p>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- end faq-cols -->
+
+    <!-- bottom row: subtext left, email right -->
+    <div class="faq-footer rv">
+      <p class="faq-intro" data-i="faq_sub">No sales pitch. Straight answers to what actually matters before you decide.</p>
+      <a href="mailto:support@noatechsolutions.com" class="faq-contact-link" data-i="faq_contact">Still have questions? Email us →</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <img class="foot-logo logo-light" src="img/logo-transparent.svg" alt="NTSsign" onerror="this.style.display='none'"/>
+        <img class="foot-logo logo-dark-img" src="img/logo-dark.svg" alt="NTSsign" style="display:none"/>
+        <p class="foot-tag" data-i="ftag">The smarter document signing workspace — built around your workflow, your clients, and your team.</p>
+        <div class="foot-mail"><a href="/cdn-cgi/l/email-protection#f685838686998482b69899978293959e85999a83829f999885d895999b"><span class="__cf_email__" data-cfemail="4c3f393c3c233e380c22232d38292f243f232039382523223f622f2321">[email&#160;protected]</span></a></div>
+        <div class="foot-social">
+          <a href="#" class="foot-soc-ico" aria-label="LinkedIn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+          </a>
+          <a href="#" class="foot-soc-ico" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+          </a>
+          <a href="#" class="foot-soc-ico" aria-label="Facebook">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+          </a>
+          <a href="#" class="foot-soc-ico" aria-label="X / Twitter">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </a>
+          <a href="#" class="foot-soc-ico" aria-label="YouTube">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon fill="white" points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="foot-col">
+        <h4 data-i="fcprod">Product</h4>
+        <ul>
+          <li><a href="#why" data-i="nav_f">Why NTSsign</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing" data-i="nav_pr">Pricing</a></li>
+          <li><a href="#" data-i="f_faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h4 data-i="fcres">Resources</h4>
+        <ul>
+          <li><a href="#" data-i="f_gs">Getting started</a></li>
+          <li><a href="#" data-i="f_doc">Documentation</a></li>
+          <li><a href="#" data-i="f_sig">Signing experience</a></li>
+          <li><a href="#" data-i="f_leg">Legal validity</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h4 data-i="fcco">Company</h4>
+        <ul>
+          <li><a href="#" data-i="f_abt">About NoaTech</a></li>
+          <li><a href="#" data-i="f_prv">Privacy policy</a></li>
+          <li><a href="#" data-i="f_trm">Terms of service</a></li>
+          <li><a href="#" data-i="f_cnt">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span class="foot-copy" data-i="fcop">© 2026 NoaTechSolutions. All rights reserved.</span>
+      <div class="foot-powered">Powered by <strong>NoaTechSolutions</strong></div>
+      <div class="foot-legal">
+        <a href="#" data-i="f_prv">Privacy</a>
+        <a href="#" data-i="f_trm">Terms</a>
+        <a href="#" data-i="f_coo">Cookies</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+const T={
+en:{nav_f:"Features",nav_faq:"FAQ",nav_h:"How it works",nav_pr:"Pricing",nav_t:"Reviews",nav_li:"Log in",nav_ct:"Request access",
+ey1:"Electronic signature",ey2:"Adapted to you",
+hero_h1:'The workspace that<br><span class="acc"><span class="ul">adapts to you</span></span>',
+hero_s:"Other tools make you adapt to them. NTSsign builds around your workflow, your forms, your team — from day one.",
+h_b1:"Request access",h_b2:"See what makes us different ↓",
+tr1:"No credit card",tr2:"ESIGN Act compliant",tr3:"Setup in 48h",tr4:"Personal onboarding",
+log_l:"Trusted by teams in",
+bs1_lbl:"Client experience",bs1_h2:'Give your clients the<br><span class="acc">experience they deserve.</span>',
+bs1_lead:"Customers, partners, employees and vendors expect fast, frictionless signing. Let them sign any agreement, on any device, without creating an account or downloading an app.",
+bs1_p1t:"Your brand, front and center",bs1_p1d:"Custom templates with your logo and colors. Every document your client receives feels like it came from you — not a generic signing portal.",
+bs1_p2t:"Adaptive signing on every screen",bs1_p2d:"Phone, tablet, laptop, desktop — the signing flow adapts perfectly. Clients sign with their finger on mobile or mouse on desktop. Fast, intuitive, done in seconds.",
+bs1_p3t:"Multi-step workflows without the chaos",bs1_p3d:"Handle complex agreements with multiple signers, sequential signing order, and automatic notifications at each step. Everyone knows what to do and when.",
+bs1_cta:"Start improving your client experience →",bs1_sign_lbl:"Sign here",bs1_mock_btn:"Complete signing",
+bs1_b1t:"Signed",bs1_b1s:"Just now · from iPhone",bs1_b2t:"ESIGN Act",bs1_b2s:"Legally binding",
+bs2_lbl:"Document management",bs2_h2:'Make your documents look<br><span class="acc">as professional as your work.</span>',
+bs2_lead:"Your contracts reflect your brand. NTSsign gives you full control over how your documents look, how they're tracked, and how your team manages every step of the signing process.",
+bs2_p1t:"Live dashboard for every document",bs2_p1d:"See exactly where each contract stands — Draft, Sent, Viewed, Signed, Completed. Your team always knows what's waiting and what's done.",
+bs2_p2t:"Audit trail included in every PDF",bs2_p2d:"Every signed document includes a tamper-evident certificate with timestamp, IP address, and device info. Legal protection built in, automatically.",
+bs2_p3t:"Your team, your rules",bs2_p3d:"Assign roles, manage users, and control who can create, send, or view documents. Keep your workflow clean as your team grows.",
+bs2_cta:"See how it works →",bs2_b1t:"Real-time tracking",bs2_b1s:"Updated instantly",
+ds_comp:"Completed",ds_sent:"Sent",ds_view:"Viewed",ds_draft:"Draft",ds_sent_mo:"Sent this month",ds_signed_mo:"Completed",ds_pend_mo:"Pending",
+bs3_lbl:"Automation",bs3_h2:'Send faster.<br><span class="acc">Follow up never.</span>',
+bs3_lead:"Creating a contract used to mean opening a template, copy-pasting client data, saving as PDF, attaching to an email, and then following up days later. NTSsign replaces all of that with one guided flow.",
+bs3_p1t:"From blank form to sent document in minutes",bs3_p1d:"Fill a smart form with your client's details. NTSsign pre-fills your template and sends the signing invitation — all in one flow, no copy-pasting.",
+bs3_p2t:"Automatic reminders until it's signed",bs3_p2d:"Set it and forget it. If your client hasn't signed within your defined window, NTSsign sends a reminder automatically. You only get involved when it's done.",
+bs3_p3t:"Contracts that expire on their own",bs3_p3d:"Set an expiration date when you send. If the client misses the deadline, the document cancels itself and you get notified. No stale contracts, no manual cleanup.",
+bs3_cta:"See the full workflow →",bs3_b1t:"Auto-reminder",bs3_b1s:"Sent after 24h",bs3_b2t:"3 min avg",bs3_b2s:"To create & send",
+bsf1t:"Form filled",bsf1s:"Client details entered",bsf2t:"Email sent",bsf2s:"Signing link delivered",bsf3t:"Client signing…",bsf3s:"Opened 2 min ago",bsf4t:"PDF ready",bsf4s:"Waiting for signature",
+bs4_lbl:"Legal protection",bs4_h2:'Every signature carries<br><span class="acc">full legal weight.</span>',
+bs4_lead:"A signature on paper can be disputed. A signature through NTSsign cannot. Every document is backed by a complete, verifiable chain of evidence that protects you if a dispute ever arises.",
+bs4_p1t:"ESIGN Act compliant in the US",bs4_p1d:"NTSsign uses BoldSign as its signing engine — the same technology trusted by enterprises. Every signature meets the full legal requirements of the ESIGN Act.",
+bs4_p2t:"Certificate of completion in every PDF",bs4_p2d:"Timestamp, IP address, device, and action log — attached directly to every signed document. If anyone ever disputes a signature, you have proof.",
+bs4_p3t:"Tamper-evident — any change is detectable",bs4_p3d:"Once signed, the document is sealed. Any modification after signing is cryptographically detectable. What was agreed is what stands.",
+bs4_cta:"Learn about our compliance →",bs4_b1t:"Full audit trail",bs4_b1s:"Every action logged",
+bsc_ttl:"Certificate of Completion",bsc_sub:"NTSsign · BoldSign powered",bsc_doc:"Document",bsc_sig:"Signed by",bsc_ts:"Timestamp",bsc_ip:"IP address",bsc_dev:"Device",bsc_esign:"✓ ESIGN Act compliant",bsc_tamper:"✓ Tamper-evident",
+dev_l:"Works everywhere",dtab_sign:"✍️ Signing experience",dtab_manage:"📊 Management dashboard",dev_h2:'Your clients sign from<br><span style="color:var(--amber)">any screen, anywhere.</span>',dev_s:"Phone, tablet, laptop, desktop — the signing experience adapts perfectly to every device. No app to download. No account to create. Just open the link and sign.",
+dev_tab:"Tablet",dev_tab_s:"iPad, Android",dev_lap:"Laptop & Desktop",dev_lap_s:"Mac, Windows, Chrome",dev_ph:"Phone",dev_ph_s:"iPhone, Android",
+devf1:"Sign from any device",devf2:"Manage your dashboard on the go",devf3:"Get notified the moment it's signed",devf4:"Download signed PDFs anywhere",devf5:"No app · No account needed",
+wl:"Why NTSsign",wh2:'We adapt to your business.<br><span style="color:var(--amber)">Not the other way around.</span>',ws:"Every client is different. NTSsign lets you create personalized forms, templates, and workflows for each one — without touching code.",
+wp1t:"Schema-driven custom forms",wp1d:"Each client gets a personalized document form with only the fields they need. Built once, ready forever — no code, no deployments.",
+wp2t:"One platform, every industry",wp2d:"Construction, childcare, real estate, insurance, legal — the same platform shapes itself to each niche.",
+wp3t:"Personal onboarding with real people",wp3d:"We don't just hand you a tool. Our team sets up your templates, trains your users, and stays available. In 48 hours you're live.",
+wp4t:"Real-time visibility, zero chasing",wp4d:"Automatic reminders, live status updates, and webhook events mean you never have to follow up manually.",
+pl2:"Personal attention",ph2:"We build it for you.<br>You own it forever.",ps2:"You bring your contract. We adapt it to NTSsign. Your team starts sending and tracking documents within 48 hours.",
+pl1t:"Send us your contract",pl1d:"Upload your PDF. Our team maps every field, sets up signature positions, and creates your personalized form definition.",
+pl2t:"We configure everything",pl2d:"BoldSign template, form schema, field mapping — we handle all of it. Zero code needed.",
+pl3t:"You go live in 48 hours",pl3d:"Your team logs in and immediately sees forms built for their exact workflow. Click 'New document' and everything just works.",
+pers_btn1:"Start your setup",pers_btn2:"See setup pricing",pers_badge:"Ready in 48h · Your team, your workflow",
+fl:"What you get",fh2:"Every tool your team needs<br>to sign faster, smarter.",fsub:"From the moment you create a document to the moment it's signed and filed — NTSsign handles every step.",
+f1t:"Guided document creation",f1d:"Fill a smart form and NTSsign builds the document. No blank PDFs, no copy-pasting. Your template is pre-filled and ready to send.",
+f2t:"Multi-template per client",f2d:"Contract, Invoice, Proforma — each client can have their own set of templates and forms.",
+f3t:"Legally binding · ESIGN Act",f3d:"Every signature is backed by IP, timestamp, device info and a tamper-evident certificate.",
+f4t:"Real-time tracking",f4d:"See when your client opened the link, signed, or declined. Webhooks update your dashboard live.",
+f5t:"Multi-signer & sequential",f5d:"Define the signing order. Signer 1 completes, Signer 2 gets notified automatically.",
+f6t:"Sign from any device",f6ds:"Clients sign from phone, tablet, or laptop. No app. No account. Just sign.",f7t:"Custom forms",f7ds:"Every client sees only their relevant fields. Tailored, not generic.",f8t:"Team workspace",f8ds:"Multiple users, roles, shared dashboard. Everyone works from the same place.",f6d:"Your client gets a secure email link. Open on phone, tablet, or computer — sign in seconds, get a copy. No account needed.",
+vpl:"What's included",vph2:"Everything set up for you.<br>Zero friction from day one.",vps:"You don't need a developer or IT department. We handle the setup. You handle the business.",
+tb1t:"48h setup",tb1d:"Template configured and live within 2 business days",tb2t:"100% custom",tb2d:"Forms tailored to your exact document",tb3t:"1:1 onboarding",tb3d:"Real support from real people who set you up right",tb4t:"Multi-doc support",tb4d:"Contract, Invoice, Proforma each with their own form",
+hl:"How it works",how_sub:"No training required. No complexity. Just fill, send, done.",hh2:"From blank form to<br>signed PDF in 3 steps",
+s1t:"Fill the guided form",s1d:"Your personalized form shows only relevant fields. NTSsign pre-fills your template automatically.",
+s2t:"Client receives a secure signing link",s2d:"Unique email link sent instantly. No account, no download. Signs from any browser in under a minute.",
+s3t:"Dashboard updates in real time",s3d:"Sent → Viewed → Signed → Completed. Final PDF with certificate ready to download.",
+bd1:"Construction Contract — Smith",bd2:"Service Agreement — Johnson",bd3:"Work Order — Williams",bd4:"+ New document",bs1:"Completed",bs2:"Viewed",bs3:"Sent",
+sel:"Security & compliance",seh2:"Every signature is<br>legally defensible.",ses:"Every document carries the full weight of the ESIGN Act.",
+se1t:"ESIGN Act compliant",se1d:"Full legal validity in the United States",se2t:"Complete audit trail",se2d:"IP, timestamp, device — every action recorded",se3t:"Tamper-evident PDF",se3d:"Certificate of completion that cannot be altered",se4t:"Sign from any device",se4d:"No account required — mobile, tablet, desktop",
+tl:"What our clients say",th2:"Real results from real teams",
+q1:"We used to spend 30 minutes on every contract. Now it takes 3. The guided form alone is worth every cent.",r1:"Owner, Construction Co.",
+q2:"I tried DocuSign but it was too generic. NTSsign built our form exactly as we needed it.",r2:"Director, Childcare Center",
+q3:"They took our 8-page contract and had it running in 48 hours. I didn't touch a single setting.",r3:"Real Estate Agent",
+q4:"Our contractors sign the same day we send the agreement. Zero back-and-forth.",r4:"Operations Manager, HVAC",
+q5:"The 1:1 onboarding made all the difference. We were live before the call even ended.",r5:"CFO, Insurance Agency",
+pl:"Pricing",ph2p:"Plans for every stage<br>of your business",ps:"Start pay-per-document or pick a monthly plan. Every plan includes personal onboarding support.",
+p0tg:"Occasional",p0pr:"per document · no subscription",p0f1:"Create & send document",p0f2:"Signed PDF + audit trail",p0f3:"90-day history",
+p1tg:"Solo",p1pr:"/mo · or $16/mo annually",p1ov:"Overage $4/doc",p1f1:"5 docs/mo · 1 user",p1f2:"1 active template",p1f3:"Full dashboard",p1f4:"Automatic reminders",p1f5:"1-year history",
+p2tg:"⭐ Most popular",p2pr:"/mo · or $32/mo annually",p2ov:"Overage $3.50/doc",p2f1:"15 docs/mo · 2 users",p2f2:"3 active templates",p2f3:"Team & user management",p2f4:"Multi-signer / sequential",p2f5:"2-year history",
+p3tg:"Growth",p3pr:"/mo · or $74/mo annually",p3ov:"Overage $2.50/doc",p3f1:"50 docs/mo · 5 users",p3f2:"10 templates · Branding",p3f3:"Analytics & reporting",p3f4:"Bulk send · SMS OTP",p3f5:"3-year history",
+p4tg:"Scale",p4pr:"/mo · or $190/mo annually",p4ov:"Overage $1.50/doc",p4f1:"150 docs/mo · 15 users",p4f2:"Unlimited templates",p4f3:"Priority support",p4f4:"Bulk ZIP PDF export",p4f5:"5-year history",
+bs:"Get started",
+bt_mo:"Monthly",bt_an:"Annual",bt_save:"Save 17%",launch_cta:"Start with Launch →",launch_trust:"Most teams are live in 48h",tab_sub:"Plans",tab_extra:"More options",tab_flex:"Services",
+mcta_ey:"⭐ Most chosen by growing teams",mcta_h2:'The <span class="acc">Launch plan</span> is<br>our most popular for a reason.',mcta_s:"Teams that switch to Launch stop chasing clients, stop managing spreadsheets, and start closing faster. Here's what makes it the go-to choice.",mcta_combo:"Most popular combo",mcta_i1:"Launch plan",mcta_i2:"+ Template setup",mcta_total:"Total to start",mcta_btn:"See the Launch plan →",mcta_tr:"Personal setup included · Cancel anytime · Live in 48h",
+mlc1t:"Team ready from day one",mlc1d:"2 users + role management — your team works together without stepping on each other.",mlc2t:"3 templates, fully configured",mlc2d:"Contract, Invoice, Proforma — each pre-built for your workflow. Send in 3 clicks.",mlc3t:"Multi-signer included",mlc3d:"Couples, co-signers, sequential workflows — handled automatically, no extra setup.",mlc4t:"Zero manual follow-ups",mlc4d:"Reminders go out automatically. You get notified when it's signed. The system does the chasing.",
+billed_an:"· billed annually",save_starter:"You save $36/yr",save_launch:"You save $84/yr",save_pro:"You save $180/yr",save_scale:"Save $468/yr",
+p0desc:"Perfect if you sign 1–2 contracts a month. Pay only for what you send.",p0x1:"No dashboard",p0x2:"No templates",p0hint:"3+ docs/month? A plan saves you money.",
+setup_title:"Template Setup Service",su1n:"Basic setup",su2n:"Setup + modifications",su3n:"Express (48h)",setup_desc:"Send us your PDF and we configure everything. You don't touch a single setting.",su_f1:"Custom form schema built for you",su_f2:"BoldSign template fully configured",su_f3:"Field mapping & signature positions",su_f4:"1:1 walkthrough with your team",setup_btn:"Request setup",
+onb_tag:"Team onboarding",onb_title:"Onboarding Packages",ob1n:"Basic (2–3 people)",ob2n:"Full team rollout",onb_desc:"We train your team, configure roles, and make sure everyone knows NTSsign before we leave.",ob_f1:"User accounts & roles configured",ob_f2:"Live training session",ob_f3:"Workflow walkthrough & Q&A",ob_f4:"30-day follow-up support",ob_btn:"Book onboarding",
+scale_desc:"For high-volume teams that need unlimited templates, priority support, and bulk PDF export.",scale_per:"/mo",
+combo_txt:"<strong>Most popular combo:</strong> Launch $39/mo + Template setup $49 = <strong>$88 to get started</strong>, then just $39/mo.",
+cta_badge:"Start with Starter — $19/month",ctah:'Everything you need to start<br><span class="acc">sending contracts today.</span>',ctap:"The Starter plan gives you a full dashboard, 5 documents/month, automatic reminders, and your first template configured by our team.",cpp1:"5 documents/month",cpp2:"1 custom template",cpp3:"Full dashboard",cpp4:"Auto reminders",cpp5:"1-year history",ctab1:"Start for $19/month →",ctab2:"See all plans",cta_annual:"💡 Annual billing: just $16/month — save $36/year.",
+faq_lbl:"FAQ",faq_h2:"Questions we get all the time",faq_sub:"No sales pitch. Straight answers to what actually matters before you decide.",faq_contact:"Still have questions? Email us →",
+fq1q:"Does my client need to create an account to sign?",fq1a:"No. Your client receives a unique secure link by email. They click it, review the document, and sign in their browser — no account, no app. Under a minute on any device.",
+fq2q:"Is the electronic signature legally valid in the US?",fq2a:"Yes. NTSsign uses BoldSign, which fully complies with the ESIGN Act. Every signed document includes a tamper-evident certificate with IP, timestamp, and device info — the same standard as DocuSign.",
+fq3q:"How quickly can we be up and running?",fq3a:"48 hours. Send us your existing PDF on Monday, we configure everything, and by Wednesday your team is sending contracts. You don't touch a single setting.",
+fq4q:"Can I use my own contract and PDF design?",fq4a:"Absolutely. We take your existing PDF — your branding, your layout, your clauses — and configure it inside NTSsign. Clients receive a document that looks 100% like it came from you.",
+fq5q:"What happens if my client doesn't sign?",fq5a:"NTSsign sends automatic reminders. Set a time window when you send — if the client doesn't sign, they get reminded automatically. You only get notified when it's done. No manual follow-up.",
+fq6q:"Can multiple people sign the same document?",fq6a:"Yes. Multi-signer with sequential or parallel order. You define who signs first, second, etc. Each signer is notified automatically when it's their turn — spouses, business partners, co-signers, all covered.",
+fq7q:"What's included in the personal onboarding?",fq7a:"A real person builds your setup: form schema, BoldSign template, field mapping, user roles. Then walks your team through it live — a working session, not a video. Included with every plan.",
+fq8q:"Can I cancel anytime?",fq8a:"Yes, no long-term contracts, no cancellation fees. Monthly plans cancel anytime. Annual plans keep access for the remainder of the period. Your documents and signed PDFs stay accessible.",
+ct1:"Personal setup included",ct2:"Ready in 48h",ct3:"No long-term commitment",ct4:"ESIGN Act compliant",
+ftag:"The smarter document signing workspace — built around your workflow, your clients, and your team.",
+fcprod:"Product",fcres:"Resources",fcco:"Company",f_faq:"FAQ",f_gs:"Getting started",f_doc:"Documentation",f_sig:"Signing experience",f_leg:"Legal validity",f_abt:"About NoaTech",f_prv:"Privacy policy",f_trm:"Terms of service",f_cnt:"Contact",f_coo:"Cookies",fcop:"© 2026 NoaTechSolutions. All rights reserved."},
+es:{nav_f:"Características",nav_faq:"FAQ",nav_h:"Cómo funciona",nav_pr:"Precios",nav_t:"Opiniones",nav_li:"Iniciar sesión",nav_ct:"Solicitar acceso",
+ey1:"Firma electrónica",ey2:"Adaptada a ti",
+hero_h1:'El workspace que<br><span class="acc"><span class="ul">se adapta a ti</span></span>',
+hero_s:"Otras herramientas te hacen adaptar a ellas. NTSsign se construye alrededor de tu flujo, tus formularios, tu equipo — desde el día uno.",
+h_b1:"Solicitar acceso",h_b2:"Ver qué nos hace diferentes ↓",
+tr1:"Sin tarjeta de crédito",tr2:"Cumple ESIGN Act",tr3:"Setup en 48h",tr4:"Onboarding personal",
+log_l:"Equipos que confían en nosotros",
+bs1_lbl:"Experiencia del cliente",bs1_h2:'Brinda a tus clientes la<br><span class="acc">experiencia que merecen.</span>',
+bs1_lead:"Clientes, socios, empleados y proveedores esperan acuerdos cómodos y rápidos. Permíteles firmar prácticamente cualquier tipo de documento en cualquier dispositivo, sin crear cuenta ni descargar apps.",
+bs1_p1t:"Tu marca, presente en cada documento",bs1_p1d:"Plantillas personalizadas con tu logo y colores. Cada documento que recibe tu cliente se ve como tuyo — no como un portal genérico de firma.",
+bs1_p2t:"Firma adaptable en cualquier pantalla",bs1_p2d:"Teléfono, tablet, laptop, escritorio — el flujo de firma se adapta perfectamente. Los clientes firman con el dedo en móvil o con el ratón en escritorio. Rápido, intuitivo, listo en segundos.",
+bs1_p3t:"Flujos multi-paso sin el caos",bs1_p3d:"Gestiona acuerdos complejos con múltiples firmantes, orden secuencial y notificaciones automáticas en cada paso. Todos saben qué hacer y cuándo.",
+bs1_cta:"Mejorar la experiencia de mis clientes →",bs1_sign_lbl:"Firmar aquí",bs1_mock_btn:"Completar firma",
+bs1_b1t:"Firmado",bs1_b1s:"Hace un momento · desde iPhone",bs1_b2t:"ESIGN Act",bs1_b2s:"Validez legal",
+bs2_lbl:"Gestión de documentos",bs2_h2:'Haz que tus documentos luzcan<br><span class="acc">tan profesionales como tu trabajo.</span>',
+bs2_lead:"Tus contratos reflejan tu marca. NTSsign te da control total sobre cómo se ven, cómo se rastrean y cómo tu equipo gestiona cada paso del proceso de firma.",
+bs2_p1t:"Dashboard en tiempo real para cada documento",bs2_p1d:"Ve exactamente en qué estado está cada contrato — Borrador, Enviado, Visto, Firmado, Completado. Tu equipo siempre sabe qué está pendiente y qué está listo.",
+bs2_p2t:"Audit trail incluido en cada PDF",bs2_p2d:"Cada documento firmado incluye un certificado a prueba de manipulación con timestamp, IP y dispositivo. Protección legal incorporada, automáticamente.",
+bs2_p3t:"Tu equipo, tus reglas",bs2_p3d:"Asigna roles, gestiona usuarios y controla quién puede crear, enviar o ver documentos. Mantén tu flujo de trabajo limpio a medida que tu equipo crece.",
+bs2_cta:"Ver cómo funciona →",bs2_b1t:"Seguimiento en tiempo real",bs2_b1s:"Actualizado al instante",
+ds_comp:"Completado",ds_sent:"Enviado",ds_view:"Visto",ds_draft:"Borrador",ds_sent_mo:"Enviados este mes",ds_signed_mo:"Completados",ds_pend_mo:"Pendientes",
+bs3_lbl:"Automatización",bs3_h2:'Envía más rápido.<br><span class="acc">Persigue nunca.</span>',
+bs3_lead:"Crear un contrato antes significaba abrir una plantilla, copiar datos del cliente, guardar como PDF, adjuntar al email y luego hacer seguimiento días después. NTSsign reemplaza todo eso con un flujo guiado.",
+bs3_p1t:"De formulario en blanco a documento enviado en minutos",bs3_p1d:"Rellena un formulario con los datos de tu cliente. NTSsign pre-rellena tu plantilla y envía la invitación de firma — todo en un solo flujo, sin copiar y pegar.",
+bs3_p2t:"Recordatorios automáticos hasta que firmen",bs3_p2d:"Configúralo y olvídate. Si tu cliente no ha firmado en el plazo definido, NTSsign envía un recordatorio automáticamente. Solo te involucras cuando está listo.",
+bs3_p3t:"Contratos que expiran solos",bs3_p3d:"Establece una fecha de vencimiento al enviar. Si el cliente no cumple el plazo, el documento se cancela solo y recibes una notificación. Sin contratos obsoletos, sin limpieza manual.",
+bs3_cta:"Ver el flujo completo →",bs3_b1t:"Recordatorio automático",bs3_b1s:"Enviado a las 24h",bs3_b2t:"3 min promedio",bs3_b2s:"Para crear y enviar",
+bsf1t:"Formulario completado",bsf1s:"Datos del cliente ingresados",bsf2t:"Email enviado",bsf2s:"Link de firma entregado",bsf3t:"Cliente firmando…",bsf3s:"Abierto hace 2 min",bsf4t:"PDF listo",bsf4s:"Esperando firma",
+bs4_lbl:"Protección legal",bs4_h2:'Cada firma tiene<br><span class="acc">plena validez legal.</span>',
+bs4_lead:"Una firma en papel puede disputarse. Una firma a través de NTSsign, no. Cada documento está respaldado por una cadena de evidencia completa y verificable que te protege si surge una disputa.",
+bs4_p1t:"Cumple el ESIGN Act en EE.UU.",bs4_p1d:"NTSsign usa BoldSign como motor de firma — la misma tecnología en la que confían las empresas. Cada firma cumple todos los requisitos legales del ESIGN Act.",
+bs4_p2t:"Certificado de completación en cada PDF",bs4_p2d:"Timestamp, IP, dispositivo y registro de acciones — adjunto directamente a cada documento firmado. Si alguien disputa una firma, tienes la prueba.",
+bs4_p3t:"A prueba de manipulación — cualquier cambio es detectable",bs4_p3d:"Una vez firmado, el documento queda sellado. Cualquier modificación posterior es criptográficamente detectable. Lo acordado es lo que vale.",
+bs4_cta:"Ver nuestra política de cumplimiento →",bs4_b1t:"Audit trail completo",bs4_b1s:"Cada acción registrada",
+bsc_ttl:"Certificado de Completación",bsc_sub:"NTSsign · Powered by BoldSign",bsc_doc:"Documento",bsc_sig:"Firmado por",bsc_ts:"Timestamp",bsc_ip:"Dirección IP",bsc_dev:"Dispositivo",bsc_esign:"✓ Cumple ESIGN Act",bsc_tamper:"✓ A prueba de manipulación",
+dev_l:"Funciona en todas partes",dtab_sign:"✍️ Experiencia de firma",dtab_manage:"📊 Panel de gestión",dev_h2:'Tus clientes firman desde<br><span style="color:var(--amber)">cualquier pantalla, en cualquier lugar.</span>',dev_s:"Teléfono, tablet, laptop, escritorio — la experiencia de firma se adapta perfectamente a cada dispositivo. Sin app. Sin cuenta. Solo abrir el link y firmar.",
+dev_tab:"Tablet",dev_tab_s:"iPad, Android",dev_lap:"Laptop y Escritorio",dev_lap_s:"Mac, Windows, Chrome",dev_ph:"Teléfono",dev_ph_s:"iPhone, Android",
+devf1:"Firma desde cualquier dispositivo",devf2:"Gestiona tu dashboard desde donde estés",devf3:"Notificado cuando firman",devf4:"Descarga PDFs firmados en cualquier lugar",devf5:"Sin app · Sin cuenta necesaria",
+wl:"Por qué NTSsign",wh2:'Nos adaptamos a tu negocio.<br><span style="color:var(--amber)">No al revés.</span>',ws:"Cada cliente es diferente. NTSsign te permite crear formularios, plantillas y flujos personalizados para cada uno — sin código.",
+wp1t:"Formularios por cliente",wp1d:"Cada cliente tiene su formulario con solo los campos que necesita. Se construye una vez, listo para siempre — sin código.",
+wp2t:"Una plataforma, cada industria",wp2d:"Construcción, guardería, inmobiliaria, seguros, legal — la misma plataforma se adapta a cada nicho.",
+wp3t:"Onboarding personal con personas reales",wp3d:"No solo te damos una herramienta. Nuestro equipo configura tus plantillas, forma a tus usuarios y permanece disponible. En 48h estás en vivo.",
+wp4t:"Visibilidad en tiempo real, sin perseguir",wp4d:"Recordatorios automáticos, actualizaciones en vivo y eventos webhook para que nunca tengas que hacer seguimiento manual.",
+pl2:"Atención personalizada",ph2:"Lo construimos para ti.<br>Lo posees para siempre.",ps2:"Tú traes tu contrato. Nosotros lo adaptamos a NTSsign. En 48 horas tu equipo está enviando y rastreando documentos.",
+pl1t:"Envíanos tu contrato",pl1d:"Sube tu PDF. Nuestro equipo mapea cada campo, configura las posiciones de firma y crea tu definición de formulario personalizado.",
+pl2t:"Nosotros configuramos todo",pl2d:"Plantilla BoldSign, esquema de formulario, mapeo de campos — lo manejamos todo. Sin código.",
+pl3t:"Sales en vivo en 48 horas",pl3d:"Tu equipo entra y ve formularios construidos para su flujo exacto. Haz clic en 'Nuevo documento' y todo funciona.",
+pers_btn1:"Iniciar tu setup",pers_btn2:"Ver precios de setup",pers_badge:"Listo en 48h · Tu equipo, tu flujo",
+fl:"Todo lo que necesitas",fh2:"Más que una firma.<br>Un workspace completo.",fsub:"Creación guiada, multi-firmante, recordatorios automáticos, seguimiento en tiempo real y audit trail — todo en un solo lugar.",
+tag_u:"Exclusivo NTSsign",
+f1t:"Formularios por cliente",f1d:"Cada cliente ve un formulario solo con sus campos relevantes. Sin dropdowns genéricos. Perfectamente adaptado.",
+f2t:"Multi-plantilla por cliente",f2d:"Contrato, Factura, Proforma — cada cliente puede tener su propio conjunto de plantillas y formularios.",
+f3t:"Validez legal · ESIGN Act",f3d:"Cada firma incluye IP, timestamp, dispositivo y certificado a prueba de manipulación.",
+f4t:"Seguimiento en tiempo real",f4d:"Ve cuándo tu cliente abrió el link, firmó o rechazó. Actualizaciones en vivo vía webhooks.",
+f5t:"Multi-firmante y secuencial",f5d:"Define el orden de firma. El Firmante 1 completa, el 2 es notificado automáticamente.",
+f6t:"Recordatorios y expiración automáticos",f6d:"Nunca más perseguir clientes. Los recordatorios se activan automáticamente.",
+vpl:"Qué incluye",vph2:"Todo configurado para ti.<br>Sin fricción desde el día uno.",vps:"No necesitas un desarrollador ni un departamento de IT. Nosotros hacemos el setup. Tú haces el negocio.",
+tb1t:"Setup en 48h",tb1d:"Plantilla configurada y en vivo en 2 días hábiles",tb2t:"100% personalizado",tb2d:"Formularios adaptados a tu documento exacto",tb3t:"Onboarding 1:1",tb3d:"Soporte real de personas reales que te configuran bien",tb4t:"Multi-documento",tb4d:"Contrato, Factura, Proforma con su propio formulario",
+hl:"Cómo funciona",how_sub:"Sin formación. Sin complejidad. Solo rellenar, enviar, listo.",hh2:"De formulario en blanco a<br>PDF firmado en 3 pasos",
+s1t:"Rellena el formulario guiado",s1tag:"~2 minutos",s1d:"Tu formulario personalizado muestra solo los campos relevantes. NTSsign pre-llena tu plantilla automáticamente.",
+s2t:"El cliente recibe un link seguro",s2tag:"Entrega instantánea",s2d:"Link único por email al instante. Sin cuenta, sin descarga. Firma desde cualquier navegador.",
+s3t:"El dashboard se actualiza en tiempo real",s3tag:"Automático",s3d:"Enviado → Visto → Firmado → Completado. PDF final con certificado listo para descargar.",
+bd1:"Contrato de construcción — Smith",bd2:"Acuerdo de servicio — Johnson",bd3:"Orden de trabajo — Williams",bd4:"+ Nuevo documento",bs1:"Completado",bs2:"Visto",bs3:"Enviado",
+sel:"Seguridad y cumplimiento",seh2:"Validez legal.<br>A prueba de manipulación. Siempre.",ses:"Cada documento tiene plena validez bajo el ESIGN Act.",
+se1t:"Cumple ESIGN Act",se1d:"Plena validez legal en Estados Unidos",se2t:"Audit trail completo",se2d:"IP, timestamp, dispositivo — cada acción registrada",se3t:"PDF a prueba de manipulación",se3d:"Certificado de completación que no puede ser alterado",se4t:"Firma desde cualquier dispositivo",se4d:"Sin cuenta requerida — móvil, tablet, escritorio",
+tl:"Lo que dicen nuestros clientes",th2:"Hecho para quienes odian el papeleo",
+q1:"Antes tardábamos 30 minutos por contrato. Ahora son 3. El formulario guiado solo ya vale cada centavo.",r1:"Propietario, Empresa de construcción",
+q2:"Probé DocuSign pero era demasiado genérico. NTSsign construyó nuestro formulario exactamente como necesitábamos.",r2:"Directora, Centro de guardería",
+q3:"Tomaron nuestro contrato de 8 páginas y lo montaron en 48 horas. No toqué una sola configuración.",r3:"Agente inmobiliario",
+q4:"Nuestros contratistas firman el mismo día que enviamos. Sin ida y vuelta.",r4:"Manager de Operaciones, HVAC",
+q5:"El onboarding 1:1 hizo toda la diferencia. Estábamos en vivo antes de que terminara la llamada.",r5:"CFO, Agencia de seguros",
+pl:"Precios",ph2p:"Planes para cada etapa<br>de tu negocio",ps:"Empieza por documento o elige un plan mensual. Todos incluyen soporte de onboarding personal.",
+p0tg:"Ocasional",p0pr:"por documento · sin suscripción",p0f1:"Crear y enviar documento",p0f2:"PDF firmado + audit trail",p0f3:"Historial 90 días",
+p1tg:"Individual",p1pr:"/mes · o $16/mes anual",p1ov:"Overage $4/doc",p1f1:"5 docs/mes · 1 usuario",p1f2:"1 template activo",p1f3:"Dashboard completo",p1f4:"Reminders automáticos",p1f5:"Historial 1 año",
+p2tg:"⭐ Más popular",p2pr:"/mes · o $32/mes anual",p2ov:"Overage $3.50/doc",p2f1:"15 docs/mes · 2 usuarios",p2f2:"3 templates activos",p2f3:"Gestión de equipo y roles",p2f4:"Multi-firmante / secuencial",p2f5:"Historial 2 años",
+p3tg:"Crecimiento",p3pr:"/mes · o $74/mes anual",p3ov:"Overage $2.50/doc",p3f1:"50 docs/mes · 5 usuarios",p3f2:"10 templates · Branding",p3f3:"Analytics y reportes",p3f4:"Bulk send · SMS OTP",p3f5:"Historial 3 años",
+p4tg:"Escala",p4pr:"/mes · o $190/mes anual",p4ov:"Overage $1.50/doc",p4f1:"150 docs/mes · 15 usuarios",p4f2:"Templates ilimitados",p4f3:"Soporte prioritario",p4f4:"Export ZIP masivo",p4f5:"Historial 5 años",
+bs:"Empezar",
+bt_mo:"Mensual",bt_an:"Anual",bt_save:"Ahorra 17%",launch_cta:"Empezar con Launch →",launch_trust:"La mayoría de equipos en vivo en 48h",tab_sub:"Planes",tab_extra:"Más opciones",tab_flex:"Servicios",
+mcta_ey:"⭐ El más elegido por equipos en crecimiento",mcta_h2:'El <span class="acc">plan Launch</span> es<br>nuestro más elegido. Por algo será.',mcta_s:"Los equipos que eligen Launch dejan de perseguir clientes, dejan de gestionar hojas de cálculo, y empiezan a cerrar más rápido. Esto es lo que lo hace el preferido.",mcta_combo:"Combo más popular",mcta_i1:"Plan Launch",mcta_i2:"+ Setup de plantilla",mcta_total:"Total para empezar",mcta_btn:"Ver el plan Launch →",mcta_tr:"Sin tarjeta · Cancela cuando quieras · Listo en 48h",
+mlc1t:"Equipo listo desde el día uno",mlc1d:"2 usuarios + gestión de roles — tu equipo trabaja junto sin pisarse.",mlc2t:"3 plantillas, totalmente configuradas",mlc2d:"Contrato, Factura, Proforma — cada una lista para tu flujo. Envía en 3 clicks.",mlc3t:"Multi-firmante incluido",mlc3d:"Parejas, co-firmantes, flujos secuenciales — gestionado automáticamente, sin configuración extra.",mlc4t:"Cero seguimientos manuales",mlc4d:"Los recordatorios salen solos. Te notifican cuando está firmado. El sistema hace el trabajo.",
+billed_an:"· facturado anualmente",save_starter:"Ahorras $36/año",save_launch:"Ahorras $84/año",save_pro:"Ahorras $180/año",save_scale:"Ahorras $468/año",
+p0desc:"Perfecto si firmas 1-2 contratos al mes. Paga solo lo que envías.",p0x1:"Sin dashboard",p0x2:"Sin plantillas",p0hint:"¿3+ docs/mes? Un plan te sale más barato.",
+setup_title:"Servicio de Setup de Plantilla",su1n:"Setup básico",su2n:"Setup + modificaciones",su3n:"Express (48h)",setup_desc:"Envíanos tu PDF y configuramos todo. No tocas una sola opción.",su_f1:"Esquema de formulario creado para ti",su_f2:"Plantilla BoldSign configurada",su_f3:"Mapeo de campos y posiciones de firma",su_f4:"Walkthrough 1:1 con tu equipo",setup_btn:"Solicitar setup",
+onb_tag:"Onboarding de equipo",onb_title:"Paquetes de Onboarding",ob1n:"Básico (2-3 personas)",ob2n:"Rollout completo de equipo",onb_desc:"Formamos a tu equipo, configuramos roles y nos aseguramos de que todos sepan usar NTSsign antes de terminar.",ob_f1:"Cuentas y roles configurados",ob_f2:"Sesión de formación en vivo",ob_f3:"Walkthrough del flujo y Q&A",ob_f4:"Soporte de seguimiento 30 días",ob_btn:"Reservar onboarding",
+scale_desc:"Para equipos de alto volumen que necesitan plantillas ilimitadas, soporte prioritario y exportación masiva.",scale_per:"/mes",
+combo_txt:"<strong>Combo más popular:</strong> Launch $39/mes + Setup de plantilla $49 = <strong>$88 para empezar</strong>, luego solo $39/mes.",
+cta_badge:"Empieza con Starter — $19/mes",ctah:'Todo lo que necesitas para empezar<br><span class="acc">a enviar contratos hoy.</span>',ctap:"El plan Starter te da dashboard completo, 5 documentos/mes, recordatorios automáticos y tu primera plantilla configurada por nuestro equipo.",cpp1:"5 documentos/mes",cpp2:"1 template personalizado",cpp3:"Dashboard completo",cpp4:"Reminders automáticos",cpp5:"Historial 1 año",ctab1:"Empezar por $19/mes →",ctab2:"Ver todos los planes",cta_annual:"💡 Facturación anual: solo $16/mes — ahorra $36/año.",
+faq_lbl:"Preguntas frecuentes",faq_h2:"Las preguntas que nos hacen siempre",faq_sub:"Sin discurso de ventas. Respuestas directas a lo que importa antes de decidir.",faq_contact:"¿Más preguntas? Escríbenos →",
+fq1q:"¿Mi cliente necesita crear una cuenta para firmar?",fq1a:"No. Tu cliente recibe un link único por email. Lo abre, revisa el documento y firma en su navegador — sin cuenta, sin app, sin registro. Menos de un minuto desde cualquier dispositivo.",
+fq2q:"¿La firma electrónica tiene validez legal en EE.UU.?",fq2a:"Sí. NTSsign usa BoldSign, que cumple plenamente el ESIGN Act. Cada documento firmado incluye un certificado con IP, timestamp y dispositivo — el mismo estándar que DocuSign.",
+fq3q:"¿En cuánto tiempo podemos empezar?",fq3a:"48 horas. Envíanos tu PDF el lunes, configuramos todo, y el miércoles tu equipo ya está enviando contratos. No tocas ninguna configuración.",
+fq4q:"¿Puedo usar mi propio contrato y diseño de PDF?",fq4a:"Claro que sí. Tomamos tu PDF existente — tu marca, tu maquetación, tus cláusulas — y lo configuramos dentro de NTSsign. Tus clientes reciben un documento que parece 100% tuyo.",
+fq5q:"¿Qué pasa si mi cliente no firma?",fq5a:"NTSsign envía recordatorios automáticos. Establece un plazo al enviar — si el cliente no firma, recibe un recordatorio solo. Tú solo recibes aviso cuando está listo. Cero seguimiento manual.",
+fq6q:"¿Pueden firmar varias personas el mismo documento?",fq6a:"Sí. Multi-firmante con orden secuencial o paralelo. Defines quién firma primero, segundo, etc. Cada firmante es notificado automáticamente cuando le toca — parejas, socios, co-firmantes, cubierto.",
+fq7q:"¿Qué incluye el onboarding personal?",fq7a:"Una persona real construye tu setup: esquema de formulario, plantilla BoldSign, mapeo de campos, roles de usuario. Luego lleva a tu equipo por todo en vivo — una sesión de trabajo, no un video. Incluido en todos los planes.",
+fq8q:"¿Puedo cancelar en cualquier momento?",fq8a:"Sí, sin contratos a largo plazo ni penalizaciones. Los planes mensuales se cancelan cuando quieras. Los anuales mantienen acceso el resto del período. Tus documentos y PDFs firmados siguen accesibles.",
+ct1:"Setup personal incluido",ct2:"Listo en 48h",ct3:"Sin permanencia",ct4:"Cumple ESIGN Act",
+ftag:"El workspace de firma más inteligente — construido alrededor de tu flujo, tus clientes y tu equipo.",
+fcprod:"Producto",fcres:"Recursos",fcco:"Empresa",f_faq:"FAQ",f_gs:"Primeros pasos",f_doc:"Documentación",f_sig:"Experiencia de firma",f_leg:"Validez legal",f_abt:"Sobre NoaTech",f_prv:"Política de privacidad",f_trm:"Términos de servicio",f_cnt:"Contacto",f_coo:"Cookies",fcop:"© 2026 NoaTechSolutions. Todos los derechos reservados."}
+};
+let lang='en';
+function setLang(l){lang=l;const _btnEN=document.getElementById('btnEN');if(_btnEN)_btnEN.classList.toggle('on',l==='en');const _btnES=document.getElementById('btnES');if(_btnES)_btnES.classList.toggle('on',l==='es');document.documentElement.lang=l;document.querySelectorAll('[data-i]').forEach(el=>{const k=el.getAttribute('data-i');if(T[l][k]!==undefined)el.innerHTML=T[l][k]});document.querySelectorAll('[data-ih]').forEach(el=>{const k=el.getAttribute('data-ih');if(T[l][k]!==undefined)el.innerHTML=T[l][k]})}
+
+/* ── THEME ── */
+const root=document.documentElement;
+let dark=(localStorage.getItem('nts-theme')==='dark')||(localStorage.getItem('nts-theme')===null&&window.matchMedia('(prefers-color-scheme:dark)').matches);
+function applyTheme(d){
+  root.classList.toggle('dark',d);
+  const thmK=document.getElementById('thmK');if(thmK)thmK.textContent=d?'🌙':'☀';
+  document.querySelectorAll('.foot-logo').forEach(img=>{
+    if(img.classList.contains('logo-light'))img.style.display=d?'none':'block';
+    if(img.classList.contains('logo-dark-img'))img.style.display=d?'block':'none';
+  });
+}
+applyTheme(dark);
+const _thmBtn=document.getElementById('thmBtn');if(_thmBtn)_thmBtn.addEventListener('click',()=>{dark=!dark;applyTheme(dark);localStorage.setItem('nts-theme',dark?'dark':'light')});
+
+/* ── HAMBURGER ── */
+const hamBtn=document.getElementById('hamBtn'),mobMenu=document.getElementById('mobMenu');
+hamBtn.addEventListener('click',()=>{
+  const open=mobMenu.classList.toggle('open');
+  hamBtn.setAttribute('aria-expanded',open);
+  const s=hamBtn.querySelectorAll('span');
+  if(open){s[0].style.transform='rotate(45deg) translate(5px,5px)';s[1].style.opacity='0';s[2].style.transform='rotate(-45deg) translate(5px,-5px)'}
+  else{s[0].style.transform='';s[1].style.opacity='';s[2].style.transform=''}
+});
+function closeMob(){mobMenu.classList.remove('open');hamBtn.setAttribute('aria-expanded',false);hamBtn.querySelectorAll('span').forEach(s=>{s.style.transform='';s.style.opacity=''})}
+
+/* ── BILLING TOGGLE ── */
+let billingMode='monthly';
+function setBilling(mode){
+  billingMode=mode;
+  const isAnn=mode==='annual';
+  document.getElementById('btSwitch').classList.toggle('on',isAnn);
+  document.querySelectorAll('.p-num').forEach(el=>{
+    el.textContent=isAnn?el.dataset.an:el.dataset.mo;
+  });
+  document.querySelectorAll('.ann-note').forEach(el=>{el.style.display=isAnn?'inline':'none'});
+  document.querySelectorAll('.ann-save-tag').forEach(el=>{el.style.display=isAnn?'inline-block':'none'});
+}
+
+/* ── PLAN TABS ── */
+function setPlanTab(tab){
+  ['sub','extra','flex'].forEach(t=>{
+    const btn=document.getElementById('tab-'+t);
+    const pnl=document.getElementById('panel-'+t);
+    if(btn) btn.classList.toggle('on',t===tab);
+    if(pnl) pnl.style.display=t===tab?'block':'none';
+  });
+}
+
+/* ── STEPS ── */
+function setStep(n){document.querySelectorAll('.step-row').forEach((s,i)=>s.classList.toggle('on',i===n))}
+
+/* ── HOW IT WORKS STEPPER ── */
+function setStep(n){
+  document.querySelectorAll('.how-step').forEach((el,i)=>{
+    el.classList.toggle('how-step--active',i===n);
+  });
+}
+
+/* ── DEVICE TABS ── */
+function setDevTab(tab){
+  document.getElementById('dtab-sign').classList.toggle('on',tab==='sign');
+  document.getElementById('dtab-manage').classList.toggle('on',tab==='manage');
+  // swap laptop screen content
+  document.querySelectorAll('.dscr-sign').forEach(el=>{el.style.display=tab==='sign'?'flex':'none'});
+  document.querySelectorAll('.dscr-manage').forEach(el=>{el.style.display=tab==='manage'?'flex':'none'});
+}
+
+/* ── CAROUSEL ── */
+const track=document.getElementById('track');
+const cards=Array.from(track.querySelectorAll('.car-card'));
+const dotsC=document.getElementById('carDots');
+let carIdx=0;
+function buildDots(){dotsC.innerHTML='';cards.forEach((_,i)=>{const d=document.createElement('div');d.className='car-dot'+(i===0?' on':'');d.addEventListener('click',()=>goTo(i));dotsC.appendChild(d)})}
+function goTo(i){carIdx=Math.max(0,Math.min(i,cards.length-1));const w=cards[0].offsetWidth+12;track.style.transform=`translateX(-${carIdx*w}px)`;dotsC.querySelectorAll('.car-dot').forEach((d,j)=>d.classList.toggle('on',j===carIdx))}
+document.getElementById('carPrev').addEventListener('click',()=>goTo(carIdx-1));
+document.getElementById('carNext').addEventListener('click',()=>goTo(carIdx+1));
+buildDots();
+window.addEventListener('resize',()=>goTo(carIdx));
+
+/* ── FAQ ACCORDION ── */
+function toggleFaq(btn){
+  const a=btn.nextElementSibling;
+  const isOpen=btn.classList.contains('open');
+  // close all
+  document.querySelectorAll('.faq-q.open').forEach(b=>{b.classList.remove('open');b.nextElementSibling.classList.remove('open')});
+  if(!isOpen){btn.classList.add('open');a.classList.add('open')}
+}
+
+/* ── SCROLL REVEAL ── */
+const ro=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')})},{threshold:.1});
+document.querySelectorAll('.rv').forEach(el=>ro.observe(el));
+
+/* ── PARALLAX BLOBS ── */
+window.addEventListener('scroll',()=>{
+  const y=window.scrollY;
+  const b1=document.querySelector('.b1'),b2=document.querySelector('.b2'),b3=document.querySelector('.b3');
+  if(b1)b1.style.transform=`translateY(${y*.11}px)`;
+  if(b2)b2.style.transform=`translateY(${-y*.07}px)`;
+  if(b3)b3.style.transform=`translateY(${y*.05}px)`;
+},{passive:true});
+
+/* ── 3D CARD TILT on hero image ── */
+const hw=document.getElementById('hero3dCard');
+if(hw){
+  hw.addEventListener('mousemove',e=>{
+    const r=hw.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width-.5;
+    const y=(e.clientY-r.top)/r.height-.5;
+    hw.style.transform=`rotateY(${x*18}deg) rotateX(${-y*12}deg) translateZ(28px)`;
+  });
+  hw.addEventListener('mouseleave',()=>{hw.style.transform='rotateY(-6deg) rotateX(3deg)'});
+}
+
+/* ── 3D FEATURE CARD TILT ── */
+document.querySelectorAll('.fc').forEach(card=>{
+  card.addEventListener('mousemove',e=>{
+    const r=card.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width;
+    const y=(e.clientY-r.top)/r.height;
+    const tiltX=(y-.5)*14;
+    const tiltY=(x-.5)*-14;
+    card.style.transform=`perspective(900px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) translateZ(10px)`;
+    card.style.setProperty('--mx',`${x*100}%`);
+    card.style.setProperty('--my',`${y*100}%`);
+    card.classList.add('hovered');
+  });
+  card.addEventListener('mouseleave',()=>{
+    card.style.transform='perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0)';
+    card.classList.remove('hovered');
+  });
+});
+
+/* ── NAV SCROLL STATE ── */
+const siteNav=document.querySelector('.site-nav');
+window.addEventListener('scroll',()=>{
+  siteNav.classList.toggle('scrolled',window.scrollY>20);
+},{passive:true});
+
+/* ── DEVICES PARALLAX on scroll ── */
+(function(){
+  const stage=document.getElementById('devScene');
+  const laptop=document.getElementById('devLaptop');
+  const tablet=document.getElementById('devTablet');
+  const phone=document.getElementById('devPhone');
+  if(!stage||!laptop) return;
+  const base=stage.closest('.devices-section');
+  function onScroll(){
+    const rect=base.getBoundingClientRect();
+    const vh=window.innerHeight;
+    const progress=Math.max(0,Math.min(1,(vh-rect.top)/(vh+rect.height)));
+    const shift=(progress-.5)*60;
+    if(laptop) laptop.style.transform=`translateY(${-shift*.8}px)`;
+    if(tablet) tablet.style.transform=`translateY(${shift*.5}px)`;
+    if(phone)  phone.style.transform=`translateY(${-shift*1.2}px)`;
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  onScroll();
+})();
+
+/* ── ACTIVE NAV LINK on scroll ── */
+const sections=document.querySelectorAll('section[id]');
+const navLinks=document.querySelectorAll('.nav-links a[href^="#"]');
+const ioNav=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      navLinks.forEach(a=>{
+        a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id);
+      });
+    }
+  });
+},{rootMargin:'-30% 0px -60% 0px'});
+sections.forEach(s=>ioNav.observe(s));
+</script>
+
+<!-- FLOATING CONTROLS: language + theme -->
+<div class="float-controls" id="floatControls">
+  <div class="float-ctrl-btn-wrap">
+    <button class="thm-btn" id="thmBtn" aria-label="Toggle theme"><div class="thm-knob" id="thmK">☀</div></button>
+  </div>
+  <div class="float-lang">
+    <button class="float-lang-btn on" id=
+ES</button>
+  </div>
+</div>
+
+</body>
+</html>

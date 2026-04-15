@@ -15,27 +15,43 @@ Designed to be consumed both by end users through the web UI, and by **external 
                           │           Cloudflare (DNS + SSL)         │
                           └──────────────┬──────────────────────────┘
                                          │
-              ┌──────────────────────────┴──────────────────────────┐
-              │                    Oracle Cloud VM                   │
-              │                                                       │
-              │  ┌─────────────┐          ┌──────────────────────┐  │
-              │  │    nginx     │──────────│  NTSsign Backend     │  │
-              │  │  (reverse    │          │  NestJS 11 / pm2     │  │
-              │  │   proxy)     │          │  Port 3000           │  │
-              │  └─────────────┘          └──────────┬───────────┘  │
-              │         │                            │               │
-              │  ┌─────────────┐          ┌──────────▼───────────┐  │
-              │  │  NTSsign    │          │  PostgreSQL 16        │  │
-              │  │  Frontend   │          │  (single instance)    │  │
-              │  │  Next.js 16 │          └──────────────────────┘  │
-              │  │  pm2 / :3001│                                     │
-              │  └─────────────┘                                     │
-              └─────────────────────────────────────────────────────┘
-                                         │
-                          ┌──────────────▼──────────────────────────┐
-                          │  BoldSign (external signature provider)  │
-                          │  Webhooks → /boldsign/webhooks/events    │
-                          └─────────────────────────────────────────┘
+              ┌──────────────────────────┼──────────────────────────┐
+              │                          │                          │
+   ntssign.com                app.ntssign.com              api.ntssign.com
+              │                          │                          │
+              ▼                          ▼                          ▼
+   ┌─────────────────┐    ┌─────────────────────────────────────────────┐
+   │   SiteGround     │    │              Oracle Cloud VM                │
+   │  (landing page)  │    │                                             │
+   │                   │    │  ┌─────────────┐    ┌──────────────────┐  │
+   │  index.html       │    │  │    nginx     │────│  NTSsign Backend │  │
+   │  + img/           │    │  │  (reverse    │    │  NestJS 11 / pm2 │  │
+   │  static files     │    │  │   proxy)     │    │  Port 3000       │  │
+   └─────────────────┘    │  └─────────────┘    └────────┬─────────┘  │
+                           │         │                    │             │
+                           │  ┌─────────────┐    ┌───────▼──────────┐  │
+                           │  │  NTSsign    │    │  PostgreSQL 16    │  │
+                           │  │  Frontend   │    │  (single instance)│  │
+                           │  │  Next.js 16 │    └──────────────────┘  │
+                           │  │  pm2 / :3001│                           │
+                           │  └─────────────┘                           │
+                           └────────────────────────────────────────────┘
+                                              │
+                           ┌──────────────────▼─────────────────────────┐
+                           │  BoldSign (external signature provider)     │
+                           │  Webhooks → /boldsign/webhooks/events       │
+                           └────────────────────────────────────────────┘
+```
+
+**DNS routing summary:**
+
+```
+Internet
+  ↓
+Cloudflare DNS
+  ├── ntssign.com     → SiteGround (landing estática HTML/CSS/JS)
+  ├── app.ntssign.com → Oracle Cloud VM (Next.js :3001)
+  └── api.ntssign.com → Oracle Cloud VM (NestJS :3000)
 ```
 
 ---
