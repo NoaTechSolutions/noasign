@@ -99,13 +99,17 @@ jobs:
           echo "=== Image variants ==="
           ls landing-export/img/ | head -30
 
-      - name: Deploy to SiteGround via SFTP
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+      - name: Deploy to SiteGround via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.SITEGROUND_HOST }}
+          server: ftp.noatechsolutions.com
           username: ${{ secrets.SITEGROUND_USER }}
           password: ${{ secrets.SITEGROUND_PASSWORD }}
-          local_path: './landing-export/*'
-          remote_path: '/home/noatechs/public_html/ntssign/'
-          sftp_only: true
-          delete_remote_files_first: true
+          port: 21
+          local-dir: ./landing-export/
+          server-dir: /ntssign/
+          dangerous-clean-slate: true
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**

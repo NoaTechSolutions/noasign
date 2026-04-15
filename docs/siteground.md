@@ -48,19 +48,25 @@ ntssign-landing/
 5. Crea la carpeta `img/` dentro de `public_html/`
 6. Sube todos los archivos de la carpeta `img/` dentro de `public_html/img/`
 
-### Opción B — FTP/SFTP (más rápido para muchos archivos)
+### Opción B — FTP (más rápido para muchos archivos)
 
 Credenciales en SiteGround → Site Tools → FTP Accounts:
 
 ```
-Host:     ftp.tudominio.com (o la IP de SiteGround)
-Usuario:  el usuario FTP que crees
-Password: el que configures
-Puerto:   21 (FTP) o 22 (SFTP — recomendado)
-Directorio remoto: /public_html/
+Host:     ftp.noatechsolutions.com
+Usuario:  ntssign-deploy@noatechsolutions.com
+Password: (guardado en GitHub secret SITEGROUND_PASSWORD)
+Puerto:   21 (FTP)
+Directorio remoto: /ntssign/
 ```
 
+> **Nota:** SiteGround shared hosting usa FTP en el puerto 21. El puerto 22 (SFTP) está bloqueado en shared hosting.
+
 Sube toda la carpeta `ntssign-landing/` con FileZilla u otro cliente FTP.
+
+### Opción C — Deploy automático vía GitHub Actions
+
+El workflow `.github/workflows/deploy-landing.yml` se dispara en cada push a `main` que toque `apps/frontend/**` o los scripts de export. Usa `SamKirkland/FTP-Deploy-Action@v4.3.5` contra `ftp.noatechsolutions.com:21` con los secrets `SITEGROUND_USER` y `SITEGROUND_PASSWORD`.
 
 ---
 
