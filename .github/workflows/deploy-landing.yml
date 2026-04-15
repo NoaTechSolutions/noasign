@@ -99,61 +99,20 @@ jobs:
           echo "=== Image variants ==="
           ls landing-export/img/ | head -30
 
-      - name: Debug — probe domain folder + cleanup junk from previous attempts
-        env:
-          FTP_USER: ${{ secrets.SITEGROUND_USER }}
-          FTP_PASS: ${{ secrets.SITEGROUND_PASSWORD }}
-        run: |
-          sudo apt-get install -y lftp > /dev/null
-          echo "HELLO FROM FTP PROBE" > /tmp/ftp-probe-marker.txt
-          lftp -u "$FTP_USER,$FTP_PASS" ftp.noatechsolutions.com <<'LFTP_EOF'
-            set ssl:verify-certificate no
-            set xfer:clobber on
-            !echo "=== A. cd into noatechsolutions.com (drwx--x--x) ==="
-            cd noatechsolutions.com
-            pwd
-            !echo "=== B. try: ls (will likely fail on x-only dir) ==="
-            ls -la
-            !echo "=== C. try: cd public_html (inside noatechsolutions.com) ==="
-            cd public_html
-            pwd
-            ls -la
-            !echo "=== D. try: cd ntssign (the real docroot per user) ==="
-            cd ntssign
-            pwd
-            ls -la
-            !echo "=== E. upload probe marker here ==="
-            put /tmp/ftp-probe-marker.txt -o ftp-probe-marker.txt
-            ls -la ftp-probe-marker.txt
-            !echo "=== F. back to /, same path via symlink ntssign.com ==="
-            cd /
-            cd ntssign.com/public_html/ntssign 2>&1
-            pwd
-            ls -la
-            !echo "=== G. cleanup junk dirs created by previous failed deploys ==="
-            cd /
-            !echo "(removing /ntssign)"
-            rm -rf ntssign
-            !echo "(removing /public_html)"
-            rm -rf public_html
-            !echo "--- final root listing ---"
-            ls -la
-            bye
-          LFTP_EOF
-
-      # Deploy step intentionally DISABLED during diagnostics.
-      # Re-enable once the correct server-dir is confirmed from the debug output above.
-      # - name: Deploy to SiteGround via FTP
-      #   uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      #   with:
-      #     server: ftp.noatechsolutions.com
-      #     username: ${{ secrets.SITEGROUND_USER }}
-      #     password: ${{ secrets.SITEGROUND_PASSWORD }}
-      #     port: 21
-      #     local-dir: ./landing-export/
-      #     server-dir: /public_html/ntssign/
-      #     dangerous-clean-slate: true
-      #     exclude: |
-      #       **/.git*
-      #       **/.git*/**
-      #       **/node_modules/**
+      - name: Deploy to SiteGround via FTP
+        # server-dir is relative to the FTP user's chroot home. Path confirmed via
+        # diagnostic: /noatechsolutions.com/public_html/ntssign/ is the real docroot
+        # for ntssign.com (addon domain served from noatechsolutions.com's public_html).
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftp.noatechsolutions.com
+          username: ${{ secrets.SITEGROUND_USER }}
+          password: ${{ secrets.SITEGROUND_PASSWORD }}
+          port: 21
+          local-dir: ./landing-export/
+          server-dir: /noatechsolutions.com/public_html/ntssign/
+          dangerous-clean-slate: true
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
