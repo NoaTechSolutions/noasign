@@ -36,8 +36,8 @@ jobs:
             echo "--- Building backend ---"
             cd apps/backend
             npm ci
-            npx prisma generate
-            npx prisma migrate deploy
+            ./node_modules/.bin/prisma generate
+            ./node_modules/.bin/prisma migrate deploy
             npm run build
             npm prune --omit=dev
 
