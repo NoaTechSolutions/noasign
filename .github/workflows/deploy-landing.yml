@@ -107,7 +107,7 @@ jobs:
           password: ${{ secrets.SITEGROUND_PASSWORD }}
           port: 21
           local-dir: ./landing-export/
-          server-dir: /ntssign/
+          server-dir: /public_html/ntssign/
           dangerous-clean-slate: true
           exclude: |
             **/.git*
