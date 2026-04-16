@@ -30,9 +30,22 @@ export function ThemeToggle({
   const applyTheme = useCallback(
     (nextTheme: ThemeName) => {
       const root = document.documentElement;
+      // Apply immediately before any transition.
       root.classList.toggle("dark", nextTheme === "dark");
       localStorage.setItem("theme", nextTheme);
       setTheme(nextTheme);
+
+      // Re-apply inside a View Transition so the browser snapshot picks up the new class.
+      const startViewTransition = (
+        document as Document & {
+          startViewTransition?: (callback: () => void) => { ready: Promise<void> };
+        }
+      ).startViewTransition;
+      if (typeof startViewTransition === "function") {
+        startViewTransition.call(document, () => {
+          root.classList.toggle("dark", nextTheme === "dark");
+        });
+      }
     },
     [setTheme],
   );
