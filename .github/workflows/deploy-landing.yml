@@ -88,6 +88,14 @@ jobs:
           RewriteEngine On
           RewriteCond %{HTTPS} off
           RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+          # Disable Apache's auto trailing-slash redirect, which on SiteGround addon
+          # domains leaks the filesystem path (e.g. /terms -> /ntssign/terms/).
+          DirectorySlash Off
+          # Clean URLs for legal pages — Next.js exports produce terms.html + terms/ dir;
+          # the dir has no index.html, so map the clean URL directly to the .html sidecar.
+          RewriteRule ^terms/?$ /terms.html [L]
+          RewriteRule ^privacy/?$ /privacy.html [L]
+          RewriteRule ^cookies/?$ /cookies.html [L]
           HTACCESS
 
       - name: Verify export output
