@@ -108,7 +108,7 @@ echo "--- Files copied to $OUT_DIR/ ---"
 echo ""
 echo "=== Export complete ==="
 echo "Files in $OUT_DIR/:"
-find "$OUT_DIR" -type f | head -30
+find "$OUT_DIR" -type f | head -30 || true
 echo ""
 echo "Total size: $(du -sh "$OUT_DIR" | cut -f1)"
 echo ""
