@@ -5304,8 +5304,8 @@ h2.sh2 {
     transform-origin: top center !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
-    margin-bottom: -50px;
-    overflow: hidden !important;
+    margin-bottom: -20px;
+    overflow: visible !important;
     border-radius: 10px;
     width: 100%;
     display: flex;
