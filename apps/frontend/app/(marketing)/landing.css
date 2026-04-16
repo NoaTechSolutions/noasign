@@ -5560,3 +5560,20 @@ h2.sh2 {
   .nav-inner { padding: 0 1rem; }
   .section { padding: 40px 0; }
 }
+
+/* ── Tawk.to widget — no tapar el floating panel (theme/lang) ── */
+#tawkchat-container,
+.tawk-min-container,
+iframe[title*="chat"] {
+  bottom: 20px !important;
+  right: 80px !important;
+  z-index: 400 !important;
+}
+
+@media (max-width: 768px) {
+  #tawkchat-container,
+  .tawk-min-container {
+    bottom: 80px !important;
+    right: 16px !important;
+  }
+}
