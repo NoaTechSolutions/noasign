@@ -4200,6 +4200,47 @@ function DocumentViewer({
           )}
         </div>
 
+        {document && !editingTab && !isLoading && (actionButtons.length > 0 || canDownloadPdf) ? (
+          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-4 py-3 dark:border-white/10 md:hidden">
+            {canDownloadPdf ? (
+              <button
+                type="button"
+                onClick={() => void onDownloadFinalPdf(document.id)}
+                disabled={actionInFlight === document.id}
+                className={cn(
+                  "inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-2.5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]",
+                  actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                )}
+              >
+                <Download className="h-4 w-4" />
+                <span>{actionInFlight === document.id ? "Preparing..." : "Download PDF"}</span>
+              </button>
+            ) : null}
+            {actionButtons.map((action) => (
+              <button
+                key={`viewer-mobile-${action.key}`}
+                type="button"
+                onClick={() => {
+                  if (action.disabled) return;
+                  void onAction(document.id, action.key);
+                }}
+                disabled={action.disabled || actionInFlight === document.id}
+                className={cn(
+                  "inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition",
+                  action.tone,
+                  (action.disabled || actionInFlight === document.id) &&
+                    "cursor-not-allowed opacity-60",
+                )}
+              >
+                {action.icon}
+                <span>
+                  {actionInFlight === document.id ? "Processing..." : action.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
       </aside>
 
       {isPdfPreviewOpen && pdfPreviewUrl ? (
