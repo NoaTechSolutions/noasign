@@ -7,8 +7,13 @@ export function FloatingControls() {
   const { lang, setLang } = useLang();
   const [dark, setDark] = useState(false);
 
+  // Read theme from localStorage on mount. Lazy useState initializer would cause
+  // a hydration mismatch (#418) because SSR cannot access window/localStorage and
+  // would return a different value than the client. Disabling the rule locally is
+  // the React-recommended escape hatch for syncing with external storage on mount.
   useEffect(() => {
     const stored = localStorage.getItem("nts-theme");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === "dark") setDark(true);
     else if (stored === "light") setDark(false);
     else setDark(window.matchMedia("(prefers-color-scheme: dark)").matches);

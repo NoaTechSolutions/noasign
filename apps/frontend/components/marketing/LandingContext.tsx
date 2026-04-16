@@ -11,9 +11,14 @@ const LangContext = createContext<LangContextValue>({ lang: "en", setLang: () =>
 export function LangProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("en");
 
+  // Read language preference from localStorage / browser on mount. Lazy useState
+  // initializer would cause hydration mismatch (#418) since SSR cannot access
+  // window/localStorage. Disabling the rule locally is the React-recommended
+  // escape hatch for syncing with external storage on mount.
   useEffect(() => {
     const stored = localStorage.getItem(LANG_KEY) as Lang | null;
     if (stored === "en" || stored === "es") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLangState(stored);
       return;
     }
