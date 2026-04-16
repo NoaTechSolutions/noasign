@@ -17,7 +17,7 @@ export default function CookiesPage() {
         <div className="wrap">
           <div className="legal-content">
             <h1>Cookie Policy</h1>
-            <p className="legal-meta">Last updated: April 2026</p>
+            <p className="legal-meta">Last updated: April 2026 · Version 1.0</p>
 
             <div className="legal-notice">
               NTSsign is currently operated by NoaTechSolutions, a business in the process of formal
@@ -37,50 +37,39 @@ export default function CookiesPage() {
 
             <h3>2.1 Essential Cookies</h3>
             <p>
-              These cookies are necessary for the Service to function and cannot be disabled. They are
-              usually set in response to your actions, such as logging in or setting preferences.
+              Necessary for the basic functioning of the Service. Cannot be disabled.
             </p>
             <table>
               <thead>
                 <tr>
                   <th>Cookie</th>
-                  <th>Provider</th>
                   <th>Purpose</th>
                   <th>Duration</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
+                  <td>nts-session</td>
+                  <td>Maintain authenticated user session</td>
+                  <td>Session</td>
+                </tr>
+                <tr>
                   <td>nts-theme</td>
-                  <td>NTSsign</td>
-                  <td>Stores your dark/light mode preference</td>
-                  <td>Persistent (localStorage)</td>
+                  <td>Remember light/dark mode preference</td>
+                  <td>1 year</td>
                 </tr>
                 <tr>
-                  <td>ntssign-lang</td>
-                  <td>NTSsign</td>
-                  <td>Stores your language preference (EN/ES)</td>
-                  <td>Persistent (localStorage)</td>
-                </tr>
-                <tr>
-                  <td>access_token</td>
-                  <td>NTSsign</td>
-                  <td>Authenticates your session after login</td>
-                  <td>Session / 24 hours</td>
-                </tr>
-                <tr>
-                  <td>__cf_bm</td>
-                  <td>Cloudflare</td>
-                  <td>Bot management and DDoS protection</td>
-                  <td>30 minutes</td>
+                  <td>nts-lang</td>
+                  <td>Remember selected language (EN/ES)</td>
+                  <td>1 year</td>
                 </tr>
               </tbody>
             </table>
 
             <h3>2.2 Analytics Cookies</h3>
             <p>
-              These cookies help us understand how visitors interact with the Service by collecting
-              anonymous usage data. We use this information to improve our platform.
+              Help us understand how visitors interact with the Service by collecting anonymous usage
+              data. We use this information to improve our platform.
             </p>
             <table>
               <thead>
@@ -93,24 +82,23 @@ export default function CookiesPage() {
               </thead>
               <tbody>
                 <tr>
-                  <td>_ga, _ga_*</td>
-                  <td>Google Analytics</td>
-                  <td>Distinguishes unique users and tracks page views</td>
-                  <td>2 years</td>
+                  <td>_cfuvid</td>
+                  <td>Cloudflare</td>
+                  <td>Traffic analysis and performance</td>
+                  <td>Session</td>
                 </tr>
                 <tr>
-                  <td>_gid</td>
-                  <td>Google Analytics</td>
-                  <td>Distinguishes users for 24-hour period</td>
-                  <td>24 hours</td>
+                  <td>cf_clearance</td>
+                  <td>Cloudflare</td>
+                  <td>Security verification</td>
+                  <td>1 year</td>
                 </tr>
               </tbody>
             </table>
 
             <h3>2.3 Support Chat Cookies</h3>
             <p>
-              If we integrate a live chat or support widget in the future, it may set cookies to maintain
-              your chat session. We will update this policy when such integration is made.
+              Set by our live chat provider to maintain your chat session.
             </p>
             <table>
               <thead>
@@ -123,9 +111,16 @@ export default function CookiesPage() {
               </thead>
               <tbody>
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", fontStyle: "italic" }}>
-                    No support chat cookies are currently in use
-                  </td>
+                  <td>TawkConnectionTime</td>
+                  <td>Tawk.to</td>
+                  <td>Chat connection management</td>
+                  <td>Session</td>
+                </tr>
+                <tr>
+                  <td>__tawkUUID</td>
+                  <td>Tawk.to</td>
+                  <td>Chat session identifier</td>
+                  <td>6 months</td>
                 </tr>
               </tbody>
             </table>
@@ -156,15 +151,7 @@ export default function CookiesPage() {
 
             <h3>4.2 Analytics Opt-Out</h3>
             <p>
-              To opt out of Google Analytics tracking specifically, you can install the{" "}
-              <a
-                href="https://tools.google.com/dlpage/gaoptout"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Google Analytics Opt-out Browser Add-on
-              </a>
-              .
+              To opt out of Cloudflare analytics, enable &quot;Do Not Track&quot; in your browser.
             </p>
 
             <h2>5. Updates to This Policy</h2>

@@ -88,27 +88,19 @@ cd "$ROOT"
 
 echo "--- Build complete ---"
 
-# --- 4. Copy output to landing-static/ ---
+# --- 4. Copy output to landing-export/ ---
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
-# Copy the landing page HTML
-cp "$FRONTEND/out/index.html" "$OUT_DIR/"
+# Copy everything Next.js exported (index, terms, privacy, cookies, _next, img, favicon, robots, sitemap).
+cp -r "$FRONTEND/out/." "$OUT_DIR/"
 
-# Copy Next.js static assets (CSS/JS chunks)
-if [ -d "$FRONTEND/out/_next" ]; then
-  cp -r "$FRONTEND/out/_next" "$OUT_DIR/"
-fi
-
-# Copy images
-if [ -d "$FRONTEND/out/img" ]; then
-  cp -r "$FRONTEND/out/img" "$OUT_DIR/"
-else
-  cp -r "$FRONTEND/public/img" "$OUT_DIR/"
-fi
-
-# Copy favicon if exists
-[ -f "$FRONTEND/out/favicon.ico" ] && cp "$FRONTEND/out/favicon.ico" "$OUT_DIR/"
+# Remove SaaS-only routes that don't belong on the landing domain.
+# Each route in Next's static export produces a directory + .html + .txt at the same level.
+for route in signature-complete dashboard login; do
+  rm -rf "$OUT_DIR/$route"
+  rm -f "$OUT_DIR/$route.html" "$OUT_DIR/$route.txt"
+done
 
 echo "--- Files copied to $OUT_DIR/ ---"
 

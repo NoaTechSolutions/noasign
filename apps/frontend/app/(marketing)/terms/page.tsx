@@ -17,7 +17,7 @@ export default function TermsPage() {
         <div className="wrap">
           <div className="legal-content">
             <h1>Terms and Conditions</h1>
-            <p className="legal-meta">Last updated: April 2026</p>
+            <p className="legal-meta">Last updated: April 2026 · Version 1.0</p>
 
             <div className="legal-notice">
               NTSsign is currently operated by NoaTechSolutions, a business in the process of formal
@@ -35,10 +35,17 @@ export default function TermsPage() {
             <h2>2. Description of the Service</h2>
             <p>
               NTSsign is a cloud-based electronic signature platform that allows businesses to create,
-              send, track, and manage digital contracts and documents. The Service includes document
-              creation tools, electronic signature workflows, document storage, and related features as
-              described on our website.
+              send, track, and manage digital contracts and documents with full legal validity, in
+              compliance with the ESIGN Act of the United States.
             </p>
+            <p>Services include:</p>
+            <ul>
+              <li>Creation and delivery of documents for signature</li>
+              <li>Electronic signing from any device, without account creation or app download</li>
+              <li>Document tracking and status management</li>
+              <li>Secure storage of signed documents</li>
+              <li>Verifiable and tamper-proof audit trails</li>
+            </ul>
 
             <h2>3. Eligibility and Registration</h2>
             <p>
@@ -68,7 +75,8 @@ export default function TermsPage() {
             <p>
               You may cancel your subscription at any time. Upon cancellation, your access to paid
               features will continue until the end of the current billing period. No partial refunds are
-              provided for unused portions of a billing period.
+              provided for unused portions of a billing period. Data is retained for 30 days after
+              cancellation before permanent deletion.
             </p>
 
             <h3>4.4 Price Changes</h3>
@@ -104,12 +112,20 @@ export default function TermsPage() {
 
             <h2>6. Legal Validity of Electronic Signatures</h2>
             <p>
-              NTSsign facilitates the creation of electronic signatures intended to comply with the
-              Electronic Signatures in Global and National Commerce Act (ESIGN Act) and the Uniform
-              Electronic Transactions Act (UETA). However, the legal validity of any specific electronic
-              signature depends on applicable laws and the circumstances of use. NTSsign does not provide
-              legal advice, and you should consult with a qualified attorney regarding the enforceability
-              of electronic signatures in your jurisdiction and for your specific use case.
+              Signatures made through NTSsign have full legal validity in the United States under the
+              ESIGN Act (15 U.S.C. § 7001 et seq.) and the Uniform Electronic Transactions Act (UETA).
+              Each signature is supported by:
+            </p>
+            <ul>
+              <li>Date, time, and IP address of the signer</li>
+              <li>Device identification</li>
+              <li>Document completion certificate</li>
+              <li>Verifiable and immutable chain of custody</li>
+            </ul>
+            <p>
+              NTSsign does not provide legal advice, and you should consult with a qualified attorney
+              regarding the enforceability of electronic signatures in your jurisdiction and for your
+              specific use case.
             </p>
 
             <h2>7. Intellectual Property</h2>
