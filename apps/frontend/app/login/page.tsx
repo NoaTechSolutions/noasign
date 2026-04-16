@@ -7,7 +7,7 @@ import { LoginForm } from "./login-form";
 
 export default function Home() {
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme !== "light";
+  const isDark = resolvedTheme === "dark";
   const shellClassName = isDark
     ? "relative grid h-full w-full overflow-hidden bg-transparent shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--border-strong)] sm:bg-[image:var(--bg-shell-inner)] sm:shadow-[var(--shadow-strong)] md:grid-cols-[1fr_1fr] xl:grid-cols-[1.05fr_0.95fr]"
     : "relative grid h-full w-full overflow-hidden bg-transparent shadow-none sm:rounded-[2rem] sm:border sm:border-[#022977] sm:bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] sm:shadow-[0_26px_80px_rgba(2,41,119,0.18)] md:grid-cols-[1fr_1fr] xl:grid-cols-[1.05fr_0.95fr]";

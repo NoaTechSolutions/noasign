@@ -142,7 +142,7 @@ export function LoginForm() {
   const [isSubmittingResetPassword, setIsSubmittingResetPassword] = useState(false);
   const [accountRequestSuccess, setAccountRequestSuccess] = useState("");
   const [resetToken, setResetToken] = useState("");
-  const isDarkTheme = resolvedTheme !== "light";
+  const isDarkTheme = resolvedTheme === "dark";
   const loginLogoSrc = isDarkTheme
     ? "/img/NTSSign_blanco_SinFondo.svg"
     : "/img/NTSSign_AzulDark_SinFondo.svg";

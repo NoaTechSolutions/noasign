@@ -2,14 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Moon, SunMedium } from "lucide-react";
-import { flushSync } from "react-dom";
 import { useTheme } from "next-themes";
 
 type ThemeName = "light" | "dark";
 
 export function ThemeToggle({
   className,
-  duration = 400,
 }: {
   className?: string;
   duration?: number;
@@ -30,82 +28,16 @@ export function ThemeToggle({
   const applyTheme = useCallback(
     (nextTheme: ThemeName) => {
       const root = document.documentElement;
-      // Apply immediately before any transition.
       root.classList.toggle("dark", nextTheme === "dark");
       localStorage.setItem("theme", nextTheme);
       setTheme(nextTheme);
-
-      // Re-apply inside a View Transition so the browser snapshot picks up the new class.
-      const startViewTransition = (
-        document as Document & {
-          startViewTransition?: (callback: () => void) => { ready: Promise<void> };
-        }
-      ).startViewTransition;
-      if (typeof startViewTransition === "function") {
-        startViewTransition.call(document, () => {
-          root.classList.toggle("dark", nextTheme === "dark");
-        });
-      }
     },
     [setTheme],
   );
 
   const toggleTheme = useCallback(() => {
-    const button = buttonRef.current;
-    if (!button) {
-      return;
-    }
-
-    const nextTheme: ThemeName = isDark ? "light" : "dark";
-    const { top, left, width, height } = button.getBoundingClientRect();
-    const x = left + width / 2;
-    const y = top + height / 2;
-    const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-    const maxRadius = Math.hypot(
-      Math.max(x, viewportWidth - x),
-      Math.max(y, viewportHeight - y),
-    );
-
-    const startViewTransition = (
-      document as Document & {
-        startViewTransition?: (callback: () => void) => {
-          ready: Promise<void>;
-        };
-      }
-    ).startViewTransition;
-
-    if (typeof startViewTransition !== "function") {
-      applyTheme(nextTheme);
-      return;
-    }
-
-    const transition = startViewTransition.call(document, () => {
-      flushSync(() => {
-        applyTheme(nextTheme);
-      });
-    });
-
-    transition.ready
-      .then(() => {
-        document.documentElement.animate(
-          {
-            clipPath: [
-              `circle(0px at ${x}px ${y}px)`,
-              `circle(${maxRadius}px at ${x}px ${y}px)`,
-            ],
-          },
-          {
-            duration,
-            easing: "ease-in-out",
-            pseudoElement: "::view-transition-new(root)",
-          },
-        );
-      })
-      .catch(() => {
-        applyTheme(nextTheme);
-      });
-  }, [applyTheme, duration, isDark]);
+    applyTheme(isDark ? "light" : "dark");
+  }, [applyTheme, isDark]);
 
   return (
     <button
