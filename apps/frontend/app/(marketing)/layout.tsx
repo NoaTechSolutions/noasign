@@ -22,13 +22,20 @@ export const metadata: Metadata = {
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <LangProvider>
+      {/* Preconnect to the app host so the Log in CTA handoff is instant. */}
+      <link rel="preconnect" href="https://app.ntssign.com" />
+      <link rel="dns-prefetch" href="https://app.ntssign.com" />
       {children}
       <Script
         id="tawkto"
         strategy="lazyOnload"
         dangerouslySetInnerHTML={{
           __html: `
-            var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+            var Tawk_API = Tawk_API || {};
+            Tawk_API.onLoad = function() {
+              Tawk_API.minimize();
+            };
+            var Tawk_LoadStart = new Date();
             (function(){
               var s1=document.createElement("script"),
                   s0=document.getElementsByTagName("script")[0];

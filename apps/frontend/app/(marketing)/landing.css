@@ -4418,6 +4418,17 @@ h2.sh2 {
   margin-top: 1px;
 }
 
+/* Force text colors on the Launch card in both light and dark modes — the navy
+   background is constant, but .pf at line 4454 (color: var(--tb)) was winning
+   in light mode via CSS source order and making the feature text invisible. */
+.pc-launch .pf,
+.pc-launch .pf-light {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+.pc-launch .pfc-light {
+  color: #fff !important;
+}
+
 .pc-launch-btn {
   background: var(--amber);
   color: #fff;
@@ -5573,9 +5584,10 @@ iframe[src*="tawk"] {
   z-index: 9999 !important;
 }
 
-/* Widget bubble — desktop position (leave 90px for the floating theme/lang panel) */
+/* Widget bubble — desktop position (leave 90px for the floating theme/lang panel).
+   bottom 32px prevents the icon from clipping on short viewports. */
 .tawk-min-container {
-  bottom: 24px !important;
+  bottom: 32px !important;
   right: 90px !important;
 }
 
