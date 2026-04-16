@@ -3787,64 +3787,68 @@ function DocumentViewer({
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-sm">
       <button type="button" aria-label="Close document viewer" onClick={onClose} className="absolute inset-0" />
       <aside className="relative z-10 flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 dark:border-white/10">
-          <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Document view</div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
-                {isLoading ? "Loading..." : document?.documentNumber ?? "Document detail"}
-              </h2>
-              {document ? <StatusBadge status={document.status} /> : null}
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 md:gap-4 md:px-5 md:py-5 dark:border-white/10">
+          <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Document view</div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-lg font-semibold tracking-[-0.04em] text-slate-950 md:text-2xl dark:text-white">
+                  {isLoading ? "Loading..." : document?.documentNumber ?? "Document detail"}
+                </h2>
+                {document ? <StatusBadge status={document.status} /> : null}
+              </div>
+              <div className="mt-1 text-xs text-slate-500 md:mt-2 md:text-sm dark:text-slate-400">
+                {isLoading ? "Preparing detail..." : document?.documentType?.name ?? "Contract"}
+              </div>
             </div>
-            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {isLoading ? "Preparing detail..." : document?.documentType?.name ?? "Contract"}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {document && !editingTab && canDownloadPdf ? (
-              <button
-                type="button"
-                onClick={() => void onDownloadFinalPdf(document.id)}
-                disabled={actionInFlight === document.id}
-                className={cn(
-                  "hidden items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-2.5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] md:inline-flex",
-                  actionInFlight === document.id && "cursor-not-allowed opacity-60",
-                )}
-              >
-                <Download className="h-4 w-4" />
-                <span>{actionInFlight === document.id ? "Preparing..." : "Download PDF"}</span>
-              </button>
-            ) : null}
-            {document && !editingTab && actionButtons.length > 0 ? actionButtons.map((action) => (
-              <button
-                key={`viewer-header-${action.key}`}
-                type="button"
-                onClick={() => {
-                  if (action.disabled) return;
-                  void onAction(document.id, action.key);
-                }}
-                disabled={action.disabled || actionInFlight === document.id}
-                className={cn(
-                  "hidden items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition md:inline-flex",
-                  action.tone,
-                  (action.disabled || actionInFlight === document.id) &&
-                    "cursor-not-allowed opacity-60",
-                )}
-              >
-                {action.icon}
-                <span>
-                  {actionInFlight === document.id ? "Processing..." : action.label}
-                </span>
-              </button>
-            )) : null}
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-white md:h-10 md:w-10 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
+          {document && !editingTab && !isLoading && (actionButtons.length > 0 || canDownloadPdf) ? (
+            <div className="flex w-full flex-wrap items-center gap-2">
+              {canDownloadPdf ? (
+                <button
+                  type="button"
+                  onClick={() => void onDownloadFinalPdf(document.id)}
+                  disabled={actionInFlight === document.id}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-3 py-2 text-xs font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] md:gap-2 md:px-4 md:py-2.5 md:text-sm",
+                    actionInFlight === document.id && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <Download className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                  <span>{actionInFlight === document.id ? "Preparing..." : "Download PDF"}</span>
+                </button>
+              ) : null}
+              {actionButtons.map((action) => (
+                <button
+                  key={`viewer-header-${action.key}`}
+                  type="button"
+                  onClick={() => {
+                    if (action.disabled) return;
+                    void onAction(document.id, action.key);
+                  }}
+                  disabled={action.disabled || actionInFlight === document.id}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-medium transition md:gap-2 md:px-4 md:py-2.5 md:text-sm",
+                    action.tone,
+                    (action.disabled || actionInFlight === document.id) &&
+                      "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  {action.icon}
+                  <span>
+                    {actionInFlight === document.id ? "Processing..." : action.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
@@ -4199,47 +4203,6 @@ function DocumentViewer({
             </div>
           )}
         </div>
-
-        {document && !editingTab && !isLoading && (actionButtons.length > 0 || canDownloadPdf) ? (
-          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 px-4 py-3 dark:border-white/10 md:hidden">
-            {canDownloadPdf ? (
-              <button
-                type="button"
-                onClick={() => void onDownloadFinalPdf(document.id)}
-                disabled={actionInFlight === document.id}
-                className={cn(
-                  "inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 py-2.5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]",
-                  actionInFlight === document.id && "cursor-not-allowed opacity-60",
-                )}
-              >
-                <Download className="h-4 w-4" />
-                <span>{actionInFlight === document.id ? "Preparing..." : "Download PDF"}</span>
-              </button>
-            ) : null}
-            {actionButtons.map((action) => (
-              <button
-                key={`viewer-mobile-${action.key}`}
-                type="button"
-                onClick={() => {
-                  if (action.disabled) return;
-                  void onAction(document.id, action.key);
-                }}
-                disabled={action.disabled || actionInFlight === document.id}
-                className={cn(
-                  "inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition",
-                  action.tone,
-                  (action.disabled || actionInFlight === document.id) &&
-                    "cursor-not-allowed opacity-60",
-                )}
-              >
-                {action.icon}
-                <span>
-                  {actionInFlight === document.id ? "Processing..." : action.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
 
       </aside>
 
