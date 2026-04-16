@@ -17,7 +17,7 @@ export default function PrivacyPage() {
         <div className="wrap">
           <div className="legal-content">
             <h1>Privacy Policy</h1>
-            <p className="legal-meta">Last updated: April 2026</p>
+            <p className="legal-meta">Last updated: April 2026 · Version 1.0</p>
 
             <div className="legal-notice">
               NTSsign is currently operated by NoaTechSolutions, a business in the process of formal
@@ -88,29 +88,19 @@ export default function PrivacyPage() {
               </thead>
               <tbody>
                 <tr>
-                  <td>BoldSign (Syncfusion)</td>
-                  <td>Electronic signature processing</td>
-                  <td>Document content, signer email/name, signature events</td>
-                </tr>
-                <tr>
-                  <td>Resend</td>
-                  <td>Transactional email delivery</td>
-                  <td>Recipient email, sender name, email content</td>
-                </tr>
-                <tr>
-                  <td>Oracle Cloud</td>
-                  <td>Infrastructure &amp; hosting</td>
-                  <td>All Service data (encrypted at rest)</td>
+                  <td>BoldSign</td>
+                  <td>Electronic signature engine</td>
+                  <td>Documents and signer data</td>
                 </tr>
                 <tr>
                   <td>Cloudflare</td>
-                  <td>CDN, DNS, DDoS protection</td>
-                  <td>IP addresses, request metadata</td>
+                  <td>CDN and security</td>
+                  <td>IP address, technical data</td>
                 </tr>
                 <tr>
-                  <td>Stripe (planned)</td>
+                  <td>Payment processor</td>
                   <td>Payment processing</td>
-                  <td>Payment details, billing address</td>
+                  <td>Email, billing data</td>
                 </tr>
               </tbody>
             </table>
@@ -138,9 +128,8 @@ export default function PrivacyPage() {
 
             <h3>5.1 Where We Store</h3>
             <p>
-              Your data is stored on servers hosted by Oracle Cloud Infrastructure, primarily located in
-              the United States. If you are located outside the United States, your data will be
-              transferred to and processed in the United States.
+              Your data is stored on servers located in the United States. If you are located outside
+              the United States, your data will be transferred to and processed in the United States.
             </p>
 
             <h3>5.2 Security Measures</h3>
