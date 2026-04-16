@@ -5560,3 +5560,37 @@ h2.sh2 {
   .nav-inner { padding: 0 1rem; }
   .section { padding: 40px 0; }
 }
+
+/* ── Tawk.to widget — fix z-index, position, and stacking context ── */
+/* Main containers and iframes must sit above navbar (z:500) and any section (max z:600) */
+div[id^="tawk-"],
+#tawk-bubble-container,
+.tawk-min-container,
+iframe[id^="tawk-"],
+iframe[title*="chat"],
+iframe[title*="Chat"],
+iframe[src*="tawk"] {
+  z-index: 9999 !important;
+}
+
+/* Widget bubble — desktop position (leave 90px for the floating theme/lang panel) */
+.tawk-min-container {
+  bottom: 24px !important;
+  right: 90px !important;
+}
+
+/* Prevent landing wrappers from creating stacking contexts that trap Tawk iframes.
+   No-op against current CSS but guards against future transform/isolation on these. */
+.landing-root,
+main,
+.wrap {
+  isolation: auto !important;
+  transform: none !important;
+}
+
+@media (max-width: 768px) {
+  .tawk-min-container {
+    bottom: 80px !important;
+    right: 16px !important;
+  }
+}
