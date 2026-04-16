@@ -135,7 +135,7 @@ export function Footer() {
           <div className="foot-legal">
             <a href="/privacy">{T[lang].f_prv}</a>
             <a href="/terms">{T[lang].f_trm}</a>
-            <a href="https://noatechsolutions.com/cookies-policy/" target="_blank" rel="noopener noreferrer">{T[lang].f_coo}</a>
+            <a href="/cookies">{T[lang].f_coo}</a>
           </div>
         </div>
       </div>

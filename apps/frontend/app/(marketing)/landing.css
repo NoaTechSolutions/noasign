@@ -5436,6 +5436,122 @@ h2.sh2 {
   }
 }
 
+/* ── LEGAL PAGES ── */
+.legal-page {
+  padding: 80px 0 100px;
+  min-height: 100vh;
+}
+.legal-content {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.legal-content h1 {
+  font-family: var(--fd);
+  font-size: 2.2rem;
+  font-weight: 500;
+  color: var(--th);
+  letter-spacing: -1px;
+  margin-bottom: .5rem;
+}
+.legal-meta {
+  font-size: 13px;
+  color: var(--tt);
+  margin-bottom: .5rem;
+}
+.legal-notice {
+  background: rgba(255,153,0,.08);
+  border: .5px solid rgba(255,153,0,.3);
+  border-radius: 10px;
+  padding: .85rem 1.1rem;
+  font-size: 13px;
+  color: var(--tl);
+  margin-bottom: 2.5rem;
+  line-height: 1.6;
+}
+.legal-content h2 {
+  font-family: var(--fd);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--th);
+  margin: 2.5rem 0 .75rem;
+  padding-bottom: .4rem;
+  border-bottom: .5px solid var(--bd);
+}
+.legal-content h3 {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--tl);
+  margin: 1.5rem 0 .5rem;
+}
+.legal-content p {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--tl);
+  margin-bottom: 1rem;
+}
+.legal-content ul,
+.legal-content ol {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.legal-content li {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--tl);
+  margin-bottom: .35rem;
+}
+.legal-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: 14px;
+}
+.legal-content th {
+  background: var(--bg-s);
+  color: var(--th);
+  font-weight: 500;
+  text-align: left;
+  padding: .6rem .85rem;
+  border: .5px solid var(--bd);
+}
+.legal-content td {
+  padding: .55rem .85rem;
+  border: .5px solid var(--bd);
+  color: var(--tl);
+  vertical-align: top;
+}
+.legal-content strong {
+  color: var(--th);
+  font-weight: 500;
+}
+.legal-content a {
+  color: var(--sky);
+  text-decoration: underline;
+}
+.legal-divider {
+  border: none;
+  border-top: .5px solid var(--bd);
+  margin: 2rem 0;
+}
+.legal-footer-note {
+  margin-top: 3rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-s);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--tt);
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .legal-page { padding: 60px 0 80px; }
+  .legal-content h1 { font-size: 1.7rem; }
+  .legal-content h2 { font-size: 1rem; }
+  .legal-content p,
+  .legal-content li { font-size: 14px; }
+  .legal-content table { font-size: 12px; }
+}
+
 /* ── EXTRA SMALL (iPhone SE etc) ── */
 @media (max-width: 390px) {
   .sh2 { font-size: 1.4rem !important; }
