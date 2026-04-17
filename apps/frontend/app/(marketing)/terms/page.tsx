@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Terms and Conditions — NTSsign",
   description:
     "NTSsign Terms and Conditions of Use. Review the rules governing your use of our electronic signature platform.",
+  robots: { index: false, follow: false },
 };
 
 export default function TermsPage() {
