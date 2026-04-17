@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     siteName: "NTSsign",
     images: [
       {
-        url: "/img/og-image.png",
+        url: "/img/og-image.png?v=2",
         width: 1200,
         height: 630,
         alt: "NTSsign — Electronic Signature Platform",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     title: "NTSsign — Sign any document. From any device.",
     description:
       "Send, sign and manage documents from any device. No account needed to sign. ESIGN Act compliant.",
-    images: ["/img/og-image.png"],
+    images: ["/img/og-image.png?v=2"],
     site: "@noatechsolution",
   },
   icons: {
