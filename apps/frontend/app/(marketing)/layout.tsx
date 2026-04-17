@@ -92,6 +92,18 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <link rel="dns-prefetch" href={APP_URL} />
       {children}
       <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-71ZDREX16X"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-71ZDREX16X');
+        `}
+      </Script>
+      <Script
         id="tawkto"
         strategy="lazyOnload"
         dangerouslySetInnerHTML={{
