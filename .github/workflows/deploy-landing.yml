@@ -1,49 +1,50 @@
-name: Deploy Landing to SiteGround
+name: Deploy Landing
 
 on:
-  # Auto-deploy on push to main when landing-related files change
   push:
-    branches: [main]
+    branches: [develop, main]
     paths:
       - 'apps/frontend/**'
       - 'scripts/export-landing.sh'
       - '.github/workflows/deploy-landing.yml'
 
-  # Allow manual trigger from Actions UI (for testing and ad-hoc deploys)
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy to (staging or production)'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, production]
 
 jobs:
-  deploy:
+  deploy-staging:
+    name: Deploy to Staging Landing
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: apps/frontend/package-lock.json
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         run: cd apps/frontend && npm ci
 
-      - name: Build static export via script
-        # scripts/export-landing.sh temporarily patches next.config.ts (output: export),
-        # neuters proxy.ts, adds force-static to dynamic routes, builds, copies the
-        # result to landing-export/, and restores all original files via `trap restore EXIT`.
+      - name: Build static export
         timeout-minutes: 20
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
           NEXT_PUBLIC_API_URL: 'https://api.ntssign.com'
+          NEXT_PUBLIC_APP_URL: 'https://app-staging.ntssign.com'
         run: bash scripts/export-landing.sh
 
-      - name: Prune unreferenced PNG sources (keep only responsive variants)
-        # The responsive srcSet references *-sm/md/lg/xl files, not the base PNGs.
-        # The upscaled base PNGs are 10+ MB each and waste SiteGround space.
+      - name: Prune unreferenced PNG sources
         run: |
           cd landing-export/img
           rm -f hero-3d.png security-3d.png workflow-3d.png devices-3d.png \
@@ -52,9 +53,8 @@ jobs:
                 NTSSign_blanco_fondoazulDark.svg \
                 NTSSign_blanco_fondoTransparente.svg \
                 logo-dark.svg logo-transparent.svg
-          ls -lh | head -20
 
-      - name: Write .htaccess for SiteGround (cache + gzip + HTTPS + security headers)
+      - name: Write .htaccess
         run: |
           cat > landing-export/.htaccess << 'HTACCESS'
           <IfModule mod_expires.c>
@@ -88,11 +88,7 @@ jobs:
           RewriteEngine On
           RewriteCond %{HTTPS} off
           RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-          # Disable Apache's auto trailing-slash redirect, which on SiteGround addon
-          # domains leaks the filesystem path (e.g. /terms -> /ntssign/terms/).
           DirectorySlash Off
-          # Clean URLs for legal pages — Next.js exports produce terms.html + terms/ dir;
-          # the dir has no index.html, so map the clean URL directly to the .html sidecar.
           RewriteRule ^terms/?$ /terms.html [L]
           RewriteRule ^privacy/?$ /privacy.html [L]
           RewriteRule ^cookies/?$ /cookies.html [L]
@@ -104,13 +100,121 @@ jobs:
           du -sh landing-export
           echo "=== Key files ==="
           ls -la landing-export/index.html landing-export/.htaccess
+          test -f landing-export/img/og-image.png || { echo "MISSING og-image.png"; exit 1; }
           echo "=== Image variants ==="
           ls landing-export/img/ | head -30
 
-      - name: Deploy to SiteGround via FTP
-        # server-dir is relative to the FTP user's chroot home. Path confirmed via
-        # diagnostic: /noatechsolutions.com/public_html/ntssign/ is the real docroot
-        # for ntssign.com (addon domain served from noatechsolutions.com's public_html).
+      - name: Deploy to SiteGround Staging via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftp.noatechsolutions.com
+          username: ${{ secrets.SITEGROUND_USER }}
+          password: ${{ secrets.SITEGROUND_PASSWORD }}
+          port: 21
+          local-dir: ./landing-export/
+          server-dir: /noatechsolutions.com/public_html/ntssign-staging/
+          dangerous-clean-slate: true
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+
+      - name: Purge Cloudflare cache (staging)
+        continue-on-error: true
+        run: |
+          curl -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CF_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"files":["https://staging.ntssign.com","https://staging.ntssign.com/"]}'
+
+  deploy-production:
+    name: Deploy to Production Landing
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd apps/frontend && npm ci
+
+      - name: Build static export
+        timeout-minutes: 20
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+          NEXT_PUBLIC_API_URL: 'https://api.ntssign.com'
+          NEXT_PUBLIC_APP_URL: 'https://app.ntssign.com'
+        run: bash scripts/export-landing.sh
+
+      - name: Prune unreferenced PNG sources
+        run: |
+          cd landing-export/img
+          rm -f hero-3d.png security-3d.png workflow-3d.png devices-3d.png \
+                hero-3d.webp security-3d.webp workflow-3d.webp devices-3d.webp \
+                NTSSign_azul_fondoTrasparente.svg \
+                NTSSign_blanco_fondoazulDark.svg \
+                NTSSign_blanco_fondoTransparente.svg \
+                logo-dark.svg logo-transparent.svg
+
+      - name: Write .htaccess
+        run: |
+          cat > landing-export/.htaccess << 'HTACCESS'
+          <IfModule mod_expires.c>
+            ExpiresActive On
+            ExpiresByType image/png "access plus 1 year"
+            ExpiresByType image/webp "access plus 1 year"
+            ExpiresByType image/svg+xml "access plus 1 year"
+            ExpiresByType image/x-icon "access plus 1 year"
+            ExpiresByType text/css "access plus 1 year"
+            ExpiresByType application/javascript "access plus 1 year"
+            ExpiresByType font/woff2 "access plus 1 year"
+          </IfModule>
+          <IfModule mod_headers.c>
+            <FilesMatch "\.(js|css|woff2)$">
+              Header set Cache-Control "public, max-age=31536000, immutable"
+            </FilesMatch>
+            <FilesMatch "\.(png|jpg|svg|webp|ico)$">
+              Header set Cache-Control "public, max-age=31536000, immutable"
+            </FilesMatch>
+            <FilesMatch "\.html$">
+              Header set Cache-Control "no-cache, must-revalidate"
+            </FilesMatch>
+            Header always set X-Content-Type-Options "nosniff"
+            Header always set X-Frame-Options "SAMEORIGIN"
+            Header always set Referrer-Policy "strict-origin-when-cross-origin"
+            Header always set X-XSS-Protection "1; mode=block"
+          </IfModule>
+          <IfModule mod_deflate.c>
+            AddOutputFilterByType DEFLATE text/html text/css application/javascript image/svg+xml
+          </IfModule>
+          RewriteEngine On
+          RewriteCond %{HTTPS} off
+          RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+          DirectorySlash Off
+          RewriteRule ^terms/?$ /terms.html [L]
+          RewriteRule ^privacy/?$ /privacy.html [L]
+          RewriteRule ^cookies/?$ /cookies.html [L]
+          HTACCESS
+
+      - name: Verify export output
+        run: |
+          echo "=== Total size ==="
+          du -sh landing-export
+          echo "=== Key files ==="
+          ls -la landing-export/index.html landing-export/.htaccess
+          test -f landing-export/img/og-image.png || { echo "MISSING og-image.png"; exit 1; }
+          echo "=== Image variants ==="
+          ls landing-export/img/ | head -30
+
+      - name: Deploy to SiteGround Production via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ftp.noatechsolutions.com
@@ -124,3 +228,12 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
+
+      - name: Purge Cloudflare cache (production)
+        continue-on-error: true
+        run: |
+          curl -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CF_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
