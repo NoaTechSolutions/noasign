@@ -70,7 +70,7 @@ jobs:
             echo "--- Building frontend ---"
             cd apps/frontend
             npm ci
-            NODE_OPTIONS="--max-old-space-size=512" npm run build
+            NEXT_PUBLIC_APP_URL=https://app-staging.ntssign.com NODE_OPTIONS="--max-old-space-size=512" npm run build
 
             echo "--- Reloading frontend (zero-downtime) ---"
             pm2 reload ntssign-frontend --update-env

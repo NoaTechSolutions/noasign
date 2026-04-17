@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
+import { APP_URL } from "../../lib/app-url";
 
 type Billing = "monthly" | "annual";
 type PlanTab = "sub" | "extra" | "flex";
@@ -116,7 +117,7 @@ export function PricingSection() {
                   <span>{T[lang].p1f5}</span>
                 </div>
               </div>
-              <a href="https://app.ntssign.com/request-access" className="btn btn-g pc-btn">
+              <a href={`${APP_URL}/request-access`} className="btn btn-g pc-btn">
                 {T[lang].bs}
               </a>
             </div>
@@ -165,7 +166,7 @@ export function PricingSection() {
                   <span>{T[lang].p2f5}</span>
                 </div>
               </div>
-              <a href="https://app.ntssign.com/request-access" className="btn pc-launch-btn pc-btn">
+              <a href={`${APP_URL}/request-access`} className="btn pc-launch-btn pc-btn">
                 {T[lang].launch_cta}
               </a>
               <div className="pc-launch-trust">{T[lang].launch_trust}</div>
@@ -212,7 +213,7 @@ export function PricingSection() {
                   <span>{T[lang].p3f5}</span>
                 </div>
               </div>
-              <a href="https://app.ntssign.com/request-access" className="btn btn-g pc-btn">
+              <a href={`${APP_URL}/request-access`} className="btn btn-g pc-btn">
                 {T[lang].bs}
               </a>
             </div>
@@ -256,7 +257,7 @@ export function PricingSection() {
                   <span style={{ color: "var(--tl)" }}>{T[lang].p0x2}</span>
                 </div>
               </div>
-              <a href="https://app.ntssign.com/request-access" className="btn btn-g pc-btn">
+              <a href={`${APP_URL}/request-access`} className="btn btn-g pc-btn">
                 {T[lang].bs}
               </a>
               <div className="pc-hint">{T[lang].p0hint}</div>
@@ -303,7 +304,7 @@ export function PricingSection() {
                   <span>{T[lang].p4f5}</span>
                 </div>
               </div>
-              <a href="https://app.ntssign.com/request-access" className="btn btn-g pc-btn">
+              <a href={`${APP_URL}/request-access`} className="btn btn-g pc-btn">
                 {T[lang].bs}
               </a>
             </div>
@@ -342,7 +343,7 @@ export function PricingSection() {
                 </div>
               </div>
               <a
-                href="https://app.ntssign.com/request-access"
+                href={`${APP_URL}/request-access`}
                 className="btn btn-g"
                 style={{ width: "100%", justifyContent: "center" }}
               >
@@ -395,7 +396,7 @@ export function PricingSection() {
                 </div>
               </div>
               <a
-                href="https://app.ntssign.com/request-access"
+                href={`${APP_URL}/request-access`}
                 className="btn btn-a"
                 style={{ width: "100%", justifyContent: "center" }}
               >
@@ -439,7 +440,7 @@ export function PricingSection() {
                 </div>
               </div>
               <a
-                href="https://app.ntssign.com/request-access"
+                href={`${APP_URL}/request-access`}
                 className="btn btn-g"
                 style={{ width: "100%", justifyContent: "center" }}
               >

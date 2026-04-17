@@ -2,6 +2,7 @@
 
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
+import { APP_URL } from "../../lib/app-url";
 
 export function BottomCta() {
   const { lang } = useLang();
@@ -42,7 +43,7 @@ export function BottomCta() {
 
         <div className="cta-btns">
           <a
-            href="https://app.ntssign.com/request-access"
+            href={`${APP_URL}/request-access`}
             className="btn btn-a"
             style={{ fontSize: 16, padding: "14px 32px" }}
           >

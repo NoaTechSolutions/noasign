@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { LangProvider } from "../../components/marketing/LandingContext";
+import { APP_URL } from "../../lib/app-url";
 import "./landing.css";
 
 export const metadata: Metadata = {
@@ -23,8 +24,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <LangProvider>
       {/* Preconnect to the app host so the Log in CTA handoff is instant. */}
-      <link rel="preconnect" href="https://app.ntssign.com" />
-      <link rel="dns-prefetch" href="https://app.ntssign.com" />
+      <link rel="preconnect" href={APP_URL} />
+      <link rel="dns-prefetch" href={APP_URL} />
       {children}
       <Script
         id="tawkto"
