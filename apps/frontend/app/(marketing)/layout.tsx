@@ -5,25 +5,81 @@ import { APP_URL } from "../../lib/app-url";
 import "./landing.css";
 
 export const metadata: Metadata = {
-  title: "NTSsign · Digital Contracts & E-Signatures for Service Businesses",
+  title: "NTSsign — Electronic Signature for Growing Businesses",
   description:
-    "Create, send, and track business contracts in minutes. Your clients sign from any device — no account needed. Plans from $19/mo.",
-  openGraph: {
-    title: "NTSsign · Send contracts. Get them signed. Done.",
-    description: "The document workspace for service businesses.",
-    url: "https://ntssign.com",
-    siteName: "NTSsign",
-    type: "website",
-  },
+    "Send, sign and manage documents from any device. No account needed to sign. ESIGN Act compliant. Ready in 48 hours. From $19/mo.",
+  keywords: [
+    "electronic signature",
+    "e-signature",
+    "digital signature",
+    "ESIGN Act",
+    "document signing",
+    "NTSsign",
+  ],
+  authors: [{ name: "NoaTechSolutions" }],
+  creator: "NoaTechSolutions",
+  metadataBase: new URL("https://ntssign.com"),
   alternates: {
     canonical: "https://ntssign.com",
+    languages: { en: "https://ntssign.com", es: "https://ntssign.com" },
+  },
+  robots: { index: true, follow: true },
+  openGraph: {
+    title: "NTSsign — Sign any document. From any device.",
+    description:
+      "Send, sign and manage documents from any device. No account needed to sign. ESIGN Act compliant. Legally binding in all 50 states.",
+    url: "https://ntssign.com",
+    siteName: "NTSsign",
+    images: [
+      {
+        url: "/img/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "NTSsign — Electronic Signature Platform",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NTSsign — Sign any document. From any device.",
+    description:
+      "Send, sign and manage documents from any device. No account needed to sign. ESIGN Act compliant.",
+    images: ["/img/og-image.png"],
+    site: "@noatechsolution",
   },
 };
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <LangProvider>
-      {/* Preconnect to the app host so the Log in CTA handoff is instant. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "NTSsign",
+            description:
+              "Electronic signature platform for growing businesses. Send, sign and manage documents from any device.",
+            applicationCategory: "BusinessApplication",
+            operatingSystem: "Web",
+            url: "https://ntssign.com",
+            offers: {
+              "@type": "Offer",
+              price: "19",
+              priceCurrency: "USD",
+              priceValidUntil: "2027-12-31",
+            },
+            publisher: {
+              "@type": "Organization",
+              name: "NoaTechSolutions",
+              url: "https://noatechsolutions.com",
+            },
+          }),
+        }}
+      />
       <link rel="preconnect" href={APP_URL} />
       <link rel="dns-prefetch" href={APP_URL} />
       {children}

@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Cookie Policy — NTSsign",
   description:
     "NTSsign Cookie Policy. Learn about the cookies we use and how to manage them.",
+  robots: { index: false, follow: false },
 };
 
 export default function CookiesPage() {

@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Privacy Policy — NTSsign",
   description:
     "NTSsign Privacy Policy. Learn how we collect, use, and protect your personal data.",
+  robots: { index: false, follow: false },
 };
 
 export default function PrivacyPage() {
