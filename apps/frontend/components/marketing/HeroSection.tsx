@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
+import { APP_URL } from "../../lib/app-url";
 
 export function HeroSection() {
   const { lang } = useLang();
@@ -44,7 +45,7 @@ export function HeroSection() {
           <p className="hero-sub">{T[lang].hero_s}</p>
 
           <div className="hero-btns">
-            <a href="https://app.ntssign.com/request-access" className="btn btn-p">
+            <a href={`${APP_URL}/request-access`} className="btn btn-p">
               {T[lang].h_b1}
             </a>
             <a href="#how" className="btn btn-a">

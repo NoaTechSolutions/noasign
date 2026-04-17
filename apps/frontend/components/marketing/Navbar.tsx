@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
+import { APP_URL } from "../../lib/app-url";
 
 export function Navbar() {
   const { lang, setLang } = useLang();
@@ -95,10 +96,10 @@ export function Navbar() {
           </ul>
 
           <div className="nav-right">
-            <a href="https://app.ntssign.com/login" className="btn btn-g btn-sm">
+            <a href={`${APP_URL}/login`} className="btn btn-g btn-sm">
               {T[lang].nav_li}
             </a>
-            <a href="https://app.ntssign.com/request-access" className="btn btn-p btn-sm">
+            <a href={`${APP_URL}/request-access`} className="btn btn-p btn-sm">
               {T[lang].nav_ct}
             </a>
           </div>
@@ -113,10 +114,10 @@ export function Navbar() {
           </a>
         ))}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: ".5rem" }}>
-          <a href="https://app.ntssign.com/login" className="btn btn-g btn-sm" onClick={closeMob}>
+          <a href={`${APP_URL}/login`} className="btn btn-g btn-sm" onClick={closeMob}>
             {T[lang].nav_li}
           </a>
-          <a href="https://app.ntssign.com/request-access" className="btn btn-p btn-sm" onClick={closeMob}>
+          <a href={`${APP_URL}/request-access`} className="btn btn-p btn-sm" onClick={closeMob}>
             {T[lang].nav_ct}
           </a>
         </div>

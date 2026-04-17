@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { LangProvider } from "../../components/marketing/LandingContext";
+import { APP_URL } from "../../lib/app-url";
 import "./landing.css";
 
 export const metadata: Metadata = {
@@ -22,13 +23,18 @@ export const metadata: Metadata = {
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <LangProvider>
+      {/* Preconnect to the app host so the Log in CTA handoff is instant. */}
+      <link rel="preconnect" href={APP_URL} />
+      <link rel="dns-prefetch" href={APP_URL} />
       {children}
       <Script
         id="tawkto"
         strategy="lazyOnload"
         dangerouslySetInnerHTML={{
           __html: `
-            var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+            var Tawk_API = Tawk_API || {};
+            Tawk_API.autoStart = false;
+            var Tawk_LoadStart = new Date();
             (function(){
               var s1=document.createElement("script"),
                   s0=document.getElementsByTagName("script")[0];

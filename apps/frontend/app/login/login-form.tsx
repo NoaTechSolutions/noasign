@@ -142,10 +142,10 @@ export function LoginForm() {
   const [isSubmittingResetPassword, setIsSubmittingResetPassword] = useState(false);
   const [accountRequestSuccess, setAccountRequestSuccess] = useState("");
   const [resetToken, setResetToken] = useState("");
-  const isDarkTheme = resolvedTheme !== "light";
+  const isDarkTheme = resolvedTheme === "dark";
   const loginLogoSrc = isDarkTheme
-    ? "/ntssign-login.svg"
-    : "/ntssign-login-light.svg";
+    ? "/img/NTSSign_blanco_SinFondo.svg"
+    : "/img/NTSSign_AzulDark_SinFondo.svg";
   const authCardClassName = isDarkTheme
     ? "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--border-strong)] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[var(--shadow-medium)] md:gap-5 md:p-7 lg:p-7"
     : "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[#022977] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[0_18px_50px_rgba(2,41,119,0.12)] md:gap-5 md:p-7 lg:p-7";
