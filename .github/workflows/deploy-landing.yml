@@ -112,7 +112,7 @@ jobs:
           password: ${{ secrets.SITEGROUND_PASSWORD }}
           port: 21
           local-dir: ./landing-export/
-          server-dir: /noatechsolutions.com/public_html/staging.noatechsolutions.com/
+          server-dir: /staging.noatechsolutions.com/public_html/
           dangerous-clean-slate: true
           exclude: |
             **/.git*
