@@ -112,7 +112,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           __html: `
             try {
               var Tawk_API = Tawk_API || {};
-              Tawk_API.autoStart = false;
+              Tawk_API.onLoad = function() {
+                Tawk_API.minimize();
+              };
               var Tawk_LoadStart = new Date();
               (function(){
                 var s1=document.createElement("script"),
