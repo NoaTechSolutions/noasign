@@ -91,18 +91,22 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <link rel="preconnect" href={APP_URL} />
       <link rel="dns-prefetch" href={APP_URL} />
       {children}
-      <Script
-        src="https://www.googletagmanager.com/gtag/js?id=G-R6HRNC9LWG"
-        strategy="afterInteractive"
-      />
-      <Script id="google-analytics" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-R6HRNC9LWG');
-        `}
-      </Script>
+      {process.env.NODE_ENV === "production" && (
+        <>
+          <Script
+            src="https://www.googletagmanager.com/gtag/js?id=G-R6HRNC9LWG"
+            strategy="afterInteractive"
+          />
+          <Script id="google-analytics" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-R6HRNC9LWG');
+            `}
+          </Script>
+        </>
+      )}
       {process.env.NODE_ENV === "production" && (
         <Script
           id="tawkto"
