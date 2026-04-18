@@ -153,6 +153,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=4096'
           NEXT_PUBLIC_API_URL: 'https://api.ntssign.com'
           NEXT_PUBLIC_APP_URL: 'https://app.ntssign.com'
+          NEXT_PUBLIC_GA_ID: 'G-R6HRNC9LWG'
         run: bash scripts/export-landing.sh
 
       - name: Prune unreferenced PNG sources

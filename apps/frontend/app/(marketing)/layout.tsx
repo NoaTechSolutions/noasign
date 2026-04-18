@@ -91,10 +91,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <link rel="preconnect" href={APP_URL} />
       <link rel="dns-prefetch" href={APP_URL} />
       {children}
-      {process.env.NODE_ENV === "production" && (
+      {process.env.NEXT_PUBLIC_GA_ID && (
         <>
           <Script
-            src="https://www.googletagmanager.com/gtag/js?id=G-R6HRNC9LWG"
+            src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
             strategy="afterInteractive"
           />
           <Script id="google-analytics" strategy="afterInteractive">
@@ -102,7 +102,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              gtag('config', 'G-R6HRNC9LWG');
+              gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}');
             `}
           </Script>
         </>
