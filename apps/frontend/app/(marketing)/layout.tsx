@@ -107,32 +107,30 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </Script>
         </>
       )}
-      {process.env.NODE_ENV === "production" && (
-        <Script
-          id="tawkto"
-          strategy="lazyOnload"
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                var Tawk_API = Tawk_API || {};
-                Tawk_API.autoStart = false;
-                var Tawk_LoadStart = new Date();
-                (function(){
-                  var s1=document.createElement("script"),
-                      s0=document.getElementsByTagName("script")[0];
-                  s1.async=true;
-                  s1.src='https://embed.tawk.to/69e06f0c9883961c32ac4691/1jmab3id5';
-                  s1.charset='UTF-8';
-                  s1.setAttribute('crossorigin','*');
-                  s0.parentNode.insertBefore(s1,s0);
-                })();
-              } catch(e) {
-                console.warn('Tawk.to failed to load:', e);
-              }
-            `,
-          }}
-        />
-      )}
+      <Script
+        id="tawkto"
+        strategy="lazyOnload"
+        dangerouslySetInnerHTML={{
+          __html: `
+            try {
+              var Tawk_API = Tawk_API || {};
+              Tawk_API.autoStart = false;
+              var Tawk_LoadStart = new Date();
+              (function(){
+                var s1=document.createElement("script"),
+                    s0=document.getElementsByTagName("script")[0];
+                s1.async=true;
+                s1.src='https://embed.tawk.to/69e06f0c9883961c32ac4691/1jmab3id5';
+                s1.charset='UTF-8';
+                s1.setAttribute('crossorigin','*');
+                s0.parentNode.insertBefore(s1,s0);
+              })();
+            } catch(e) {
+              console.warn('Tawk.to failed to load:', e);
+            }
+          `,
+        }}
+      />
     </LangProvider>
   );
 }
