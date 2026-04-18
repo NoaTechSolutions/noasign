@@ -8,7 +8,7 @@ import { APP_URL } from "../../lib/app-url";
 type Billing = "monthly" | "annual";
 type PlanTab = "sub" | "extra" | "flex";
 
-export function PricingSection() {
+export function PricingSection({ isPricingPage = false }: { isPricingPage?: boolean } = {}) {
   const { lang } = useLang();
   const [billing, setBilling] = useState<Billing>("monthly");
   const [planTab, setPlanTab] = useState<PlanTab>("sub");
@@ -449,6 +449,15 @@ export function PricingSection() {
             </div>
           </div>
         </div>
+        {!isPricingPage && (
+          <div className="pricing-view-all rv">
+            <a href="/pricing" className="btn-view-all">
+              {T[lang].tab_sub === "Plans"
+                ? "See full plan comparison \u2192"
+                : "Ver comparaci\u00f3n completa de planes \u2192"}
+            </a>
+          </div>
+        )}
       </div>
     </section>
   );
