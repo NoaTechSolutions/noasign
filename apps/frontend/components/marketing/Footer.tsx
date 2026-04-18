@@ -79,6 +79,17 @@ export function Footer() {
                 </svg>
               </a>
               <a
+                href="https://linkedin.com/company/noatechsolutions"
+                className="foot-soc-ico"
+                aria-label="LinkedIn"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                </svg>
+              </a>
+              <a
                 href="https://share.google/Z70hgLNOKhBUjOyfO"
                 className="foot-soc-ico"
                 aria-label="Google Business"
@@ -95,7 +106,7 @@ export function Footer() {
           <div className="foot-col-group">
             {/* Product */}
             <div className="foot-col">
-              <h4>{T[lang].fcprod}</h4>
+              <h3 className="foot-col-title">{T[lang].fcprod}</h3>
               <ul>
                 <li><a href="#features">{T[lang].nav_f}</a></li>
                 <li><a href="#how">{T[lang].nav_h || "How it works"}</a></li>
@@ -106,7 +117,7 @@ export function Footer() {
 
             {/* Resources */}
             <div className="foot-col">
-              <h4>{T[lang].fcres}</h4>
+              <h3 className="foot-col-title">{T[lang].fcres}</h3>
               <ul>
                 <li><a href="#how">{T[lang].f_gs}</a></li>
                 <li><a href="#faq">{T[lang].f_doc}</a></li>
@@ -117,7 +128,7 @@ export function Footer() {
 
             {/* Company */}
             <div className="foot-col">
-              <h4>{T[lang].fcco}</h4>
+              <h3 className="foot-col-title">{T[lang].fcco}</h3>
               <ul>
                 <li><a href="https://noatechsolutions.com/nosotros/" target="_blank" rel="noopener noreferrer">{T[lang].f_abt}</a></li>
                 <li><a href="/privacy">{T[lang].f_prv}</a></li>
