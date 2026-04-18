@@ -109,7 +109,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       )}
       <Script
         id="tawkto"
-        strategy="lazyOnload"
+        strategy="afterInteractive"
         dangerouslySetInnerHTML={{
           __html: `
             try {
