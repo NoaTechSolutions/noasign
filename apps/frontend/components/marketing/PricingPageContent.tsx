@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLang } from "./LandingContext";
 import { APP_URL } from "../../lib/app-url";
+import { openChat } from "../../lib/open-chat";
 import { PricingSection } from "./PricingSection";
 
 const copy = {
@@ -163,11 +164,11 @@ export function PricingPageContent() {
               </tr>
               <tr>
                 <td></td>
-                <td><a href={`${APP_URL}/request-access`} className="compare-cta-btn compare-cta-secondary">{t.get_started}</a></td>
-                <td className="col-launch-cell"><a href={`${APP_URL}/request-access`} className="compare-cta-btn compare-cta-primary">{t.get_started_accent}</a></td>
-                <td><a href={`${APP_URL}/request-access`} className="compare-cta-btn compare-cta-secondary">{t.get_started}</a></td>
-                <td><a href={`${APP_URL}/request-access`} className="compare-cta-btn compare-cta-secondary">{t.get_started}</a></td>
-                <td><a href={`${APP_URL}/request-access`} className="compare-cta-btn compare-cta-secondary">{t.get_started}</a></td>
+                <td><button onClick={openChat} className="compare-cta-btn compare-cta-secondary">{t.get_started}</button></td>
+                <td className="col-launch-cell"><button onClick={openChat} className="compare-cta-btn compare-cta-primary">{t.get_started_accent}</button></td>
+                <td><button onClick={openChat} className="compare-cta-btn compare-cta-secondary">{t.get_started}</button></td>
+                <td><button onClick={openChat} className="compare-cta-btn compare-cta-secondary">{t.get_started}</button></td>
+                <td><button onClick={openChat} className="compare-cta-btn compare-cta-secondary">{t.get_started}</button></td>
               </tr>
             </tbody>
           </table>
@@ -230,9 +231,9 @@ export function PricingPageContent() {
       <section className="cta-band">
         <div className="wrap" style={{ textAlign: "center", padding: "3rem 1rem" }}>
           <h2 className="sh2" style={{ color: "#fff", marginBottom: "1.5rem" }}>{t.cta_h}</h2>
-          <a href={`${APP_URL}/request-access`} className="btn btn-a" style={{ fontSize: 16, padding: "14px 32px" }}>
+          <button onClick={openChat} className="btn btn-a" style={{ fontSize: 16, padding: "14px 32px" }}>
             {t.cta_btn}
-          </a>
+          </button>
         </div>
       </section>
     </>
