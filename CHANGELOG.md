@@ -1,5 +1,34 @@
 # Changelog
 
+## [Abril 2026] — Session 2
+
+### Nuevas funcionalidades
+- NOA-130: Pagina /pricing con tabla comparativa, FAQ x10, hero naranja
+- NOA-99: Google Analytics 4 (G-R6HRNC9LWG) solo en produccion
+- NOA-133: Landing staging en staging.noatechsolutions.com
+
+### Fixes
+- NOA-139: Chatbot Tawk.to inicia minimizado (autoStart=false)
+- NOA-140: Icono chatbot no se corta (bottom: 32px)
+- NOA-141: Texto card Launch visible en light mode
+- NOA-142: Preconnect app.ntssign.com
+- NOA-143: Login ThemeProvider + logo azul + toggle dark/light
+- NOA-147: APP_URL configurable por env var (16 hardcodes)
+- NOA-148: Login card dark/light via Tailwind dark: variants
+- NOA-158: Proceso de versionado de imagenes (og-image-v4.png)
+- NOA-165: Chatbot Tawk.to sin guard NODE_ENV — visible en todos los ambientes
+
+### SEO
+- NOA-138: og:image, favicon suite, metadata completa, GA4, JSON-LD
+
+### Infraestructura
+- Landing staging: staging.noatechsolutions.com
+- NEXT_PUBLIC_GA_ID solo en produccion via workflow
+- NEXT_PUBLIC_APP_URL configurable por ambiente
+- Proceso versionado imagenes documentado
+
+---
+
 ## Proceso: Actualizar imagenes en produccion
 
 ### Regla de oro
