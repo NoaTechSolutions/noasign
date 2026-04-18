@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { LangProvider } from "../../components/marketing/LandingContext";
-import { APP_URL } from "../../lib/app-url";
 import { TawkChat } from "../../components/marketing/TawkChat";
 import "./landing.css";
 
@@ -89,8 +88,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           }),
         }}
       />
-      <link rel="preconnect" href={APP_URL} />
-      <link rel="dns-prefetch" href={APP_URL} />
       {children}
       {process.env.NEXT_PUBLIC_GA_ID && (
         <>

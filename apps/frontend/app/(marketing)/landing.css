@@ -553,17 +553,19 @@ img {
   content: '';
   position: absolute;
   top: 0;
-  left: -100%;
+  left: 0;
   width: 50%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 153, 0, 0.35), transparent);
+  will-change: transform;
+  transform: translateX(-200%);
   animation: pillShine 3.5s ease-in-out infinite;
 }
 
 @keyframes pillShine {
-  0%   { left: -100%; }
-  40%  { left: 150%; }
-  100% { left: 150%; }
+  0%   { transform: translateX(-200%); }
+  40%  { transform: translateX(300%); }
+  100% { transform: translateX(300%); }
 }
 
 h1.h1 {
