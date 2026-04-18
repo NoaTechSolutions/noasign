@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
 import { APP_URL } from "../../lib/app-url";
+import { openChat } from "../../lib/open-chat";
 
 export function HeroSection() {
   const { lang } = useLang();
@@ -45,9 +46,9 @@ export function HeroSection() {
           <p className="hero-sub">{T[lang].hero_s}</p>
 
           <div className="hero-btns">
-            <a href={`${APP_URL}/request-access`} className="btn btn-p">
+            <button onClick={openChat} className="btn btn-p">
               {T[lang].h_b1}
-            </a>
+            </button>
             <a href="#how" className="btn btn-a">
               {T[lang].h_b2}
             </a>

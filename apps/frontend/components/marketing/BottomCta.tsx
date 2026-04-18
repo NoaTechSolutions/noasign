@@ -3,6 +3,7 @@
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
 import { APP_URL } from "../../lib/app-url";
+import { openChat } from "../../lib/open-chat";
 
 export function BottomCta() {
   const { lang } = useLang();
@@ -42,13 +43,13 @@ export function BottomCta() {
         </div>
 
         <div className="cta-btns">
-          <a
-            href={`${APP_URL}/request-access`}
+          <button
+            onClick={openChat}
             className="btn btn-a"
             style={{ fontSize: 16, padding: "14px 32px" }}
           >
             {T[lang].ctab1}
-          </a>
+          </button>
           <a href="#pricing" className="btn btn-wo">
             {T[lang].ctab2}
           </a>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
 import { APP_URL } from "../../lib/app-url";
+import { openChat } from "../../lib/open-chat";
 
 export function Navbar() {
   const { lang, setLang } = useLang();
@@ -99,9 +100,9 @@ export function Navbar() {
             <a href={`${APP_URL}/login`} className="btn btn-g btn-sm">
               {T[lang].nav_li}
             </a>
-            <a href={`${APP_URL}/request-access`} className="btn btn-p btn-sm">
+            <button onClick={openChat} className="btn btn-p btn-sm">
               {T[lang].nav_ct}
-            </a>
+            </button>
           </div>
         </div>
       </nav>
@@ -117,9 +118,9 @@ export function Navbar() {
           <a href={`${APP_URL}/login`} className="btn btn-g btn-sm" onClick={closeMob}>
             {T[lang].nav_li}
           </a>
-          <a href={`${APP_URL}/request-access`} className="btn btn-p btn-sm" onClick={closeMob}>
+          <button onClick={() => { closeMob(); openChat(); }} className="btn btn-p btn-sm">
             {T[lang].nav_ct}
-          </a>
+          </button>
         </div>
       </div>
     </>

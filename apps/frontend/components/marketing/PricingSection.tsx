@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
-import { APP_URL } from "../../lib/app-url";
+import { openChat } from "../../lib/open-chat";
 
 type Billing = "monthly" | "annual";
 type PlanTab = "sub" | "extra" | "flex";
@@ -117,9 +117,9 @@ export function PricingSection({ isPricingPage = false }: { isPricingPage?: bool
                   <span>{T[lang].p1f5}</span>
                 </div>
               </div>
-              <a href={`${APP_URL}/request-access`} className="btn btn-g pc-btn">
+              <button onClick={openChat} className="btn btn-g pc-btn">
                 {T[lang].bs}
-              </a>
+              </button>
             </div>
 
             {/* LAUNCH — BESTSELLER */}
@@ -166,9 +166,9 @@ export function PricingSection({ isPricingPage = false }: { isPricingPage?: bool
                   <span>{T[lang].p2f5}</span>
                 </div>
               </div>
-              <a href={`${APP_URL}/request-access`} className="btn pc-launch-btn pc-btn">
+              <button onClick={openChat} className="btn pc-launch-btn pc-btn">
                 {T[lang].launch_cta}
-              </a>
+              </button>
               <div className="pc-launch-trust">{T[lang].launch_trust}</div>
             </div>
 
@@ -213,9 +213,9 @@ export function PricingSection({ isPricingPage = false }: { isPricingPage?: bool
                   <span>{T[lang].p3f5}</span>
                 </div>
               </div>
-              <a href={`${APP_URL}/request-access`} className="btn btn-g pc-btn">
+              <button onClick={openChat} className="btn btn-g pc-btn">
                 {T[lang].bs}
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -257,9 +257,9 @@ export function PricingSection({ isPricingPage = false }: { isPricingPage?: bool
                   <span style={{ color: "var(--tl)" }}>{T[lang].p0x2}</span>
                 </div>
               </div>
-              <a href={`${APP_URL}/request-access`} className="btn btn-g pc-btn">
+              <button onClick={openChat} className="btn btn-g pc-btn">
                 {T[lang].bs}
-              </a>
+              </button>
               <div className="pc-hint">{T[lang].p0hint}</div>
             </div>
 
@@ -304,9 +304,9 @@ export function PricingSection({ isPricingPage = false }: { isPricingPage?: bool
                   <span>{T[lang].p4f5}</span>
                 </div>
               </div>
-              <a href={`${APP_URL}/request-access`} className="btn btn-g pc-btn">
+              <button onClick={openChat} className="btn btn-g pc-btn">
                 {T[lang].bs}
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -342,13 +342,13 @@ export function PricingSection({ isPricingPage = false }: { isPricingPage?: bool
                   <span>{T[lang].p0f3}</span>
                 </div>
               </div>
-              <a
-                href={`${APP_URL}/request-access`}
+              <button
+                onClick={openChat}
                 className="btn btn-g"
                 style={{ width: "100%", justifyContent: "center" }}
               >
                 {T[lang].bs}
-              </a>
+              </button>
             </div>
 
             {/* Template Setup Service */}
@@ -395,13 +395,13 @@ export function PricingSection({ isPricingPage = false }: { isPricingPage?: bool
                   <span>{T[lang].su_f4}</span>
                 </div>
               </div>
-              <a
-                href={`${APP_URL}/request-access`}
+              <button
+                onClick={openChat}
                 className="btn btn-a"
                 style={{ width: "100%", justifyContent: "center" }}
               >
                 {T[lang].setup_btn}
-              </a>
+              </button>
             </div>
 
             {/* Onboarding Packages */}
@@ -439,13 +439,13 @@ export function PricingSection({ isPricingPage = false }: { isPricingPage?: bool
                   <span>{T[lang].ob_f4}</span>
                 </div>
               </div>
-              <a
-                href={`${APP_URL}/request-access`}
+              <button
+                onClick={openChat}
                 className="btn btn-g"
                 style={{ width: "100%", justifyContent: "center" }}
               >
                 {T[lang].ob_btn}
-              </a>
+              </button>
             </div>
           </div>
         </div>
