@@ -3,6 +3,7 @@ import { Navbar } from "../../../components/marketing/Navbar";
 import { Footer } from "../../../components/marketing/Footer";
 import { FloatingControls } from "../../../components/marketing/FloatingControls";
 import { PricingPageContent } from "../../../components/marketing/PricingPageContent";
+import { ScrollReveal } from "../../../components/marketing/ScrollReveal";
 
 export const metadata: Metadata = {
   title: "Pricing — NTSsign",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <>
+      <ScrollReveal />
       <Navbar />
       <main>
         <PricingPageContent />
