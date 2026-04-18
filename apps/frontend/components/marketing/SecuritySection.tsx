@@ -26,17 +26,17 @@ export function SecuritySection() {
             <picture>
               <source
                 type="image/webp"
-                srcSet="/img/security-3d-sm.webp 600w, /img/security-3d-md.webp 900w, /img/security-3d-lg.webp 1400w, /img/security-3d-xl.webp 1800w"
+                srcSet="/img/security-3d-sm-v2.webp 600w, /img/security-3d-md-v2.webp 900w, /img/security-3d-lg-v2.webp 1400w, /img/security-3d-xl-v2.webp 1800w"
                 sizes="(max-width: 768px) 100vw, 45vw"
               />
               <source
                 type="image/png"
-                srcSet="/img/security-3d-sm.png 600w, /img/security-3d-md.png 900w, /img/security-3d-lg.png 1400w, /img/security-3d-xl.png 1800w"
+                srcSet="/img/security-3d-sm-v2.png 600w, /img/security-3d-md-v2.png 900w, /img/security-3d-lg-v2.png 1400w, /img/security-3d-xl-v2.png 1800w"
                 sizes="(max-width: 768px) 100vw, 45vw"
               />
               <img
                 className="sec-img security-img"
-                src="/img/security-3d-lg.png"
+                src="/img/security-3d-lg-v2.png"
                 alt="Security and compliance — ESIGN Act compliant"
                 width={600}
                 height={600}

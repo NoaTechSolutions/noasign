@@ -70,16 +70,16 @@ export function HeroSection() {
             <picture>
               <source
                 type="image/webp"
-                srcSet="/img/hero-3d-sm.webp 600w, /img/hero-3d-md.webp 900w, /img/hero-3d-lg.webp 1400w, /img/hero-3d-xl.webp 1800w"
+                srcSet="/img/hero-3d-sm-v2.webp 600w, /img/hero-3d-md-v2.webp 900w, /img/hero-3d-lg-v2.webp 1400w, /img/hero-3d-xl-v2.webp 1800w"
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 45vw"
               />
               <source
                 type="image/png"
-                srcSet="/img/hero-3d-sm.png 600w, /img/hero-3d-md.png 900w, /img/hero-3d-lg.png 1400w, /img/hero-3d-xl.png 1800w"
+                srcSet="/img/hero-3d-sm-v2.png 600w, /img/hero-3d-md-v2.png 900w, /img/hero-3d-lg-v2.png 1400w, /img/hero-3d-xl-v2.png 1800w"
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 45vw"
               />
               <img
-                src="/img/hero-3d-lg.png"
+                src="/img/hero-3d-lg-v2.png"
                 alt="NTSsign — sign documents from any device"
                 width={600}
                 height={550}

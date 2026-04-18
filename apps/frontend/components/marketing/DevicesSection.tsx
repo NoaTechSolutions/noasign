@@ -27,16 +27,16 @@ export function DevicesSection() {
             <picture>
               <source
                 type="image/webp"
-                srcSet="/img/devices-3d-sm.webp 600w, /img/devices-3d-md.webp 900w, /img/devices-3d-lg.webp 1400w, /img/devices-3d-xl.webp 1800w"
+                srcSet="/img/devices-3d-sm-v2.webp 600w, /img/devices-3d-md-v2.webp 900w, /img/devices-3d-lg-v2.webp 1400w, /img/devices-3d-xl-v2.webp 1800w"
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
               <source
                 type="image/png"
-                srcSet="/img/devices-3d-sm.png 600w, /img/devices-3d-md.png 900w, /img/devices-3d-lg.png 1400w, /img/devices-3d-xl.png 1800w"
+                srcSet="/img/devices-3d-sm-v2.png 600w, /img/devices-3d-md-v2.png 900w, /img/devices-3d-lg-v2.png 1400w, /img/devices-3d-xl-v2.png 1800w"
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
               <img
-                src="/img/devices-3d-lg.png"
+                src="/img/devices-3d-lg-v2.png"
                 alt="Sign from any device — phone, tablet, laptop"
                 width={600}
                 height={500}
