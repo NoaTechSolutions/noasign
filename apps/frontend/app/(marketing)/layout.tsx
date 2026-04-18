@@ -92,7 +92,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <link rel="dns-prefetch" href={APP_URL} />
       {children}
       <Script
-        src="https://www.googletagmanager.com/gtag/js?id=G-71ZDREX16X"
+        src="https://www.googletagmanager.com/gtag/js?id=G-R6HRNC9LWG"
         strategy="afterInteractive"
       />
       <Script id="google-analytics" strategy="afterInteractive">
@@ -100,7 +100,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', 'G-71ZDREX16X');
+          gtag('config', 'G-R6HRNC9LWG');
         `}
       </Script>
       <Script
