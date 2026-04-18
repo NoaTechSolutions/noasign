@@ -92,6 +92,7 @@ jobs:
           RewriteRule ^terms/?$ /terms.html [L]
           RewriteRule ^privacy/?$ /privacy.html [L]
           RewriteRule ^cookies/?$ /cookies.html [L]
+          RewriteRule ^pricing/?$ /pricing.html [L]
           HTACCESS
 
       - name: Verify export output
@@ -202,6 +203,7 @@ jobs:
           RewriteRule ^terms/?$ /terms.html [L]
           RewriteRule ^privacy/?$ /privacy.html [L]
           RewriteRule ^cookies/?$ /cookies.html [L]
+          RewriteRule ^pricing/?$ /pricing.html [L]
           HTACCESS
 
       - name: Verify export output
