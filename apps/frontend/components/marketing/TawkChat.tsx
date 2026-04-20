@@ -5,11 +5,13 @@ import Script from "next/script";
 export function TawkChat() {
   return (
     <>
-      <Script id="tawk-config" strategy="beforeInteractive">
+      <Script id="tawk-config" strategy="afterInteractive">
         {`
           window.Tawk_API = window.Tawk_API || {};
           window.Tawk_API.onLoad = function() {
-            window.Tawk_API.minimize();
+            setTimeout(function() {
+              window.Tawk_API.minimize();
+            }, 500);
           };
         `}
       </Script>
