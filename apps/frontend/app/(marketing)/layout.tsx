@@ -62,6 +62,10 @@ export const metadata: Metadata = {
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <LangProvider>
+      <link rel="preconnect" href="https://embed.tawk.to" />
+      <link rel="dns-prefetch" href="https://embed.tawk.to" />
+      <link rel="preconnect" href="https://va.tawk.to" />
+      <link rel="dns-prefetch" href="https://va.tawk.to" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
