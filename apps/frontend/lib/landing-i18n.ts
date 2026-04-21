@@ -368,7 +368,7 @@ export const T: Record<Lang, Record<string, string>> = {
     faq_h2: 'Questions we get all the time',
     faq_sub:
       'No sales pitch. Straight answers to what actually matters before you decide.',
-    faq_contact: 'Still have questions? Email us \u2192',
+    faq_contact: 'Still have questions? Send us a message \u2192',
     fq1q: 'Does my client need to create an account to sign?',
     fq1a: 'No. Your client receives a unique secure link by email. They click it, review the document, and sign in their browser \u2014 no account, no app. Under a minute on any device.',
     fq2q: 'Is the electronic signature legally valid in the US?',
@@ -821,7 +821,7 @@ export const T: Record<Lang, Record<string, string>> = {
     faq_h2: 'Las preguntas que nos hacen siempre',
     faq_sub:
       'Sin discurso de ventas. Respuestas directas a lo que importa antes de decidir.',
-    faq_contact: '\u00bfM\u00e1s preguntas? Escr\u00edbenos \u2192',
+    faq_contact: '\u00bfM\u00e1s preguntas? Escribinos \u2192',
     fq1q: '\u00bfMi cliente necesita crear una cuenta para firmar?',
     fq1a: 'No. Tu cliente recibe un link \u00fanico por email. Lo abre, revisa el documento y firma en su navegador \u2014 sin cuenta, sin app, sin registro. Menos de un minuto desde cualquier dispositivo.',
     fq2q: '\u00bfLa firma electr\u00f3nica tiene validez legal en EE.UU.?',
