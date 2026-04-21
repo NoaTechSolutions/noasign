@@ -13,65 +13,54 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to Oracle Cloud VM
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, production]
     environment: production
 
     steps:
       - name: Deploy backend
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PROD_BACKEND_HOST }}
-          username: ${{ secrets.PROD_SSH_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          port: 22
-          script: |
-            set -e
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        run: |
+          set -e
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-            echo "--- Pulling latest code ---"
-            cd ~/apps/ntssign
-            git pull origin main
+          echo "--- Pulling latest code ---"
+          cd ~/apps/ntssign
+          git pull origin main
 
-            echo "--- Building backend ---"
-            cd apps/backend
-            npm ci
-            ./node_modules/.bin/prisma generate
-            ./node_modules/.bin/prisma migrate deploy
-            # nest-cli deleteOutDir wipes dist/ but not the incremental tsbuildinfo,
-            # so a stale cache can make tsc NOOP and produce no output silently.
-            rm -f tsconfig.build.tsbuildinfo
-            npm run build
-            test -f dist/main.js || { echo "ERROR: dist/main.js not produced by build"; exit 1; }
-            npm prune --omit=dev
+          echo "--- Building backend ---"
+          cd apps/backend
+          npm ci
+          ./node_modules/.bin/prisma generate
+          ./node_modules/.bin/prisma migrate deploy
+          # nest-cli deleteOutDir wipes dist/ but not the incremental tsbuildinfo,
+          # so a stale cache can make tsc NOOP and produce no output silently.
+          rm -f tsconfig.build.tsbuildinfo
+          npm run build
+          test -f dist/main.js || { echo "ERROR: dist/main.js not produced by build"; exit 1; }
+          npm prune --omit=dev
 
-            echo "--- Reloading backend (zero-downtime) ---"
-            pm2 reload ntssign-backend --update-env
+          echo "--- Reloading backend (zero-downtime) ---"
+          pm2 reload ntssign-backend --update-env
 
-            echo "--- Backend deploy complete ---"
+          echo "--- Backend deploy complete ---"
 
       - name: Deploy frontend
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PROD_FRONTEND_HOST }}
-          username: ${{ secrets.PROD_SSH_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          port: 22
-          script: |
-            set -e
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        timeout-minutes: 20
+        run: |
+          set -e
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-            echo "--- Pulling latest code ---"
-            cd ~/apps/ntssign
-            git pull origin main
+          echo "--- Pulling latest code ---"
+          cd ~/apps/ntssign
+          git pull origin main
 
-            echo "--- Building frontend ---"
-            cd apps/frontend
-            npm ci
-            NODE_OPTIONS="--max-old-space-size=512" npm run build
+          echo "--- Building frontend ---"
+          cd apps/frontend
+          npm ci
+          NODE_OPTIONS="--max-old-space-size=512" npm run build
 
-            echo "--- Reloading frontend (zero-downtime) ---"
-            pm2 reload ntssign-frontend --update-env
+          echo "--- Reloading frontend (zero-downtime) ---"
+          pm2 reload ntssign-frontend --update-env
 
-            echo "--- Frontend deploy complete ---"
+          echo "--- Frontend deploy complete ---"
