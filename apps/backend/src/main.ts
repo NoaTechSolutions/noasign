@@ -12,6 +12,7 @@ function validateRequiredEnv() {
     'APP_URL',
     'BOLDSIGN_API_KEY',
     'BOLDSIGN_WEBHOOK_SECRET',
+    'TURNSTILE_SECRET_KEY',
   ];
 
   const missing = required.filter((key) => !process.env[key]?.trim());
@@ -103,20 +104,36 @@ function createSecurityHeadersMiddleware() {
 }
 
 function createAuthRateLimitMiddleware() {
-  const windowMs = normalizePositiveInteger(
+  const authWindowMs = normalizePositiveInteger(
     process.env.AUTH_RATE_LIMIT_WINDOW_MS,
     15 * 60 * 1000,
   );
-  const maxRequests = normalizePositiveInteger(
+  const authMax = normalizePositiveInteger(
     process.env.AUTH_RATE_LIMIT_MAX,
     10,
   );
-  const protectedRoutes = new Set([
-    'POST:/auth/login',
-    'POST:/auth/register',
-    'POST:/auth/forgot-password',
-    'POST:/auth/reset-password',
-    'POST:/users/account-requests',
+  const contactWindowMs = 60 * 60 * 1000;
+  const contactMax = 3;
+
+  const protectedRoutes = new Map<
+    string,
+    { windowMs: number; max: number }
+  >([
+    ['POST:/auth/login', { windowMs: authWindowMs, max: authMax }],
+    ['POST:/auth/register', { windowMs: authWindowMs, max: authMax }],
+    [
+      'POST:/auth/forgot-password',
+      { windowMs: authWindowMs, max: authMax },
+    ],
+    [
+      'POST:/auth/reset-password',
+      { windowMs: authWindowMs, max: authMax },
+    ],
+    [
+      'POST:/users/account-requests',
+      { windowMs: authWindowMs, max: authMax },
+    ],
+    ['POST:/contact', { windowMs: contactWindowMs, max: contactMax }],
   ]);
   const entries = new Map<string, { count: number; resetAt: number }>();
 
@@ -132,7 +149,8 @@ function createAuthRateLimitMiddleware() {
 
   return (req: Request, res: Response, next: NextFunction) => {
     const routeKey = `${req.method}:${req.path}`;
-    if (!protectedRoutes.has(routeKey)) {
+    const config = protectedRoutes.get(routeKey);
+    if (!config) {
       next();
       return;
     }
@@ -145,20 +163,20 @@ function createAuthRateLimitMiddleware() {
     if (!existing || existing.resetAt <= now) {
       entries.set(key, {
         count: 1,
-        resetAt: now + windowMs,
+        resetAt: now + config.windowMs,
       });
       next();
       return;
     }
 
-    if (existing.count >= maxRequests) {
+    if (existing.count >= config.max) {
       const retryAfterSeconds = Math.max(
         1,
         Math.ceil((existing.resetAt - now) / 1000),
       );
       res.setHeader('Retry-After', String(retryAfterSeconds));
       res.status(429).json({
-        message: 'Too many authentication attempts. Please try again later.',
+        message: 'Too many requests. Please try again later.',
         statusCode: 429,
       });
       return;
