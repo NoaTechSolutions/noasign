@@ -4978,8 +4978,16 @@ h2.sh2 {
   transition: color 0.15s;
 }
 
-.foot-contact a:hover {
+.foot-contact a:hover,
+.foot-contact a:hover svg {
   color: var(--amber);
+  fill: var(--amber);
+}
+
+.dark .foot-contact a:hover,
+.dark .foot-contact a:hover svg {
+  color: var(--amber);
+  fill: var(--amber);
 }
 
 .foot-contact a svg {
