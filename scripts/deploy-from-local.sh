@@ -39,9 +39,9 @@ STAGING_USER="ubuntu"
 STAGING_KEY="$HOME/.ssh/staging_vm"
 STAGING_BRANCH="develop"
 
-PROD_HOST=""            # <-- fill in when prod server is ready
+PROD_HOST="163.192.63.37"
 PROD_USER="ubuntu"
-PROD_KEY="$HOME/.ssh/prod_vm"
+PROD_KEY="$HOME/.ssh/new_prod_key"
 PROD_BRANCH="main"
 
 APP_DIR="/home/ubuntu/apps/ntssign"
