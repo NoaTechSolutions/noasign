@@ -13,7 +13,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to Staging VM
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, staging]
     environment: staging
 
     steps:
