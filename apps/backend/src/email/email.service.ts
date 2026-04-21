@@ -28,6 +28,13 @@ export type SignatureProcessingPayload = {
   documentNumber: string;
 };
 
+export type ContactFormPayload = {
+  name: string;
+  email: string;
+  message: string;
+  lang?: 'en' | 'es';
+};
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -130,8 +137,101 @@ export class EmailService {
     );
   }
 
+  async sendContactForm(payload: ContactFormPayload): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(
+        `[EmailService] Skipping contact form from ${payload.email} — Resend not configured`,
+      );
+      return;
+    }
+
+    const to =
+      process.env.CONTACT_FORM_TO ?? 'contact@noatechsolutions.com';
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to,
+      replyTo: payload.email,
+      subject: `New contact from NTSsign — ${payload.name}`,
+      html: this.buildContactFormHtml(payload),
+    });
+
+    if (error) {
+      this.logger.error(
+        `[EmailService] Failed to send contact form from ${payload.email}: ${JSON.stringify(error)}`,
+      );
+      throw new Error(`Email delivery failed: ${error.message}`);
+    }
+
+    this.logger.log(
+      `[EmailService] Contact form sent from ${payload.email} to ${to} (id: ${data?.id})`,
+    );
+  }
+
   private getAppUrl(): string {
     return (process.env.APP_URL ?? 'https://app.ntssign.com').replace(/\/$/, '');
+  }
+
+  private buildContactFormHtml(p: ContactFormPayload): string {
+    const timestamp = new Date().toISOString();
+    const lang = p.lang ?? 'en';
+    const name = escapeHtml(p.name);
+    const email = escapeHtml(p.email);
+    const messageHtml = escapeHtml(p.message).replace(/\n/g, '<br/>');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New contact form submission</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(2,41,119,0.06);">
+          <tr>
+            <td style="padding:24px 32px;border-bottom:1px solid #e5e7eb;">
+              <div style="color:#6b7280;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;">NTSsign landing</div>
+              <div style="color:#111827;font-size:18px;font-weight:700;margin-top:4px;">New contact form submission</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.6;">
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;width:120px;vertical-align:top;">Name</td>
+                  <td style="padding:8px 0;color:#111827;font-weight:500;">${name}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;vertical-align:top;">Email</td>
+                  <td style="padding:8px 0;color:#111827;"><a href="mailto:${email}" style="color:#0400f0;text-decoration:none;">${email}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;vertical-align:top;">Language</td>
+                  <td style="padding:8px 0;color:#111827;">${escapeHtml(lang)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;vertical-align:top;">Received</td>
+                  <td style="padding:8px 0;color:#111827;font-family:monospace;font-size:12px;">${escapeHtml(timestamp)}</td>
+                </tr>
+              </table>
+              <div style="margin-top:20px;padding:16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+                <div style="color:#6b7280;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">Message</div>
+                <div style="color:#111827;font-size:14px;line-height:1.6;white-space:pre-wrap;">${messageHtml}</div>
+              </div>
+              <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">
+                Reply directly to this email to answer ${name}.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
   }
 
   private buildSigningInvitationHtml(p: SigningInvitationPayload): string {
@@ -424,4 +524,13 @@ export class EmailService {
 </body>
 </html>`;
   }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
