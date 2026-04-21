@@ -4927,20 +4927,6 @@ h2.sh2 {
   max-width: 280px;
 }
 
-.foot-mail a {
-  font-size: 13px;
-  color: var(--navy);
-  transition: color 0.15s;
-}
-
-.foot-mail a:hover {
-  color: var(--th);
-}
-
-.dark .foot-mail a {
-  color: var(--sky);
-}
-
 .foot-col h3.foot-col-title,
 .foot-col h4 {
   font-size: 12px;
@@ -4966,6 +4952,40 @@ h2.sh2 {
 
 .foot-col a:hover {
   color: var(--th);
+}
+
+.foot-contact {
+  margin-top: 16px;
+}
+
+.foot-contact h4 {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--th);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.foot-contact a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--tl);
+  font-size: 13px;
+  margin-bottom: 6px;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.foot-contact a:hover {
+  color: var(--amber);
+}
+
+.foot-contact a svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .foot-bottom {
