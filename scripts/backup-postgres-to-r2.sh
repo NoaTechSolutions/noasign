@@ -59,10 +59,30 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 2
 fi
 
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
+# Focused env loader — never executes any value, unlike `source`.
+# Tolerates spaces around '=', surrounding quotes, and ignores any line
+# that doesn't start with the requested key.
+load_env_var() {
+  local key="$1"
+  local line value
+  line=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$ENV_FILE" | head -n1)
+  [ -z "$line" ] && return 1
+  value="${line#*=}"
+  # Trim leading whitespace
+  value="${value#"${value%%[![:space:]]*}"}"
+  # Strip surrounding matching quotes
+  case "$value" in
+    \"*\") value="${value:1:${#value}-2}" ;;
+    \'*\') value="${value:1:${#value}-2}" ;;
+  esac
+  printf '%s' "$value"
+}
+
+DATABASE_URL=$(load_env_var DATABASE_URL)
+R2_BUCKET=$(load_env_var R2_BUCKET)
+R2_ENDPOINT=$(load_env_var R2_ENDPOINT)
+R2_ACCESS_KEY_ID=$(load_env_var R2_ACCESS_KEY_ID)
+R2_SECRET_ACCESS_KEY=$(load_env_var R2_SECRET_ACCESS_KEY)
 
 for var in DATABASE_URL R2_BUCKET R2_ENDPOINT R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
   if [ -z "${!var:-}" ]; then
