@@ -3676,9 +3676,9 @@ h2.sh2 {
 }
 
 .foot-soc-ico:hover {
-  background: var(--navy);
-  color: #fff;
-  border-color: var(--navy);
+  background: rgba(255, 153, 0, 0.1);
+  color: var(--amber);
+  border-color: var(--amber);
   transform: translateY(-2px);
 }
 
@@ -3687,9 +3687,9 @@ h2.sh2 {
 }
 
 .dark .foot-soc-ico:hover {
-  background: var(--sky);
-  color: #00183a;
-  border-color: var(--sky);
+  background: rgba(255, 153, 0, 0.15);
+  color: var(--amber);
+  border-color: var(--amber);
 }
 
 /* ── BSEC missing classes ── */
@@ -4951,7 +4951,7 @@ h2.sh2 {
 }
 
 .foot-col a:hover {
-  color: var(--th);
+  color: var(--amber);
 }
 
 .foot-contact {
@@ -4994,6 +4994,19 @@ h2.sh2 {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.footer a:hover,
+.footer a:hover svg {
+  color: var(--amber);
+  fill: var(--amber);
+  transition: color 0.2s, fill 0.2s;
+}
+
+.dark .footer a:hover,
+.dark .footer a:hover svg {
+  color: var(--amber);
+  fill: var(--amber);
 }
 
 .foot-bottom {
@@ -5044,7 +5057,7 @@ h2.sh2 {
 }
 
 .foot-legal a:hover {
-  color: var(--tl);
+  color: var(--amber);
 }
 
 .foot-top {
