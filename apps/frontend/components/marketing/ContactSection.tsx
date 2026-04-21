@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
+import { openChat } from "../../lib/open-chat";
 
 type SubmitStatus = "idle" | "loading" | "success" | "error";
 
@@ -53,78 +54,107 @@ export function ContactSection() {
 
   return (
     <section className="section contact-section" id="contact">
-      <div className="wrap contact-wrap">
-        <h2 className="contact-title sh2 rv">{T[lang].cf_title}</h2>
-        <p className="contact-sub rv">{T[lang].cf_sub}</p>
-
-        {!configured ? (
-          <div className="contact-success rv" role="alert">
-            {T[lang].cf_missing_cfg}
-          </div>
-        ) : status === "success" ? (
-          <div className="contact-success rv" role="status">
-            {T[lang].cf_ok}
-          </div>
-        ) : (
-          <form
-            ref={formRef}
-            onSubmit={handleSubmit}
-            className="contact-form rv"
-            noValidate
+      <div className="contact-inner">
+        <div className="contact-left">
+          <h2 className="contact-headline rv">
+            {T[lang].cf_headline_1}
+            <br />
+            <span>{T[lang].cf_headline_2}</span>
+          </h2>
+          <p className="contact-desc rv">{T[lang].cf_desc}</p>
+          <button
+            type="button"
+            onClick={openChat}
+            className="btn btn-a contact-chat-btn rv"
+            aria-label={T[lang].cf_chat_btn}
           >
-            <div className="cf-row">
-              <input
-                name="name"
-                type="text"
-                placeholder={T[lang].cf_name}
-                required
-                maxLength={100}
-                autoComplete="name"
-                className="cf-input"
-              />
-              <input
-                name="email"
-                type="email"
-                placeholder={T[lang].cf_email}
-                required
-                maxLength={254}
-                autoComplete="email"
-                className="cf-input"
-              />
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>{T[lang].cf_chat_btn}</span>
+          </button>
+        </div>
+
+        <div className="contact-right rv">
+          {!configured ? (
+            <div className="contact-success" role="alert">
+              {T[lang].cf_missing_cfg}
             </div>
-            <textarea
-              name="message"
-              placeholder={T[lang].cf_msg}
-              required
-              maxLength={5000}
-              rows={5}
-              className="cf-textarea"
-            />
-            <div className="cf-footer">
-              <div className="cf-turnstile">
-                <Turnstile
-                  siteKey={siteKey}
-                  onSuccess={setTurnstileToken}
-                  onExpire={() => setTurnstileToken("")}
-                  onError={() => setTurnstileToken("")}
-                  options={{ theme: "auto" }}
+          ) : status === "success" ? (
+            <div className="contact-success" role="status">
+              {T[lang].cf_ok}
+            </div>
+          ) : (
+            <form
+              ref={formRef}
+              onSubmit={handleSubmit}
+              className="contact-form"
+              noValidate
+            >
+              <div className="cf-row">
+                <input
+                  name="name"
+                  type="text"
+                  placeholder={T[lang].cf_name}
+                  required
+                  maxLength={100}
+                  autoComplete="name"
+                  className="cf-input"
+                />
+                <input
+                  name="email"
+                  type="email"
+                  placeholder={T[lang].cf_email}
+                  required
+                  maxLength={254}
+                  autoComplete="email"
+                  className="cf-input"
                 />
               </div>
-              {status === "error" && (
-                <p className="cf-error" role="alert">
-                  {T[lang].cf_err}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={status === "loading" || !turnstileToken}
-                className="btn btn-a cf-submit"
-              >
-                {status === "loading" ? T[lang].cf_sending : T[lang].cf_send}
-              </button>
-            </div>
-          </form>
-        )}
+              <textarea
+                name="message"
+                placeholder={T[lang].cf_msg}
+                required
+                maxLength={5000}
+                rows={5}
+                className="cf-textarea"
+              />
+              <div className="cf-footer">
+                <div className="cf-turnstile">
+                  <Turnstile
+                    siteKey={siteKey}
+                    onSuccess={setTurnstileToken}
+                    onExpire={() => setTurnstileToken("")}
+                    onError={() => setTurnstileToken("")}
+                    options={{ theme: "auto" }}
+                  />
+                </div>
+                {status === "error" && (
+                  <p className="cf-error" role="alert">
+                    {T[lang].cf_err}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={status === "loading" || !turnstileToken}
+                  className="btn btn-a cf-submit"
+                >
+                  {status === "loading" ? T[lang].cf_sending : T[lang].cf_send}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </section>
   );
