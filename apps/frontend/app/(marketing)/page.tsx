@@ -31,9 +31,9 @@ export default function LandingPage() {
         <SecuritySection />
         {/* <Testimonials /> — hidden until real reviews are available */}
         <PricingSection />
+        <FaqSection />
         <ContactSection />
         <BottomCta />
-        <FaqSection />
       </main>
       <Footer />
       <FloatingControls />
