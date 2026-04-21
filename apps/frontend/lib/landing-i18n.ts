@@ -403,6 +403,7 @@ export const T: Record<Lang, Record<string, string>> = {
     f_trm: 'Terms of service',
     f_cnt: 'Contact',
     f_coo: 'Cookies',
+    fcgt: 'Get in touch',
     fcop: '\u00a9 2026 NoaTechSolutions. All rights reserved.',
 
     // Device section pills
@@ -843,6 +844,7 @@ export const T: Record<Lang, Record<string, string>> = {
     f_trm: 'T\u00e9rminos de servicio',
     f_cnt: 'Contacto',
     f_coo: 'Cookies',
+    fcgt: 'Cont\u00e1ctanos',
     fcop: '\u00a9 2026 NoaTechSolutions. Todos los derechos reservados.',
 
     // Device section pills
