@@ -8,6 +8,7 @@ import { HowItWorks } from "../../components/marketing/HowItWorks";
 import { MidCta } from "../../components/marketing/MidCta";
 import { SecuritySection } from "../../components/marketing/SecuritySection";
 import { PricingSection } from "../../components/marketing/PricingSection";
+import { ContactSection } from "../../components/marketing/ContactSection";
 import { BottomCta } from "../../components/marketing/BottomCta";
 import { FaqSection } from "../../components/marketing/FaqSection";
 import { Footer } from "../../components/marketing/Footer";
@@ -30,6 +31,7 @@ export default function LandingPage() {
         <SecuritySection />
         {/* <Testimonials /> — hidden until real reviews are available */}
         <PricingSection />
+        <ContactSection />
         <BottomCta />
         <FaqSection />
       </main>
