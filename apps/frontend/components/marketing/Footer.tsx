@@ -29,7 +29,7 @@ export function Footer() {
             />
             <p className="foot-tag">{T[lang].ftag}</p>
 
-            <div id="contact" className="foot-contact">
+            <div className="foot-contact">
               <h4>{T[lang].fcgt}</h4>
               <a href="tel:+15107786601" aria-label="Phone">
                 <svg viewBox="0 0 24 24" fill="currentColor">

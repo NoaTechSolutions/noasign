@@ -404,6 +404,16 @@ export const T: Record<Lang, Record<string, string>> = {
     f_cnt: 'Contact',
     f_coo: 'Cookies',
     fcgt: 'Get in touch',
+    cf_title: 'Get in touch',
+    cf_sub: 'Have questions? We reply within 24 hours.',
+    cf_name: 'Your name',
+    cf_email: 'Your email',
+    cf_msg: 'Your message',
+    cf_send: 'Send message',
+    cf_sending: 'Sending\u2026',
+    cf_ok: "Message sent! We'll get back to you shortly.",
+    cf_err: 'Something went wrong. Please try again.',
+    cf_missing_cfg: 'Contact form is unavailable right now. Please email us directly at contact@noatechsolutions.com.',
     fcop: '\u00a9 2026 NoaTechSolutions. All rights reserved.',
 
     // Device section pills
@@ -845,6 +855,16 @@ export const T: Record<Lang, Record<string, string>> = {
     f_cnt: 'Contacto',
     f_coo: 'Cookies',
     fcgt: 'Cont\u00e1ctanos',
+    cf_title: 'Cont\u00e1ctanos',
+    cf_sub: '\u00bfTen\u00e9s preguntas? Respondemos en menos de 24 horas.',
+    cf_name: 'Tu nombre',
+    cf_email: 'Tu email',
+    cf_msg: 'Tu mensaje',
+    cf_send: 'Enviar mensaje',
+    cf_sending: 'Enviando\u2026',
+    cf_ok: '\u00a1Mensaje enviado! Te respondemos pronto.',
+    cf_err: 'Algo sali\u00f3 mal. Por favor intent\u00e1 de nuevo.',
+    cf_missing_cfg: 'El formulario no est\u00e1 disponible por ahora. Escribinos a contact@noatechsolutions.com.',
     fcop: '\u00a9 2026 NoaTechSolutions. Todos los derechos reservados.',
 
     // Device section pills

@@ -5728,3 +5728,132 @@ main,
     right: 16px !important;
   }
 }
+
+/* ── CONTACT SECTION (NOA-174) ── */
+
+.contact-section {
+  padding: 80px 24px;
+  background: var(--bg-s);
+}
+
+.contact-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.contact-title {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 500;
+  color: var(--th);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.contact-sub {
+  text-align: center;
+  color: var(--tl);
+  margin-bottom: 40px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cf-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.cf-input,
+.cf-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--th);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.cf-input::placeholder,
+.cf-textarea::placeholder {
+  color: var(--tl);
+}
+
+.cf-input:focus,
+.cf-textarea:focus {
+  outline: none;
+  border-color: var(--navy);
+}
+
+.dark .cf-input:focus,
+.dark .cf-textarea:focus {
+  border-color: var(--amber);
+}
+
+.cf-textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.5;
+}
+
+.cf-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.cf-turnstile {
+  min-height: 65px;
+}
+
+.cf-error {
+  color: #e53e3e;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.cf-submit {
+  align-self: flex-end;
+  padding: 12px 32px;
+}
+
+.cf-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.contact-success {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--navy);
+  font-size: 1.1rem;
+  font-weight: 500;
+  background: rgba(2, 41, 119, 0.05);
+  border-radius: 12px;
+  border: 1px solid var(--navy);
+}
+
+.dark .contact-success {
+  color: var(--amber);
+  background: rgba(255, 153, 0, 0.08);
+  border-color: var(--amber);
+}
+
+@media (max-width: 640px) {
+  .cf-row {
+    grid-template-columns: 1fr;
+  }
+  .cf-submit {
+    width: 100%;
+    align-self: stretch;
+  }
+}
