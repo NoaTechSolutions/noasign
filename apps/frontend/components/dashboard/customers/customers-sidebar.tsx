@@ -16,21 +16,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarBody } from "@/components/ui/sidebar";
-import { apiRequest, API_URL } from "@/lib/api";
+import { API_URL } from "@/lib/api";
 import { clearSession } from "@/lib/auth-storage";
+import { useCurrentUser, clearCurrentUser } from "@/lib/hooks/use-current-user";
 
 // Customers-scoped sidebar — mirrors the visual pattern of dashboard-sidebar-demo.tsx
 // but targets the /dashboard/customers route segment. Nav items that belong to the
 // monster's internal state-based sections link to /dashboard?section=KEY; the monster
 // reads that query param on mount and renders the matching panel.
-
-type SidebarUser = {
-  id: string;
-  email: string;
-  role: string;
-  firstName: string | null;
-  lastName: string | null;
-};
 
 type NavItem = {
   key: string;
@@ -44,21 +37,7 @@ type NavItem = {
 export function CustomersSidebar({ activeKey }: { activeKey: "customers" }) {
   const router = useRouter();
   const [open, setOpen] = useState(true);
-  const [user, setUser] = useState<SidebarUser | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    apiRequest<SidebarUser>("/users/me")
-      .then((me) => {
-        if (alive) setUser(me);
-      })
-      .catch(() => {
-        // 401 handled by apiRequest itself.
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const user = useCurrentUser();
 
   useEffect(() => {
     function sync() {
@@ -79,6 +58,7 @@ export function CustomersSidebar({ activeKey }: { activeKey: "customers" }) {
       /* ignore network errors on logout */
     }
     clearSession();
+    clearCurrentUser();
     router.replace("/");
   }
 

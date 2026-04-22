@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { CustomersSidebar } from "@/components/dashboard/customers/customers-sidebar";
 import { CustomerForm } from "@/components/dashboard/customers/customer-form";
+import { CustomersTopBar } from "@/components/dashboard/customers/customers-topbar";
 import { apiRequest } from "@/lib/api";
 import type {
   Customer,
@@ -90,16 +90,17 @@ export default function CustomerDetailPage() {
     <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row xl:overflow-visible">
       <CustomersSidebar activeKey="customers" />
       <main className="flex-1 xl:ml-0">
-        <div className="mx-auto w-full max-w-[1100px] px-4 py-8 xl:px-8 xl:py-12">
-          <div className="flex flex-col gap-6">
-            <Link
-              href="/dashboard/customers"
-              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to customers
-            </Link>
-
+        <div className="mx-auto w-full max-w-[1100px] px-4 pt-3 xl:px-8 xl:pt-4">
+          <CustomersTopBar
+            breadcrumbs={[
+              { label: "Customers", href: "/dashboard/customers" },
+              {
+                label:
+                  customer?.fullName ?? (isLoading ? "Loading..." : "Customer"),
+              },
+            ]}
+          />
+          <div className="mt-6 flex flex-col gap-6 pb-12 xl:mt-8">
             {isLoading ? (
               <div className="rounded-[1.8rem] border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-500 shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:text-slate-400">
                 Loading customer...

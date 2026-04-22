@@ -9,14 +9,14 @@ import {
 } from "react";
 import Link from "next/link";
 import {
+  ArrowDown,
+  ArrowDownUp,
+  ArrowUp,
+  ChevronRight,
   ChevronsUpDown,
+  MoreHorizontal,
   Plus,
   Search,
-  Trash2,
-  ArrowDownUp,
-  ArrowDown,
-  ArrowUp,
-  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/api";
@@ -30,7 +30,9 @@ import type {
 // Mirror del DocumentsPanel con los mismos tokens visuales:
 // - Dos cards: header+metrics+filters (rounded-[1.9rem]) / tabla (rounded-[1.8rem])
 // - Hardcoded slate-*/blue-600 — no CSS vars, para match exacto con Documents
-// - Search fluido + StatPills + sort headers + pagination con rows selector
+// - Search + StatPills + sort headers + pagination con rows selector
+// - Mobile stats collapsible toggle (match Documents)
+// - Row actions como kebab menu (match Documents): Open / Delete
 
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 20, 30];
@@ -43,6 +45,7 @@ export function CustomersPanel() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
+  const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDirection, setSortDirection] = useState<OrderDir>("desc");
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -162,7 +165,27 @@ export function CustomersPanel() {
               Manage the people you send documents to. Reuse their contact data on future drafts.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileStatsOpen((current) => !current)}
+              className="inline-flex h-11 items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5 md:hidden"
+            >
+              <span>Customers metrics</span>
+              <ChevronRight
+                className={cn(
+                  "h-4 w-4 text-slate-400 transition-transform dark:text-slate-500",
+                  mobileStatsOpen && "rotate-90",
+                )}
+              />
+            </button>
+          </div>
+          <div
+            className={cn(
+              "grid grid-cols-2 gap-3 md:grid-cols-4",
+              mobileStatsOpen ? "grid" : "hidden md:grid",
+            )}
+          >
             <StatPill label="Total" value={String(stats.total)} />
             <StatPill label="With email" value={String(stats.withEmail)} />
             <StatPill label="Without email" value={String(stats.withoutEmail)} />
@@ -244,14 +267,18 @@ export function CustomersPanel() {
         {error ? (
           <div className="px-5 py-6 text-sm text-rose-600 dark:text-rose-400">{error}</div>
         ) : isLoading ? (
-          <div className="px-5 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
-            Loading customers...
+          <div className="p-5">
+            <EmptyBlock text="Loading customers..." />
           </div>
         ) : customers.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
-            {debouncedSearch
-              ? `No customers matching "${debouncedSearch}".`
-              : "No customers yet. Create your first one to reuse on future documents."}
+          <div className="p-5">
+            <EmptyBlock
+              text={
+                debouncedSearch
+                  ? `No customers matching "${debouncedSearch}".`
+                  : "No customers yet. Create your first one to reuse on future documents."
+              }
+            />
           </div>
         ) : (
           <>
@@ -265,9 +292,7 @@ export function CustomersPanel() {
                 Phone
               </div>
               <SortHeader label="Created" columnKey="createdAt" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-              <div className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                Actions
-              </div>
+              <div className="text-right">Actions</div>
             </div>
 
             {/* Mobile rows */}
@@ -327,10 +352,10 @@ export function CustomersPanel() {
                         {customer.fullName}
                       </Link>
                     </div>
-                    <div className="min-w-0 text-sm text-slate-600 dark:text-slate-300">
+                    <div className="min-w-0 text-sm font-medium text-slate-700 dark:text-slate-200">
                       {customer.email ?? <span className="text-slate-400 dark:text-slate-500">—</span>}
                     </div>
-                    <div className="min-w-0 text-sm text-slate-600 dark:text-slate-300">
+                    <div className="min-w-0 text-sm font-medium text-slate-700 dark:text-slate-200">
                       {customer.phone ?? <span className="text-slate-400 dark:text-slate-500">—</span>}
                     </div>
                     <div className="text-sm text-slate-600 dark:text-slate-300">
@@ -409,8 +434,6 @@ export function CustomersPanel() {
 }
 
 function StatPill({ label, value }: { label: string; value: string }) {
-  // Matching the monster's StatPill but using hardcoded slate to stay consistent
-  // with the slate-themed wrappers of this panel.
   return (
     <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
@@ -464,24 +487,69 @@ function RowActions({
   onDelete: () => void;
   deleting: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
   return (
-    <div className="flex items-center gap-1">
-      <Link
-        href={`/dashboard/customers/${customer.id}`}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200"
-        aria-label="Edit"
-      >
-        <Pencil className="h-4 w-4" />
-      </Link>
+    <div ref={menuRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={onDelete}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!open && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const estimatedMenuHeight = 120;
+            setOpenUpward(window.innerHeight - rect.bottom < estimatedMenuHeight);
+          }
+          setOpen((current) => !current);
+        }}
         disabled={deleting}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
-        aria-label="Delete"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition hover:bg-white hover:text-slate-700 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200"
+        aria-label="Open customer actions"
       >
-        <Trash2 className="h-4 w-4" />
+        <MoreHorizontal className="h-4 w-4" />
       </button>
+      {open ? (
+        <div
+          className={cn(
+            "absolute right-0 z-20 min-w-44 rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]",
+            openUpward ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]",
+          )}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Link
+            href={`/dashboard/customers/${customer.id}`}
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-white dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Open
+          </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onDelete();
+            }}
+            className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
+          >
+            Delete
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -524,6 +592,14 @@ function DeleteConfirmDialog({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function EmptyBlock({ text }: { text: string }) {
+  return (
+    <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.03] dark:text-slate-400">
+      {text}
     </div>
   );
 }

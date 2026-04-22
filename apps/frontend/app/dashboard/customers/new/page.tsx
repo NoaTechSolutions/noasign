@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { CustomersSidebar } from "@/components/dashboard/customers/customers-sidebar";
 import { CustomerForm } from "@/components/dashboard/customers/customer-form";
+import { CustomersTopBar } from "@/components/dashboard/customers/customers-topbar";
 import { apiRequest } from "@/lib/api";
 import type { Customer, CustomerFormValues } from "../types";
 
@@ -41,16 +40,14 @@ export default function NewCustomerPage() {
     <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row xl:overflow-visible">
       <CustomersSidebar activeKey="customers" />
       <main className="flex-1 xl:ml-0">
-        <div className="mx-auto w-full max-w-[1100px] px-4 py-8 xl:px-8 xl:py-12">
-          <div className="flex flex-col gap-6">
-            <Link
-              href="/dashboard/customers"
-              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to customers
-            </Link>
-
+        <div className="mx-auto w-full max-w-[1100px] px-4 pt-3 xl:px-8 xl:pt-4">
+          <CustomersTopBar
+            breadcrumbs={[
+              { label: "Customers", href: "/dashboard/customers" },
+              { label: "New" },
+            ]}
+          />
+          <div className="mt-6 flex flex-col gap-6 pb-12 xl:mt-8">
             <header>
               <h1 className="text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
                 New customer
