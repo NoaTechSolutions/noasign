@@ -58,81 +58,83 @@ enum PlanName {
 }
 
 model CompanyProfile {
-  id                String   @id @default(uuid())
-  companyName       String
-  legalName         String?
-  industry          String?
-  website           String?
-  email             String?
-  phone             String?
-  phone2            String?
-  insuranceName     String?
-  insurancePhone    String?
+  id                    String  @id @default(uuid())
+  companyName           String
+  legalName             String?
+  industry              String?
+  website               String?
+  email                 String?
+  phone                 String?
+  phone2                String?
+  insuranceName         String?
+  insurancePhone        String?
   insurancePolicyNumber String?
-  addressLine1      String?
-  addressLine2      String?
-  city              String?
-  state             String?
-  zipCode           String?
-  country           String?
-  logoUrl           String?
-  licenseNumber     String?
+  addressLine1          String?
+  addressLine2          String?
+  city                  String?
+  state                 String?
+  zipCode               String?
+  country               String?
+  logoUrl               String?
+  licenseNumber         String?
 
-  contactFirstName  String?
-  contactLastName   String?
-  contactTitle      String?
-  contactEmail      String?
-  contactPhone      String?
+  contactFirstName    String?
+  contactLastName     String?
+  contactTitle        String?
+  contactEmail        String?
+  contactPhone        String?
   contactAddressLine1 String?
   contactAddressLine2 String?
-  contactCity       String?
-  contactState      String?
-  contactZipCode    String?
-  contactCountry    String?
+  contactCity         String?
+  contactState        String?
+  contactZipCode      String?
+  contactCountry      String?
 
-  planName          PlanName @default(LAUNCH)
-  monthlyDocLimit   Int      @default(5)
-  overagePrice      Decimal  @default(5.00) @db.Decimal(10, 2)
-  isUnlimited       Boolean  @default(false)
+  planName        PlanName @default(LAUNCH)
+  monthlyDocLimit Int      @default(5)
+  overagePrice    Decimal  @default(5.00) @db.Decimal(10, 2)
+  isUnlimited     Boolean  @default(false)
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  users             User[]
-  documents         Document[]
+  users     User[]
+  documents Document[]
+  customers Customer[]
 
   @@map("company_profiles")
 }
 
 model User {
-  id                 String   @id @default(uuid())
-  companyProfileId         String?
-  parentCompanyProfileId   String?
-  email                    String   @unique
-  passwordHash             String
-  mustChangePassword       Boolean  @default(false)
-  role                     UserRole
-  status                   UserStatus @default(ACTIVE)
-  accountType              AccountType?
-  firstName                String?
-  lastName                 String?
-  title                    String?
-  phone                    String?
-  addressLine1             String?
-  addressLine2             String?
-  city                     String?
-  state                    String?
-  zipCode                  String?
-  avatarUrl                String?
+  id                     String       @id @default(uuid())
+  companyProfileId       String?
+  parentCompanyProfileId String?
+  email                  String       @unique
+  passwordHash           String
+  mustChangePassword     Boolean      @default(false)
+  role                   UserRole
+  status                 UserStatus   @default(ACTIVE)
+  accountType            AccountType?
+  firstName              String?
+  lastName               String?
+  title                  String?
+  phone                  String?
+  addressLine1           String?
+  addressLine2           String?
+  city                   String?
+  state                  String?
+  zipCode                String?
+  avatarUrl              String?
 
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  companyProfile           CompanyProfile? @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
-  documentConfigs          UserDocumentConfig[]
-  documents                Document[]
-  documentVersions         DocumentVersion[]
-  passwordResetTokens      PasswordResetToken[]
+  companyProfile      CompanyProfile?      @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
+  documentConfigs     UserDocumentConfig[]
+  documents           Document[]
+  documentVersions    DocumentVersion[]
+  passwordResetTokens PasswordResetToken[]
+  createdCustomers    Customer[]
 
   @@index([companyProfileId])
   @@index([parentCompanyProfileId])
@@ -140,29 +142,60 @@ model User {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(uuid())
-  userId     String
-  tokenHash  String   @unique
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime @default(now())
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
   @@map("password_reset_tokens")
 }
 
+model Customer {
+  id               String  @id @default(uuid())
+  companyProfileId String
+  createdByUserId  String?
+
+  fullName String
+  email    String?
+  phone    String?
+
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  zipCode      String?
+  country      String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  createdBy      User?          @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  documents      Document[]
+
+  @@index([companyProfileId])
+  @@index([companyProfileId, fullName])
+  @@index([companyProfileId, email])
+  @@map("customers")
+}
+
 model AccountRequest {
-  id                    String               @id @default(uuid())
-  fullName              String
-  email                 String               @unique
+  id                     String               @id @default(uuid())
+  fullName               String
+  email                  String               @unique
   requestedDocumentTypes Json
-  status                AccountRequestStatus @default(PENDING)
-  processedAt           DateTime?
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  status                 AccountRequestStatus @default(PENDING)
+  processedAt            DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
 
   @@index([status])
   @@index([createdAt])
@@ -170,68 +203,68 @@ model AccountRequest {
 }
 
 model DocumentType {
-  id               String   @id @default(uuid())
-  name             String   @unique
-  code             String   @unique
+  id   String @id @default(uuid())
+  name String @unique
+  code String @unique
 
-  formDefinitions  FormDefinition[]
+  formDefinitions    FormDefinition[]
   signatureTemplates SignatureTemplate[]
-  userConfigs      UserDocumentConfig[]
-  documents        Document[]
+  userConfigs        UserDocumentConfig[]
+  documents          Document[]
 
   @@map("document_types")
 }
 
 model FormDefinition {
-  id               String   @id @default(uuid())
-  name             String
-  documentTypeId   String
-  schemaJson       Json?
-  description      String?
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
+  id             String   @id @default(uuid())
+  name           String
+  documentTypeId String
+  schemaJson     Json?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
 
-  documentType     DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
-  userConfigs      UserDocumentConfig[]
-  documents        Document[]
+  documentType DocumentType         @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  userConfigs  UserDocumentConfig[]
+  documents    Document[]
 
   @@index([documentTypeId])
   @@map("form_definitions")
 }
 
 model SignatureTemplate {
-  id                String   @id @default(uuid())
-  name              String
-  documentTypeId    String
-  providerTemplateId String
-  recipientRole     String   @default("Client")
-  tokenMappingJson  Json?
-  fieldMappingJson  Json?
+  id                  String   @id @default(uuid())
+  name                String
+  documentTypeId      String
+  providerTemplateId  String
+  recipientRole       String   @default("Client")
+  tokenMappingJson    Json?
+  fieldMappingJson    Json?
   sendSubjectTemplate String?
   sendMessageTemplate String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
 
-  documentType      DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
-  userConfigs       UserDocumentConfig[]
-  documents         Document[]
+  documentType DocumentType         @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  userConfigs  UserDocumentConfig[]
+  documents    Document[]
 
   @@index([documentTypeId])
   @@map("signature_templates")
 }
 
 model UserDocumentConfig {
-  id                String   @id @default(uuid())
-  userId            String
-  documentTypeId    String
-  formDefinitionId  String
+  id                  String   @id @default(uuid())
+  userId              String
+  documentTypeId      String
+  formDefinitionId    String
   signatureTemplateId String
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
 
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documentType      DocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
-  formDefinition    FormDefinition   @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType      DocumentType      @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  formDefinition    FormDefinition    @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
   signatureTemplate SignatureTemplate @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
 
   @@unique([userId, documentTypeId, formDefinitionId, signatureTemplateId])
@@ -241,45 +274,48 @@ model UserDocumentConfig {
 }
 
 model Document {
-  id                 String   @id @default(uuid())
-  documentNumber     String   @unique
-  userId             String
-  companyProfileId   String?
-  documentTypeId     String
-  formDefinitionId   String
-  signatureTemplateId String
-  providerDocumentId String?
-  providerStatus     String?
+  id                   String         @id @default(uuid())
+  documentNumber       String         @unique
+  userId               String
+  companyProfileId     String?
+  customerId           String?
+  documentTypeId       String
+  formDefinitionId     String
+  signatureTemplateId  String
+  providerDocumentId   String?
+  providerStatus       String?
   providerLastSyncedAt DateTime?
-  status             DocumentStatus
+  status               DocumentStatus
 
-  contractDate       DateTime?
-  sentAt             DateTime?
-  viewedAt           DateTime?
-  signedAt           DateTime?
-  completedAt        DateTime?
-  cancelledAt        DateTime?
-  lastManualReminderAt DateTime?
+  contractDate           DateTime?
+  sentAt                 DateTime?
+  viewedAt               DateTime?
+  signedAt               DateTime?
+  completedAt            DateTime?
+  cancelledAt            DateTime?
+  lastManualReminderAt   DateTime?
   lastSentRecipientEmail String?
 
-  countedInBilling   Boolean  @default(false)
-  isOverage          Boolean  @default(false)
-  billingPeriod      String?
+  countedInBilling Boolean @default(false)
+  isOverage        Boolean @default(false)
+  billingPeriod    String?
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user               User             @relation(fields: [userId], references: [id], onDelete: Restrict)
-  companyProfile     CompanyProfile?  @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
-  documentType       DocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
-  formDefinition     FormDefinition   @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
-  signatureTemplate  SignatureTemplate @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
-  data               DocumentData?
-  versions           DocumentVersion[]
-  files              DocumentFile[]
+  user              User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  companyProfile    CompanyProfile?   @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
+  customer          Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  documentType      DocumentType      @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  formDefinition    FormDefinition    @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
+  signatureTemplate SignatureTemplate @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
+  data              DocumentData?
+  versions          DocumentVersion[]
+  files             DocumentFile[]
 
   @@index([userId])
   @@index([companyProfileId])
+  @@index([customerId])
   @@index([documentTypeId])
   @@index([status])
   @@index([createdAt])
@@ -294,7 +330,7 @@ model DocumentData {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@map("document_data")
 }
@@ -307,8 +343,8 @@ model DocumentVersion {
   changedByUserId String?
   createdAt       DateTime @default(now())
 
-  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  changedByUser   User?    @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  changedByUser User?    @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([documentId, versionNumber])
   @@index([documentId])
@@ -316,16 +352,16 @@ model DocumentVersion {
 }
 
 model DocumentFile {
-  id          String          @id @default(uuid())
-  documentId  String
-  fileType    DocumentFileType
-  provider    StorageProvider
-  storageUrl  String
-  fileName    String?
-  mimeType    String?
-  createdAt   DateTime @default(now())
+  id         String           @id @default(uuid())
+  documentId String
+  fileType   DocumentFileType
+  provider   StorageProvider
+  storageUrl String
+  fileName   String?
+  mimeType   String?
+  createdAt  DateTime         @default(now())
 
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
   @@map("document_files")
