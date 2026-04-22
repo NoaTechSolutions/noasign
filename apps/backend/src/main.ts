@@ -1,3 +1,6 @@
+// Must be the first import — initializes Sentry before anything else loads.
+import './instrument';
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NextFunction, Request, Response } from 'express';
