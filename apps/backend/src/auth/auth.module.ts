@@ -5,11 +5,13 @@ import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { getRequiredEnv } from '../config/get-required-env';
+import { EmailModule } from '../email/email.module';
 import type { StringValue } from 'ms';
 
 @Module({
   imports: [
     ConfigModule,
+    EmailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

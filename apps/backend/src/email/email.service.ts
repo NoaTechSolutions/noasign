@@ -35,6 +35,12 @@ export type ContactFormPayload = {
   lang?: 'en' | 'es';
 };
 
+export type PasswordResetPayload = {
+  to: string;
+  resetLink: string;
+  firstName?: string;
+};
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -168,6 +174,33 @@ export class EmailService {
     );
   }
 
+  async sendPasswordResetEmail(payload: PasswordResetPayload): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(
+        `[EmailService] Skipping password reset email to ${payload.to} — Resend not configured`,
+      );
+      return;
+    }
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: payload.to,
+      subject: 'Reset your NTSsign password',
+      html: this.buildPasswordResetHtml(payload),
+    });
+
+    if (error) {
+      this.logger.error(
+        `[EmailService] Failed to send password reset email to ${payload.to}: ${JSON.stringify(error)}`,
+      );
+      throw new Error(`Email delivery failed: ${error.message}`);
+    }
+
+    this.logger.log(
+      `[EmailService] Password reset email sent to ${payload.to} (id: ${data?.id})`,
+    );
+  }
+
   private getAppUrl(): string {
     return (process.env.APP_URL ?? 'https://app.ntssign.com').replace(/\/$/, '');
   }
@@ -226,6 +259,98 @@ export class EmailService {
               </p>
             </td>
           </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  }
+
+  private buildPasswordResetHtml(p: PasswordResetPayload): string {
+    const appUrl = this.getAppUrl();
+    const logoUrl = `${appUrl}/ntssign-logo-light.svg`;
+    const name = p.firstName ? escapeHtml(p.firstName) : 'there';
+    const resetLink = p.resetLink;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reset your password</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(2,41,119,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#05a5ff 0%,#022977 60%,#0400f0 100%);padding:32px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;">
+                          <div style="width:56px;height:56px;background:#ffffff;border-radius:14px;overflow:hidden;display:inline-block;box-shadow:0 2px 8px rgba(0,0,0,0.18);">
+                            <img src="${logoUrl}" alt="NTSsign" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:contain;" />
+                          </div>
+                          <div style="color:rgba(255,255,255,0.55);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;margin-top:5px;">by NoaTechSolutions</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right">
+                    <div style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,0.8);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Password Reset</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">Hi ${name},</p>
+              <h1 style="margin:0 0 16px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;letter-spacing:-0.5px;">
+                Reset your NTSsign password
+              </h1>
+              <p style="margin:0 0 28px;color:#4b5563;font-size:15px;line-height:1.6;">
+                We received a request to reset your NTSsign password.
+              </p>
+
+              <!-- CTA -->
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:#022977;border-radius:12px;">
+                    <a href="${resetLink}" target="_blank" style="display:inline-block;padding:16px 36px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;letter-spacing:-0.2px;">
+                      Reset Password
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 12px;color:#6b7280;font-size:13px;line-height:1.6;">
+                This link expires in 30 minutes.
+              </p>
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">
+                If you didn't request a password reset, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;">
+              <p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.6;">
+                NTSsign \u2014 Electronic Signature
+              </p>
+            </td>
+          </tr>
+
         </table>
       </td>
     </tr>
