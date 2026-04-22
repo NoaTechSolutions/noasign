@@ -46,6 +46,8 @@ jobs:
 
       - name: Deploy frontend
         timeout-minutes: 20
+        env:
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
         run: |
           set -e
           export NVM_DIR="$HOME/.nvm"
