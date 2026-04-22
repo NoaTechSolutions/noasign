@@ -12,6 +12,7 @@ import { RegisterDto } from './dto/register.dto';
 import { UserRole, UserStatus } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -177,6 +179,21 @@ export class AuthService {
         this.configService.get<string>('APP_URL')?.trim().replace(/\/$/, '') ||
         'http://127.0.0.1:3001';
       const resetLink = `${appUrl}/?resetToken=${resetToken}`;
+      const firstName = user.firstName?.trim() || undefined;
+
+      // Send in ALL environments. Swallow failures to avoid leaking
+      // user existence via status code (enumeration attacks).
+      try {
+        await this.emailService.sendPasswordResetEmail({
+          to: normalizedEmail,
+          resetLink,
+          firstName,
+        });
+      } catch (err) {
+        this.logger.error(
+          `Failed to send password reset email to ${normalizedEmail}: ${String(err)}`,
+        );
+      }
 
       if (process.env.NODE_ENV !== 'production') {
         this.logger.log(

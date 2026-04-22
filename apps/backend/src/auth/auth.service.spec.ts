@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from '../email/email.service';
 import { UserRole, UserStatus } from '@prisma/client';
 
 const prismaMock = {
@@ -21,6 +22,10 @@ const jwtServiceMock = {
 
 const configServiceMock = {
   get: jest.fn(),
+};
+
+const emailServiceMock = {
+  sendPasswordResetEmail: jest.fn(),
 };
 
 describe('AuthService', () => {
@@ -43,6 +48,10 @@ describe('AuthService', () => {
         {
           provide: ConfigService,
           useValue: configServiceMock,
+        },
+        {
+          provide: EmailService,
+          useValue: emailServiceMock,
         },
       ],
     }).compile();
