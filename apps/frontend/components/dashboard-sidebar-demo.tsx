@@ -38,6 +38,7 @@ import {
   Mail,
   Menu,
   MoreHorizontal,
+  MoreVertical,
   MapPinned,
   MapPlus,
   Pencil,
@@ -1068,6 +1069,7 @@ export function DashboardSidebarDemo({
                   editingTab: null,
                 });
               }}
+              onPreviewFinalPdf={onPreviewFinalPdf}
               onDownloadFinalPdf={onDownloadFinalPdf}
             />
           ) : null}
@@ -1897,6 +1899,7 @@ function CustomersPanel(props: {
   onUpdateCustomer: (id: string, values: CustomerFormValues) => Promise<void>;
   documents: Doc[] | null;
   onOpenDocumentView: (documentId: string) => void;
+  onPreviewFinalPdf: (documentId: string) => Promise<string>;
   onDownloadFinalPdf: (documentId: string) => Promise<void>;
 }) {
   const [pageSize, setPageSize] = useState(10);
@@ -2191,6 +2194,7 @@ function CustomersPanel(props: {
             }
           }}
           onOpenDocumentView={props.onOpenDocumentView}
+          onPreviewFinalPdf={props.onPreviewFinalPdf}
           onDownloadFinalPdf={props.onDownloadFinalPdf}
         />
       ) : null}
@@ -2631,6 +2635,7 @@ function CustomerViewDrawer({
   onEdit,
   onCreateDocument,
   onOpenDocumentView,
+  onPreviewFinalPdf,
   onDownloadFinalPdf,
 }: {
   customer: Customer | null;
@@ -2640,6 +2645,7 @@ function CustomerViewDrawer({
   onEdit: () => void;
   onCreateDocument?: () => void;
   onOpenDocumentView: (documentId: string) => void;
+  onPreviewFinalPdf: (documentId: string) => Promise<string>;
   onDownloadFinalPdf: (documentId: string) => Promise<void>;
 }) {
   const isBusiness = customer?.customerType === "BUSINESS";
@@ -2692,15 +2698,39 @@ function CustomerViewDrawer({
       );
   }, [customer, documents]);
 
+  // Only one row's kebab menu is open at a time.
+  const [openMenuDocId, setOpenMenuDocId] = useState<string | null>(null);
+  const openMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!openMenuDocId) return;
+    const handler = (e: MouseEvent) => {
+      if (!openMenuRef.current?.contains(e.target as Node)) {
+        setOpenMenuDocId(null);
+      }
+    };
+    window.document.addEventListener("mousedown", handler);
+    return () => window.document.removeEventListener("mousedown", handler);
+  }, [openMenuDocId]);
+
+  async function handleViewPdf(doc: Doc) {
+    setOpenMenuDocId(null);
+    try {
+      const url = await onPreviewFinalPdf(doc.id);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      // preview errors are surfaced upstream by the handler
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <button
         type="button"
         aria-label="Close drawer"
         onClick={onClose}
         className="absolute inset-0 cursor-default"
       />
-      <aside className="relative flex h-full w-full max-w-xl flex-col border-l border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]">
+      <aside className="relative flex h-[95%] w-[95%] max-w-none flex-col overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)] md:h-[90%] md:w-[85%] lg:h-[85%] lg:w-[80%] 2xl:h-[80%] 2xl:w-[75%]">
         <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5">
           <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
@@ -2786,25 +2816,68 @@ function CustomerViewDrawer({
                           <StatusBadge status={doc.status} />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => onOpenDocumentView(doc.id)}
-                              aria-label="View document"
-                              title="View"
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:hover:border-blue-400/40 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
+                          <div className="flex items-center justify-end">
+                            <div
+                              ref={openMenuDocId === doc.id ? openMenuRef : null}
+                              className="relative inline-block"
                             >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void onDownloadFinalPdf(doc.id)}
-                              aria-label="Download document"
-                              title="Download"
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:border-emerald-400/40 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
-                            >
-                              <Download className="h-4 w-4" />
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenMenuDocId(
+                                    openMenuDocId === doc.id ? null : doc.id,
+                                  )
+                                }
+                                aria-label="Document actions"
+                                aria-haspopup="menu"
+                                aria-expanded={openMenuDocId === doc.id}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                              {openMenuDocId === doc.id ? (
+                                <div
+                                  role="menu"
+                                  className="absolute right-0 top-full z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]"
+                                >
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={doc.status === "DRAFT"}
+                                    onClick={() => void handleViewPdf(doc)}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)] disabled:cursor-not-allowed disabled:text-[color:var(--text-muted)] disabled:hover:bg-transparent"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    Ver PDF
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    disabled={doc.status === "DRAFT"}
+                                    onClick={() => {
+                                      setOpenMenuDocId(null);
+                                      void onDownloadFinalPdf(doc.id);
+                                    }}
+                                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)] disabled:cursor-not-allowed disabled:text-[color:var(--text-muted)] disabled:hover:bg-transparent"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                    Descargar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setOpenMenuDocId(null);
+                                      onOpenDocumentView(doc.id);
+                                    }}
+                                    className="flex w-full items-center gap-3 border-t border-[color:var(--border)] px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)]"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                    Ir a documento
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
                         </td>
                       </tr>
