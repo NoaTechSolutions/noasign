@@ -391,6 +391,7 @@ type WorkflowAction = {
 function parseSectionKey(value: string | null): SectionKey {
   if (
     value === "documents" ||
+    value === "customers" ||
     value === "users" ||
     value === "accountRequests" ||
     value === "profile" ||
@@ -6153,6 +6154,10 @@ function breadcrumbItems(section: SectionKey) {
 
   if (section === "documents") {
     return ["Workspace", "Documents"];
+  }
+
+  if (section === "customers") {
+    return ["Workspace", "Customers"];
   }
 
   if (section === "profile") {
