@@ -28,6 +28,7 @@ import {
   Download,
   Factory,
   FileJson,
+  FilePlus,
   FileText,
   Globe,
   LayoutDashboard,
@@ -2553,6 +2554,7 @@ function CustomerField({
   placeholder,
   error,
   required,
+  disabled,
 }: {
   label: string;
   value: string;
@@ -2561,12 +2563,14 @@ function CustomerField({
   placeholder?: string;
   error?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   const base = cn(
     "w-full rounded-2xl border bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition placeholder:text-[color:var(--text-muted)] focus:bg-[color:var(--bg-elevated)]",
     error
       ? "border-rose-400 focus:border-rose-500"
       : "border-[color:var(--border)] focus:border-blue-400",
+    disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
   );
   return (
     <label className="flex flex-col gap-1.5">
@@ -2578,6 +2582,7 @@ function CustomerField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          disabled={disabled}
           rows={4}
           className={cn(base, "min-h-[100px] py-3")}
         />
@@ -2588,6 +2593,7 @@ function CustomerField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           required={required}
+          disabled={disabled}
           className={cn(base, "h-12")}
         />
       )}
@@ -2598,34 +2604,31 @@ function CustomerField({
   );
 }
 
-type CustomerViewTabKey = "info" | "company" | "contact" | "documents";
-
 function CustomerViewDrawer({
   customer,
   isLoading,
   onClose,
   onEdit,
+  onCreateDocument,
 }: {
   customer: Customer | null;
   isLoading: boolean;
   onClose: () => void;
   onEdit: () => void;
+  onCreateDocument?: () => void;
 }) {
   const isBusiness = customer?.customerType === "BUSINESS";
-  const [activeTab, setActiveTab] = useState<CustomerViewTabKey>(
-    isBusiness ? "company" : "info",
+  const [activeTab, setActiveTab] = useState<"company" | "representative">(
+    "company",
   );
 
-  const tabs: { key: CustomerViewTabKey; label: string }[] = isBusiness
-    ? [
-        { key: "company", label: "Company" },
-        { key: "contact", label: "Primary contact" },
-        { key: "documents", label: "Documents" },
-      ]
-    : [
-        { key: "info", label: "Customer info" },
-        { key: "documents", label: "Documents" },
-      ];
+  const b = customer?.business;
+  const phoneDisplay = customer
+    ? getDisplayPhone(customer)
+      ? formatUsPhone(getDisplayPhone(customer) ?? "")
+      : ""
+    : "";
+  const emailDisplay = customer ? getDisplayEmail(customer) ?? "" : "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40">
@@ -2664,134 +2667,252 @@ function CustomerViewDrawer({
           </button>
         </div>
 
-        <div className="flex border-b border-[color:var(--border)] px-6">
-          {tabs.map((tab) => (
+        {isBusiness ? (
+          <div className="flex gap-1 border-b border-[color:var(--border)] px-6">
             <button
-              key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => setActiveTab("company")}
               className={cn(
-                "inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
-                activeTab === tab.key
-                  ? "border-b-2 border-blue-600 text-[color:var(--text-primary)]"
-                  : "border-b-2 border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]",
+                "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
+                activeTab === "company"
+                  ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
               )}
             >
-              {tab.label}
+              Company
             </button>
-          ))}
-        </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("representative")}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
+                activeTab === "representative"
+                  ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
+              )}
+            >
+              Representative
+            </button>
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {isLoading ? (
             <EmptyBlock text="Loading customer..." />
           ) : !customer ? (
             <EmptyBlock text="Customer not found." />
-          ) : activeTab === "info" ? (
-            <CustomerInfoView customer={customer} />
+          ) : !isBusiness ? (
+            <div className="grid gap-4">
+              <CustomerField
+                label="Full name"
+                value={customer.fullName}
+                onChange={() => {}}
+                disabled
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Phone"
+                  value={phoneDisplay}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="Email"
+                  value={emailDisplay}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+              <CustomerField
+                label="Address"
+                value={customer.addressLine1 ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+              <div className="grid gap-4 md:grid-cols-3">
+                <CustomerField
+                  label="City"
+                  value={customer.city ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="State"
+                  value={customer.state ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="ZIP code"
+                  value={customer.zipCode ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+              <CustomerField
+                label="Internal notes"
+                type="textarea"
+                value={customer.notes ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+            </div>
           ) : activeTab === "company" ? (
-            <CustomerCompanyView customer={customer} />
-          ) : activeTab === "contact" ? (
-            <CustomerContactView customer={customer} />
+            <div className="grid gap-4">
+              <CustomerField
+                label="Business name"
+                value={b?.businessName ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="License number"
+                  value={b?.licenseNumber ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="Industry"
+                  value={b?.industry ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Website"
+                  value={b?.website ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="Business email"
+                  value={b?.businessEmail ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Business phone"
+                  value={b?.businessPhone ? formatUsPhone(b.businessPhone) : ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="Mobile / Fax"
+                  value={b?.businessPhone2 ? formatUsPhone(b.businessPhone2) : ""}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+              <CustomerField
+                label="Address line 1"
+                value={b?.businessAddressLine1 ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+              <CustomerField
+                label="Address line 2"
+                value={b?.businessAddressLine2 ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+              <div className="grid gap-4 md:grid-cols-3">
+                <CustomerField
+                  label="City"
+                  value={b?.businessCity ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="State"
+                  value={b?.businessState ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="ZIP code"
+                  value={b?.businessZipCode ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+            </div>
           ) : (
-            <EmptyBlock text="Documents listing coming in next sub-phase (C2)." />
+            <div className="grid gap-4">
+              <CustomerField
+                label="Representative name"
+                value={b?.primaryContactName ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+              <CustomerField
+                label="Title"
+                value={b?.primaryContactTitle ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Email"
+                  value={b?.primaryContactEmail ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="Phone"
+                  value={
+                    b?.primaryContactPhone
+                      ? formatUsPhone(b.primaryContactPhone)
+                      : ""
+                  }
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+              <CustomerField
+                label="Internal notes"
+                type="textarea"
+                value={customer.notes ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+            </div>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-[color:var(--border)] px-6 py-4">
+        <div className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] px-6 py-4">
           <button
             type="button"
-            onClick={onClose}
-            className="inline-flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+            onClick={onCreateDocument}
+            disabled={!customer || isLoading || !onCreateDocument}
+            className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Close
+            <FilePlus className="h-4 w-4" />
+            Create Document
           </button>
-          <button
-            type="button"
-            onClick={onEdit}
-            disabled={!customer || isLoading}
-            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Pencil className="h-4 w-4" />
-            Edit
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={onEdit}
+              disabled={!customer || isLoading}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit
+            </button>
+          </div>
         </div>
       </aside>
-    </div>
-  );
-}
-
-function CustomerInfoView({ customer }: { customer: Customer }) {
-  const addressParts = [
-    [customer.addressLine1, customer.addressLine2].filter(Boolean).join(", "),
-    [customer.city, customer.state, customer.zipCode].filter(Boolean).join(" ").trim(),
-    customer.country,
-  ].filter((part): part is string => Boolean(part && part.trim()));
-  const address = addressParts.length > 0 ? addressParts.join("\n") : null;
-
-  return (
-    <div className="grid gap-3">
-      <CustomerDetailField label="Full name" value={customer.fullName} />
-      <CustomerDetailField label="Email" value={getDisplayEmail(customer)} />
-      <CustomerDetailField
-        label="Phone"
-        value={
-          getDisplayPhone(customer)
-            ? formatUsPhone(getDisplayPhone(customer) ?? "")
-            : null
-        }
-      />
-      <CustomerDetailField label="Address" value={address} multiline />
-      <CustomerDetailField label="Notes" value={customer.notes} multiline />
-    </div>
-  );
-}
-
-function CustomerCompanyView({ customer }: { customer: Customer }) {
-  const b = customer.business;
-  if (!b) {
-    return <EmptyBlock text="No business data attached to this customer." />;
-  }
-  const addressParts = [
-    [b.businessAddressLine1, b.businessAddressLine2].filter(Boolean).join(", "),
-    [b.businessCity, b.businessState, b.businessZipCode].filter(Boolean).join(" ").trim(),
-  ].filter((part): part is string => Boolean(part && part.trim()));
-  const address = addressParts.length > 0 ? addressParts.join("\n") : null;
-
-  return (
-    <div className="grid gap-3">
-      <CustomerDetailField label="Business name" value={b.businessName} />
-      <CustomerDetailField label="License number" value={b.licenseNumber} />
-      <CustomerDetailField label="Industry" value={b.industry} />
-      <CustomerDetailField label="Website" value={b.website} />
-      <CustomerDetailField label="Business email" value={b.businessEmail} />
-      <CustomerDetailField
-        label="Business phone"
-        value={b.businessPhone ? formatUsPhone(b.businessPhone) : null}
-      />
-      <CustomerDetailField
-        label="Mobile / Fax"
-        value={b.businessPhone2 ? formatUsPhone(b.businessPhone2) : null}
-      />
-      <CustomerDetailField label="Address" value={address} multiline />
-    </div>
-  );
-}
-
-function CustomerContactView({ customer }: { customer: Customer }) {
-  const b = customer.business;
-  return (
-    <div className="grid gap-3">
-      <CustomerDetailField label="Name" value={b?.primaryContactName ?? null} />
-      <CustomerDetailField label="Title" value={b?.primaryContactTitle ?? null} />
-      <CustomerDetailField label="Email" value={b?.primaryContactEmail ?? null} />
-      <CustomerDetailField
-        label="Phone"
-        value={
-          b?.primaryContactPhone ? formatUsPhone(b.primaryContactPhone) : null
-        }
-      />
-      <CustomerDetailField label="Internal notes" value={customer.notes} multiline />
     </div>
   );
 }
@@ -2986,15 +3107,15 @@ function CustomerFormDrawer({
         </div>
 
         {isBusiness ? (
-          <div className="flex border-b border-[color:var(--border)] px-6">
+          <div className="flex gap-1 border-b border-[color:var(--border)] px-6">
             <button
               type="button"
               onClick={() => setActiveTab("company")}
               className={cn(
-                "inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
+                "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
                 activeTab === "company"
-                  ? "border-b-2 border-blue-600 text-[color:var(--text-primary)]"
-                  : "border-b-2 border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]",
+                  ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
               )}
             >
               Company
@@ -3003,10 +3124,10 @@ function CustomerFormDrawer({
               type="button"
               onClick={() => setActiveTab("representative")}
               className={cn(
-                "inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
+                "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
                 activeTab === "representative"
-                  ? "border-b-2 border-blue-600 text-[color:var(--text-primary)]"
-                  : "border-b-2 border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]",
+                  ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
               )}
             >
               Representative
