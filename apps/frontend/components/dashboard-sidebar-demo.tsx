@@ -2576,15 +2576,15 @@ function CustomerFormDrawer({
                 label="State"
                 value={values.state}
                 onChange={(v) =>
-                  update("state", toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100))
+                  update("state", v.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 3))
                 }
                 placeholder="CA"
               />
               <CustomerField
                 label="ZIP code"
                 value={values.zipCode}
-                onChange={(v) => update("zipCode", v.slice(0, 20))}
-                placeholder="94565"
+                onChange={(v) => update("zipCode", v.replace(/\D/g, "").slice(0, 9))}
+                placeholder="94565 or 123456789"
               />
             </div>
 
