@@ -142,7 +142,6 @@ type CustomerFormValues = {
   email: string;
   phone: string;
   addressLine1: string;
-  addressLine2: string;
   city: string;
   state: string;
   zipCode: string;
@@ -2465,14 +2464,15 @@ function CustomerFormDrawer({
             type="button"
             onClick={requestClose}
             aria-label="Close"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-4">
+            {/* Row 1 — Full name (full width) */}
             <EditableField
               icon={<BadgeCheck className="h-4 w-4" />}
               label="Full name *"
@@ -2483,62 +2483,65 @@ function CustomerFormDrawer({
               error={fieldErrors.fullName}
               placeholder="John Doe"
             />
-            <EditableField
-              icon={<Mail className="h-4 w-4" />}
-              label="Email *"
-              value={values.email}
-              onChange={(v) => update("email", v.slice(0, 254))}
-              error={fieldErrors.email}
-              placeholder="name@example.com"
-            />
-            <EditableField
-              icon={<Phone className="h-4 w-4" />}
-              label="Phone"
-              value={values.phone}
-              onChange={(v) => update("phone", formatUsPhone(v))}
-              placeholder="(555) 123-4567"
-            />
+
+            {/* Row 2 — Phone | Email */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <EditableField
+                icon={<Phone className="h-4 w-4" />}
+                label="Phone"
+                value={values.phone}
+                onChange={(v) => update("phone", formatUsPhone(v))}
+                placeholder="(555) 123-4567"
+              />
+              <EditableField
+                icon={<Mail className="h-4 w-4" />}
+                label="Email *"
+                value={values.email}
+                onChange={(v) => update("email", v.slice(0, 254))}
+                error={fieldErrors.email}
+                placeholder="name@example.com"
+              />
+            </div>
+
+            {/* Row 3 — Address (full width) */}
             <EditableField
               icon={<MapPlus className="h-4 w-4" />}
-              label="Address line 1"
+              label="Address"
               value={values.addressLine1}
               onChange={(v) => update("addressLine1", v.slice(0, 200))}
               placeholder="123 Main St"
             />
-            <EditableField
-              icon={<MapPinned className="h-4 w-4" />}
-              label="Address line 2"
-              value={values.addressLine2}
-              onChange={(v) => update("addressLine2", v.slice(0, 200))}
-              placeholder="Apt 4B"
-            />
-            <EditableField
-              icon={<Compass className="h-4 w-4" />}
-              label="City"
-              value={values.city}
-              onChange={(v) =>
-                update("city", toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100))
-              }
-              placeholder="Pittsburg"
-            />
-            <EditableField
-              icon={<Landmark className="h-4 w-4" />}
-              label="State"
-              value={values.state}
-              onChange={(v) =>
-                update("state", toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100))
-              }
-              placeholder="CA"
-            />
-            <EditableField
-              icon={<Pin className="h-4 w-4" />}
-              label="ZIP code"
-              value={values.zipCode}
-              onChange={(v) => update("zipCode", v.slice(0, 20))}
-              placeholder="94565"
-            />
-          </div>
-          <div className="mt-3">
+
+            {/* Row 4 — City | State | ZIP */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <EditableField
+                icon={<Compass className="h-4 w-4" />}
+                label="City"
+                value={values.city}
+                onChange={(v) =>
+                  update("city", toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100))
+                }
+                placeholder="Pittsburg"
+              />
+              <EditableField
+                icon={<Landmark className="h-4 w-4" />}
+                label="State"
+                value={values.state}
+                onChange={(v) =>
+                  update("state", toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100))
+                }
+                placeholder="CA"
+              />
+              <EditableField
+                icon={<Pin className="h-4 w-4" />}
+                label="ZIP code"
+                value={values.zipCode}
+                onChange={(v) => update("zipCode", v.slice(0, 20))}
+                placeholder="94565"
+              />
+            </div>
+
+            {/* Row 5 — Internal notes (textarea, full width) */}
             <EditableField
               label="Internal notes"
               type="textarea"
@@ -2610,7 +2613,6 @@ function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
     email: customer?.email ?? "",
     phone: formatUsPhone(customer?.phone ?? ""),
     addressLine1: customer?.addressLine1 ?? "",
-    addressLine2: customer?.addressLine2 ?? "",
     city: customer?.city ?? "",
     state: customer?.state ?? "",
     zipCode: customer?.zipCode ?? "",

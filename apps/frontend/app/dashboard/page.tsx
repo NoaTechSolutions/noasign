@@ -238,7 +238,6 @@ type CustomerFormValues = {
   email: string;
   phone: string;
   addressLine1: string;
-  addressLine2: string;
   city: string;
   state: string;
   zipCode: string;
@@ -672,7 +671,6 @@ export default function DashboardPage() {
         "email",
         "phone",
         "addressLine1",
-        "addressLine2",
         "city",
         "state",
         "zipCode",
@@ -703,7 +701,6 @@ export default function DashboardPage() {
         "email",
         "phone",
         "addressLine1",
-        "addressLine2",
         "city",
         "state",
         "zipCode",
