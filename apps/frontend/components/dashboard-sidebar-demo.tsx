@@ -2414,10 +2414,9 @@ function CustomerFormDrawer({
       errs.email = "Invalid email format";
     }
 
-    const phone = values.phone.trim();
-    if (phone && !/^\(\d{3}\) \d{3}-\d{4}$/.test(phone)) {
-      errs.phone = "Format: (555) 123-4567";
-    }
+    // Phone: no submit-time pattern check. formatUsPhone in onChange sanitizes
+    // shape as the user types. Partial inputs (e.g. 9-digit legacy numbers or
+    // international formats without a US area code) are accepted as-is.
 
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
