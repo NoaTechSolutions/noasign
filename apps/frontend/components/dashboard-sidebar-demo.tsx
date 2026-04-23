@@ -1984,7 +1984,7 @@ function CustomersPanel(props: {
                     <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
                       <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{c.fullName}</div>
                       {c.email ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{c.email}</div> : null}
-                      {c.phone ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{c.phone}</div> : null}
+                      {c.phone ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{formatUsPhone(c.phone)}</div> : null}
                       <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{formatDate(c.createdAt)} • {c._count?.documents ?? 0} docs</div>
                     </button>
                     <div className="flex justify-end">
@@ -2015,7 +2015,7 @@ function CustomersPanel(props: {
                       {c.email ?? <span className="text-slate-400 dark:text-slate-500">—</span>}
                     </div>
                     <div className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {c.phone ?? <span className="text-slate-400 dark:text-slate-500">—</span>}
+                      {c.phone ? formatUsPhone(c.phone) : <span className="text-slate-400 dark:text-slate-500">—</span>}
                     </div>
                     <div className="text-sm text-slate-600 dark:text-slate-300">{c._count?.documents ?? 0}</div>
                     <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(c.createdAt)}</div>
@@ -2316,7 +2316,7 @@ function CustomerDetailCard({
       ) : (
         <div className="mt-5 grid gap-3">
           <CustomerDetailField label="Email" value={customer.email} />
-          <CustomerDetailField label="Phone" value={customer.phone} />
+          <CustomerDetailField label="Phone" value={customer.phone ? formatUsPhone(customer.phone) : null} />
           <CustomerDetailField label="Address" value={address} multiline />
           <CustomerDetailField label="Notes" value={customer.notes} multiline />
         </div>
