@@ -1851,6 +1851,24 @@ function DocumentsPanel(props: {
 
 type CustomerSortKey = "name" | "createdAt";
 
+// For a BUSINESS customer, the Customer row's email/phone are cleared on
+// submit; the contact info lives in the nested business row. Resolve to the
+// most relevant business email/phone, falling back to primaryContact when
+// the business fields are empty. PERSONAL customers use their own columns.
+function getDisplayEmail(c: Customer): string | null {
+  if (c.customerType === "BUSINESS" && c.business) {
+    return c.business.businessEmail || c.business.primaryContactEmail || null;
+  }
+  return c.email;
+}
+
+function getDisplayPhone(c: Customer): string | null {
+  if (c.customerType === "BUSINESS" && c.business) {
+    return c.business.businessPhone || c.business.primaryContactPhone || null;
+  }
+  return c.phone;
+}
+
 function CustomersPanel(props: {
   customers: Customer[] | null;
   customerDetail: Customer | null;
@@ -1889,7 +1907,22 @@ function CustomersPanel(props: {
     const q = props.searchQuery.trim().toLowerCase();
     return (props.customers ?? []).filter((c) => {
       if (!q) return true;
-      const hay = [c.fullName, c.email, c.phone].filter(Boolean).join(" ").toLowerCase();
+      const hay = [
+        c.fullName,
+        c.email,
+        c.phone,
+        // Include business fields so search works for BUSINESS customers
+        // whose public email/phone live in the nested business row.
+        c.business?.businessName,
+        c.business?.businessEmail,
+        c.business?.businessPhone,
+        c.business?.primaryContactEmail,
+        c.business?.primaryContactPhone,
+        c.business?.primaryContactName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       return hay.includes(q);
     });
   }, [props.customers, props.searchQuery]);
@@ -2023,9 +2056,8 @@ function CustomersPanel(props: {
         ) : (
           <>
             {/* Desktop header */}
-            <div className="hidden grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_64px_96px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
+            <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
               <CustomerSortHeader label="Name" columnKey="name" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Email</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Phone</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Docs</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Type</div>
@@ -2043,8 +2075,8 @@ function CustomersPanel(props: {
                         <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{c.fullName}</div>
                         <CustomerTypeBadge type={c.customerType} />
                       </div>
-                      {c.email ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{c.email}</div> : null}
-                      {c.phone ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{formatUsPhone(c.phone)}</div> : null}
+                      {getDisplayEmail(c) ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{getDisplayEmail(c)}</div> : null}
+                      {getDisplayPhone(c) ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{formatUsPhone(getDisplayPhone(c) ?? "")}</div> : null}
                       <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{formatDate(c.createdAt)} • {c._count?.documents ?? 0} docs</div>
                     </button>
                     <div className="flex justify-end">
@@ -2067,15 +2099,15 @@ function CustomersPanel(props: {
                   key={c.id}
                   className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-blue-50/60 dark:bg-blue-500/10")}
                 >
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_64px_96px_120px_64px] md:items-center">
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px] md:items-center">
                     <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
                       <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">{c.fullName}</div>
+                      {getDisplayEmail(c) ? (
+                        <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{getDisplayEmail(c)}</div>
+                      ) : null}
                     </button>
                     <div className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {c.email ?? <span className="text-slate-400 dark:text-slate-500">—</span>}
-                    </div>
-                    <div className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {c.phone ? formatUsPhone(c.phone) : <span className="text-slate-400 dark:text-slate-500">—</span>}
+                      {getDisplayPhone(c) ? formatUsPhone(getDisplayPhone(c) ?? "") : <span className="text-slate-400 dark:text-slate-500">—</span>}
                     </div>
                     <div className="text-sm text-slate-600 dark:text-slate-300">{c._count?.documents ?? 0}</div>
                     <div>
@@ -2408,8 +2440,8 @@ function CustomerDetailCard({
         <div className="mt-5"><EmptyBlock text="Customer not found." /></div>
       ) : (
         <div className="mt-5 grid gap-3">
-          <CustomerDetailField label="Email" value={customer.email} />
-          <CustomerDetailField label="Phone" value={customer.phone ? formatUsPhone(customer.phone) : null} />
+          <CustomerDetailField label="Email" value={getDisplayEmail(customer)} />
+          <CustomerDetailField label="Phone" value={getDisplayPhone(customer) ? formatUsPhone(getDisplayPhone(customer) ?? "") : null} />
           <CustomerDetailField label="Address" value={address} multiline />
           <CustomerDetailField label="Notes" value={customer.notes} multiline />
         </div>
