@@ -242,7 +242,6 @@ type CustomerFormValues = {
   city: string;
   state: string;
   zipCode: string;
-  country: string;
   notes: string;
 };
 
@@ -677,7 +676,6 @@ export default function DashboardPage() {
         "city",
         "state",
         "zipCode",
-        "country",
         "notes",
       ] as const
     ).forEach((key) => {
@@ -709,7 +707,6 @@ export default function DashboardPage() {
         "city",
         "state",
         "zipCode",
-        "country",
         "notes",
       ] as const
     ).forEach((key) => {

@@ -146,7 +146,6 @@ type CustomerFormValues = {
   city: string;
   state: string;
   zipCode: string;
-  country: string;
   notes: string;
 };
 
@@ -2358,14 +2357,45 @@ function CustomerFormDrawer({
   onClose: () => void;
   onSubmit: (values: CustomerFormValues) => Promise<void>;
 }) {
-  const [values, setValues] = useState<CustomerFormValues>(() => toCustomerFormValues(customer));
+  const [initialValues] = useState<CustomerFormValues>(() => toCustomerFormValues(customer));
+  const [values, setValues] = useState<CustomerFormValues>(initialValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof CustomerFormValues, string>>>({});
   const [submitError, setSubmitError] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState<
+    { title: string; message: string; onConfirm: () => void } | null
+  >(null);
+
+  const isDirty = useMemo(
+    () =>
+      Object.keys(
+        buildChangedProfilePayload(
+          initialValues as unknown as Record<string, string>,
+          values as unknown as Record<string, string>,
+        ),
+      ).length > 0,
+    [initialValues, values],
+  );
 
   function update<K extends keyof CustomerFormValues>(key: K, value: CustomerFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
     if (fieldErrors[key]) setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
+
+  function requestClose() {
+    if (isSubmitting) return;
+    if (isDirty) {
+      setConfirmDialog({
+        title: "Unsaved changes",
+        message: "You have unsaved changes. Are you sure you want to leave?",
+        onConfirm: () => {
+          setConfirmDialog(null);
+          onClose();
+        },
+      });
+    } else {
+      onClose();
+    }
   }
 
   function validate(): boolean {
@@ -2414,7 +2444,7 @@ function CustomerFormDrawer({
       <button
         type="button"
         aria-label="Close drawer"
-        onClick={onClose}
+        onClick={requestClose}
         className="absolute inset-0 cursor-default"
       />
       <form
@@ -2433,7 +2463,7 @@ function CustomerFormDrawer({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Close"
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
           >
@@ -2442,106 +2472,80 @@ function CustomerFormDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <CustomerDrawerField label="Full name *" error={fieldErrors.fullName}>
-              <CustomerDrawerInput
-                value={values.fullName}
-                onChange={(v) => update("fullName", v)}
-                maxLength={200}
-                required
-                hasError={Boolean(fieldErrors.fullName)}
-                autoComplete="name"
-                placeholder="John Doe"
-              />
-            </CustomerDrawerField>
-            <CustomerDrawerField label="Email *" error={fieldErrors.email}>
-              <CustomerDrawerInput
-                type="email"
-                value={values.email}
-                onChange={(v) => update("email", v)}
-                maxLength={254}
-                required
-                hasError={Boolean(fieldErrors.email)}
-                autoComplete="email"
-                placeholder="name@example.com"
-              />
-            </CustomerDrawerField>
-            <CustomerDrawerField label="Phone" error={fieldErrors.phone}>
-              <CustomerDrawerInput
-                type="tel"
-                value={values.phone}
-                onChange={(v) => update("phone", v)}
-                maxLength={40}
-                hasError={Boolean(fieldErrors.phone)}
-                autoComplete="tel"
-                placeholder="(555) 123-4567"
-              />
-            </CustomerDrawerField>
-            <CustomerDrawerField label="Country">
-              <CustomerDrawerInput
-                value={values.country}
-                onChange={(v) => update("country", v)}
-                maxLength={100}
-                autoComplete="country"
-                placeholder="USA"
-              />
-            </CustomerDrawerField>
-            <CustomerDrawerField label="Address line 1">
-              <CustomerDrawerInput
-                value={values.addressLine1}
-                onChange={(v) => update("addressLine1", v)}
-                maxLength={200}
-                autoComplete="address-line1"
-                placeholder="123 Main St"
-              />
-            </CustomerDrawerField>
-            <CustomerDrawerField label="Address line 2">
-              <CustomerDrawerInput
-                value={values.addressLine2}
-                onChange={(v) => update("addressLine2", v)}
-                maxLength={200}
-                autoComplete="address-line2"
-                placeholder="Apt 4B"
-              />
-            </CustomerDrawerField>
-            <CustomerDrawerField label="City">
-              <CustomerDrawerInput
-                value={values.city}
-                onChange={(v) => update("city", v)}
-                maxLength={100}
-                autoComplete="address-level2"
-                placeholder="Pittsburg"
-              />
-            </CustomerDrawerField>
-            <CustomerDrawerField label="State / Province">
-              <CustomerDrawerInput
-                value={values.state}
-                onChange={(v) => update("state", v)}
-                maxLength={100}
-                autoComplete="address-level1"
-                placeholder="CA"
-              />
-            </CustomerDrawerField>
-            <CustomerDrawerField label="ZIP / Postal code">
-              <CustomerDrawerInput
-                value={values.zipCode}
-                onChange={(v) => update("zipCode", v)}
-                maxLength={20}
-                autoComplete="postal-code"
-                placeholder="94565"
-              />
-            </CustomerDrawerField>
+          <div className="grid gap-3 md:grid-cols-2">
+            <EditableField
+              icon={<BadgeCheck className="h-4 w-4" />}
+              label="Full name *"
+              value={values.fullName}
+              onChange={(v) =>
+                update("fullName", toTitleCase(v.replace(/\d/g, "")).slice(0, 200))
+              }
+              error={fieldErrors.fullName}
+              placeholder="John Doe"
+            />
+            <EditableField
+              icon={<Mail className="h-4 w-4" />}
+              label="Email *"
+              value={values.email}
+              onChange={(v) => update("email", v.slice(0, 254))}
+              error={fieldErrors.email}
+              placeholder="name@example.com"
+            />
+            <EditableField
+              icon={<Phone className="h-4 w-4" />}
+              label="Phone"
+              value={values.phone}
+              onChange={(v) => update("phone", formatUsPhone(v))}
+              placeholder="(555) 123-4567"
+            />
+            <EditableField
+              icon={<MapPlus className="h-4 w-4" />}
+              label="Address line 1"
+              value={values.addressLine1}
+              onChange={(v) => update("addressLine1", v.slice(0, 200))}
+              placeholder="123 Main St"
+            />
+            <EditableField
+              icon={<MapPinned className="h-4 w-4" />}
+              label="Address line 2"
+              value={values.addressLine2}
+              onChange={(v) => update("addressLine2", v.slice(0, 200))}
+              placeholder="Apt 4B"
+            />
+            <EditableField
+              icon={<Compass className="h-4 w-4" />}
+              label="City"
+              value={values.city}
+              onChange={(v) =>
+                update("city", toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100))
+              }
+              placeholder="Pittsburg"
+            />
+            <EditableField
+              icon={<Landmark className="h-4 w-4" />}
+              label="State"
+              value={values.state}
+              onChange={(v) =>
+                update("state", toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100))
+              }
+              placeholder="CA"
+            />
+            <EditableField
+              icon={<Pin className="h-4 w-4" />}
+              label="ZIP code"
+              value={values.zipCode}
+              onChange={(v) => update("zipCode", v.slice(0, 20))}
+              placeholder="94565"
+            />
           </div>
-          <div className="mt-4">
-            <CustomerDrawerField label="Internal notes">
-              <textarea
-                value={values.notes}
-                onChange={(e) => update("notes", e.target.value)}
-                maxLength={2000}
-                rows={4}
-                className="min-h-[100px] w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:bg-[color:var(--bg-elevated)]"
-              />
-            </CustomerDrawerField>
+          <div className="mt-3">
+            <EditableField
+              label="Internal notes"
+              type="textarea"
+              value={values.notes}
+              onChange={(v) => update("notes", v.slice(0, 2000))}
+              placeholder="Anything worth remembering about this customer..."
+            />
           </div>
           {submitError ? (
             <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
@@ -2553,7 +2557,7 @@ function CustomerFormDrawer({
         <div className="flex items-center justify-end gap-3 border-t border-[color:var(--border)] px-6 py-4">
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isSubmitting}
             className="inline-flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] disabled:opacity-70"
           >
@@ -2568,81 +2572,48 @@ function CustomerFormDrawer({
           </button>
         </div>
       </form>
+      {confirmDialog ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
+            <div className="text-lg font-semibold text-slate-950 dark:text-white">
+              {confirmDialog.title}
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              {confirmDialog.message}
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmDialog(null)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={confirmDialog.onConfirm}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function CustomerDrawerField({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-        {label}
-      </span>
-      {children}
-      {error ? <span className="text-xs text-rose-600 dark:text-rose-400">{error}</span> : null}
-    </label>
-  );
-}
-
-function CustomerDrawerInput({
-  value,
-  onChange,
-  type = "text",
-  maxLength,
-  required,
-  hasError,
-  autoComplete,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  maxLength?: number;
-  required?: boolean;
-  hasError?: boolean;
-  autoComplete?: string;
-  placeholder?: string;
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      maxLength={maxLength}
-      required={required}
-      autoComplete={autoComplete}
-      placeholder={placeholder}
-      className={cn(
-        "h-12 w-full rounded-2xl border bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition placeholder:text-[color:var(--text-muted)] focus:bg-[color:var(--bg-elevated)]",
-        hasError
-          ? "border-rose-400 focus:border-rose-500"
-          : "border-[color:var(--border)] focus:border-blue-400",
-      )}
-    />
-  );
-}
-
 function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
-  // Create mode (no customer) — country defaults to "USA".
-  // Edit mode — preserve saved value (empty if cleared previously).
   return {
     fullName: customer?.fullName ?? "",
     email: customer?.email ?? "",
-    phone: customer?.phone ?? "",
+    phone: formatUsPhone(customer?.phone ?? ""),
     addressLine1: customer?.addressLine1 ?? "",
     addressLine2: customer?.addressLine2 ?? "",
     city: customer?.city ?? "",
     state: customer?.state ?? "",
     zipCode: customer?.zipCode ?? "",
-    country: customer ? customer.country ?? "" : "USA",
     notes: customer?.notes ?? "",
   };
 }
