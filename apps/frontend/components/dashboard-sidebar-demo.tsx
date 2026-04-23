@@ -26,6 +26,7 @@ import {
   Contact,
   CreditCard,
   Download,
+  Eye,
   Factory,
   FileJson,
   FilePlus,
@@ -66,6 +67,7 @@ type Doc = {
   status: string;
   contractDate: string;
   createdAt: string;
+  customerId?: string | null;
   providerDocumentId?: string | null;
   providerStatus?: string | null;
   providerLastSyncedAt?: string | null;
@@ -1058,6 +1060,15 @@ export function DashboardSidebarDemo({
               onDeleteCustomer={onDeleteCustomer}
               onCreateCustomer={onCreateCustomer}
               onUpdateCustomer={onUpdateCustomer}
+              documents={documents}
+              onOpenDocumentView={(documentId) => {
+                openDocumentViewer({
+                  documentId,
+                  tab: "client",
+                  editingTab: null,
+                });
+              }}
+              onDownloadFinalPdf={onDownloadFinalPdf}
             />
           ) : null}
 
@@ -1884,6 +1895,9 @@ function CustomersPanel(props: {
   onDeleteCustomer: (id: string) => Promise<void>;
   onCreateCustomer: (values: CustomerFormValues) => Promise<void>;
   onUpdateCustomer: (id: string, values: CustomerFormValues) => Promise<void>;
+  documents: Doc[] | null;
+  onOpenDocumentView: (documentId: string) => void;
+  onDownloadFinalPdf: (documentId: string) => Promise<void>;
 }) {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -2167,6 +2181,7 @@ function CustomersPanel(props: {
           key={props.customerDetail?.id ?? props.selectedCustomerId}
           customer={props.customerDetail}
           isLoading={props.isDetailLoading}
+          documents={props.documents}
           onClose={props.onCloseCustomerDetail}
           onEdit={() => {
             if (props.customerDetail) {
@@ -2175,6 +2190,8 @@ function CustomersPanel(props: {
               setEditingCustomer(target);
             }
           }}
+          onOpenDocumentView={props.onOpenDocumentView}
+          onDownloadFinalPdf={props.onDownloadFinalPdf}
         />
       ) : null}
 
@@ -2609,15 +2626,21 @@ type ViewTabKey = "info" | "company" | "contact" | "documents";
 function CustomerViewDrawer({
   customer,
   isLoading,
+  documents,
   onClose,
   onEdit,
   onCreateDocument,
+  onOpenDocumentView,
+  onDownloadFinalPdf,
 }: {
   customer: Customer | null;
   isLoading: boolean;
+  documents: Doc[] | null;
   onClose: () => void;
   onEdit: () => void;
   onCreateDocument?: () => void;
+  onOpenDocumentView: (documentId: string) => void;
+  onDownloadFinalPdf: (documentId: string) => Promise<void>;
 }) {
   const isBusiness = customer?.customerType === "BUSINESS";
   const [activeTab, setActiveTab] = useState<ViewTabKey>(
@@ -2658,6 +2681,16 @@ function CustomerViewDrawer({
       : ""
     : "";
   const emailDisplay = customer ? getDisplayEmail(customer) ?? "" : "";
+
+  const customerDocuments = useMemo(() => {
+    if (!customer || !documents) return [];
+    return documents
+      .filter((d) => d.customerId === customer.id)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+  }, [customer, documents]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40">
@@ -2720,7 +2753,66 @@ function CustomerViewDrawer({
           ) : !customer ? (
             <EmptyBlock text="Customer not found." />
           ) : activeTab === "documents" ? (
-            <EmptyBlock text="Documents listing coming in next sub-phase (C2)." />
+            customerDocuments.length === 0 ? (
+              <EmptyBlock text="No documents linked to this customer yet." />
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)]">
+                <table className="w-full text-sm">
+                  <thead className="bg-[color:var(--bg-page-subtle)] text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                    <tr>
+                      <th className="px-4 py-3">Document #</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[color:var(--border)]">
+                    {customerDocuments.map((doc) => (
+                      <tr
+                        key={doc.id}
+                        className="transition hover:bg-[color:var(--bg-page-subtle)]"
+                      >
+                        <td className="px-4 py-3 font-medium text-[color:var(--text-primary)]">
+                          {doc.documentNumber}
+                        </td>
+                        <td className="px-4 py-3 text-[color:var(--text-secondary)]">
+                          {doc.documentType?.name ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-[color:var(--text-secondary)]">
+                          {formatDate(doc.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={doc.status} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onOpenDocumentView(doc.id)}
+                              aria-label="View document"
+                              title="View"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:hover:border-blue-400/40 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void onDownloadFinalPdf(doc.id)}
+                              aria-label="Download document"
+                              title="Download"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:border-emerald-400/40 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           ) : activeTab === "info" ? (
             <div className="grid gap-4">
               <CustomerField
