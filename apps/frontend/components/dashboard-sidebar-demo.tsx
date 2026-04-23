@@ -19,7 +19,6 @@ import {
   ChevronsUpDown,
   CircleHelp,
   Compass,
-  Contact,
   CreditCard,
   Download,
   Factory,
@@ -752,16 +751,6 @@ export function DashboardSidebarDemo({
                     )}
                   </div>
                 ))}
-                {/* Customers route navigation — uses href instead of onClick
-                    because /dashboard/customers is a separate Next.js route,
-                    not an internal state section of this monster component. */}
-                <SidebarLink
-                  link={{
-                    label: "Customers",
-                    icon: <Contact className="h-5 w-5 shrink-0" />,
-                  }}
-                  href="/dashboard/customers"
-                />
               </div>
             </div>
 
