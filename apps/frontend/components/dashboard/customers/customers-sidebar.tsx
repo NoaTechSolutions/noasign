@@ -1,29 +1,50 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
-  FileText,
-  UserRound,
-  CreditCard,
-  Users,
+  ChevronLeft,
   Contact,
-  LogOut,
-  Menu,
-  X,
+  CreditCard,
+  FileText,
+  LayoutDashboard,
+  UserRound,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarBody } from "@/components/ui/sidebar";
-import { API_URL } from "@/lib/api";
+import { Logo, LogoIcon, InfoCard, getDisplayName } from "@/components/dashboard/brand";
+import { apiRequest, API_URL } from "@/lib/api";
 import { clearSession } from "@/lib/auth-storage";
 import { useCurrentUser, clearCurrentUser } from "@/lib/hooks/use-current-user";
+import { useCustomersSidebar } from "@/app/dashboard/customers/sidebar-context";
 
-// Customers-scoped sidebar — mirrors the visual pattern of dashboard-sidebar-demo.tsx
-// but targets the /dashboard/customers route segment. Nav items that belong to the
-// monster's internal state-based sections link to /dashboard?section=KEY; the monster
-// reads that query param on mount and renders the matching panel.
+// Customers-scoped sidebar — mirrors the monster's dashboard sidebar pixel-for-pixel
+// (Logo, Workspace InfoCards, sign-out / Powered by / Version footer). Open/close
+// state lives in CustomersSidebarProvider so CustomersTopBar can host the hamburger.
+
+type CompanyProfile = {
+  id: string;
+  companyName: string;
+  logoUrl: string | null;
+  planName: string;
+  monthlyDocLimit: number;
+  isUnlimited: boolean;
+  contactEmail?: string | null;
+  contactFirstName?: string | null;
+  contactLastName?: string | null;
+};
+
+type CurrentUsage = {
+  billingPeriod: string;
+  planName: string;
+  monthlyDocLimit: number;
+  isUnlimited: boolean;
+  documentsUsed: number;
+  remainingDocuments: number | null;
+  overageDocuments: number;
+};
 
 type NavItem = {
   key: string;
@@ -36,19 +57,33 @@ type NavItem = {
 
 export function CustomersSidebar({ activeKey }: { activeKey: "customers" }) {
   const router = useRouter();
-  const [open, setOpen] = useState(true);
+  const { open, setOpen } = useCustomersSidebar();
   const user = useCurrentUser();
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [usage, setUsage] = useState<CurrentUsage | null>(null);
 
   useEffect(() => {
-    function sync() {
-      setOpen(window.innerWidth >= 1280);
-    }
-    sync();
-    window.addEventListener("resize", sync);
-    return () => window.removeEventListener("resize", sync);
+    let alive = true;
+    apiRequest<CompanyProfile>("/company-profile/me")
+      .then((cp) => {
+        if (alive) setCompanyProfile(cp);
+      })
+      .catch(() => {
+        // 401 handled by apiRequest itself; individual users may have no company.
+      });
+    apiRequest<CurrentUsage>("/billing/current-usage")
+      .then((u) => {
+        if (alive) setUsage(u);
+      })
+      .catch(() => {
+        // Missing billing data is non-blocking for nav rendering.
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  async function handleSignOut() {
+  const handleSignOut = useCallback(async () => {
     try {
       await fetch(`${API_URL}/auth/logout`, {
         method: "POST",
@@ -59,10 +94,13 @@ export function CustomersSidebar({ activeKey }: { activeKey: "customers" }) {
     }
     clearSession();
     clearCurrentUser();
-    router.replace("/");
-  }
+    router.replace("/login");
+  }, [router]);
 
   const isMaster = user?.role === "MASTER";
+  const isIndividualUser =
+    user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL";
+  const isLoading = !user;
 
   const navItems: NavItem[] = [
     {
@@ -114,31 +152,28 @@ export function CustomersSidebar({ activeKey }: { activeKey: "customers" }) {
     },
   ];
 
-  const displayName =
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || "Account";
-
   return (
-    <>
-      <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between gap-3 xl:gap-8">
-          <div>
-            <div className="flex items-center justify-between px-3 pb-6 pt-2">
-              <div className="text-lg font-semibold tracking-tight text-[color:var(--text-primary)]">
-                NTSsign
-              </div>
-              {open ? (
-                <button
-                  type="button"
-                  aria-label="Close sidebar"
-                  onClick={() => setOpen(false)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[color:var(--text-secondary)] xl:hidden"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              ) : null}
-            </div>
+    <Sidebar open={open} setOpen={setOpen}>
+      <SidebarBody className="justify-between gap-3 xl:gap-8">
+        <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-hidden">
+          {/* Top: Logo + Close button — identical to monster */}
+          <div className="relative flex items-start justify-center gap-3">
+            <div className="min-w-0 flex-1">{open ? <Logo /> : <LogoIcon />}</div>
+            {open ? (
+              <button
+                type="button"
+                aria-label="Close sidebar"
+                onClick={() => setOpen(false)}
+                className="absolute right-0 top-0 z-30 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#022977] bg-white text-[#022977] shadow-[0_10px_24px_rgba(2,41,119,0.12)] dark:border-[color:var(--border)] dark:bg-[color:var(--bg-elevated)] dark:text-[color:var(--text-secondary)] dark:shadow-[var(--shadow-soft)]"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            ) : null}
+          </div>
 
-            <nav className="mt-2 flex flex-col gap-2 xl:mt-4">
+          {/* Nav items */}
+          <div className="mt-4 xl:mt-8">
+            <div className="flex flex-col gap-2">
               {navItems.map((item) => (
                 <Link
                   key={item.key}
@@ -163,40 +198,83 @@ export function CustomersSidebar({ activeKey }: { activeKey: "customers" }) {
                   <span className="truncate">{item.label}</span>
                 </Link>
               ))}
-            </nav>
-          </div>
-
-          <div className="grid gap-3">
-            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3 text-sm shadow-[var(--shadow-soft)]">
-              <div className="truncate font-medium text-[color:var(--text-primary)]">
-                {displayName}
-              </div>
-              {user?.email ? (
-                <div className="truncate text-xs text-[color:var(--text-muted)]">{user.email}</div>
-              ) : null}
             </div>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm font-medium text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--danger-bg)]"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </button>
           </div>
-        </SidebarBody>
-      </Sidebar>
 
-      {!open ? (
-        <button
-          type="button"
-          aria-label="Open sidebar"
-          onClick={() => setOpen(true)}
-          className="fixed left-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)] xl:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      ) : null}
-    </>
+          {/* Workspace section — matches monster */}
+          <div className="mt-4 xl:mt-8">
+            <div className="px-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">
+              Workspace
+            </div>
+            <div className="mt-2 grid gap-2 xl:mt-3 xl:gap-3">
+              <InfoCard
+                label={isIndividualUser ? "Account" : "Company"}
+                title={
+                  isLoading
+                    ? "Loading..."
+                    : isIndividualUser
+                      ? [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+                        getDisplayName(user?.email ?? "") ||
+                        "My Account"
+                      : companyProfile?.companyName ?? "NTSsign"
+                }
+                subtitle={
+                  isLoading
+                    ? "..."
+                    : isIndividualUser
+                      ? user?.email ?? "Individual"
+                      : [
+                          companyProfile?.contactFirstName,
+                          companyProfile?.contactLastName,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                          .trim() ||
+                        companyProfile?.contactEmail ||
+                        "Primary contact not defined"
+                }
+              />
+              <InfoCard
+                label="Plan"
+                title={isLoading ? "Loading..." : usage?.planName ?? "-"}
+                subtitle={
+                  isLoading
+                    ? "..."
+                    : usage?.isUnlimited
+                      ? "Unlimited documents"
+                      : `${usage?.documentsUsed ?? 0} used this month`
+                }
+                accent
+                actionLabel="Upgrade plan"
+                onAction={() => router.push("/dashboard?section=billing")}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom: Sign out + Powered by + Version — matches monster */}
+        <div className="grid gap-3">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="inline-flex h-14 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm font-medium text-[color:var(--danger-text)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--danger-bg)]"
+          >
+            Sign out
+          </button>
+          <div className="px-3 text-left text-[11px] font-medium tracking-[0.18em] text-[color:var(--text-muted)]">
+            Powered by{" "}
+            <span className="font-semibold text-[color:var(--text-secondary)]">
+              NoaTechSolutions
+            </span>
+          </div>
+          <div className="px-3 text-center text-[11px] font-medium tracking-[0.18em] text-[color:var(--text-muted)]">
+            Version{" "}
+            <span className="font-semibold text-[color:var(--text-secondary)]">
+              1.0.0
+            </span>
+          </div>
+        </div>
+      </SidebarBody>
+    </Sidebar>
   );
 }

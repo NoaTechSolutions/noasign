@@ -3,17 +3,19 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, UserRound, WalletCards } from "lucide-react";
+import { ChevronRight, LogOut, Menu, UserRound, WalletCards } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API_URL } from "@/lib/api";
 import { clearSession } from "@/lib/auth-storage";
 import { useCurrentUser, clearCurrentUser } from "@/lib/hooks/use-current-user";
+import { useCustomersSidebar } from "@/app/dashboard/customers/sidebar-context";
 
 type Breadcrumb = { label: string; href?: string };
 
 export function CustomersTopBar({ breadcrumbs }: { breadcrumbs: Breadcrumb[] }) {
   const router = useRouter();
   const user = useCurrentUser();
+  const { open: sidebarOpen, setOpen: setSidebarOpen } = useCustomersSidebar();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -38,7 +40,7 @@ export function CustomersTopBar({ breadcrumbs }: { breadcrumbs: Breadcrumb[] }) 
     }
     clearSession();
     clearCurrentUser();
-    router.replace("/");
+    router.replace("/login");
   }
 
   const displayName =
@@ -57,27 +59,39 @@ export function CustomersTopBar({ breadcrumbs }: { breadcrumbs: Breadcrumb[] }) 
 
   return (
     <div className="-mx-4 flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--topbar-border)] px-4 py-2 md:-mx-6 md:px-6 md:py-3">
-      <nav className="flex min-w-0 flex-1 items-center gap-2 text-sm text-[color:var(--text-muted)]">
-        {breadcrumbs.map((crumb, i) => (
-          <div key={`${crumb.label}-${i}`} className="flex items-center gap-2">
-            {crumb.href ? (
-              <Link
-                href={crumb.href}
-                className="truncate transition hover:text-[color:var(--text-primary)]"
-              >
-                {crumb.label}
-              </Link>
-            ) : (
-              <span className="truncate font-medium text-[color:var(--text-primary)]">
-                {crumb.label}
-              </span>
-            )}
-            {i < breadcrumbs.length - 1 ? (
-              <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
-            ) : null}
-          </div>
-        ))}
-      </nav>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {!sidebarOpen ? (
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--bg-surface)] hover:text-[color:var(--text-primary)]"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        ) : null}
+        <nav className="flex min-w-0 flex-1 items-center gap-2 text-sm text-[color:var(--text-muted)]">
+          {breadcrumbs.map((crumb, i) => (
+            <div key={`${crumb.label}-${i}`} className="flex items-center gap-2">
+              {crumb.href ? (
+                <Link
+                  href={crumb.href}
+                  className="truncate transition hover:text-[color:var(--text-primary)]"
+                >
+                  {crumb.label}
+                </Link>
+              ) : (
+                <span className="truncate font-medium text-[color:var(--text-primary)]">
+                  {crumb.label}
+                </span>
+              )}
+              {i < breadcrumbs.length - 1 ? (
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
+              ) : null}
+            </div>
+          ))}
+        </nav>
+      </div>
 
       <div ref={menuRef} className="relative shrink-0">
         <button

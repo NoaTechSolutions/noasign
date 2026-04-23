@@ -8,6 +8,7 @@ export type CurrentUser = {
   email: string;
   role: string;
   status?: string;
+  accountType?: string | null;
   firstName: string | null;
   lastName: string | null;
   avatarUrl?: string | null;

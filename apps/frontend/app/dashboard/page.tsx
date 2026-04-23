@@ -552,10 +552,10 @@ export default function DashboardPage() {
     setDocumentDetail(null);
     setSelectedDocumentId(null);
     if (typeof window !== "undefined") {
-      window.location.replace("/");
+      window.location.replace("/login");
       return;
     }
-    router.replace("/");
+    router.replace("/login");
   }
 
   async function handleSelectDocument(documentId: string) {
