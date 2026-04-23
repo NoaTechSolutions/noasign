@@ -2638,6 +2638,19 @@ function CustomerViewDrawer({
     ];
   }, [isBusiness]);
 
+  // Customer arrives async (null → loaded), so the initial useState runs when
+  // customer is still null (isBusiness=false, activeTab="info"). Once the
+  // BUSINESS customer resolves, the "info" tab is no longer in the list — snap
+  // activeTab back to the first valid tab for this customer type.
+  useEffect(() => {
+    const validKeys: ViewTabKey[] = isBusiness
+      ? ["company", "contact", "documents"]
+      : ["info", "documents"];
+    if (!validKeys.includes(activeTab)) {
+      setActiveTab(isBusiness ? "company" : "info");
+    }
+  }, [isBusiness, activeTab]);
+
   const b = customer?.business;
   const phoneDisplay = customer
     ? getDisplayPhone(customer)
