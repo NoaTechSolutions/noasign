@@ -2604,6 +2604,8 @@ function CustomerField({
   );
 }
 
+type ViewTabKey = "info" | "company" | "contact" | "documents";
+
 function CustomerViewDrawer({
   customer,
   isLoading,
@@ -2618,9 +2620,23 @@ function CustomerViewDrawer({
   onCreateDocument?: () => void;
 }) {
   const isBusiness = customer?.customerType === "BUSINESS";
-  const [activeTab, setActiveTab] = useState<"company" | "representative">(
-    "company",
+  const [activeTab, setActiveTab] = useState<ViewTabKey>(
+    isBusiness ? "company" : "info",
   );
+
+  const tabs = useMemo<{ key: ViewTabKey; label: string }[]>(() => {
+    if (isBusiness) {
+      return [
+        { key: "company", label: "Company" },
+        { key: "contact", label: "Primary Contact" },
+        { key: "documents", label: "Documents" },
+      ];
+    }
+    return [
+      { key: "info", label: "Customer Info" },
+      { key: "documents", label: "Documents" },
+    ];
+  }, [isBusiness]);
 
   const b = customer?.business;
   const phoneDisplay = customer
@@ -2667,41 +2683,32 @@ function CustomerViewDrawer({
           </button>
         </div>
 
-        {isBusiness ? (
-          <div className="flex gap-1 border-b border-[color:var(--border)] px-6">
+        <div className="flex gap-1 border-b border-[color:var(--border)] px-6">
+          {tabs.map((tab) => (
             <button
+              key={tab.key}
               type="button"
-              onClick={() => setActiveTab("company")}
+              onClick={() => setActiveTab(tab.key)}
               className={cn(
                 "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
-                activeTab === "company"
+                activeTab === tab.key
                   ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
                   : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
               )}
             >
-              Company
+              {tab.label}
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("representative")}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
-                activeTab === "representative"
-                  ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
-                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
-              )}
-            >
-              Representative
-            </button>
-          </div>
-        ) : null}
+          ))}
+        </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {isLoading ? (
             <EmptyBlock text="Loading customer..." />
           ) : !customer ? (
             <EmptyBlock text="Customer not found." />
-          ) : !isBusiness ? (
+          ) : activeTab === "documents" ? (
+            <EmptyBlock text="Documents listing coming in next sub-phase (C2)." />
+          ) : activeTab === "info" ? (
             <div className="grid gap-4">
               <CustomerField
                 label="Full name"
