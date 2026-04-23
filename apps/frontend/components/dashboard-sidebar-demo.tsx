@@ -2370,14 +2370,26 @@ function CustomerFormDrawer({
 
   function validate(): boolean {
     const errs: Partial<Record<keyof CustomerFormValues, string>> = {};
-    if (!values.fullName.trim()) {
+
+    const name = values.fullName.trim();
+    if (!name) {
       errs.fullName = "Full name is required";
-    } else if (values.fullName.trim().length > 200) {
+    } else if (name.length > 200) {
       errs.fullName = "Max 200 characters";
     }
-    if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
-      errs.email = "Invalid email";
+
+    const email = values.email.trim();
+    if (!email) {
+      errs.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errs.email = "Invalid email format";
     }
+
+    const phone = values.phone.trim();
+    if (phone && !/^\(\d{3}\) \d{3}-\d{4}$/.test(phone)) {
+      errs.phone = "Format: (555) 123-4567";
+    }
+
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -2439,25 +2451,30 @@ function CustomerFormDrawer({
                 required
                 hasError={Boolean(fieldErrors.fullName)}
                 autoComplete="name"
+                placeholder="John Doe"
               />
             </CustomerDrawerField>
-            <CustomerDrawerField label="Email" error={fieldErrors.email}>
+            <CustomerDrawerField label="Email *" error={fieldErrors.email}>
               <CustomerDrawerInput
                 type="email"
                 value={values.email}
                 onChange={(v) => update("email", v)}
                 maxLength={254}
+                required
                 hasError={Boolean(fieldErrors.email)}
                 autoComplete="email"
+                placeholder="name@example.com"
               />
             </CustomerDrawerField>
-            <CustomerDrawerField label="Phone">
+            <CustomerDrawerField label="Phone" error={fieldErrors.phone}>
               <CustomerDrawerInput
                 type="tel"
                 value={values.phone}
                 onChange={(v) => update("phone", v)}
                 maxLength={40}
+                hasError={Boolean(fieldErrors.phone)}
                 autoComplete="tel"
+                placeholder="(555) 123-4567"
               />
             </CustomerDrawerField>
             <CustomerDrawerField label="Country">
@@ -2466,6 +2483,7 @@ function CustomerFormDrawer({
                 onChange={(v) => update("country", v)}
                 maxLength={100}
                 autoComplete="country"
+                placeholder="USA"
               />
             </CustomerDrawerField>
             <CustomerDrawerField label="Address line 1">
@@ -2474,6 +2492,7 @@ function CustomerFormDrawer({
                 onChange={(v) => update("addressLine1", v)}
                 maxLength={200}
                 autoComplete="address-line1"
+                placeholder="123 Main St"
               />
             </CustomerDrawerField>
             <CustomerDrawerField label="Address line 2">
@@ -2482,6 +2501,7 @@ function CustomerFormDrawer({
                 onChange={(v) => update("addressLine2", v)}
                 maxLength={200}
                 autoComplete="address-line2"
+                placeholder="Apt 4B"
               />
             </CustomerDrawerField>
             <CustomerDrawerField label="City">
@@ -2490,6 +2510,7 @@ function CustomerFormDrawer({
                 onChange={(v) => update("city", v)}
                 maxLength={100}
                 autoComplete="address-level2"
+                placeholder="Pittsburg"
               />
             </CustomerDrawerField>
             <CustomerDrawerField label="State / Province">
@@ -2498,6 +2519,7 @@ function CustomerFormDrawer({
                 onChange={(v) => update("state", v)}
                 maxLength={100}
                 autoComplete="address-level1"
+                placeholder="CA"
               />
             </CustomerDrawerField>
             <CustomerDrawerField label="ZIP / Postal code">
@@ -2506,6 +2528,7 @@ function CustomerFormDrawer({
                 onChange={(v) => update("zipCode", v)}
                 maxLength={20}
                 autoComplete="postal-code"
+                placeholder="94565"
               />
             </CustomerDrawerField>
           </div>
@@ -2577,6 +2600,7 @@ function CustomerDrawerInput({
   required,
   hasError,
   autoComplete,
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2585,6 +2609,7 @@ function CustomerDrawerInput({
   required?: boolean;
   hasError?: boolean;
   autoComplete?: string;
+  placeholder?: string;
 }) {
   return (
     <input
@@ -2594,8 +2619,9 @@ function CustomerDrawerInput({
       maxLength={maxLength}
       required={required}
       autoComplete={autoComplete}
+      placeholder={placeholder}
       className={cn(
-        "h-12 w-full rounded-2xl border bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition focus:bg-[color:var(--bg-elevated)]",
+        "h-12 w-full rounded-2xl border bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition placeholder:text-[color:var(--text-muted)] focus:bg-[color:var(--bg-elevated)]",
         hasError
           ? "border-rose-400 focus:border-rose-500"
           : "border-[color:var(--border)] focus:border-blue-400",
@@ -2605,6 +2631,8 @@ function CustomerDrawerInput({
 }
 
 function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
+  // Create mode (no customer) — country defaults to "USA".
+  // Edit mode — preserve saved value (empty if cleared previously).
   return {
     fullName: customer?.fullName ?? "",
     email: customer?.email ?? "",
@@ -2614,7 +2642,7 @@ function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
     city: customer?.city ?? "",
     state: customer?.state ?? "",
     zipCode: customer?.zipCode ?? "",
-    country: customer?.country ?? "",
+    country: customer ? customer.country ?? "" : "USA",
     notes: customer?.notes ?? "",
   };
 }
