@@ -2345,6 +2345,59 @@ function CustomerDetailField({
   );
 }
 
+function CustomerField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  error,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: "text" | "textarea";
+  placeholder?: string;
+  error?: string;
+  required?: boolean;
+}) {
+  const base = cn(
+    "w-full rounded-2xl border bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition placeholder:text-[color:var(--text-muted)] focus:bg-[color:var(--bg-elevated)]",
+    error
+      ? "border-rose-400 focus:border-rose-500"
+      : "border-[color:var(--border)] focus:border-blue-400",
+  );
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+        {label}
+      </span>
+      {type === "textarea" ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={4}
+          className={cn(base, "min-h-[100px] py-3")}
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          required={required}
+          className={cn(base, "h-12")}
+        />
+      )}
+      {error ? (
+        <span className="text-xs text-rose-600 dark:text-rose-400">{error}</span>
+      ) : null}
+    </label>
+  );
+}
+
 function CustomerFormDrawer({
   mode,
   customer,
@@ -2472,8 +2525,7 @@ function CustomerFormDrawer({
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="grid gap-4">
             {/* Row 1 — Full name (full width) */}
-            <EditableField
-              icon={<BadgeCheck className="h-4 w-4" />}
+            <CustomerField
               label="Full name *"
               value={values.fullName}
               onChange={(v) =>
@@ -2481,30 +2533,29 @@ function CustomerFormDrawer({
               }
               error={fieldErrors.fullName}
               placeholder="John Doe"
+              required
             />
 
             {/* Row 2 — Phone | Email */}
             <div className="grid gap-4 md:grid-cols-2">
-              <EditableField
-                icon={<Phone className="h-4 w-4" />}
+              <CustomerField
                 label="Phone"
                 value={values.phone}
                 onChange={(v) => update("phone", formatUsPhone(v))}
                 placeholder="(555) 123-4567"
               />
-              <EditableField
-                icon={<Mail className="h-4 w-4" />}
+              <CustomerField
                 label="Email *"
                 value={values.email}
                 onChange={(v) => update("email", v.slice(0, 254))}
                 error={fieldErrors.email}
                 placeholder="name@example.com"
+                required
               />
             </div>
 
             {/* Row 3 — Address (full width) */}
-            <EditableField
-              icon={<MapPlus className="h-4 w-4" />}
+            <CustomerField
               label="Address"
               value={values.addressLine1}
               onChange={(v) => update("addressLine1", v.slice(0, 200))}
@@ -2513,8 +2564,7 @@ function CustomerFormDrawer({
 
             {/* Row 4 — City | State | ZIP */}
             <div className="grid gap-4 md:grid-cols-3">
-              <EditableField
-                icon={<Compass className="h-4 w-4" />}
+              <CustomerField
                 label="City"
                 value={values.city}
                 onChange={(v) =>
@@ -2522,8 +2572,7 @@ function CustomerFormDrawer({
                 }
                 placeholder="Pittsburg"
               />
-              <EditableField
-                icon={<Landmark className="h-4 w-4" />}
+              <CustomerField
                 label="State"
                 value={values.state}
                 onChange={(v) =>
@@ -2531,8 +2580,7 @@ function CustomerFormDrawer({
                 }
                 placeholder="CA"
               />
-              <EditableField
-                icon={<Pin className="h-4 w-4" />}
+              <CustomerField
                 label="ZIP code"
                 value={values.zipCode}
                 onChange={(v) => update("zipCode", v.slice(0, 20))}
@@ -2541,7 +2589,7 @@ function CustomerFormDrawer({
             </div>
 
             {/* Row 5 — Internal notes (textarea, full width) */}
-            <EditableField
+            <CustomerField
               label="Internal notes"
               type="textarea"
               value={values.notes}
