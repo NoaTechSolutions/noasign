@@ -2001,13 +2001,7 @@ function CustomersPanel(props: {
         </div>
       </div>
 
-      {/* Split-view wrapper: Card 2 (table) + optional CustomerDetailCard on right */}
-      <div
-        className={cn(
-          "grid gap-4",
-          props.selectedCustomerId && "xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]",
-        )}
-      >
+      {/* Card 2 (table) — full width. Selection opens CustomerViewDrawer modal. */}
       <div className="overflow-visible rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
           <div>
@@ -2168,16 +2162,20 @@ function CustomersPanel(props: {
         )}
       </div>
       {props.selectedCustomerId ? (
-        <CustomerDetailCard
+        <CustomerViewDrawer
+          key={props.customerDetail?.id ?? props.selectedCustomerId}
           customer={props.customerDetail}
           isLoading={props.isDetailLoading}
-          onEdit={() => {
-            if (props.customerDetail) setEditingCustomer(props.customerDetail);
-          }}
           onClose={props.onCloseCustomerDetail}
+          onEdit={() => {
+            if (props.customerDetail) {
+              const target = props.customerDetail;
+              props.onCloseCustomerDetail();
+              setEditingCustomer(target);
+            }
+          }}
         />
       ) : null}
-      </div>
 
       {typeSelectorOpen ? (
         <CustomerTypeSelectorDialog
@@ -2597,6 +2595,204 @@ function CustomerField({
         <span className="text-xs text-rose-600 dark:text-rose-400">{error}</span>
       ) : null}
     </label>
+  );
+}
+
+type CustomerViewTabKey = "info" | "company" | "contact" | "documents";
+
+function CustomerViewDrawer({
+  customer,
+  isLoading,
+  onClose,
+  onEdit,
+}: {
+  customer: Customer | null;
+  isLoading: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const isBusiness = customer?.customerType === "BUSINESS";
+  const [activeTab, setActiveTab] = useState<CustomerViewTabKey>(
+    isBusiness ? "company" : "info",
+  );
+
+  const tabs: { key: CustomerViewTabKey; label: string }[] = isBusiness
+    ? [
+        { key: "company", label: "Company" },
+        { key: "contact", label: "Primary contact" },
+        { key: "documents", label: "Documents" },
+      ]
+    : [
+        { key: "info", label: "Customer info" },
+        { key: "documents", label: "Documents" },
+      ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40">
+      <button
+        type="button"
+        aria-label="Close drawer"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
+      <aside className="relative flex h-full w-full max-w-xl flex-col border-l border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
+              Customer
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <h2 className="min-w-0 truncate text-xl font-semibold text-[color:var(--text-primary)]">
+                {isLoading ? "Loading..." : customer?.fullName ?? "—"}
+              </h2>
+              {customer ? <CustomerTypeBadge type={customer.customerType} /> : null}
+            </div>
+            {customer ? (
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                {customer._count?.documents ?? 0} document
+                {(customer._count?.documents ?? 0) === 1 ? "" : "s"} linked
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex border-b border-[color:var(--border)] px-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
+                activeTab === tab.key
+                  ? "border-b-2 border-blue-600 text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {isLoading ? (
+            <EmptyBlock text="Loading customer..." />
+          ) : !customer ? (
+            <EmptyBlock text="Customer not found." />
+          ) : activeTab === "info" ? (
+            <CustomerInfoView customer={customer} />
+          ) : activeTab === "company" ? (
+            <CustomerCompanyView customer={customer} />
+          ) : activeTab === "contact" ? (
+            <CustomerContactView customer={customer} />
+          ) : (
+            <EmptyBlock text="Documents listing coming in next sub-phase (C2)." />
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-[color:var(--border)] px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={!customer || isLoading}
+            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit
+          </button>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function CustomerInfoView({ customer }: { customer: Customer }) {
+  const addressParts = [
+    [customer.addressLine1, customer.addressLine2].filter(Boolean).join(", "),
+    [customer.city, customer.state, customer.zipCode].filter(Boolean).join(" ").trim(),
+    customer.country,
+  ].filter((part): part is string => Boolean(part && part.trim()));
+  const address = addressParts.length > 0 ? addressParts.join("\n") : null;
+
+  return (
+    <div className="grid gap-3">
+      <CustomerDetailField label="Full name" value={customer.fullName} />
+      <CustomerDetailField label="Email" value={getDisplayEmail(customer)} />
+      <CustomerDetailField
+        label="Phone"
+        value={
+          getDisplayPhone(customer)
+            ? formatUsPhone(getDisplayPhone(customer) ?? "")
+            : null
+        }
+      />
+      <CustomerDetailField label="Address" value={address} multiline />
+      <CustomerDetailField label="Notes" value={customer.notes} multiline />
+    </div>
+  );
+}
+
+function CustomerCompanyView({ customer }: { customer: Customer }) {
+  const b = customer.business;
+  if (!b) {
+    return <EmptyBlock text="No business data attached to this customer." />;
+  }
+  const addressParts = [
+    [b.businessAddressLine1, b.businessAddressLine2].filter(Boolean).join(", "),
+    [b.businessCity, b.businessState, b.businessZipCode].filter(Boolean).join(" ").trim(),
+  ].filter((part): part is string => Boolean(part && part.trim()));
+  const address = addressParts.length > 0 ? addressParts.join("\n") : null;
+
+  return (
+    <div className="grid gap-3">
+      <CustomerDetailField label="Business name" value={b.businessName} />
+      <CustomerDetailField label="License number" value={b.licenseNumber} />
+      <CustomerDetailField label="Industry" value={b.industry} />
+      <CustomerDetailField label="Website" value={b.website} />
+      <CustomerDetailField label="Business email" value={b.businessEmail} />
+      <CustomerDetailField
+        label="Business phone"
+        value={b.businessPhone ? formatUsPhone(b.businessPhone) : null}
+      />
+      <CustomerDetailField
+        label="Mobile / Fax"
+        value={b.businessPhone2 ? formatUsPhone(b.businessPhone2) : null}
+      />
+      <CustomerDetailField label="Address" value={address} multiline />
+    </div>
+  );
+}
+
+function CustomerContactView({ customer }: { customer: Customer }) {
+  const b = customer.business;
+  return (
+    <div className="grid gap-3">
+      <CustomerDetailField label="Name" value={b?.primaryContactName ?? null} />
+      <CustomerDetailField label="Title" value={b?.primaryContactTitle ?? null} />
+      <CustomerDetailField label="Email" value={b?.primaryContactEmail ?? null} />
+      <CustomerDetailField
+        label="Phone"
+        value={
+          b?.primaryContactPhone ? formatUsPhone(b.primaryContactPhone) : null
+        }
+      />
+      <CustomerDetailField label="Internal notes" value={customer.notes} multiline />
+    </div>
   );
 }
 
