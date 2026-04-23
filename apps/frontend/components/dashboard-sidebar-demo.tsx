@@ -10,6 +10,9 @@ import { useTheme } from "next-themes";
 import {
   ClipboardList,
   AlertTriangle,
+  ArrowDown,
+  ArrowDownUp,
+  ArrowUp,
   BadgeCheck,
   Ban,
   Briefcase,
@@ -19,6 +22,7 @@ import {
   ChevronsUpDown,
   CircleHelp,
   Compass,
+  Contact,
   CreditCard,
   Download,
   Factory,
@@ -112,6 +116,25 @@ type DocumentTypeCatalogItem = {
     templateKey: string;
     providerTemplateId?: string | null;
   }>;
+};
+
+type Customer = {
+  id: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
+  notes: string | null;
+  companyProfileId: string;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { documents: number };
 };
 
 type Props = {
@@ -222,6 +245,11 @@ type Props = {
   selectedDocumentId: string | null;
   isDocumentDetailLoading: boolean;
   documentActionId: string | null;
+  customers: Customer[] | null;
+  selectedCustomerId: string | null;
+  customerActionId: string | null;
+  onSelectCustomer: (customerId: string) => void;
+  onDeleteCustomer: (customerId: string) => Promise<void>;
   isLoading: boolean;
   onSelectDocument: (documentId: string) => void;
   onDocumentAction: (
@@ -299,6 +327,7 @@ type EditableViewerTabKey = "client" | "project" | "pricing";
 type SectionKey =
   | "dashboard"
   | "documents"
+  | "customers"
   | "users"
   | "accountRequests"
   | "profile"
@@ -402,6 +431,11 @@ export function DashboardSidebarDemo({
   selectedDocumentId,
   isDocumentDetailLoading,
   documentActionId,
+  customers,
+  selectedCustomerId,
+  customerActionId,
+  onSelectCustomer,
+  onDeleteCustomer,
   isLoading,
   onSelectDocument,
   onDocumentAction,
@@ -572,6 +606,7 @@ export function DashboardSidebarDemo({
     { key: "documents" as const, label: "Documents", icon: <FileText className="h-5 w-5 shrink-0" /> },
     { key: "profile" as const, label: "Profile", icon: <UserRound className="h-5 w-5 shrink-0" /> },
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
+    { key: "customers" as const, label: "Customers", icon: <Contact className="h-5 w-5 shrink-0" /> },
   ];
 
   function closeDocumentViewer() {
@@ -935,6 +970,27 @@ export function DashboardSidebarDemo({
               }}
               onDocumentAction={handleDocumentAction}
               onCreateDraft={onCreateDraft}
+            />
+          ) : null}
+
+          {activeSection === "customers" ? (
+            <CustomersPanel
+              customers={customers}
+              selectedCustomerId={selectedCustomerId}
+              customerActionId={customerActionId}
+              isLoading={isLoading}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              onSelectCustomer={onSelectCustomer}
+              onOpenCustomerEdit={(id) => {
+                // Hour 3 — wire up to CustomerEditDrawer
+                console.log("TODO Hour 3: open edit drawer for", id);
+              }}
+              onDeleteCustomer={onDeleteCustomer}
+              onNewCustomer={() => {
+                // Hour 3 — wire up to CustomerCreateDrawer
+                console.log("TODO Hour 3: open create drawer");
+              }}
             />
           ) : null}
 
@@ -1724,6 +1780,416 @@ function DocumentsPanel(props: {
         onOpenDocumentView={(documentId) => props.onOpenDocumentView(documentId)}
       />
     </section>
+  );
+}
+
+type CustomerSortKey = "name" | "createdAt";
+
+function CustomersPanel(props: {
+  customers: Customer[] | null;
+  selectedCustomerId: string | null;
+  customerActionId: string | null;
+  isLoading: boolean;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  onSelectCustomer: (id: string) => void;
+  onOpenCustomerEdit: (id: string) => void;
+  onDeleteCustomer: (id: string) => Promise<void>;
+  onNewCustomer: () => void;
+}) {
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<CustomerSortKey>("createdAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
+  const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const filtered = useMemo(() => {
+    const q = props.searchQuery.trim().toLowerCase();
+    return (props.customers ?? []).filter((c) => {
+      if (!q) return true;
+      const hay = [c.fullName, c.email, c.phone].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }, [props.customers, props.searchQuery]);
+
+  const sorted = useMemo(() => {
+    const items = [...filtered];
+    items.sort((a, b) => {
+      let r = 0;
+      if (sortKey === "name") {
+        r = a.fullName.localeCompare(b.fullName, undefined, { sensitivity: "base", numeric: true });
+      } else {
+        r = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      return sortDirection === "asc" ? r : -r;
+    });
+    return items;
+  }, [filtered, sortKey, sortDirection]);
+
+  const total = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = total === 0 ? 0 : (safePage - 1) * pageSize;
+  const pageEnd = Math.min(pageStart + pageSize, total);
+  const paginated = sorted.slice(pageStart, pageEnd);
+
+  function toggleSort(next: CustomerSortKey) {
+    setCurrentPage(1);
+    if (sortKey === next) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(next);
+    setSortDirection(next === "createdAt" ? "desc" : "asc");
+  }
+
+  useEffect(() => {
+    if (!pageSizeMenuOpen) return;
+    function onDown(e: MouseEvent) {
+      if (!pageSizeMenuRef.current?.contains(e.target as Node)) {
+        setPageSizeMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [pageSizeMenuOpen]);
+
+  return (
+    <section className="grid gap-4">
+      {/* Card 1: Header + Search + New */}
+      <div className="rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Customers workspace</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Manage the people you send documents to. Reuse their contact data on future drafts.
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={props.searchQuery}
+              onChange={(e) => { setCurrentPage(1); props.onSearchQueryChange(e.target.value); }}
+              placeholder="Search by name, email or phone"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900 dark:focus:text-white"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={props.onNewCustomer}
+            className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
+          >
+            New customer
+          </button>
+        </div>
+      </div>
+
+      {/* Card 2: Table */}
+      <div className="overflow-visible rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Results</div>
+            <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+              {props.isLoading ? "Loading..." : `${total} ${total === 1 ? "customer" : "customers"}`}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
+              <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">Rows</label>
+              <button
+                type="button"
+                onClick={() => setPageSizeMenuOpen((c) => !c)}
+                className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                <span>{pageSize}</span>
+                <ChevronsUpDown className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+              </button>
+              {pageSizeMenuOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-28 rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+                  {[10, 20, 30].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => { setPageSize(size); setCurrentPage(1); setPageSizeMenuOpen(false); }}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                        pageSize === size ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-white/8",
+                      )}
+                    >
+                      <span>{size}</span>
+                      <span className="text-[11px] uppercase tracking-[0.18em] opacity-70">Rows</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {props.isLoading ? (
+          <div className="p-5"><EmptyBlock text="Loading customers..." /></div>
+        ) : total === 0 ? (
+          <div className="p-5"><EmptyBlock text={props.searchQuery ? `No customers matching "${props.searchQuery}".` : "No customers yet. Click 'New customer' to start."} /></div>
+        ) : (
+          <>
+            {/* Desktop header */}
+            <div className="hidden grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_80px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
+              <CustomerSortHeader label="Name" columnKey="name" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Email</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Phone</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Docs</div>
+              <CustomerSortHeader label="Created" columnKey="createdAt" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+              <div className="text-right">Actions</div>
+            </div>
+
+            {/* Mobile rows */}
+            <div className="divide-y divide-slate-200 dark:divide-white/10 md:hidden">
+              {paginated.map((c) => (
+                <div key={`${c.id}-mobile`} className={cn("px-4 py-3 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-blue-50/60 dark:bg-blue-500/10")}>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
+                      <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{c.fullName}</div>
+                      {c.email ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{c.email}</div> : null}
+                      {c.phone ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{c.phone}</div> : null}
+                      <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{formatDate(c.createdAt)} • {c._count?.documents ?? 0} docs</div>
+                    </button>
+                    <div className="flex justify-end">
+                      <CustomerListActions
+                        deleting={props.customerActionId === c.id}
+                        onOpen={() => props.onSelectCustomer(c.id)}
+                        onEdit={() => props.onOpenCustomerEdit(c.id)}
+                        onDelete={() => setConfirmDelete(c)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop rows */}
+            <div className="hidden divide-y divide-slate-200 dark:divide-white/10 md:block">
+              {paginated.map((c) => (
+                <div
+                  key={c.id}
+                  className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-blue-50/60 dark:bg-blue-500/10")}
+                >
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_80px_120px_64px] md:items-center">
+                    <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
+                      <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">{c.fullName}</div>
+                    </button>
+                    <div className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {c.email ?? <span className="text-slate-400 dark:text-slate-500">—</span>}
+                    </div>
+                    <div className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                      {c.phone ?? <span className="text-slate-400 dark:text-slate-500">—</span>}
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300">{c._count?.documents ?? 0}</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(c.createdAt)}</div>
+                    <div className="flex justify-start lg:justify-end">
+                      <CustomerListActions
+                        deleting={props.customerActionId === c.id}
+                        onOpen={() => props.onSelectCustomer(c.id)}
+                        onEdit={() => props.onOpenCustomerEdit(c.id)}
+                        onDelete={() => setConfirmDelete(c)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-slate-500 dark:text-slate-400">
+                Showing <span className="font-semibold text-slate-900 dark:text-white">{total === 0 ? 0 : pageStart + 1}</span>
+                {" "}-{" "}<span className="font-semibold text-slate-900 dark:text-white">{pageEnd}</span>
+                {" "}of{" "}<span className="font-semibold text-slate-900 dark:text-white">{total}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1 || props.isLoading}
+                  className={cn(
+                    "rounded-xl border px-3 py-2 text-sm font-medium transition",
+                    safePage === 1
+                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
+                  )}
+                >
+                  Previous
+                </button>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">{safePage} / {totalPages}</div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages || props.isLoading}
+                  className={cn(
+                    "rounded-xl border px-3 py-2 text-sm font-medium transition",
+                    safePage === totalPages
+                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
+                  )}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {confirmDelete ? (
+        <CustomerDeleteDialog
+          customer={confirmDelete}
+          isDeleting={props.customerActionId === confirmDelete.id}
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={async () => {
+            await props.onDeleteCustomer(confirmDelete.id);
+            setConfirmDelete(null);
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function CustomerSortHeader({ label, columnKey, sortKey, sortDirection, onToggleSort }: {
+  label: string;
+  columnKey: CustomerSortKey;
+  sortKey: CustomerSortKey;
+  sortDirection: SortDirection;
+  onToggleSort: (key: CustomerSortKey) => void;
+}) {
+  const isActive = sortKey === columnKey;
+  const Icon = !isActive ? ArrowDownUp : sortDirection === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggleSort(columnKey)}
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition",
+        isActive ? "text-slate-900 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+      )}
+    >
+      <span>{label}</span>
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function CustomerListActions({ deleting, onOpen, onEdit, onDelete }: {
+  deleting: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!open && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            setOpenUpward(window.innerHeight - rect.bottom < 180);
+          }
+          setOpen((c) => !c);
+        }}
+        disabled={deleting}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)] hover:text-[color:var(--text-primary)] disabled:opacity-50"
+        aria-label="Open customer actions"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open ? (
+        <div
+          className={cn(
+            "absolute right-0 z-20 min-w-44 rounded-2xl border border-[color:var(--menu-border)] bg-[color:var(--menu-bg)] p-2 shadow-[var(--shadow-dropdown)]",
+            openUpward ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]",
+          )}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => { onOpen(); setOpen(false); }}
+            className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"
+          >
+            Open
+          </button>
+          <button
+            type="button"
+            onClick={() => { onEdit(); setOpen(false); }}
+            className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--brand-accent-strong)] transition hover:bg-[color:var(--badge-primary-bg)]"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => { onDelete(); setOpen(false); }}
+            className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--danger-text)] transition hover:bg-[color:var(--danger-bg)]"
+          >
+            Delete
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CustomerDeleteDialog({ customer, isDeleting, onCancel, onConfirm }: {
+  customer: Customer;
+  isDeleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-dropdown)]">
+        <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Delete customer?</h2>
+        <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
+          This will permanently remove <strong>{customer.fullName}</strong>. Any existing documents
+          linked to this customer keep their snapshot — only the relation is cleared.
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="inline-flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] disabled:opacity-70"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="inline-flex h-11 items-center rounded-2xl bg-rose-600 px-5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:opacity-70"
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

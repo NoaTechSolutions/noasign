@@ -14,8 +14,12 @@ export type AuthUser = {
   companyProfileId: string | null;
 };
 
+export type CustomerWithCount = Customer & {
+  _count: { documents: number };
+};
+
 export type CustomerListResult = {
-  customers: Customer[];
+  customers: CustomerWithCount[];
   total: number;
   limit: number;
   offset: number;
@@ -70,6 +74,7 @@ export class CustomersService {
         orderBy,
         skip: offset,
         take: limit,
+        include: { _count: { select: { documents: true } } },
       }),
       this.prisma.customer.count({ where }),
     ]);

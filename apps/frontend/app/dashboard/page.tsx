@@ -207,6 +207,32 @@ type DocumentTypeCatalogItem = {
   }>;
 };
 
+type Customer = {
+  id: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
+  notes: string | null;
+  companyProfileId: string;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { documents: number };
+};
+
+type CustomerListResponse = {
+  customers: Customer[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 type CreateDraftResponse = {
   message: string;
   document: DocumentDetail;
@@ -287,6 +313,9 @@ export default function DashboardPage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [isDocumentDetailLoading, setIsDocumentDetailLoading] = useState(false);
   const [documentActionId, setDocumentActionId] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<Customer[] | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerActionId, setCustomerActionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -301,6 +330,7 @@ export default function DashboardPage() {
         apiRequest<CurrentUsage>("/billing/current-usage"),
         apiRequest<MonthlySummary>("/billing/summary"),
         apiRequest<DashboardDocument[]>("/documents/my-documents"),
+        apiRequest<CustomerListResponse>("/customers?limit=500&offset=0"),
       ]);
 
       const staticRequests = isFirstLoad
@@ -315,7 +345,7 @@ export default function DashboardPage() {
           ])
         : Promise.resolve(null);
 
-      const [[me, currentUsage, summary, myDocuments], staticResult] =
+      const [[me, currentUsage, summary, myDocuments, customersResponse], staticResult] =
         await Promise.all([dynamicRequests, staticRequests]);
 
       if (staticResult) {
@@ -340,6 +370,7 @@ export default function DashboardPage() {
       setUsage(currentUsage);
       setMonthlySummary(summary);
       setDocuments(myDocuments);
+      setCustomers(customersResponse.customers);
       setManagedUsers(workspaceUsers);
       setAccountRequests(workspaceAccountRequests);
 
@@ -569,6 +600,32 @@ export default function DashboardPage() {
           ? detailError.message
           : "Unable to load document detail",
       );
+    }
+  }
+
+  function handleSelectCustomer(customerId: string) {
+    // Hour 2 — just mark selected; Hour 3 will fetch detail for split-view.
+    setSelectedCustomerId(customerId);
+  }
+
+  async function handleDeleteCustomer(customerId: string) {
+    setCustomerActionId(customerId);
+    setError("");
+    try {
+      await apiRequest(`/customers/${customerId}`, { method: "DELETE" });
+      const refreshed = await apiRequest<CustomerListResponse>(
+        "/customers?limit=500&offset=0",
+      );
+      setCustomers(refreshed.customers);
+      setSelectedCustomerId((prev) => (prev === customerId ? null : prev));
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Unable to delete customer",
+      );
+    } finally {
+      setCustomerActionId(null);
     }
   }
 
@@ -1016,6 +1073,11 @@ export default function DashboardPage() {
           isDocumentDetailLoading={isDocumentDetailLoading}
           documentActionId={documentActionId}
           isLoading={isLoading}
+          customers={customers}
+          selectedCustomerId={selectedCustomerId}
+          customerActionId={customerActionId}
+          onSelectCustomer={handleSelectCustomer}
+          onDeleteCustomer={handleDeleteCustomer}
           onSelectDocument={handleSelectDocument}
           onDocumentAction={handleDocumentAction}
           onUpdateDraft={handleUpdateDraft}
