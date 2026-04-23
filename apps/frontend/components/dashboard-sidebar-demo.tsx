@@ -17,6 +17,7 @@ import {
   Ban,
   Briefcase,
   Building2,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
@@ -1827,7 +1828,14 @@ function CustomersPanel(props: {
   const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => setSuccessMessage(null), 3000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   const filtered = useMemo(() => {
     const q = props.searchQuery.trim().toLowerCase();
@@ -2089,7 +2097,10 @@ function CustomersPanel(props: {
           mode="create"
           customer={null}
           onClose={() => setCreateOpen(false)}
-          onSubmit={props.onCreateCustomer}
+          onSubmit={async (values) => {
+            await props.onCreateCustomer(values);
+            setSuccessMessage("Customer saved successfully");
+          }}
         />
       ) : null}
 
@@ -2100,8 +2111,20 @@ function CustomersPanel(props: {
           onClose={() => setEditingCustomer(null)}
           onSubmit={async (values) => {
             await props.onUpdateCustomer(editingCustomer.id, values);
+            setSuccessMessage("Customer saved successfully");
           }}
         />
+      ) : null}
+
+      {successMessage ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-[70] flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-[0_18px_40px_rgba(16,185,129,0.18)] dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+        >
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span>{successMessage}</span>
+        </div>
       ) : null}
 
       {confirmDelete ? (
