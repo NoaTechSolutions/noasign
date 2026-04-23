@@ -30,6 +30,11 @@ enum AccountType {
   BUSINESS
 }
 
+enum CustomerType {
+  PERSONAL
+  BUSINESS
+}
+
 enum DocumentStatus {
   DRAFT
   SENT
@@ -157,9 +162,10 @@ model PasswordResetToken {
 }
 
 model Customer {
-  id               String  @id @default(uuid())
+  id               String       @id @default(uuid())
   companyProfileId String
   createdByUserId  String?
+  customerType     CustomerType @default(PERSONAL)
 
   fullName String
   email    String?
@@ -177,14 +183,50 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
-  createdBy      User?          @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  companyProfile CompanyProfile    @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  createdBy      User?             @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  business       CustomerBusiness?
   documents      Document[]
 
   @@index([companyProfileId])
   @@index([companyProfileId, fullName])
   @@index([companyProfileId, email])
+  @@index([companyProfileId, customerType])
   @@map("customers")
+}
+
+model CustomerBusiness {
+  id         String @id @default(uuid())
+  customerId String @unique
+
+  // Business Info
+  businessName  String
+  licenseNumber String?
+  industry      String?
+  website       String?
+  businessEmail String?
+  businessPhone String?
+
+  // Business Contact / Address
+  businessPhone2       String?
+  businessAddressLine1 String?
+  businessAddressLine2 String?
+  businessCity         String?
+  businessState        String?
+  businessZipCode      String?
+
+  // Primary Contact
+  primaryContactName  String?
+  primaryContactEmail String?
+  primaryContactPhone String?
+  primaryContactTitle String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_businesses")
 }
 
 model AccountRequest {

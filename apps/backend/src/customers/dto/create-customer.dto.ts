@@ -1,12 +1,26 @@
+import { CustomerType } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsEnum,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { CustomerBusinessDto } from './customer-business.dto';
 
 export class CreateCustomerDto {
+  @IsOptional()
+  @IsEnum(CustomerType)
+  customerType?: CustomerType;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CustomerBusinessDto)
+  business?: CustomerBusinessDto;
+
   @IsString()
   @MinLength(1)
   @MaxLength(200)

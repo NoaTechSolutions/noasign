@@ -1,9 +1,10 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Customer, Prisma } from '@prisma/client';
+import type { Customer, CustomerBusiness, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateCustomerDto } from './dto/create-customer.dto';
 import type { ListCustomersQueryDto } from './dto/list-customers-query.dto';
@@ -16,6 +17,7 @@ export type AuthUser = {
 
 export type CustomerWithCount = Customer & {
   _count: { documents: number };
+  business: CustomerBusiness | null;
 };
 
 export type CustomerListResult = {
@@ -29,16 +31,52 @@ export type CustomerListResult = {
 export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(user: AuthUser, dto: CreateCustomerDto): Promise<Customer> {
+  async create(user: AuthUser, dto: CreateCustomerDto) {
     const companyProfileId = requireTenant(user);
+    const customerType = dto.customerType ?? 'PERSONAL';
 
-    return this.prisma.customer.create({
-      data: {
-        ...normalizeOptionalFields(dto),
-        fullName: dto.fullName.trim(),
-        companyProfileId,
-        createdByUserId: user.id,
-      },
+    if (customerType === 'BUSINESS' && !dto.business) {
+      throw new BadRequestException(
+        'business object is required when customerType is BUSINESS',
+      );
+    }
+    if (customerType === 'PERSONAL' && dto.business) {
+      throw new BadRequestException(
+        'business object only allowed when customerType is BUSINESS',
+      );
+    }
+
+    const customerData = normalizeOptionalFields(stripNestedFields(dto));
+
+    return this.prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.create({
+        data: {
+          ...customerData,
+          fullName: dto.fullName.trim(),
+          customerType,
+          companyProfileId,
+          createdByUserId: user.id,
+        },
+      });
+
+      if (dto.business) {
+        const { businessName, ...rest } = dto.business;
+        await tx.customerBusiness.create({
+          data: {
+            customerId: customer.id,
+            businessName: businessName.trim(),
+            ...normalizeOptionalFields(rest),
+          },
+        });
+      }
+
+      return tx.customer.findUniqueOrThrow({
+        where: { id: customer.id },
+        include: {
+          _count: { select: { documents: true } },
+          business: true,
+        },
+      });
     });
   }
 
@@ -74,7 +112,10 @@ export class CustomersService {
         orderBy,
         skip: offset,
         take: limit,
-        include: { _count: { select: { documents: true } } },
+        include: {
+          _count: { select: { documents: true } },
+          business: true,
+        },
       }),
       this.prisma.customer.count({ where }),
     ]);
@@ -87,7 +128,10 @@ export class CustomersService {
 
     const customer = await this.prisma.customer.findFirst({
       where: { id, companyProfileId },
-      include: { _count: { select: { documents: true } } },
+      include: {
+        _count: { select: { documents: true } },
+        business: true,
+      },
     });
 
     if (!customer) {
@@ -97,27 +141,70 @@ export class CustomersService {
     return customer;
   }
 
-  async update(
-    user: AuthUser,
-    id: string,
-    dto: UpdateCustomerDto,
-  ): Promise<Customer> {
+  async update(user: AuthUser, id: string, dto: UpdateCustomerDto) {
     const companyProfileId = requireTenant(user);
 
     const existing = await this.prisma.customer.findFirst({
       where: { id, companyProfileId },
+      include: { business: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Customer not found');
     }
 
-    const data: Prisma.CustomerUpdateInput = normalizeOptionalFields(dto);
+    const customerData: Prisma.CustomerUpdateInput = normalizeOptionalFields(
+      stripNestedFields(dto),
+    );
     if (dto.fullName !== undefined) {
-      data.fullName = dto.fullName.trim();
+      customerData.fullName = dto.fullName.trim();
+    }
+    if (dto.customerType !== undefined) {
+      customerData.customerType = dto.customerType;
     }
 
-    return this.prisma.customer.update({ where: { id }, data });
+    return this.prisma.$transaction(async (tx) => {
+      await tx.customer.update({ where: { id }, data: customerData });
+
+      if (dto.business !== undefined) {
+        const { businessName, ...rest } = dto.business;
+        const normalized = normalizeOptionalFields(rest);
+        if (existing.business) {
+          // Update existing business row; only touch businessName if sent.
+          await tx.customerBusiness.update({
+            where: { customerId: id },
+            data: {
+              ...(businessName !== undefined
+                ? { businessName: businessName.trim() }
+                : {}),
+              ...normalized,
+            },
+          });
+        } else {
+          // Create new business row — businessName required.
+          if (!businessName) {
+            throw new BadRequestException(
+              'businessName is required when attaching business data to an existing customer',
+            );
+          }
+          await tx.customerBusiness.create({
+            data: {
+              customerId: id,
+              businessName: businessName.trim(),
+              ...normalized,
+            },
+          });
+        }
+      }
+
+      return tx.customer.findUniqueOrThrow({
+        where: { id },
+        include: {
+          _count: { select: { documents: true } },
+          business: true,
+        },
+      });
+    });
   }
 
   async delete(user: AuthUser, id: string): Promise<void> {
@@ -131,6 +218,7 @@ export class CustomersService {
       throw new NotFoundException('Customer not found');
     }
 
+    // customer_businesses row cascades via Prisma onDelete: Cascade.
     await this.prisma.customer.delete({ where: { id } });
   }
 }
@@ -142,13 +230,23 @@ function requireTenant(user: AuthUser): string {
   return user.companyProfileId;
 }
 
+/** Remove nested/meta fields so the rest of the DTO can be passed
+ *  directly to Prisma customer create/update without type conflicts. */
+function stripNestedFields<
+  T extends { customerType?: unknown; business?: unknown },
+>(dto: T): Omit<T, 'customerType' | 'business'> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { customerType: _ct, business: _biz, ...rest } = dto;
+  return rest;
+}
+
 // Convert empty-string optional fields to null so Postgres stores null uniformly;
-// trim non-empty string values. fullName is handled separately by the caller because
-// it is required and can't be cleared.
+// trim non-empty string values. Required fields (fullName, businessName) are
+// handled separately by the caller because they cannot be cleared.
 function normalizeOptionalFields(dto: object): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(dto)) {
-    if (key === 'fullName') {
+    if (key === 'fullName' || key === 'businessName') {
       continue;
     }
     if (typeof value === 'string') {
