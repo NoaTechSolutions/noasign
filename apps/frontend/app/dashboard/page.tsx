@@ -233,6 +233,19 @@ type CustomerListResponse = {
   offset: number;
 };
 
+type CustomerFormValues = {
+  fullName: string;
+  email: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  notes: string;
+};
+
 type CreateDraftResponse = {
   message: string;
   document: DocumentDetail;
@@ -314,7 +327,9 @@ export default function DashboardPage() {
   const [isDocumentDetailLoading, setIsDocumentDetailLoading] = useState(false);
   const [documentActionId, setDocumentActionId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[] | null>(null);
+  const [customerDetail, setCustomerDetail] = useState<Customer | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [isCustomerDetailLoading, setIsCustomerDetailLoading] = useState(false);
   const [customerActionId, setCustomerActionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -603,9 +618,27 @@ export default function DashboardPage() {
     }
   }
 
-  function handleSelectCustomer(customerId: string) {
-    // Hour 2 — just mark selected; Hour 3 will fetch detail for split-view.
+  async function handleSelectCustomer(customerId: string) {
     setSelectedCustomerId(customerId);
+    setError("");
+    setIsCustomerDetailLoading(true);
+    try {
+      const detail = await apiRequest<Customer>(`/customers/${customerId}`);
+      setCustomerDetail(detail);
+    } catch (detailError) {
+      setError(
+        detailError instanceof Error
+          ? detailError.message
+          : "Unable to load customer detail",
+      );
+    } finally {
+      setIsCustomerDetailLoading(false);
+    }
+  }
+
+  function handleCloseCustomerDetail() {
+    setSelectedCustomerId(null);
+    setCustomerDetail(null);
   }
 
   async function handleDeleteCustomer(customerId: string) {
@@ -618,6 +651,7 @@ export default function DashboardPage() {
       );
       setCustomers(refreshed.customers);
       setSelectedCustomerId((prev) => (prev === customerId ? null : prev));
+      setCustomerDetail((prev) => (prev?.id === customerId ? null : prev));
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
@@ -626,6 +660,73 @@ export default function DashboardPage() {
       );
     } finally {
       setCustomerActionId(null);
+    }
+  }
+
+  async function handleCreateCustomer(values: CustomerFormValues) {
+    setError("");
+    const payload: Record<string, string> = {
+      fullName: values.fullName.trim(),
+    };
+    (
+      [
+        "email",
+        "phone",
+        "addressLine1",
+        "addressLine2",
+        "city",
+        "state",
+        "zipCode",
+        "country",
+        "notes",
+      ] as const
+    ).forEach((key) => {
+      const v = values[key]?.trim();
+      if (v) payload[key] = v;
+    });
+    await apiRequest<Customer>("/customers", { method: "POST", body: payload });
+    const refreshed = await apiRequest<CustomerListResponse>(
+      "/customers?limit=500&offset=0",
+    );
+    setCustomers(refreshed.customers);
+  }
+
+  async function handleUpdateCustomer(
+    customerId: string,
+    values: CustomerFormValues,
+  ) {
+    setError("");
+    // Send null to clear optional fields; empty string would fail backend IsEmail.
+    const payload: Record<string, string | null> = {
+      fullName: values.fullName.trim(),
+    };
+    (
+      [
+        "email",
+        "phone",
+        "addressLine1",
+        "addressLine2",
+        "city",
+        "state",
+        "zipCode",
+        "country",
+        "notes",
+      ] as const
+    ).forEach((key) => {
+      const v = values[key]?.trim();
+      payload[key] = v ? v : null;
+    });
+    await apiRequest(`/customers/${customerId}`, {
+      method: "PATCH",
+      body: payload,
+    });
+    const refreshed = await apiRequest<CustomerListResponse>(
+      "/customers?limit=500&offset=0",
+    );
+    setCustomers(refreshed.customers);
+    if (selectedCustomerId === customerId) {
+      const detail = await apiRequest<Customer>(`/customers/${customerId}`);
+      setCustomerDetail(detail);
     }
   }
 
@@ -1074,10 +1175,15 @@ export default function DashboardPage() {
           documentActionId={documentActionId}
           isLoading={isLoading}
           customers={customers}
+          customerDetail={customerDetail}
           selectedCustomerId={selectedCustomerId}
+          isCustomerDetailLoading={isCustomerDetailLoading}
           customerActionId={customerActionId}
           onSelectCustomer={handleSelectCustomer}
+          onCloseCustomerDetail={handleCloseCustomerDetail}
           onDeleteCustomer={handleDeleteCustomer}
+          onCreateCustomer={handleCreateCustomer}
+          onUpdateCustomer={handleUpdateCustomer}
           onSelectDocument={handleSelectDocument}
           onDocumentAction={handleDocumentAction}
           onUpdateDraft={handleUpdateDraft}

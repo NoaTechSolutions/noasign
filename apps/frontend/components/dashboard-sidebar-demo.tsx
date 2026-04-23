@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import NextImage from "next/image";
 import Link from "next/link";
@@ -137,6 +137,19 @@ type Customer = {
   _count?: { documents: number };
 };
 
+type CustomerFormValues = {
+  fullName: string;
+  email: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  notes: string;
+};
+
 type Props = {
   user: {
     id?: string | null;
@@ -246,10 +259,15 @@ type Props = {
   isDocumentDetailLoading: boolean;
   documentActionId: string | null;
   customers: Customer[] | null;
+  customerDetail: Customer | null;
   selectedCustomerId: string | null;
+  isCustomerDetailLoading: boolean;
   customerActionId: string | null;
   onSelectCustomer: (customerId: string) => void;
+  onCloseCustomerDetail: () => void;
   onDeleteCustomer: (customerId: string) => Promise<void>;
+  onCreateCustomer: (values: CustomerFormValues) => Promise<void>;
+  onUpdateCustomer: (customerId: string, values: CustomerFormValues) => Promise<void>;
   isLoading: boolean;
   onSelectDocument: (documentId: string) => void;
   onDocumentAction: (
@@ -432,10 +450,15 @@ export function DashboardSidebarDemo({
   isDocumentDetailLoading,
   documentActionId,
   customers,
+  customerDetail,
   selectedCustomerId,
+  isCustomerDetailLoading,
   customerActionId,
   onSelectCustomer,
+  onCloseCustomerDetail,
   onDeleteCustomer,
+  onCreateCustomer,
+  onUpdateCustomer,
   isLoading,
   onSelectDocument,
   onDocumentAction,
@@ -976,21 +999,18 @@ export function DashboardSidebarDemo({
           {activeSection === "customers" ? (
             <CustomersPanel
               customers={customers}
+              customerDetail={customerDetail}
               selectedCustomerId={selectedCustomerId}
+              isDetailLoading={isCustomerDetailLoading}
               customerActionId={customerActionId}
               isLoading={isLoading}
               searchQuery={searchQuery}
               onSearchQueryChange={setSearchQuery}
               onSelectCustomer={onSelectCustomer}
-              onOpenCustomerEdit={(id) => {
-                // Hour 3 — wire up to CustomerEditDrawer
-                console.log("TODO Hour 3: open edit drawer for", id);
-              }}
+              onCloseCustomerDetail={onCloseCustomerDetail}
               onDeleteCustomer={onDeleteCustomer}
-              onNewCustomer={() => {
-                // Hour 3 — wire up to CustomerCreateDrawer
-                console.log("TODO Hour 3: open create drawer");
-              }}
+              onCreateCustomer={onCreateCustomer}
+              onUpdateCustomer={onUpdateCustomer}
             />
           ) : null}
 
@@ -1787,15 +1807,18 @@ type CustomerSortKey = "name" | "createdAt";
 
 function CustomersPanel(props: {
   customers: Customer[] | null;
+  customerDetail: Customer | null;
   selectedCustomerId: string | null;
   customerActionId: string | null;
   isLoading: boolean;
+  isDetailLoading: boolean;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
   onSelectCustomer: (id: string) => void;
-  onOpenCustomerEdit: (id: string) => void;
+  onCloseCustomerDetail: () => void;
   onDeleteCustomer: (id: string) => Promise<void>;
-  onNewCustomer: () => void;
+  onCreateCustomer: (values: CustomerFormValues) => Promise<void>;
+  onUpdateCustomer: (id: string, values: CustomerFormValues) => Promise<void>;
 }) {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1803,6 +1826,8 @@ function CustomersPanel(props: {
   const [sortKey, setSortKey] = useState<CustomerSortKey>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(() => {
@@ -1880,7 +1905,7 @@ function CustomersPanel(props: {
           </div>
           <button
             type="button"
-            onClick={props.onNewCustomer}
+            onClick={() => setCreateOpen(true)}
             className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
           >
             New customer
@@ -1888,7 +1913,13 @@ function CustomersPanel(props: {
         </div>
       </div>
 
-      {/* Card 2: Table */}
+      {/* Split-view wrapper: Card 2 (table) + optional CustomerDetailCard on right */}
+      <div
+        className={cn(
+          "grid gap-4",
+          props.selectedCustomerId && "xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]",
+        )}
+      >
       <div className="overflow-visible rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
           <div>
@@ -1961,7 +1992,7 @@ function CustomersPanel(props: {
                       <CustomerListActions
                         deleting={props.customerActionId === c.id}
                         onOpen={() => props.onSelectCustomer(c.id)}
-                        onEdit={() => props.onOpenCustomerEdit(c.id)}
+                        onEdit={() => setEditingCustomer(c)}
                         onDelete={() => setConfirmDelete(c)}
                       />
                     </div>
@@ -1993,7 +2024,7 @@ function CustomersPanel(props: {
                       <CustomerListActions
                         deleting={props.customerActionId === c.id}
                         onOpen={() => props.onSelectCustomer(c.id)}
-                        onEdit={() => props.onOpenCustomerEdit(c.id)}
+                        onEdit={() => setEditingCustomer(c)}
                         onDelete={() => setConfirmDelete(c)}
                       />
                     </div>
@@ -2042,6 +2073,37 @@ function CustomersPanel(props: {
           </>
         )}
       </div>
+      {props.selectedCustomerId ? (
+        <CustomerDetailCard
+          customer={props.customerDetail}
+          isLoading={props.isDetailLoading}
+          onEdit={() => {
+            if (props.customerDetail) setEditingCustomer(props.customerDetail);
+          }}
+          onClose={props.onCloseCustomerDetail}
+        />
+      ) : null}
+      </div>
+
+      {createOpen ? (
+        <CustomerFormDrawer
+          mode="create"
+          customer={null}
+          onClose={() => setCreateOpen(false)}
+          onSubmit={props.onCreateCustomer}
+        />
+      ) : null}
+
+      {editingCustomer ? (
+        <CustomerFormDrawer
+          mode="edit"
+          customer={editingCustomer}
+          onClose={() => setEditingCustomer(null)}
+          onSubmit={async (values) => {
+            await props.onUpdateCustomer(editingCustomer.id, values);
+          }}
+        />
+      ) : null}
 
       {confirmDelete ? (
         <CustomerDeleteDialog
@@ -2191,6 +2253,369 @@ function CustomerDeleteDialog({ customer, isDeleting, onCancel, onConfirm }: {
       </div>
     </div>
   );
+}
+
+function CustomerDetailCard({
+  customer,
+  isLoading,
+  onEdit,
+  onClose,
+}: {
+  customer: Customer | null;
+  isLoading: boolean;
+  onEdit: () => void;
+  onClose: () => void;
+}) {
+  const addressParts = customer
+    ? [
+        [customer.addressLine1, customer.addressLine2].filter(Boolean).join(", "),
+        [customer.city, customer.state, customer.zipCode].filter(Boolean).join(" ").trim(),
+        customer.country,
+      ].filter((part): part is string => Boolean(part && part.trim()))
+    : [];
+  const address = addressParts.length > 0 ? addressParts.join("\n") : null;
+
+  return (
+    <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Customer</div>
+          <h3 className="mt-1 truncate text-xl font-semibold text-slate-950 dark:text-white">
+            {isLoading ? "Loading..." : customer?.fullName ?? "—"}
+          </h3>
+          {customer ? (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {customer._count?.documents ?? 0} document{(customer._count?.documents ?? 0) === 1 ? "" : "s"} linked
+            </p>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={!customer || isLoading}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close detail"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="mt-5"><EmptyBlock text="Loading customer detail..." /></div>
+      ) : !customer ? (
+        <div className="mt-5"><EmptyBlock text="Customer not found." /></div>
+      ) : (
+        <div className="mt-5 grid gap-3">
+          <CustomerDetailField label="Email" value={customer.email} />
+          <CustomerDetailField label="Phone" value={customer.phone} />
+          <CustomerDetailField label="Address" value={address} multiline />
+          <CustomerDetailField label="Notes" value={customer.notes} multiline />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomerDetailField({
+  label,
+  value,
+  multiline = false,
+}: {
+  label: string;
+  value: string | null | undefined;
+  multiline?: boolean;
+}) {
+  const hasValue = Boolean(value && value.trim());
+  return (
+    <div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{label}</div>
+      <div className={cn("mt-1 text-sm text-slate-900 dark:text-white", multiline && "whitespace-pre-line")}>
+        {hasValue ? value : <span className="text-slate-400 dark:text-slate-500">—</span>}
+      </div>
+    </div>
+  );
+}
+
+function CustomerFormDrawer({
+  mode,
+  customer,
+  onClose,
+  onSubmit,
+}: {
+  mode: "create" | "edit";
+  customer: Customer | null;
+  onClose: () => void;
+  onSubmit: (values: CustomerFormValues) => Promise<void>;
+}) {
+  const [values, setValues] = useState<CustomerFormValues>(() => toCustomerFormValues(customer));
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof CustomerFormValues, string>>>({});
+  const [submitError, setSubmitError] = useState("");
+
+  function update<K extends keyof CustomerFormValues>(key: K, value: CustomerFormValues[K]) {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    if (fieldErrors[key]) setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
+
+  function validate(): boolean {
+    const errs: Partial<Record<keyof CustomerFormValues, string>> = {};
+    if (!values.fullName.trim()) {
+      errs.fullName = "Full name is required";
+    } else if (values.fullName.trim().length > 200) {
+      errs.fullName = "Max 200 characters";
+    }
+    if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
+      errs.email = "Invalid email";
+    }
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!validate()) return;
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      await onSubmit(values);
+      onClose();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Unable to save customer");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40">
+      <button
+        type="button"
+        aria-label="Close drawer"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="relative flex h-full w-full max-w-xl flex-col border-l border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
+              {mode === "create" ? "New customer" : "Edit customer"}
+            </div>
+            <h2 className="mt-1 truncate text-xl font-semibold text-[color:var(--text-primary)]">
+              {mode === "create" ? "Add a customer" : customer?.fullName ?? "Customer"}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <CustomerDrawerField label="Full name *" error={fieldErrors.fullName}>
+              <CustomerDrawerInput
+                value={values.fullName}
+                onChange={(v) => update("fullName", v)}
+                maxLength={200}
+                required
+                hasError={Boolean(fieldErrors.fullName)}
+                autoComplete="name"
+              />
+            </CustomerDrawerField>
+            <CustomerDrawerField label="Email" error={fieldErrors.email}>
+              <CustomerDrawerInput
+                type="email"
+                value={values.email}
+                onChange={(v) => update("email", v)}
+                maxLength={254}
+                hasError={Boolean(fieldErrors.email)}
+                autoComplete="email"
+              />
+            </CustomerDrawerField>
+            <CustomerDrawerField label="Phone">
+              <CustomerDrawerInput
+                type="tel"
+                value={values.phone}
+                onChange={(v) => update("phone", v)}
+                maxLength={40}
+                autoComplete="tel"
+              />
+            </CustomerDrawerField>
+            <CustomerDrawerField label="Country">
+              <CustomerDrawerInput
+                value={values.country}
+                onChange={(v) => update("country", v)}
+                maxLength={100}
+                autoComplete="country"
+              />
+            </CustomerDrawerField>
+            <CustomerDrawerField label="Address line 1">
+              <CustomerDrawerInput
+                value={values.addressLine1}
+                onChange={(v) => update("addressLine1", v)}
+                maxLength={200}
+                autoComplete="address-line1"
+              />
+            </CustomerDrawerField>
+            <CustomerDrawerField label="Address line 2">
+              <CustomerDrawerInput
+                value={values.addressLine2}
+                onChange={(v) => update("addressLine2", v)}
+                maxLength={200}
+                autoComplete="address-line2"
+              />
+            </CustomerDrawerField>
+            <CustomerDrawerField label="City">
+              <CustomerDrawerInput
+                value={values.city}
+                onChange={(v) => update("city", v)}
+                maxLength={100}
+                autoComplete="address-level2"
+              />
+            </CustomerDrawerField>
+            <CustomerDrawerField label="State / Province">
+              <CustomerDrawerInput
+                value={values.state}
+                onChange={(v) => update("state", v)}
+                maxLength={100}
+                autoComplete="address-level1"
+              />
+            </CustomerDrawerField>
+            <CustomerDrawerField label="ZIP / Postal code">
+              <CustomerDrawerInput
+                value={values.zipCode}
+                onChange={(v) => update("zipCode", v)}
+                maxLength={20}
+                autoComplete="postal-code"
+              />
+            </CustomerDrawerField>
+          </div>
+          <div className="mt-4">
+            <CustomerDrawerField label="Internal notes">
+              <textarea
+                value={values.notes}
+                onChange={(e) => update("notes", e.target.value)}
+                maxLength={2000}
+                rows={4}
+                className="min-h-[100px] w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 py-3 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:bg-[color:var(--bg-elevated)]"
+              />
+            </CustomerDrawerField>
+          </div>
+          {submitError ? (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+              {submitError}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-[color:var(--border)] px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="inline-flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] disabled:opacity-70"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-70"
+          >
+            {isSubmitting ? "Saving..." : mode === "create" ? "Create customer" : "Save changes"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function CustomerDrawerField({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+        {label}
+      </span>
+      {children}
+      {error ? <span className="text-xs text-rose-600 dark:text-rose-400">{error}</span> : null}
+    </label>
+  );
+}
+
+function CustomerDrawerInput({
+  value,
+  onChange,
+  type = "text",
+  maxLength,
+  required,
+  hasError,
+  autoComplete,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  maxLength?: number;
+  required?: boolean;
+  hasError?: boolean;
+  autoComplete?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      maxLength={maxLength}
+      required={required}
+      autoComplete={autoComplete}
+      className={cn(
+        "h-12 w-full rounded-2xl border bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition focus:bg-[color:var(--bg-elevated)]",
+        hasError
+          ? "border-rose-400 focus:border-rose-500"
+          : "border-[color:var(--border)] focus:border-blue-400",
+      )}
+    />
+  );
+}
+
+function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
+  return {
+    fullName: customer?.fullName ?? "",
+    email: customer?.email ?? "",
+    phone: customer?.phone ?? "",
+    addressLine1: customer?.addressLine1 ?? "",
+    addressLine2: customer?.addressLine2 ?? "",
+    city: customer?.city ?? "",
+    state: customer?.state ?? "",
+    zipCode: customer?.zipCode ?? "",
+    country: customer?.country ?? "",
+    notes: customer?.notes ?? "",
+  };
 }
 
 function PlaceholderPanel({
