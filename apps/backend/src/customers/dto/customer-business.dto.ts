@@ -22,6 +22,11 @@ export class CustomerBusinessDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
+  businessLegalName?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(100)
   licenseNumber?: string;
 
@@ -108,6 +113,11 @@ export class UpdateCustomerBusinessDto {
   @MinLength(1)
   @MaxLength(200)
   businessName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  businessLegalName?: string;
 
   @IsOptional()
   @IsString()

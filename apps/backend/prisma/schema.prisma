@@ -200,12 +200,13 @@ model CustomerBusiness {
   customerId String @unique
 
   // Business Info
-  businessName  String
-  licenseNumber String?
-  industry      String?
-  website       String?
-  businessEmail String?
-  businessPhone String?
+  businessName      String
+  businessLegalName String?
+  licenseNumber     String?
+  industry          String?
+  website           String?
+  businessEmail     String?
+  businessPhone     String?
 
   // Business Contact / Address
   businessPhone2       String?

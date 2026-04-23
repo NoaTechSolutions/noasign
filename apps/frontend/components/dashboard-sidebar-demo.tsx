@@ -127,6 +127,7 @@ type CustomerBusiness = {
   id: string;
   customerId: string;
   businessName: string;
+  businessLegalName: string | null;
   licenseNumber: string | null;
   industry: string | null;
   website: string | null;
@@ -169,6 +170,7 @@ type Customer = {
 
 type CustomerBusinessFormValues = {
   businessName: string;
+  businessLegalName: string;
   licenseNumber: string;
   industry: string;
   website: string;
@@ -2838,7 +2840,7 @@ function CustomerViewDrawer({
                               {openMenuDocId === doc.id ? (
                                 <div
                                   role="menu"
-                                  className="absolute right-0 top-full z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]"
+                                  className="absolute bottom-full right-0 z-[60] mb-2 w-56 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]"
                                 >
                                   <button
                                     type="button"
@@ -2944,12 +2946,22 @@ function CustomerViewDrawer({
             </div>
           ) : activeTab === "company" ? (
             <div className="grid gap-4">
-              <CustomerField
-                label="Business name"
-                value={b?.businessName ?? ""}
-                onChange={() => {}}
-                disabled
-              />
+              {/* Row 1 — Business Name | Business Legal Name */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Business name"
+                  value={b?.businessName ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="Business legal name"
+                  value={b?.businessLegalName ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+              {/* Row 2 — License | Industry */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
                   label="License number"
@@ -2964,6 +2976,7 @@ function CustomerViewDrawer({
                   disabled
                 />
               </div>
+              {/* Row 3 — Website | Business email */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
                   label="Website"
@@ -2978,6 +2991,7 @@ function CustomerViewDrawer({
                   disabled
                 />
               </div>
+              {/* Row 4 — Phone | Mobile/Fax */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
                   label="Business phone"
@@ -2992,19 +3006,21 @@ function CustomerViewDrawer({
                   disabled
                 />
               </div>
+              {/* Row 5 — Address Line 1 (full) */}
               <CustomerField
                 label="Address line 1"
                 value={b?.businessAddressLine1 ?? ""}
                 onChange={() => {}}
                 disabled
               />
-              <CustomerField
-                label="Address line 2"
-                value={b?.businessAddressLine2 ?? ""}
-                onChange={() => {}}
-                disabled
-              />
-              <div className="grid gap-4 md:grid-cols-3">
+              {/* Row 6 — Address Line 2 | City | State | ZIP (4 cols responsive) */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <CustomerField
+                  label="Address line 2"
+                  value={b?.businessAddressLine2 ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
                 <CustomerField
                   label="City"
                   value={b?.businessCity ?? ""}
@@ -3027,25 +3043,15 @@ function CustomerViewDrawer({
             </div>
           ) : (
             <div className="grid gap-4">
+              {/* Row 1 — Representative Name (full) */}
               <CustomerField
                 label="Representative name"
                 value={b?.primaryContactName ?? ""}
                 onChange={() => {}}
                 disabled
               />
-              <CustomerField
-                label="Title"
-                value={b?.primaryContactTitle ?? ""}
-                onChange={() => {}}
-                disabled
-              />
+              {/* Row 2 — Phone | Email */}
               <div className="grid gap-4 md:grid-cols-2">
-                <CustomerField
-                  label="Email"
-                  value={b?.primaryContactEmail ?? ""}
-                  onChange={() => {}}
-                  disabled
-                />
                 <CustomerField
                   label="Phone"
                   value={
@@ -3056,7 +3062,24 @@ function CustomerViewDrawer({
                   onChange={() => {}}
                   disabled
                 />
+                <CustomerField
+                  label="Email"
+                  value={b?.primaryContactEmail ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
               </div>
+              {/* Row 3 — Title | [empty] */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Title"
+                  value={b?.primaryContactTitle ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <div aria-hidden />
+              </div>
+              {/* Row 4 — Notes (full) */}
               <CustomerField
                 label="Internal notes"
                 type="textarea"
@@ -3260,7 +3283,7 @@ function CustomerFormDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <button
         type="button"
         aria-label="Close drawer"
@@ -3270,7 +3293,7 @@ function CustomerFormDrawer({
       <form
         onSubmit={handleSubmit}
         noValidate
-        className="relative flex h-full w-full max-w-xl flex-col border-l border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]"
+        className="relative flex h-[95%] w-[95%] max-w-none flex-col overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)] md:h-[90%] md:w-[85%] lg:h-[85%] lg:w-[80%] 2xl:h-[80%] 2xl:w-[75%]"
       >
         <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5">
           <div className="min-w-0">
@@ -3407,19 +3430,34 @@ function CustomerFormDrawer({
             </div>
           ) : activeTab === "company" ? (
             <div className="grid gap-4">
-              <CustomerField
-                label="Business name *"
-                value={values.business.businessName}
-                onChange={(v) =>
-                  updateBusiness(
-                    "businessName",
-                    toTitleCase(v).slice(0, 200),
-                  )
-                }
-                error={fieldErrors["business.businessName"]}
-                placeholder="Acme Construction LLC"
-                required
-              />
+              {/* Row 1 — Business Name | Business Legal Name */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Business name *"
+                  value={values.business.businessName}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "businessName",
+                      toTitleCase(v).slice(0, 200),
+                    )
+                  }
+                  error={fieldErrors["business.businessName"]}
+                  placeholder="Acme Construction"
+                  required
+                />
+                <CustomerField
+                  label="Business legal name"
+                  value={values.business.businessLegalName}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "businessLegalName",
+                      toTitleCase(v).slice(0, 200),
+                    )
+                  }
+                  placeholder="Acme Construction LLC"
+                />
+              </div>
+              {/* Row 2 — License | Industry */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
                   label="License number"
@@ -3438,6 +3476,7 @@ function CustomerFormDrawer({
                   placeholder="Construction"
                 />
               </div>
+              {/* Row 3 — Website | Business email */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
                   label="Website"
@@ -3455,6 +3494,7 @@ function CustomerFormDrawer({
                   placeholder="contact@example.com"
                 />
               </div>
+              {/* Row 4 — Phone | Mobile/Fax */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
                   label="Business phone"
@@ -3469,6 +3509,7 @@ function CustomerFormDrawer({
                   placeholder="(555) 123-4567"
                 />
               </div>
+              {/* Row 5 — Address Line 1 (full) */}
               <CustomerField
                 label="Address line 1"
                 value={values.business.businessAddressLine1}
@@ -3477,15 +3518,16 @@ function CustomerFormDrawer({
                 }
                 placeholder="123 Main St"
               />
-              <CustomerField
-                label="Address line 2"
-                value={values.business.businessAddressLine2}
-                onChange={(v) =>
-                  updateBusiness("businessAddressLine2", v.slice(0, 200))
-                }
-                placeholder="Suite 400"
-              />
-              <div className="grid gap-4 md:grid-cols-3">
+              {/* Row 6 — Address Line 2 | City | State | ZIP (4 cols responsive) */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <CustomerField
+                  label="Address line 2"
+                  value={values.business.businessAddressLine2}
+                  onChange={(v) =>
+                    updateBusiness("businessAddressLine2", v.slice(0, 200))
+                  }
+                  placeholder="Suite 400"
+                />
                 <CustomerField
                   label="City"
                   value={values.business.businessCity}
@@ -3517,12 +3559,13 @@ function CustomerFormDrawer({
                       v.replace(/\D/g, "").slice(0, 9),
                     )
                   }
-                  placeholder="94565 or 123456789"
+                  placeholder="94565"
                 />
               </div>
             </div>
           ) : (
             <div className="grid gap-4">
+              {/* Row 1 — Representative Name (full) */}
               <CustomerField
                 label="Representative name"
                 value={values.business.primaryContactName}
@@ -3534,18 +3577,16 @@ function CustomerFormDrawer({
                 }
                 placeholder="John Doe"
               />
-              <CustomerField
-                label="Title"
-                value={values.business.primaryContactTitle}
-                onChange={(v) =>
-                  updateBusiness(
-                    "primaryContactTitle",
-                    toTitleCase(v).slice(0, 200),
-                  )
-                }
-                placeholder="President"
-              />
+              {/* Row 2 — Phone | Email */}
               <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Phone"
+                  value={values.business.primaryContactPhone}
+                  onChange={(v) =>
+                    updateBusiness("primaryContactPhone", formatUsPhone(v))
+                  }
+                  placeholder="(555) 123-4567"
+                />
                 <CustomerField
                   label="Email"
                   value={values.business.primaryContactEmail}
@@ -3555,15 +3596,23 @@ function CustomerFormDrawer({
                   error={fieldErrors["business.primaryContactEmail"]}
                   placeholder="john@example.com"
                 />
-                <CustomerField
-                  label="Phone"
-                  value={values.business.primaryContactPhone}
-                  onChange={(v) =>
-                    updateBusiness("primaryContactPhone", formatUsPhone(v))
-                  }
-                  placeholder="(555) 123-4567"
-                />
               </div>
+              {/* Row 3 — Title | [empty] */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Title"
+                  value={values.business.primaryContactTitle}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "primaryContactTitle",
+                      toTitleCase(v).slice(0, 200),
+                    )
+                  }
+                  placeholder="President"
+                />
+                <div aria-hidden />
+              </div>
+              {/* Row 4 — Notes (full) */}
               <CustomerField
                 label="Internal notes"
                 type="textarea"
@@ -3632,6 +3681,7 @@ function CustomerFormDrawer({
 
 const EMPTY_BUSINESS: CustomerBusinessFormValues = {
   businessName: "",
+  businessLegalName: "",
   licenseNumber: "",
   industry: "",
   website: "",
@@ -3653,6 +3703,7 @@ function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
   const business: CustomerBusinessFormValues = customer?.business
     ? {
         businessName: customer.business.businessName,
+        businessLegalName: customer.business.businessLegalName ?? "",
         licenseNumber: customer.business.licenseNumber ?? "",
         industry: customer.business.industry ?? "",
         website: customer.business.website ?? "",

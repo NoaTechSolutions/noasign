@@ -211,6 +211,7 @@ type CustomerBusiness = {
   id: string;
   customerId: string;
   businessName: string;
+  businessLegalName: string | null;
   licenseNumber: string | null;
   industry: string | null;
   website: string | null;
@@ -260,6 +261,7 @@ type CustomerListResponse = {
 
 type CustomerBusinessFormValues = {
   businessName: string;
+  businessLegalName: string;
   licenseNumber: string;
   industry: string;
   website: string;
@@ -1256,6 +1258,7 @@ export default function DashboardPage() {
 }
 
 const BUSINESS_OPTIONAL_FIELDS = [
+  "businessLegalName",
   "licenseNumber",
   "industry",
   "website",
