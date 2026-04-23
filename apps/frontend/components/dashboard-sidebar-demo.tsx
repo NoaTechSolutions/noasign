@@ -2023,11 +2023,12 @@ function CustomersPanel(props: {
         ) : (
           <>
             {/* Desktop header */}
-            <div className="hidden grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_80px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
+            <div className="hidden grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_64px_96px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
               <CustomerSortHeader label="Name" columnKey="name" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Email</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Phone</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Docs</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Type</div>
               <CustomerSortHeader label="Created" columnKey="createdAt" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
               <div className="text-right">Actions</div>
             </div>
@@ -2038,7 +2039,10 @@ function CustomersPanel(props: {
                 <div key={`${c.id}-mobile`} className={cn("px-4 py-3 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-blue-50/60 dark:bg-blue-500/10")}>
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
-                      <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{c.fullName}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{c.fullName}</div>
+                        <CustomerTypeBadge type={c.customerType} />
+                      </div>
                       {c.email ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{c.email}</div> : null}
                       {c.phone ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{formatUsPhone(c.phone)}</div> : null}
                       <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{formatDate(c.createdAt)} • {c._count?.documents ?? 0} docs</div>
@@ -2063,7 +2067,7 @@ function CustomersPanel(props: {
                   key={c.id}
                   className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-blue-50/60 dark:bg-blue-500/10")}
                 >
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_80px_120px_64px] md:items-center">
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_64px_96px_120px_64px] md:items-center">
                     <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
                       <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">{c.fullName}</div>
                     </button>
@@ -2074,6 +2078,9 @@ function CustomersPanel(props: {
                       {c.phone ? formatUsPhone(c.phone) : <span className="text-slate-400 dark:text-slate-500">—</span>}
                     </div>
                     <div className="text-sm text-slate-600 dark:text-slate-300">{c._count?.documents ?? 0}</div>
+                    <div>
+                      <CustomerTypeBadge type={c.customerType} />
+                    </div>
                     <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(c.createdAt)}</div>
                     <div className="flex justify-start lg:justify-end">
                       <CustomerListActions
@@ -2362,9 +2369,12 @@ function CustomerDetailCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Customer</div>
-          <h3 className="mt-1 truncate text-xl font-semibold text-slate-950 dark:text-white">
-            {isLoading ? "Loading..." : customer?.fullName ?? "—"}
-          </h3>
+          <div className="mt-1 flex items-center gap-2">
+            <h3 className="min-w-0 truncate text-xl font-semibold text-slate-950 dark:text-white">
+              {isLoading ? "Loading..." : customer?.fullName ?? "—"}
+            </h3>
+            {customer ? <CustomerTypeBadge type={customer.customerType} /> : null}
+          </div>
           {customer ? (
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {customer._count?.documents ?? 0} document{(customer._count?.documents ?? 0) === 1 ? "" : "s"} linked
@@ -2425,6 +2435,21 @@ function CustomerDetailField({
         {hasValue ? value : <span className="text-slate-400 dark:text-slate-500">—</span>}
       </div>
     </div>
+  );
+}
+
+function CustomerTypeBadge({ type }: { type: "PERSONAL" | "BUSINESS" }) {
+  if (type === "BUSINESS") {
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+        Business
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
+      Personal
+    </span>
   );
 }
 
