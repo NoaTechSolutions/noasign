@@ -207,8 +207,32 @@ type DocumentTypeCatalogItem = {
   }>;
 };
 
+type CustomerBusiness = {
+  id: string;
+  customerId: string;
+  businessName: string;
+  licenseNumber: string | null;
+  industry: string | null;
+  website: string | null;
+  businessEmail: string | null;
+  businessPhone: string | null;
+  businessPhone2: string | null;
+  businessAddressLine1: string | null;
+  businessAddressLine2: string | null;
+  businessCity: string | null;
+  businessState: string | null;
+  businessZipCode: string | null;
+  primaryContactName: string | null;
+  primaryContactEmail: string | null;
+  primaryContactPhone: string | null;
+  primaryContactTitle: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type Customer = {
   id: string;
+  customerType: "PERSONAL" | "BUSINESS";
   fullName: string;
   email: string | null;
   phone: string | null;
@@ -223,6 +247,7 @@ type Customer = {
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
+  business?: CustomerBusiness | null;
   _count?: { documents: number };
 };
 
@@ -233,7 +258,27 @@ type CustomerListResponse = {
   offset: number;
 };
 
+type CustomerBusinessFormValues = {
+  businessName: string;
+  licenseNumber: string;
+  industry: string;
+  website: string;
+  businessEmail: string;
+  businessPhone: string;
+  businessPhone2: string;
+  businessAddressLine1: string;
+  businessAddressLine2: string;
+  businessCity: string;
+  businessState: string;
+  businessZipCode: string;
+  primaryContactName: string;
+  primaryContactEmail: string;
+  primaryContactPhone: string;
+  primaryContactTitle: string;
+};
+
 type CustomerFormValues = {
+  customerType: "PERSONAL" | "BUSINESS";
   fullName: string;
   email: string;
   phone: string;
@@ -242,6 +287,7 @@ type CustomerFormValues = {
   state: string;
   zipCode: string;
   notes: string;
+  business: CustomerBusinessFormValues;
 };
 
 type CreateDraftResponse = {
@@ -663,8 +709,9 @@ export default function DashboardPage() {
 
   async function handleCreateCustomer(values: CustomerFormValues) {
     setError("");
-    const payload: Record<string, string> = {
+    const payload: Record<string, unknown> = {
       fullName: values.fullName.trim(),
+      customerType: values.customerType,
     };
     (
       [
@@ -680,6 +727,9 @@ export default function DashboardPage() {
       const v = values[key]?.trim();
       if (v) payload[key] = v;
     });
+    if (values.customerType === "BUSINESS") {
+      payload.business = buildBusinessCreatePayload(values.business);
+    }
     await apiRequest<Customer>("/customers", { method: "POST", body: payload });
     const refreshed = await apiRequest<CustomerListResponse>(
       "/customers?limit=500&offset=0",
@@ -693,8 +743,9 @@ export default function DashboardPage() {
   ) {
     setError("");
     // Send null to clear optional fields; empty string would fail backend IsEmail.
-    const payload: Record<string, string | null> = {
+    const payload: Record<string, unknown> = {
       fullName: values.fullName.trim(),
+      customerType: values.customerType,
     };
     (
       [
@@ -710,6 +761,9 @@ export default function DashboardPage() {
       const v = values[key]?.trim();
       payload[key] = v ? v : null;
     });
+    if (values.customerType === "BUSINESS") {
+      payload.business = buildBusinessUpdatePayload(values.business);
+    }
     await apiRequest(`/customers/${customerId}`, {
       method: "PATCH",
       body: payload,
@@ -1199,6 +1253,52 @@ export default function DashboardPage() {
       </Suspense>
     </main>
   );
+}
+
+const BUSINESS_OPTIONAL_FIELDS = [
+  "licenseNumber",
+  "industry",
+  "website",
+  "businessEmail",
+  "businessPhone",
+  "businessPhone2",
+  "businessAddressLine1",
+  "businessAddressLine2",
+  "businessCity",
+  "businessState",
+  "businessZipCode",
+  "primaryContactName",
+  "primaryContactEmail",
+  "primaryContactPhone",
+  "primaryContactTitle",
+] as const satisfies ReadonlyArray<keyof CustomerBusinessFormValues>;
+
+function buildBusinessCreatePayload(
+  business: CustomerBusinessFormValues,
+): Record<string, string> {
+  const payload: Record<string, string> = {
+    businessName: business.businessName.trim(),
+  };
+  for (const key of BUSINESS_OPTIONAL_FIELDS) {
+    const v = business[key]?.trim();
+    if (v) payload[key] = v;
+  }
+  return payload;
+}
+
+function buildBusinessUpdatePayload(
+  business: CustomerBusinessFormValues,
+): Record<string, string | null> {
+  // PATCH: empty fields → null (to clear). businessName never cleared — if
+  // the user somehow blanked it, we keep the existing value (skip the key).
+  const payload: Record<string, string | null> = {};
+  const name = business.businessName.trim();
+  if (name) payload.businessName = name;
+  for (const key of BUSINESS_OPTIONAL_FIELDS) {
+    const v = business[key]?.trim();
+    payload[key] = v ? v : null;
+  }
+  return payload;
 }
 
 function getRecentBillingMonths(count: number) {

@@ -119,8 +119,32 @@ type DocumentTypeCatalogItem = {
   }>;
 };
 
+type CustomerBusiness = {
+  id: string;
+  customerId: string;
+  businessName: string;
+  licenseNumber: string | null;
+  industry: string | null;
+  website: string | null;
+  businessEmail: string | null;
+  businessPhone: string | null;
+  businessPhone2: string | null;
+  businessAddressLine1: string | null;
+  businessAddressLine2: string | null;
+  businessCity: string | null;
+  businessState: string | null;
+  businessZipCode: string | null;
+  primaryContactName: string | null;
+  primaryContactEmail: string | null;
+  primaryContactPhone: string | null;
+  primaryContactTitle: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type Customer = {
   id: string;
+  customerType: "PERSONAL" | "BUSINESS";
   fullName: string;
   email: string | null;
   phone: string | null;
@@ -135,10 +159,31 @@ type Customer = {
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
+  business?: CustomerBusiness | null;
   _count?: { documents: number };
 };
 
+type CustomerBusinessFormValues = {
+  businessName: string;
+  licenseNumber: string;
+  industry: string;
+  website: string;
+  businessEmail: string;
+  businessPhone: string;
+  businessPhone2: string;
+  businessAddressLine1: string;
+  businessAddressLine2: string;
+  businessCity: string;
+  businessState: string;
+  businessZipCode: string;
+  primaryContactName: string;
+  primaryContactEmail: string;
+  primaryContactPhone: string;
+  primaryContactTitle: string;
+};
+
 type CustomerFormValues = {
+  customerType: "PERSONAL" | "BUSINESS";
   fullName: string;
   email: string;
   phone: string;
@@ -147,6 +192,7 @@ type CustomerFormValues = {
   state: string;
   zipCode: string;
   notes: string;
+  business: CustomerBusinessFormValues;
 };
 
 type Props = {
@@ -1827,6 +1873,8 @@ function CustomersPanel(props: {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createType, setCreateType] = useState<"PERSONAL" | "BUSINESS">("PERSONAL");
+  const [typeSelectorOpen, setTypeSelectorOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1912,7 +1960,7 @@ function CustomersPanel(props: {
           </div>
           <button
             type="button"
-            onClick={() => setCreateOpen(true)}
+            onClick={() => setTypeSelectorOpen(true)}
             className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
           >
             New customer
@@ -2092,10 +2140,22 @@ function CustomersPanel(props: {
       ) : null}
       </div>
 
+      {typeSelectorOpen ? (
+        <CustomerTypeSelectorDialog
+          onCancel={() => setTypeSelectorOpen(false)}
+          onPick={(type) => {
+            setCreateType(type);
+            setTypeSelectorOpen(false);
+            setCreateOpen(true);
+          }}
+        />
+      ) : null}
+
       {createOpen ? (
         <CustomerFormDrawer
           mode="create"
           customer={null}
+          initialType={createType}
           onClose={() => setCreateOpen(false)}
           onSubmit={async (values) => {
             await props.onCreateCustomer(values);
@@ -2368,6 +2428,68 @@ function CustomerDetailField({
   );
 }
 
+function CustomerTypeSelectorDialog({
+  onCancel,
+  onPick,
+}: {
+  onCancel: () => void;
+  onPick: (type: "PERSONAL" | "BUSINESS") => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+    >
+      <div className="w-full max-w-md rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+          New customer
+        </h2>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          What kind of customer would you like to add?
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => onPick("PERSONAL")}
+            className="flex flex-col items-start gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+          >
+            <UserRound className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+              Personal
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              An individual person
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => onPick("BUSINESS")}
+            className="flex flex-col items-start gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-amber-400 dark:hover:bg-amber-500/10"
+          >
+            <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+              Business
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              A company with contact info
+            </div>
+          </button>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CustomerField({
   label,
   value,
@@ -2424,37 +2546,63 @@ function CustomerField({
 function CustomerFormDrawer({
   mode,
   customer,
+  initialType,
   onClose,
   onSubmit,
 }: {
   mode: "create" | "edit";
   customer: Customer | null;
+  initialType?: "PERSONAL" | "BUSINESS";
   onClose: () => void;
   onSubmit: (values: CustomerFormValues) => Promise<void>;
 }) {
-  const [initialValues] = useState<CustomerFormValues>(() => toCustomerFormValues(customer));
+  const [initialValues] = useState<CustomerFormValues>(() => {
+    const base = toCustomerFormValues(customer);
+    // For create mode with explicit initialType (from type selector), override
+    // the default PERSONAL. Edit mode preserves the customer's saved type.
+    if (!customer && initialType) {
+      return { ...base, customerType: initialType };
+    }
+    return base;
+  });
   const [values, setValues] = useState<CustomerFormValues>(initialValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof CustomerFormValues, string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | undefined>>({});
   const [submitError, setSubmitError] = useState("");
   const [confirmDialog, setConfirmDialog] = useState<
     { title: string; message: string; onConfirm: () => void } | null
   >(null);
+  const [activeTab, setActiveTab] = useState<"company" | "representative">(
+    "company",
+  );
+
+  const isBusiness = values.customerType === "BUSINESS";
 
   const isDirty = useMemo(
     () =>
-      Object.keys(
-        buildChangedProfilePayload(
-          initialValues as unknown as Record<string, string>,
-          values as unknown as Record<string, string>,
-        ),
-      ).length > 0,
+      JSON.stringify(initialValues) !== JSON.stringify(values),
     [initialValues, values],
   );
 
-  function update<K extends keyof CustomerFormValues>(key: K, value: CustomerFormValues[K]) {
+  function update<K extends keyof CustomerFormValues>(
+    key: K,
+    value: CustomerFormValues[K],
+  ) {
     setValues((prev) => ({ ...prev, [key]: value }));
-    if (fieldErrors[key]) setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+    if (fieldErrors[key]) {
+      setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+    }
+  }
+
+  function updateBusiness<K extends keyof CustomerBusinessFormValues>(
+    key: K,
+    value: CustomerBusinessFormValues[K],
+  ) {
+    setValues((prev) => ({ ...prev, business: { ...prev.business, [key]: value } }));
+    const errKey = `business.${key}`;
+    if (fieldErrors[errKey]) {
+      setFieldErrors((prev) => ({ ...prev, [errKey]: undefined }));
+    }
   }
 
   function requestClose() {
@@ -2474,37 +2622,76 @@ function CustomerFormDrawer({
   }
 
   function validate(): boolean {
-    const errs: Partial<Record<keyof CustomerFormValues, string>> = {};
+    const errs: Record<string, string | undefined> = {};
 
-    const name = values.fullName.trim();
-    if (!name) {
-      errs.fullName = "Full name is required";
-    } else if (name.length > 200) {
-      errs.fullName = "Max 200 characters";
+    if (isBusiness) {
+      // BUSINESS: businessName is required; fullName is derived from it.
+      const bn = values.business.businessName.trim();
+      if (!bn) {
+        errs["business.businessName"] = "Business name is required";
+      } else if (bn.length > 200) {
+        errs["business.businessName"] = "Max 200 characters";
+      }
+      const bEmail = values.business.businessEmail.trim();
+      if (bEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bEmail)) {
+        errs["business.businessEmail"] = "Invalid email format";
+      }
+      const pEmail = values.business.primaryContactEmail.trim();
+      if (pEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pEmail)) {
+        errs["business.primaryContactEmail"] = "Invalid email format";
+      }
+    } else {
+      // PERSONAL: fullName + email required
+      const name = values.fullName.trim();
+      if (!name) {
+        errs.fullName = "Full name is required";
+      } else if (name.length > 200) {
+        errs.fullName = "Max 200 characters";
+      }
+      const email = values.email.trim();
+      if (!email) {
+        errs.email = "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errs.email = "Invalid email format";
+      }
     }
-
-    const email = values.email.trim();
-    if (!email) {
-      errs.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errs.email = "Invalid email format";
-    }
-
-    // Phone: no submit-time pattern check. formatUsPhone in onChange sanitizes
-    // shape as the user types. Partial inputs (e.g. 9-digit legacy numbers or
-    // international formats without a US area code) are accepted as-is.
 
     setFieldErrors(errs);
-    return Object.keys(errs).length === 0;
+    return Object.values(errs).every((v) => !v);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      // Jump to the tab holding the first error so BUSINESS users see it.
+      if (isBusiness) {
+        if (fieldErrors["business.primaryContactEmail"]) {
+          setActiveTab("representative");
+        } else {
+          setActiveTab("company");
+        }
+      }
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError("");
     try {
-      await onSubmit(values);
+      // For BUSINESS, Customer.fullName is derived from business.businessName
+      // so the required field on the Customer row is satisfied. Also unset
+      // personal-only fields that BUSINESS customers don't use.
+      const submitValues: CustomerFormValues = isBusiness
+        ? {
+            ...values,
+            fullName: values.business.businessName.trim(),
+            email: "",
+            phone: "",
+            addressLine1: "",
+            city: "",
+            state: "",
+            zipCode: "",
+          }
+        : values;
+      await onSubmit(submitValues);
       onClose();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Unable to save customer");
@@ -2545,81 +2732,288 @@ function CustomerFormDrawer({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="grid gap-4">
-            {/* Row 1 — Full name (full width) */}
-            <CustomerField
-              label="Full name *"
-              value={values.fullName}
-              onChange={(v) =>
-                update("fullName", toTitleCase(v.replace(/\d/g, "")).slice(0, 200))
-              }
-              error={fieldErrors.fullName}
-              placeholder="John Doe"
-              required
-            />
+        {isBusiness ? (
+          <div className="flex border-b border-[color:var(--border)] px-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab("company")}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
+                activeTab === "company"
+                  ? "border-b-2 border-blue-600 text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]",
+              )}
+            >
+              Company
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("representative")}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition",
+                activeTab === "representative"
+                  ? "border-b-2 border-blue-600 text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]",
+              )}
+            >
+              Representative
+            </button>
+          </div>
+        ) : null}
 
-            {/* Row 2 — Phone | Email */}
-            <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {!isBusiness ? (
+            <div className="grid gap-4">
+              {/* Row 1 — Full name (full width) */}
               <CustomerField
-                label="Phone"
-                value={values.phone}
-                onChange={(v) => update("phone", formatUsPhone(v))}
-                placeholder="(555) 123-4567"
-              />
-              <CustomerField
-                label="Email *"
-                value={values.email}
-                onChange={(v) => update("email", v.slice(0, 254))}
-                error={fieldErrors.email}
-                placeholder="name@example.com"
+                label="Full name *"
+                value={values.fullName}
+                onChange={(v) =>
+                  update(
+                    "fullName",
+                    toTitleCase(v.replace(/\d/g, "")).slice(0, 200),
+                  )
+                }
+                error={fieldErrors.fullName}
+                placeholder="John Doe"
                 required
               />
+
+              {/* Row 2 — Phone | Email */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Phone"
+                  value={values.phone}
+                  onChange={(v) => update("phone", formatUsPhone(v))}
+                  placeholder="(555) 123-4567"
+                />
+                <CustomerField
+                  label="Email *"
+                  value={values.email}
+                  onChange={(v) => update("email", v.slice(0, 254))}
+                  error={fieldErrors.email}
+                  placeholder="name@example.com"
+                  required
+                />
+              </div>
+
+              {/* Row 3 — Address (full width) */}
+              <CustomerField
+                label="Address"
+                value={values.addressLine1}
+                onChange={(v) => update("addressLine1", v.slice(0, 200))}
+                placeholder="123 Main St"
+              />
+
+              {/* Row 4 — City | State | ZIP */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <CustomerField
+                  label="City"
+                  value={values.city}
+                  onChange={(v) =>
+                    update(
+                      "city",
+                      toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100),
+                    )
+                  }
+                  placeholder="Pittsburg"
+                />
+                <CustomerField
+                  label="State"
+                  value={values.state}
+                  onChange={(v) =>
+                    update(
+                      "state",
+                      v.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 3),
+                    )
+                  }
+                  placeholder="CA"
+                />
+                <CustomerField
+                  label="ZIP code"
+                  value={values.zipCode}
+                  onChange={(v) => update("zipCode", v.replace(/\D/g, "").slice(0, 9))}
+                  placeholder="94565 or 123456789"
+                />
+              </div>
+
+              {/* Row 5 — Internal notes (textarea, full width) */}
+              <CustomerField
+                label="Internal notes"
+                type="textarea"
+                value={values.notes}
+                onChange={(v) => update("notes", v.slice(0, 2000))}
+                placeholder="Anything worth remembering about this customer..."
+              />
             </div>
-
-            {/* Row 3 — Address (full width) */}
-            <CustomerField
-              label="Address"
-              value={values.addressLine1}
-              onChange={(v) => update("addressLine1", v.slice(0, 200))}
-              placeholder="123 Main St"
-            />
-
-            {/* Row 4 — City | State | ZIP */}
-            <div className="grid gap-4 md:grid-cols-3">
+          ) : activeTab === "company" ? (
+            <div className="grid gap-4">
               <CustomerField
-                label="City"
-                value={values.city}
+                label="Business name *"
+                value={values.business.businessName}
                 onChange={(v) =>
-                  update("city", toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100))
+                  updateBusiness(
+                    "businessName",
+                    toTitleCase(v).slice(0, 200),
+                  )
                 }
-                placeholder="Pittsburg"
+                error={fieldErrors["business.businessName"]}
+                placeholder="Acme Construction LLC"
+                required
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="License number"
+                  value={values.business.licenseNumber}
+                  onChange={(v) =>
+                    updateBusiness("licenseNumber", v.slice(0, 100))
+                  }
+                  placeholder="123456"
+                />
+                <CustomerField
+                  label="Industry"
+                  value={values.business.industry}
+                  onChange={(v) =>
+                    updateBusiness("industry", toTitleCase(v).slice(0, 100))
+                  }
+                  placeholder="Construction"
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Website"
+                  value={values.business.website}
+                  onChange={(v) => updateBusiness("website", v.slice(0, 254))}
+                  placeholder="https://example.com"
+                />
+                <CustomerField
+                  label="Business email"
+                  value={values.business.businessEmail}
+                  onChange={(v) =>
+                    updateBusiness("businessEmail", v.slice(0, 254))
+                  }
+                  error={fieldErrors["business.businessEmail"]}
+                  placeholder="contact@example.com"
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Business phone"
+                  value={values.business.businessPhone}
+                  onChange={(v) => updateBusiness("businessPhone", formatUsPhone(v))}
+                  placeholder="(555) 123-4567"
+                />
+                <CustomerField
+                  label="Mobile / Fax"
+                  value={values.business.businessPhone2}
+                  onChange={(v) => updateBusiness("businessPhone2", formatUsPhone(v))}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              <CustomerField
+                label="Address line 1"
+                value={values.business.businessAddressLine1}
+                onChange={(v) =>
+                  updateBusiness("businessAddressLine1", v.slice(0, 200))
+                }
+                placeholder="123 Main St"
               />
               <CustomerField
-                label="State"
-                value={values.state}
+                label="Address line 2"
+                value={values.business.businessAddressLine2}
                 onChange={(v) =>
-                  update("state", v.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 3))
+                  updateBusiness("businessAddressLine2", v.slice(0, 200))
                 }
-                placeholder="CA"
+                placeholder="Suite 400"
+              />
+              <div className="grid gap-4 md:grid-cols-3">
+                <CustomerField
+                  label="City"
+                  value={values.business.businessCity}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "businessCity",
+                      toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100),
+                    )
+                  }
+                  placeholder="Pittsburg"
+                />
+                <CustomerField
+                  label="State"
+                  value={values.business.businessState}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "businessState",
+                      v.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 3),
+                    )
+                  }
+                  placeholder="CA"
+                />
+                <CustomerField
+                  label="ZIP code"
+                  value={values.business.businessZipCode}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "businessZipCode",
+                      v.replace(/\D/g, "").slice(0, 9),
+                    )
+                  }
+                  placeholder="94565 or 123456789"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              <CustomerField
+                label="Representative name"
+                value={values.business.primaryContactName}
+                onChange={(v) =>
+                  updateBusiness(
+                    "primaryContactName",
+                    toTitleCase(v.replace(/\d/g, "")).slice(0, 200),
+                  )
+                }
+                placeholder="John Doe"
               />
               <CustomerField
-                label="ZIP code"
-                value={values.zipCode}
-                onChange={(v) => update("zipCode", v.replace(/\D/g, "").slice(0, 9))}
-                placeholder="94565 or 123456789"
+                label="Title"
+                value={values.business.primaryContactTitle}
+                onChange={(v) =>
+                  updateBusiness(
+                    "primaryContactTitle",
+                    toTitleCase(v).slice(0, 200),
+                  )
+                }
+                placeholder="President"
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Email"
+                  value={values.business.primaryContactEmail}
+                  onChange={(v) =>
+                    updateBusiness("primaryContactEmail", v.slice(0, 254))
+                  }
+                  error={fieldErrors["business.primaryContactEmail"]}
+                  placeholder="john@example.com"
+                />
+                <CustomerField
+                  label="Phone"
+                  value={values.business.primaryContactPhone}
+                  onChange={(v) =>
+                    updateBusiness("primaryContactPhone", formatUsPhone(v))
+                  }
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              <CustomerField
+                label="Internal notes"
+                type="textarea"
+                value={values.notes}
+                onChange={(v) => update("notes", v.slice(0, 2000))}
+                placeholder="Anything worth remembering about this customer..."
               />
             </div>
-
-            {/* Row 5 — Internal notes (textarea, full width) */}
-            <CustomerField
-              label="Internal notes"
-              type="textarea"
-              value={values.notes}
-              onChange={(v) => update("notes", v.slice(0, 2000))}
-              placeholder="Anything worth remembering about this customer..."
-            />
-          </div>
+          )}
           {submitError ? (
             <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
               {submitError}
@@ -2677,8 +3071,51 @@ function CustomerFormDrawer({
   );
 }
 
+const EMPTY_BUSINESS: CustomerBusinessFormValues = {
+  businessName: "",
+  licenseNumber: "",
+  industry: "",
+  website: "",
+  businessEmail: "",
+  businessPhone: "",
+  businessPhone2: "",
+  businessAddressLine1: "",
+  businessAddressLine2: "",
+  businessCity: "",
+  businessState: "",
+  businessZipCode: "",
+  primaryContactName: "",
+  primaryContactEmail: "",
+  primaryContactPhone: "",
+  primaryContactTitle: "",
+};
+
 function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
+  const business: CustomerBusinessFormValues = customer?.business
+    ? {
+        businessName: customer.business.businessName,
+        licenseNumber: customer.business.licenseNumber ?? "",
+        industry: customer.business.industry ?? "",
+        website: customer.business.website ?? "",
+        businessEmail: customer.business.businessEmail ?? "",
+        businessPhone: formatUsPhone(customer.business.businessPhone ?? ""),
+        businessPhone2: formatUsPhone(customer.business.businessPhone2 ?? ""),
+        businessAddressLine1: customer.business.businessAddressLine1 ?? "",
+        businessAddressLine2: customer.business.businessAddressLine2 ?? "",
+        businessCity: customer.business.businessCity ?? "",
+        businessState: customer.business.businessState ?? "",
+        businessZipCode: customer.business.businessZipCode ?? "",
+        primaryContactName: customer.business.primaryContactName ?? "",
+        primaryContactEmail: customer.business.primaryContactEmail ?? "",
+        primaryContactPhone: formatUsPhone(
+          customer.business.primaryContactPhone ?? "",
+        ),
+        primaryContactTitle: customer.business.primaryContactTitle ?? "",
+      }
+    : EMPTY_BUSINESS;
+
   return {
+    customerType: customer?.customerType ?? "PERSONAL",
     fullName: customer?.fullName ?? "",
     email: customer?.email ?? "",
     phone: formatUsPhone(customer?.phone ?? ""),
@@ -2687,6 +3124,7 @@ function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
     state: customer?.state ?? "",
     zipCode: customer?.zipCode ?? "",
     notes: customer?.notes ?? "",
+    business,
   };
 }
 
