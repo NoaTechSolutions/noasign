@@ -3271,11 +3271,12 @@ function CustomerFormDrawer({
     }
   }
 
-  function validate(): boolean {
+  function validate(): Record<string, string | undefined> {
     const errs: Record<string, string | undefined> = {};
 
     if (isBusiness) {
-      // BUSINESS: businessName is required; fullName is derived from it.
+      // BUSINESS: businessName only enforced at SUBMIT time (the field itself
+      // is not marked required so Next/back-navigation never blocks on empty).
       const bn = values.business.businessName.trim();
       if (!bn) {
         errs["business.businessName"] = "Business name is required";
@@ -3307,18 +3308,22 @@ function CustomerFormDrawer({
     }
 
     setFieldErrors(errs);
-    return Object.values(errs).every((v) => !v);
+    return errs;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validate()) {
+    const errs = validate();
+    const isValid = Object.values(errs).every((v) => !v);
+    if (!isValid) {
       // Jump to the tab holding the first error so BUSINESS users see it.
+      // Use the freshly-returned errs (fieldErrors state is stale right after
+      // setFieldErrors during this render).
       if (isBusiness) {
-        if (fieldErrors["business.primaryContactEmail"]) {
-          setActiveTab("representative");
-        } else {
+        if (errs["business.businessName"] || errs["business.businessEmail"]) {
           setActiveTab("company");
+        } else if (errs["business.primaryContactEmail"]) {
+          setActiveTab("representative");
         }
       }
       return;
@@ -3501,7 +3506,7 @@ function CustomerFormDrawer({
               {/* Row 1 — Business Name | Business Legal Name */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
-                  label="Business name *"
+                  label="Business name"
                   value={values.business.businessName}
                   onChange={(v) =>
                     updateBusiness(
@@ -3511,7 +3516,6 @@ function CustomerFormDrawer({
                   }
                   error={fieldErrors["business.businessName"]}
                   placeholder="Acme Construction"
-                  required
                 />
                 <CustomerField
                   label="Business legal name"
