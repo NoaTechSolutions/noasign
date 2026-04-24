@@ -596,11 +596,20 @@ export function DashboardSidebarDemo({
   >(null);
   // Template Selector Modal: opens when the user starts a new draft AND there
   // are multiple (documentType, formDefinition, signatureTemplate) triples
-  // available. Pick one → stash here → DocumentsPanel auto-opens
-  // CreateDraftDrawer with these ids preset instead of auto-picking first.
+  // available. Pick one → stash here → auto-open CreateDraftDrawer with
+  // these ids preset instead of auto-picking first.
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [pendingDraftTriple, setPendingDraftTriple] =
     useState<DocumentDraftTriple | null>(null);
+  // CreateDraftDrawer lives here (not inside DocumentsPanel) so opening a
+  // draft from the Customers section doesn't force an activeSection switch
+  // away from Customers — user stays in whatever section they started from.
+  // Lazy initializer restores the drawer's open state across tab reloads
+  // without a setState-in-effect.
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(() =>
+    readSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY),
+  );
+  const [createDrawerVersion, setCreateDrawerVersion] = useState(0);
 
   const isIndividualUser = user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL";
   const displayName = isIndividualUser
@@ -756,6 +765,20 @@ export function DashboardSidebarDemo({
     onSelectDocument(options.documentId);
   }
 
+  useEffect(() => {
+    writeSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY, createDrawerOpen);
+  }, [createDrawerOpen]);
+
+  // Open the draft drawer cleanly: wipe stale sessionStorage form state,
+  // bump the key (forces remount → fresh useState initializers pick up
+  // presets), then flip open. Inlined in handlers (instead of an auto-open
+  // useEffect) to avoid cascading renders from setState-in-effect.
+  function openCreateDrawerFresh() {
+    removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
+    setCreateDrawerVersion((current) => current + 1);
+    setCreateDrawerOpen(true);
+  }
+
   // Single entry point for "start a new draft" (from customer view, from
   // Documents "+ New document", anywhere else). Flattens the user's
   // accessible template catalog into triples; if there's only one, skip the
@@ -776,7 +799,9 @@ export function DashboardSidebarDemo({
     }
     if (triples.length === 1) {
       setPendingDraftTriple(triples[0]);
-      setActiveSection("documents");
+      openCreateDrawerFresh();
+      // No activeSection switch — the drawer is rendered at top level, so it
+      // can open on top of whatever section the user is already in.
       return;
     }
     setTemplateSelectorOpen(true);
@@ -785,7 +810,7 @@ export function DashboardSidebarDemo({
   function handleTemplateSelected(triple: DocumentDraftTriple) {
     setPendingDraftTriple(triple);
     setTemplateSelectorOpen(false);
-    setActiveSection("documents");
+    openCreateDrawerFresh();
   }
 
   function cancelTemplateSelector() {
@@ -794,6 +819,14 @@ export function DashboardSidebarDemo({
     // too — otherwise a later unrelated "+ New document" click would pick it
     // up and incorrectly pre-link.
     setPendingDraftCustomerId(null);
+  }
+
+  function closeCreateDrawer() {
+    setCreateDrawerOpen(false);
+    removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
+    setCreateDrawerVersion((current) => current + 1);
+    if (pendingDraftCustomerId) setPendingDraftCustomerId(null);
+    if (pendingDraftTriple) setPendingDraftTriple(null);
   }
 
   async function handleDocumentAction(
@@ -1140,10 +1173,6 @@ export function DashboardSidebarDemo({
               }}
               onDocumentAction={handleDocumentAction}
               onCreateDraft={onCreateDraft}
-              presetCustomerId={pendingDraftCustomerId}
-              onClearPresetCustomer={() => setPendingDraftCustomerId(null)}
-              presetTriple={pendingDraftTriple}
-              onClearPresetTriple={() => setPendingDraftTriple(null)}
               onStartNewDraft={() => startNewDraft()}
             />
           ) : null}
@@ -1253,6 +1282,27 @@ export function DashboardSidebarDemo({
           onPick={handleTemplateSelected}
         />
       ) : null}
+      <CreateDraftDrawer
+        key={createDrawerVersion}
+        open={createDrawerOpen}
+        documentTypes={documentTypes}
+        companyProfile={companyProfile}
+        presetCustomerId={pendingDraftCustomerId}
+        presetDocumentTypeId={pendingDraftTriple?.documentTypeId ?? null}
+        presetFormDefinitionId={pendingDraftTriple?.formDefinitionId ?? null}
+        presetSignatureTemplateId={
+          pendingDraftTriple?.signatureTemplateId ?? null
+        }
+        onClose={closeCreateDrawer}
+        onCreateDraft={onCreateDraft}
+        onOpenDocumentView={(documentId) => {
+          openDocumentViewer({
+            documentId,
+            tab: "client",
+            editingTab: null,
+          });
+        }}
+      />
       {documentSuccessMessage ? (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
           <button
@@ -1472,10 +1522,6 @@ function DocumentsPanel(props: {
     dataJson: Record<string, unknown>;
     customerId?: string;
   }) => Promise<DocDetail | void>;
-  presetCustomerId: string | null;
-  onClearPresetCustomer: () => void;
-  presetTriple: DocumentDraftTriple | null;
-  onClearPresetTriple: () => void;
   onStartNewDraft: () => void;
 }) {
 
@@ -1484,8 +1530,6 @@ function DocumentsPanel(props: {
   const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
-  const [createDrawerVersion, setCreateDrawerVersion] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1586,40 +1630,6 @@ function DocumentsPanel(props: {
       document.removeEventListener("touchstart", handlePointerDown);
     };
   }, [filterMenuOpen]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCreateDrawerOpen(readSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY));
-  }, []);
-
-  useEffect(() => {
-    writeSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY, createDrawerOpen);
-  }, [createDrawerOpen]);
-
-  // Auto-open the draft drawer whenever the parent hands off a preset
-  // (either a customer id from the customer view drawer, or a template
-  // triple from the Template Selector Modal, or both). Clear presets only
-  // on drawer close so they survive the remount. Bumping createDrawerVersion
-  // forces CreateDraftDrawer to remount and wipe stale sessionStorage state.
-  useEffect(() => {
-    if ((props.presetCustomerId || props.presetTriple) && !createDrawerOpen) {
-      removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
-      setCreateDrawerVersion((current) => current + 1);
-      setCreateDrawerOpen(true);
-    }
-  }, [props.presetCustomerId, props.presetTriple, createDrawerOpen]);
-
-  function closeCreateDrawer() {
-    setCreateDrawerOpen(false);
-    removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
-    setCreateDrawerVersion((current) => current + 1);
-    if (props.presetCustomerId) {
-      props.onClearPresetCustomer();
-    }
-    if (props.presetTriple) {
-      props.onClearPresetTriple();
-    }
-  }
 
   return (
     <section className="grid gap-4">
@@ -1981,21 +1991,6 @@ function DocumentsPanel(props: {
           </div>
         )}
       </div>
-      <CreateDraftDrawer
-        key={createDrawerVersion}
-        open={createDrawerOpen}
-        documentTypes={props.documentTypes}
-        companyProfile={props.companyProfile}
-        presetCustomerId={props.presetCustomerId}
-        presetDocumentTypeId={props.presetTriple?.documentTypeId ?? null}
-        presetFormDefinitionId={props.presetTriple?.formDefinitionId ?? null}
-        presetSignatureTemplateId={
-          props.presetTriple?.signatureTemplateId ?? null
-        }
-        onClose={closeCreateDrawer}
-        onCreateDraft={props.onCreateDraft}
-        onOpenDocumentView={(documentId) => props.onOpenDocumentView(documentId)}
-      />
     </section>
   );
 }
