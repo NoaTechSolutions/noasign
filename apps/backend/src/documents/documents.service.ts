@@ -540,11 +540,28 @@ export class DocumentsService {
       );
     }
 
+    // If caller linked a customer, verify it belongs to this tenant before
+    // writing the FK. Unknown or cross-tenant ids → 404 so we never leak
+    // existence across companies.
+    if (body.customerId) {
+      const customer = await this.prisma.customer.findFirst({
+        where: {
+          id: body.customerId,
+          companyProfileId: user.companyProfileId,
+        },
+        select: { id: true },
+      });
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+    }
+
     const document = await this.prisma.document.create({
       data: {
         documentNumber: await this.generateDocumentNumber(body.documentTypeId),
         userId: user.id,
         companyProfileId: user.companyProfileId,
+        customerId: body.customerId ?? null,
         documentTypeId: body.documentTypeId,
         formDefinitionId: body.formDefinitionId,
         signatureTemplateId,

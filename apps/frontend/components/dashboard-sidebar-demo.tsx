@@ -554,6 +554,13 @@ export function DashboardSidebarDemo({
   const [activeSection, setActiveSection] = useState<SectionKey>(requestedSection);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  // When the customer view drawer's "+ New Document" button fires, we stash
+  // the customer id here, close the customer drawer, and switch to the
+  // documents section. DocumentsPanel picks this up and auto-opens its
+  // CreateDraftDrawer with the customer pre-linked; it then clears the value.
+  const [pendingDraftCustomerId, setPendingDraftCustomerId] = useState<
+    string | null
+  >(null);
 
   const isIndividualUser = user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL";
   const displayName = isIndividualUser
@@ -1053,6 +1060,8 @@ export function DashboardSidebarDemo({
               }}
               onDocumentAction={handleDocumentAction}
               onCreateDraft={onCreateDraft}
+              presetCustomerId={pendingDraftCustomerId}
+              onClearPresetCustomer={() => setPendingDraftCustomerId(null)}
             />
           ) : null}
 
@@ -1081,6 +1090,15 @@ export function DashboardSidebarDemo({
               }}
               onPreviewFinalPdf={onPreviewFinalPdf}
               onDownloadFinalPdf={onDownloadFinalPdf}
+              onStartCustomerDraft={(customerId) => {
+                // Close the view drawer, stash the customer id, and navigate
+                // to the Documents section — DocumentsPanel will see the
+                // preset and auto-open CreateDraftDrawer with the customer
+                // pre-linked.
+                onCloseCustomerDetail();
+                setPendingDraftCustomerId(customerId);
+                setActiveSection("documents");
+              }}
             />
           ) : null}
 
@@ -1370,7 +1388,10 @@ function DocumentsPanel(props: {
     signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
+    customerId?: string;
   }) => Promise<DocDetail | void>;
+  presetCustomerId: string | null;
+  onClearPresetCustomer: () => void;
 }) {
 
   const [pageSize, setPageSize] = useState(10);
@@ -1490,6 +1511,19 @@ function DocumentsPanel(props: {
     writeSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY, createDrawerOpen);
   }, [createDrawerOpen]);
 
+  // When the customer view drawer hands off a customer id, auto-open the
+  // draft drawer with that customer pre-linked. Clear the preset only on
+  // drawer close (otherwise closing the preset mid-stream would drop the
+  // link). Bumping createDrawerVersion forces CreateDraftDrawer to remount
+  // and wipe any stale sessionStorage form state from a previous draft.
+  useEffect(() => {
+    if (props.presetCustomerId && !createDrawerOpen) {
+      removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
+      setCreateDrawerVersion((current) => current + 1);
+      setCreateDrawerOpen(true);
+    }
+  }, [props.presetCustomerId, createDrawerOpen]);
+
   function openCreateDrawer() {
     setCreateDrawerOpen(true);
   }
@@ -1498,6 +1532,9 @@ function DocumentsPanel(props: {
     setCreateDrawerOpen(false);
     removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
     setCreateDrawerVersion((current) => current + 1);
+    if (props.presetCustomerId) {
+      props.onClearPresetCustomer();
+    }
   }
 
   return (
@@ -1865,6 +1902,7 @@ function DocumentsPanel(props: {
         open={createDrawerOpen}
         documentTypes={props.documentTypes}
         companyProfile={props.companyProfile}
+        presetCustomerId={props.presetCustomerId}
         onClose={closeCreateDrawer}
         onCreateDraft={props.onCreateDraft}
         onOpenDocumentView={(documentId) => props.onOpenDocumentView(documentId)}
@@ -1911,6 +1949,7 @@ function CustomersPanel(props: {
   onOpenDocumentView: (documentId: string) => void;
   onPreviewFinalPdf: (documentId: string) => Promise<string>;
   onDownloadFinalPdf: (documentId: string) => Promise<void>;
+  onStartCustomerDraft: (customerId: string) => void;
 }) {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -2206,6 +2245,11 @@ function CustomersPanel(props: {
           onOpenDocumentView={props.onOpenDocumentView}
           onPreviewFinalPdf={props.onPreviewFinalPdf}
           onDownloadFinalPdf={props.onDownloadFinalPdf}
+          onCreateDocument={() => {
+            if (props.customerDetail) {
+              props.onStartCustomerDraft(props.customerDetail.id);
+            }
+          }}
         />
       ) : null}
 
@@ -2820,12 +2864,29 @@ function CustomerViewDrawer({
           ) : !customer ? (
             <EmptyBlock text="Customer not found." />
           ) : activeTab === "documents" ? (
-            customerDocuments.length === 0 ? (
-              <EmptyBlock text="No documents linked to this customer yet." />
-            ) : (
-              <>
-                {/* Mobile + Tablet: card layout (<1024px) */}
-                <div className="space-y-3 lg:hidden">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  {customerDocuments.length}{" "}
+                  {customerDocuments.length === 1 ? "document" : "documents"}{" "}
+                  linked to this customer
+                </p>
+                <button
+                  type="button"
+                  onClick={onCreateDocument}
+                  disabled={!onCreateDocument}
+                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FilePlus className="h-4 w-4" />
+                  New Document
+                </button>
+              </div>
+              {customerDocuments.length === 0 ? (
+                <EmptyBlock text="No documents linked to this customer yet." />
+              ) : (
+                <>
+                  {/* Mobile + Tablet: card layout (<1024px) */}
+                  <div className="space-y-3 lg:hidden">
                   {customerDocuments.map((doc) => (
                     <div
                       key={doc.id}
@@ -2908,8 +2969,9 @@ function CustomerViewDrawer({
                     </tbody>
                   </table>
                 </div>
-              </>
-            )
+                </>
+              )}
+            </div>
           ) : activeTab === "info" ? (
             <div className="grid gap-4">
               <CustomerField
@@ -5408,6 +5470,7 @@ function CreateDraftDrawer({
   open,
   documentTypes,
   companyProfile,
+  presetCustomerId,
   onClose,
   onCreateDraft,
   onOpenDocumentView,
@@ -5415,6 +5478,7 @@ function CreateDraftDrawer({
   open: boolean;
   documentTypes: DocumentTypeCatalogItem[];
   companyProfile: Props["companyProfile"];
+  presetCustomerId: string | null;
   onClose: () => void;
   onCreateDraft: (payload: {
     documentTypeId: string;
@@ -5422,6 +5486,7 @@ function CreateDraftDrawer({
     signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
+    customerId?: string;
   }) => Promise<DocDetail | void>;
   onOpenDocumentView: (documentId: string) => void;
 }) {
@@ -5573,6 +5638,7 @@ function CreateDraftDrawer({
         signatureTemplateId: selectedTemplateId,
         contractDate,
         dataJson: finalDataJson,
+        ...(presetCustomerId ? { customerId: presetCustomerId } : {}),
       });
 
       onClose();

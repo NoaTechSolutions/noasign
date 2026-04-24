@@ -18,6 +18,10 @@ export class CreateDraftDocumentDto {
   @IsUUID()
   signatureTemplateId?: string;
 
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
+
   @IsObject()
   @IsNotEmpty()
   dataJson: Record<string, any>;

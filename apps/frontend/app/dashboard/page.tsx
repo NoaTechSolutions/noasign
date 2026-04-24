@@ -986,6 +986,7 @@ export default function DashboardPage() {
     signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
+    customerId?: string;
   }) {
     setError("");
 
