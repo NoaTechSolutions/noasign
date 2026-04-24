@@ -2824,8 +2824,8 @@ function CustomerViewDrawer({
               <EmptyBlock text="No documents linked to this customer yet." />
             ) : (
               <>
-                {/* Mobile: card layout (<768px) */}
-                <div className="space-y-3 md:hidden">
+                {/* Mobile + Tablet: card layout (<1024px) */}
+                <div className="space-y-3 lg:hidden">
                   {customerDocuments.map((doc) => (
                     <div
                       key={doc.id}
@@ -2857,8 +2857,8 @@ function CustomerViewDrawer({
                   ))}
                 </div>
 
-                {/* Desktop: table layout (≥768px) */}
-                <div className="hidden overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] md:block">
+                {/* Desktop: table layout (≥1024px) */}
+                <div className="hidden overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] lg:block">
                   <table className="w-full text-sm">
                     <thead className="bg-[color:var(--bg-page-subtle)] text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
                       <tr>
