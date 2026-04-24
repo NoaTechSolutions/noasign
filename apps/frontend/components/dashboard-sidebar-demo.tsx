@@ -2823,56 +2823,92 @@ function CustomerViewDrawer({
             customerDocuments.length === 0 ? (
               <EmptyBlock text="No documents linked to this customer yet." />
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)]">
-                <table className="w-full text-sm">
-                  <thead className="bg-[color:var(--bg-page-subtle)] text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                    <tr>
-                      <th className="px-4 py-3">Document #</th>
-                      <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[color:var(--border)]">
-                    {customerDocuments.map((doc) => (
-                      <tr
-                        key={doc.id}
-                        className="transition hover:bg-[color:var(--bg-page-subtle)]"
-                      >
-                        <td className="px-4 py-3 font-medium text-[color:var(--text-primary)]">
-                          {doc.documentNumber}
-                        </td>
-                        <td className="px-4 py-3 text-[color:var(--text-secondary)]">
-                          {doc.documentType?.name ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-[color:var(--text-secondary)]">
+              <>
+                {/* Mobile: card layout (<768px) */}
+                <div className="space-y-3 md:hidden">
+                  {customerDocuments.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="relative rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4 pr-14"
+                    >
+                      <div className="truncate text-sm font-semibold text-[color:var(--text-primary)]">
+                        {doc.documentNumber}
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-[color:var(--text-secondary)]">
+                        {doc.documentType?.name ?? "—"}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] text-[color:var(--text-muted)]">
                           {formatDate(doc.createdAt)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <StatusBadge status={doc.status} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end">
-                            <button
-                              type="button"
-                              onClick={(e) =>
-                                toggleMenu(doc.id, e.currentTarget)
-                              }
-                              aria-label="Document actions"
-                              aria-haspopup="menu"
-                              aria-expanded={openMenuDocId === doc.id}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
+                        </span>
+                        <StatusBadge status={doc.status} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => toggleMenu(doc.id, e.currentTarget)}
+                        aria-label="Document actions"
+                        aria-haspopup="menu"
+                        aria-expanded={openMenuDocId === doc.id}
+                        className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: table layout (≥768px) */}
+                <div className="hidden overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] md:block">
+                  <table className="w-full text-sm">
+                    <thead className="bg-[color:var(--bg-page-subtle)] text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                      <tr>
+                        <th className="px-4 py-3">Document #</th>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-[color:var(--border)]">
+                      {customerDocuments.map((doc) => (
+                        <tr
+                          key={doc.id}
+                          className="transition hover:bg-[color:var(--bg-page-subtle)]"
+                        >
+                          <td className="px-4 py-3 font-medium text-[color:var(--text-primary)]">
+                            {doc.documentNumber}
+                          </td>
+                          <td className="px-4 py-3 text-[color:var(--text-secondary)]">
+                            {doc.documentType?.name ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-[color:var(--text-secondary)]">
+                            {formatDate(doc.createdAt)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge status={doc.status} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end">
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  toggleMenu(doc.id, e.currentTarget)
+                                }
+                                aria-label="Document actions"
+                                aria-haspopup="menu"
+                                aria-expanded={openMenuDocId === doc.id}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )
           ) : activeTab === "info" ? (
             <div className="grid gap-4">
