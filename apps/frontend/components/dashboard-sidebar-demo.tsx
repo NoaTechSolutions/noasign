@@ -123,6 +123,39 @@ type DocumentTypeCatalogItem = {
   }>;
 };
 
+// Flattened cross-product of (documentType × formDefinition × signatureTemplate)
+// that a user can pick in the template selector. Each triple maps to a single
+// createDraftDocument payload.
+type DocumentDraftTriple = {
+  documentTypeId: string;
+  documentTypeName: string;
+  formDefinitionId: string;
+  formDefinitionName: string;
+  signatureTemplateId: string;
+  signatureTemplateName: string;
+};
+
+function flattenDocumentTypeTriples(
+  documentTypes: DocumentTypeCatalogItem[],
+): DocumentDraftTriple[] {
+  const out: DocumentDraftTriple[] = [];
+  for (const dt of documentTypes) {
+    for (const fd of dt.formDefinitions) {
+      for (const st of dt.signatureTemplates) {
+        out.push({
+          documentTypeId: dt.id,
+          documentTypeName: dt.name,
+          formDefinitionId: fd.id,
+          formDefinitionName: fd.name,
+          signatureTemplateId: st.id,
+          signatureTemplateName: st.name,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 type CustomerBusiness = {
   id: string;
   customerId: string;
@@ -561,6 +594,13 @@ export function DashboardSidebarDemo({
   const [pendingDraftCustomerId, setPendingDraftCustomerId] = useState<
     string | null
   >(null);
+  // Template Selector Modal: opens when the user starts a new draft AND there
+  // are multiple (documentType, formDefinition, signatureTemplate) triples
+  // available. Pick one → stash here → DocumentsPanel auto-opens
+  // CreateDraftDrawer with these ids preset instead of auto-picking first.
+  const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [pendingDraftTriple, setPendingDraftTriple] =
+    useState<DocumentDraftTriple | null>(null);
 
   const isIndividualUser = user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL";
   const displayName = isIndividualUser
@@ -714,6 +754,46 @@ export function DashboardSidebarDemo({
     setDocumentViewerInitialEditingTab(options.editingTab ?? null);
     setDocumentViewerOpen(true);
     onSelectDocument(options.documentId);
+  }
+
+  // Single entry point for "start a new draft" (from customer view, from
+  // Documents "+ New document", anywhere else). Flattens the user's
+  // accessible template catalog into triples; if there's only one, skip the
+  // modal and advance straight to CreateDraftDrawer with it preset. Otherwise
+  // open the Template Selector so the user can pick explicitly.
+  function startNewDraft(customerId?: string) {
+    const triples = flattenDocumentTypeTriples(documentTypes);
+    if (triples.length === 0) {
+      // Edge case: user has no templates assigned. The "+ New Document"
+      // buttons are already disabled in that case (see DocumentsPanel /
+      // CustomerViewDrawer), so hitting this path means the state got out
+      // of sync — silent no-op rather than a bogus modal.
+      return;
+    }
+    if (customerId) {
+      onCloseCustomerDetail();
+      setPendingDraftCustomerId(customerId);
+    }
+    if (triples.length === 1) {
+      setPendingDraftTriple(triples[0]);
+      setActiveSection("documents");
+      return;
+    }
+    setTemplateSelectorOpen(true);
+  }
+
+  function handleTemplateSelected(triple: DocumentDraftTriple) {
+    setPendingDraftTriple(triple);
+    setTemplateSelectorOpen(false);
+    setActiveSection("documents");
+  }
+
+  function cancelTemplateSelector() {
+    setTemplateSelectorOpen(false);
+    // If the flow was kicked off from a customer, drop the stashed customer
+    // too — otherwise a later unrelated "+ New document" click would pick it
+    // up and incorrectly pre-link.
+    setPendingDraftCustomerId(null);
   }
 
   async function handleDocumentAction(
@@ -1062,6 +1142,9 @@ export function DashboardSidebarDemo({
               onCreateDraft={onCreateDraft}
               presetCustomerId={pendingDraftCustomerId}
               onClearPresetCustomer={() => setPendingDraftCustomerId(null)}
+              presetTriple={pendingDraftTriple}
+              onClearPresetTriple={() => setPendingDraftTriple(null)}
+              onStartNewDraft={() => startNewDraft()}
             />
           ) : null}
 
@@ -1090,15 +1173,7 @@ export function DashboardSidebarDemo({
               }}
               onPreviewFinalPdf={onPreviewFinalPdf}
               onDownloadFinalPdf={onDownloadFinalPdf}
-              onStartCustomerDraft={(customerId) => {
-                // Close the view drawer, stash the customer id, and navigate
-                // to the Documents section — DocumentsPanel will see the
-                // preset and auto-open CreateDraftDrawer with the customer
-                // pre-linked.
-                onCloseCustomerDetail();
-                setPendingDraftCustomerId(customerId);
-                setActiveSection("documents");
-              }}
+              onStartCustomerDraft={(customerId) => startNewDraft(customerId)}
             />
           ) : null}
 
@@ -1171,6 +1246,13 @@ export function DashboardSidebarDemo({
         onPreviewFinalPdf={onPreviewFinalPdf}
         onDownloadFinalPdf={onDownloadFinalPdf}
       />
+      {templateSelectorOpen ? (
+        <TemplateSelectorDialog
+          triples={flattenDocumentTypeTriples(documentTypes)}
+          onCancel={cancelTemplateSelector}
+          onPick={handleTemplateSelected}
+        />
+      ) : null}
       {documentSuccessMessage ? (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
           <button
@@ -1392,6 +1474,9 @@ function DocumentsPanel(props: {
   }) => Promise<DocDetail | void>;
   presetCustomerId: string | null;
   onClearPresetCustomer: () => void;
+  presetTriple: DocumentDraftTriple | null;
+  onClearPresetTriple: () => void;
+  onStartNewDraft: () => void;
 }) {
 
   const [pageSize, setPageSize] = useState(10);
@@ -1511,22 +1596,18 @@ function DocumentsPanel(props: {
     writeSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY, createDrawerOpen);
   }, [createDrawerOpen]);
 
-  // When the customer view drawer hands off a customer id, auto-open the
-  // draft drawer with that customer pre-linked. Clear the preset only on
-  // drawer close (otherwise closing the preset mid-stream would drop the
-  // link). Bumping createDrawerVersion forces CreateDraftDrawer to remount
-  // and wipe any stale sessionStorage form state from a previous draft.
+  // Auto-open the draft drawer whenever the parent hands off a preset
+  // (either a customer id from the customer view drawer, or a template
+  // triple from the Template Selector Modal, or both). Clear presets only
+  // on drawer close so they survive the remount. Bumping createDrawerVersion
+  // forces CreateDraftDrawer to remount and wipe stale sessionStorage state.
   useEffect(() => {
-    if (props.presetCustomerId && !createDrawerOpen) {
+    if ((props.presetCustomerId || props.presetTriple) && !createDrawerOpen) {
       removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
       setCreateDrawerVersion((current) => current + 1);
       setCreateDrawerOpen(true);
     }
-  }, [props.presetCustomerId, createDrawerOpen]);
-
-  function openCreateDrawer() {
-    setCreateDrawerOpen(true);
-  }
+  }, [props.presetCustomerId, props.presetTriple, createDrawerOpen]);
 
   function closeCreateDrawer() {
     setCreateDrawerOpen(false);
@@ -1534,6 +1615,9 @@ function DocumentsPanel(props: {
     setCreateDrawerVersion((current) => current + 1);
     if (props.presetCustomerId) {
       props.onClearPresetCustomer();
+    }
+    if (props.presetTriple) {
+      props.onClearPresetTriple();
     }
   }
 
@@ -1614,7 +1698,7 @@ function DocumentsPanel(props: {
             </div>
             <button
               type="button"
-              onClick={openCreateDrawer}
+              onClick={props.onStartNewDraft}
               className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
             >
               New document
@@ -1903,6 +1987,11 @@ function DocumentsPanel(props: {
         documentTypes={props.documentTypes}
         companyProfile={props.companyProfile}
         presetCustomerId={props.presetCustomerId}
+        presetDocumentTypeId={props.presetTriple?.documentTypeId ?? null}
+        presetFormDefinitionId={props.presetTriple?.formDefinitionId ?? null}
+        presetSignatureTemplateId={
+          props.presetTriple?.signatureTemplateId ?? null
+        }
         onClose={closeCreateDrawer}
         onCreateDraft={props.onCreateDraft}
         onOpenDocumentView={(documentId) => props.onOpenDocumentView(documentId)}
@@ -2608,6 +2697,107 @@ function CustomerTypeSelectorDialog({
           </button>
         </div>
         <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TemplateSelectorDialog({
+  triples,
+  onCancel,
+  onPick,
+}: {
+  triples: DocumentDraftTriple[];
+  onCancel: () => void;
+  onPick: (triple: DocumentDraftTriple) => void;
+}) {
+  // Group by document type so visually-similar triples stay together when the
+  // same document type has multiple form definitions or signature templates.
+  const grouped = useMemo(() => {
+    const map = new Map<string, { name: string; items: DocumentDraftTriple[] }>();
+    for (const t of triples) {
+      const existing = map.get(t.documentTypeId);
+      if (existing) {
+        existing.items.push(t);
+      } else {
+        map.set(t.documentTypeId, { name: t.documentTypeName, items: [t] });
+      }
+    }
+    return Array.from(map.values());
+  }, [triples]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+    >
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default"
+      />
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              New document
+            </div>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+              Choose a template
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Pick the document type and template you want to start from.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+          {grouped.map((group) => (
+            <div key={group.name}>
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                {group.name}
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {group.items.map((t) => (
+                  <button
+                    key={`${t.documentTypeId}:${t.formDefinitionId}:${t.signatureTemplateId}`}
+                    type="button"
+                    onClick={() => onPick(t)}
+                    className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                  >
+                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-slate-200 transition group-hover:bg-blue-600 group-hover:text-white group-hover:ring-blue-600 dark:bg-white/10 dark:text-blue-400 dark:ring-white/10 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                      {t.signatureTemplateName}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Form: {t.formDefinitionName}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-white/10">
           <button
             type="button"
             onClick={onCancel}
@@ -5471,6 +5661,9 @@ function CreateDraftDrawer({
   documentTypes,
   companyProfile,
   presetCustomerId,
+  presetDocumentTypeId,
+  presetFormDefinitionId,
+  presetSignatureTemplateId,
   onClose,
   onCreateDraft,
   onOpenDocumentView,
@@ -5479,6 +5672,9 @@ function CreateDraftDrawer({
   documentTypes: DocumentTypeCatalogItem[];
   companyProfile: Props["companyProfile"];
   presetCustomerId: string | null;
+  presetDocumentTypeId: string | null;
+  presetFormDefinitionId: string | null;
+  presetSignatureTemplateId: string | null;
   onClose: () => void;
   onCreateDraft: (payload: {
     documentTypeId: string;
@@ -5494,9 +5690,18 @@ function CreateDraftDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
-  const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState("");
-  const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  // Initialize from presets (set by TemplateSelectorDialog). Empty string when
+  // no preset → user must pick explicitly via the Setup dropdowns (no more
+  // silent auto-pick-first).
+  const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState(
+    presetDocumentTypeId ?? "",
+  );
+  const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState(
+    presetFormDefinitionId ?? "",
+  );
+  const [selectedTemplateId, setSelectedTemplateId] = useState(
+    presetSignatureTemplateId ?? "",
+  );
   const [contractDate, setContractDate] = useState("");
 
   useEffect(() => {
@@ -5508,11 +5713,24 @@ function CreateDraftDrawer({
     if (!persistedState) return;
 
     setIsSetupOpen(persistedState.isSetupOpen ?? false);
-    setSelectedDocumentTypeId(persistedState.selectedDocumentTypeId ?? "");
-    setSelectedFormDefinitionId(persistedState.selectedFormDefinitionId ?? "");
-    setSelectedTemplateId(persistedState.selectedTemplateId ?? "");
+    // Don't overwrite presets with stale sessionStorage state. Presets always
+    // win — they represent a deliberate choice from the Template Selector.
+    if (!presetDocumentTypeId) {
+      setSelectedDocumentTypeId(persistedState.selectedDocumentTypeId ?? "");
+    }
+    if (!presetFormDefinitionId) {
+      setSelectedFormDefinitionId(persistedState.selectedFormDefinitionId ?? "");
+    }
+    if (!presetSignatureTemplateId) {
+      setSelectedTemplateId(persistedState.selectedTemplateId ?? "");
+    }
     setContractDate(persistedState.contractDate ?? "");
-  }, [open]);
+  }, [
+    open,
+    presetDocumentTypeId,
+    presetFormDefinitionId,
+    presetSignatureTemplateId,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -5533,11 +5751,9 @@ function CreateDraftDrawer({
     setContractDate((current) => current || toDateInputValue(new Date().toISOString()));
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const firstType = documentTypes[0] ?? null;
-    setSelectedDocumentTypeId((current) => current || firstType?.id || "");
-  }, [documentTypes, open]);
+  // Auto-select-first effects removed in favor of the Template Selector
+  // Modal. Legacy path (opened without preset) leaves the fields empty and
+  // requires the user to pick from the Setup dropdowns.
 
   useEffect(() => {
     if (!selectedDocumentType) {
@@ -5545,11 +5761,19 @@ function CreateDraftDrawer({
       setSelectedTemplateId("");
       return;
     }
-    setSelectedFormDefinitionId(
-      (current) => current || selectedDocumentType.formDefinitions[0]?.id || "",
+    // When documentType changes, keep the formDef / sigTemplate only if they
+    // still belong to the new type (true for Template Selector presets).
+    // Otherwise reset to empty — never silently auto-pick first, the user
+    // must pick explicitly via the Setup dropdowns.
+    setSelectedFormDefinitionId((current) =>
+      selectedDocumentType.formDefinitions.some((f) => f.id === current)
+        ? current
+        : "",
     );
-    setSelectedTemplateId(
-      (current) => current || selectedDocumentType.signatureTemplates[0]?.id || "",
+    setSelectedTemplateId((current) =>
+      selectedDocumentType.signatureTemplates.some((s) => s.id === current)
+        ? current
+        : "",
     );
   }, [selectedDocumentType]);
 
