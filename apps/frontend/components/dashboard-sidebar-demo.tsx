@@ -3029,13 +3029,21 @@ function CustomerViewDrawer({
             </div>
           ) : (
             <div className="grid gap-4">
-              {/* Row 1 — Representative Name (full) */}
-              <CustomerField
-                label="Representative name"
-                value={b?.primaryContactName ?? ""}
-                onChange={() => {}}
-                disabled
-              />
+              {/* Row 1 — Representative Name | Title */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Representative name"
+                  value={b?.primaryContactName ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="Title"
+                  value={b?.primaryContactTitle ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
               {/* Row 2 — Phone | Email */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
@@ -3055,21 +3063,14 @@ function CustomerViewDrawer({
                   disabled
                 />
               </div>
-              {/* Row 3 — Title (full) */}
-              <CustomerField
-                label="Title"
-                value={b?.primaryContactTitle ?? ""}
-                onChange={() => {}}
-                disabled
-              />
-              {/* Row 4 — Address Line 1 (full) */}
+              {/* Row 3 — Address Line 1 (full) */}
               <CustomerField
                 label="Address line 1"
                 value={b?.primaryContactAddressLine1 ?? ""}
                 onChange={() => {}}
                 disabled
               />
-              {/* Row 5 — City | State | ZIP (3 cols) */}
+              {/* Row 4 — City | State | ZIP (3 cols) */}
               <div className="grid gap-4 md:grid-cols-3">
                 <CustomerField
                   label="City"
@@ -3090,7 +3091,7 @@ function CustomerViewDrawer({
                   disabled
                 />
               </div>
-              {/* Row 6 — Notes (textarea, full) */}
+              {/* Row 5 — Notes (textarea, full) */}
               <CustomerField
                 label="Internal notes"
                 type="textarea"
@@ -3632,18 +3633,31 @@ function CustomerFormDrawer({
             </div>
           ) : (
             <div className="grid gap-4">
-              {/* Row 1 — Representative Name (full) */}
-              <CustomerField
-                label="Representative name"
-                value={values.business.primaryContactName}
-                onChange={(v) =>
-                  updateBusiness(
-                    "primaryContactName",
-                    toTitleCase(v.replace(/\d/g, "")).slice(0, 200),
-                  )
-                }
-                placeholder="John Doe"
-              />
+              {/* Row 1 — Representative Name | Title */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <CustomerField
+                  label="Representative name"
+                  value={values.business.primaryContactName}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "primaryContactName",
+                      toTitleCase(v.replace(/\d/g, "")).slice(0, 200),
+                    )
+                  }
+                  placeholder="John Doe"
+                />
+                <CustomerField
+                  label="Title"
+                  value={values.business.primaryContactTitle}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "primaryContactTitle",
+                      toTitleCase(v).slice(0, 200),
+                    )
+                  }
+                  placeholder="President"
+                />
+              </div>
               {/* Row 2 — Phone | Email */}
               <div className="grid gap-4 md:grid-cols-2">
                 <CustomerField
@@ -3664,19 +3678,7 @@ function CustomerFormDrawer({
                   placeholder="john@example.com"
                 />
               </div>
-              {/* Row 3 — Title (full) */}
-              <CustomerField
-                label="Title"
-                value={values.business.primaryContactTitle}
-                onChange={(v) =>
-                  updateBusiness(
-                    "primaryContactTitle",
-                    toTitleCase(v).slice(0, 200),
-                  )
-                }
-                placeholder="President"
-              />
-              {/* Row 4 — Address Line 1 (full) */}
+              {/* Row 3 — Address Line 1 (full) */}
               <CustomerField
                 label="Address line 1"
                 value={values.business.primaryContactAddressLine1}
@@ -3688,7 +3690,7 @@ function CustomerFormDrawer({
                 }
                 placeholder="123 Main St"
               />
-              {/* Row 5 — City | State | ZIP (3 cols) */}
+              {/* Row 4 — City | State | ZIP (3 cols) */}
               <div className="grid gap-4 md:grid-cols-3">
                 <CustomerField
                   label="City"
@@ -3724,7 +3726,7 @@ function CustomerFormDrawer({
                   placeholder="94565"
                 />
               </div>
-              {/* Row 6 — Notes (textarea, full) */}
+              {/* Row 5 — Notes (textarea, full) */}
               <CustomerField
                 label="Internal notes"
                 type="textarea"
@@ -3741,32 +3743,47 @@ function CustomerFormDrawer({
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-[color:var(--border)] px-6 py-4">
-          <button
-            type="button"
-            onClick={requestClose}
-            disabled={isSubmitting}
-            className="inline-flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] disabled:opacity-70"
-          >
-            Cancel
-          </button>
-          {mode === "create" && isBusiness && activeTab === "company" ? (
+        <div className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] px-6 py-4">
+          <div>
+            {mode === "create" && isBusiness && activeTab === "representative" ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab("company")}
+                disabled={isSubmitting}
+                className="inline-flex h-11 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] disabled:opacity-70"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Back
+              </button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setActiveTab("representative")}
-              className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700"
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              type="submit"
+              onClick={requestClose}
               disabled={isSubmitting}
-              className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-70"
+              className="inline-flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)] disabled:opacity-70"
             >
-              {isSubmitting ? "Saving..." : mode === "create" ? "Create customer" : "Save changes"}
+              Cancel
             </button>
-          )}
+            {mode === "create" && isBusiness && activeTab === "company" ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab("representative")}
+                className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-70"
+              >
+                {isSubmitting ? "Saving..." : mode === "create" ? "Create customer" : "Save changes"}
+              </button>
+            )}
+          </div>
         </div>
       </form>
       {confirmDialog ? (
