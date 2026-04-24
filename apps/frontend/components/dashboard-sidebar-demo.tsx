@@ -3364,7 +3364,22 @@ function CustomerFormDrawer({
         className="absolute inset-0 cursor-default"
       />
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => {
+          // On the first step of the create-BUSINESS wizard (Company tab),
+          // submit means "advance to Representative", NOT save. Block the
+          // real save path here so anything that triggers submit (click,
+          // Enter key, React DOM-element reuse) just navigates.
+          if (
+            mode === "create" &&
+            isBusiness &&
+            activeTab === "company"
+          ) {
+            e.preventDefault();
+            setActiveTab("representative");
+            return;
+          }
+          void handleSubmit(e);
+        }}
         noValidate
         className="relative flex h-[95%] w-[95%] max-w-none flex-col overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)] md:h-[90%] md:w-[85%] lg:h-[85%] lg:w-[80%] 2xl:h-[80%] 2xl:w-[75%]"
       >
@@ -3770,23 +3785,21 @@ function CustomerFormDrawer({
             >
               Cancel
             </button>
-            {mode === "create" && isBusiness && activeTab === "company" ? (
-              <button
-                type="button"
-                onClick={() => setActiveTab("representative")}
-                className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-70"
-              >
-                {isSubmitting ? "Saving..." : mode === "create" ? "Create customer" : "Save changes"}
-              </button>
-            )}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-70"
+            >
+              {isSubmitting
+                ? "Saving..."
+                : mode === "create" &&
+                    isBusiness &&
+                    activeTab === "company"
+                  ? "Next"
+                  : mode === "create"
+                    ? "Create customer"
+                    : "Save changes"}
+            </button>
           </div>
         </div>
       </form>
