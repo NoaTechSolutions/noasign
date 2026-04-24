@@ -99,6 +99,26 @@ export class CustomerBusinessDto {
   @IsString()
   @MaxLength(200)
   primaryContactTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  primaryContactAddressLine1?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  primaryContactCity?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  primaryContactState?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  primaryContactZipCode?: string;
 }
 
 /**
@@ -193,4 +213,24 @@ export class UpdateCustomerBusinessDto {
   @IsString()
   @MaxLength(200)
   primaryContactTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  primaryContactAddressLine1?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  primaryContactCity?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  primaryContactState?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  primaryContactZipCode?: string;
 }

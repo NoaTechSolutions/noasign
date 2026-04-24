@@ -227,6 +227,10 @@ type CustomerBusiness = {
   primaryContactEmail: string | null;
   primaryContactPhone: string | null;
   primaryContactTitle: string | null;
+  primaryContactAddressLine1: string | null;
+  primaryContactCity: string | null;
+  primaryContactState: string | null;
+  primaryContactZipCode: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -277,6 +281,10 @@ type CustomerBusinessFormValues = {
   primaryContactEmail: string;
   primaryContactPhone: string;
   primaryContactTitle: string;
+  primaryContactAddressLine1: string;
+  primaryContactCity: string;
+  primaryContactState: string;
+  primaryContactZipCode: string;
 };
 
 type CustomerFormValues = {
@@ -1274,6 +1282,10 @@ const BUSINESS_OPTIONAL_FIELDS = [
   "primaryContactEmail",
   "primaryContactPhone",
   "primaryContactTitle",
+  "primaryContactAddressLine1",
+  "primaryContactCity",
+  "primaryContactState",
+  "primaryContactZipCode",
 ] as const satisfies ReadonlyArray<keyof CustomerBusinessFormValues>;
 
 function buildBusinessCreatePayload(

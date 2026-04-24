@@ -143,6 +143,10 @@ type CustomerBusiness = {
   primaryContactEmail: string | null;
   primaryContactPhone: string | null;
   primaryContactTitle: string | null;
+  primaryContactAddressLine1: string | null;
+  primaryContactCity: string | null;
+  primaryContactState: string | null;
+  primaryContactZipCode: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -186,6 +190,10 @@ type CustomerBusinessFormValues = {
   primaryContactEmail: string;
   primaryContactPhone: string;
   primaryContactTitle: string;
+  primaryContactAddressLine1: string;
+  primaryContactCity: string;
+  primaryContactState: string;
+  primaryContactZipCode: string;
 };
 
 type CustomerFormValues = {
@@ -2096,7 +2104,7 @@ function CustomersPanel(props: {
                     <div className="flex justify-end">
                       <CustomerListActions
                         deleting={props.customerActionId === c.id}
-                        onOpen={() => props.onSelectCustomer(c.id)}
+                        onView={() => props.onSelectCustomer(c.id)}
                         onEdit={() => setEditingCustomer(c)}
                         onDelete={() => setConfirmDelete(c)}
                       />
@@ -2131,7 +2139,7 @@ function CustomersPanel(props: {
                     <div className="flex justify-start lg:justify-end">
                       <CustomerListActions
                         deleting={props.customerActionId === c.id}
-                        onOpen={() => props.onSelectCustomer(c.id)}
+                        onView={() => props.onSelectCustomer(c.id)}
                         onEdit={() => setEditingCustomer(c)}
                         onDelete={() => setConfirmDelete(c)}
                       />
@@ -2287,9 +2295,9 @@ function CustomerSortHeader({ label, columnKey, sortKey, sortDirection, onToggle
   );
 }
 
-function CustomerListActions({ deleting, onOpen, onEdit, onDelete }: {
+function CustomerListActions({ deleting, onView, onEdit, onDelete }: {
   deleting: boolean;
-  onOpen: () => void;
+  onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -2322,7 +2330,7 @@ function CustomerListActions({ deleting, onOpen, onEdit, onDelete }: {
         }}
         disabled={deleting}
         className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)] hover:text-[color:var(--text-primary)] disabled:opacity-50"
-        aria-label="Open customer actions"
+        aria-label="Customer actions"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
@@ -2336,10 +2344,10 @@ function CustomerListActions({ deleting, onOpen, onEdit, onDelete }: {
         >
           <button
             type="button"
-            onClick={() => { onOpen(); setOpen(false); }}
+            onClick={() => { onView(); setOpen(false); }}
             className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"
           >
-            Open
+            View
           </button>
           <button
             type="button"
@@ -2700,19 +2708,46 @@ function CustomerViewDrawer({
       );
   }, [customer, documents]);
 
-  // Only one row's kebab menu is open at a time.
+  // Kebab menu: only one row's dropdown is open at a time. Menu is portalled
+  // to document.body with fixed positioning so it escapes the drawer's
+  // overflow-hidden/overflow-y-auto clipping (otherwise it renders inside
+  // the body and gets cut off near the edges).
   const [openMenuDocId, setOpenMenuDocId] = useState<string | null>(null);
-  const openMenuRef = useRef<HTMLDivElement | null>(null);
+  const [menuCoords, setMenuCoords] = useState<{
+    bottom: number;
+    right: number;
+  } | null>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuPortalRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!openMenuDocId) return;
     const handler = (e: MouseEvent) => {
-      if (!openMenuRef.current?.contains(e.target as Node)) {
-        setOpenMenuDocId(null);
-      }
+      const t = e.target as Node;
+      const insideTrigger = menuTriggerRef.current?.contains(t) ?? false;
+      const insidePortal = menuPortalRef.current?.contains(t) ?? false;
+      if (!insideTrigger && !insidePortal) setOpenMenuDocId(null);
     };
     window.document.addEventListener("mousedown", handler);
     return () => window.document.removeEventListener("mousedown", handler);
   }, [openMenuDocId]);
+
+  function toggleMenu(docId: string, btn: HTMLButtonElement | null) {
+    if (openMenuDocId === docId) {
+      setOpenMenuDocId(null);
+      menuTriggerRef.current = null;
+      return;
+    }
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      setMenuCoords({
+        // menu opens upward: anchor its bottom at 8px above the button top
+        bottom: window.innerHeight - rect.top + 8,
+        right: window.innerWidth - rect.right,
+      });
+      menuTriggerRef.current = btn;
+    }
+    setOpenMenuDocId(docId);
+  }
 
   async function handleViewPdf(doc: Doc) {
     setOpenMenuDocId(null);
@@ -2819,67 +2854,18 @@ function CustomerViewDrawer({
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end">
-                            <div
-                              ref={openMenuDocId === doc.id ? openMenuRef : null}
-                              className="relative inline-block"
+                            <button
+                              type="button"
+                              onClick={(e) =>
+                                toggleMenu(doc.id, e.currentTarget)
+                              }
+                              aria-label="Document actions"
+                              aria-haspopup="menu"
+                              aria-expanded={openMenuDocId === doc.id}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
                             >
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setOpenMenuDocId(
-                                    openMenuDocId === doc.id ? null : doc.id,
-                                  )
-                                }
-                                aria-label="Document actions"
-                                aria-haspopup="menu"
-                                aria-expanded={openMenuDocId === doc.id}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </button>
-                              {openMenuDocId === doc.id ? (
-                                <div
-                                  role="menu"
-                                  className="absolute bottom-full right-0 z-[60] mb-2 w-56 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]"
-                                >
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    disabled={doc.status === "DRAFT"}
-                                    onClick={() => void handleViewPdf(doc)}
-                                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)] disabled:cursor-not-allowed disabled:text-[color:var(--text-muted)] disabled:hover:bg-transparent"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                    Ver PDF
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    disabled={doc.status === "DRAFT"}
-                                    onClick={() => {
-                                      setOpenMenuDocId(null);
-                                      void onDownloadFinalPdf(doc.id);
-                                    }}
-                                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)] disabled:cursor-not-allowed disabled:text-[color:var(--text-muted)] disabled:hover:bg-transparent"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                    Descargar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      setOpenMenuDocId(null);
-                                      onOpenDocumentView(doc.id);
-                                    }}
-                                    className="flex w-full items-center gap-3 border-t border-[color:var(--border)] px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)]"
-                                  >
-                                    <FileText className="h-4 w-4" />
-                                    Ir a documento
-                                  </button>
-                                </div>
-                              ) : null}
-                            </div>
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -3069,17 +3055,42 @@ function CustomerViewDrawer({
                   disabled
                 />
               </div>
-              {/* Row 3 — Title | [empty] */}
-              <div className="grid gap-4 md:grid-cols-2">
+              {/* Row 3 — Title (full) */}
+              <CustomerField
+                label="Title"
+                value={b?.primaryContactTitle ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+              {/* Row 4 — Address Line 1 (full) */}
+              <CustomerField
+                label="Address line 1"
+                value={b?.primaryContactAddressLine1 ?? ""}
+                onChange={() => {}}
+                disabled
+              />
+              {/* Row 5 — City | State | ZIP (3 cols) */}
+              <div className="grid gap-4 md:grid-cols-3">
                 <CustomerField
-                  label="Title"
-                  value={b?.primaryContactTitle ?? ""}
+                  label="City"
+                  value={b?.primaryContactCity ?? ""}
                   onChange={() => {}}
                   disabled
                 />
-                <div aria-hidden />
+                <CustomerField
+                  label="State"
+                  value={b?.primaryContactState ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
+                <CustomerField
+                  label="ZIP code"
+                  value={b?.primaryContactZipCode ?? ""}
+                  onChange={() => {}}
+                  disabled
+                />
               </div>
-              {/* Row 4 — Notes (full) */}
+              {/* Row 6 — Notes (textarea, full) */}
               <CustomerField
                 label="Internal notes"
                 type="textarea"
@@ -3121,6 +3132,62 @@ function CustomerViewDrawer({
           </div>
         </div>
       </aside>
+      {openMenuDocId && menuCoords
+        ? (() => {
+            const doc = customerDocuments.find((d) => d.id === openMenuDocId);
+            if (!doc) return null;
+            return createPortal(
+              <div
+                ref={menuPortalRef}
+                role="menu"
+                style={{
+                  position: "fixed",
+                  bottom: menuCoords.bottom,
+                  right: menuCoords.right,
+                  zIndex: 100,
+                }}
+                className="w-56 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] shadow-[var(--shadow-dropdown)]"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={doc.status === "DRAFT"}
+                  onClick={() => void handleViewPdf(doc)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)] disabled:cursor-not-allowed disabled:text-[color:var(--text-muted)] disabled:hover:bg-transparent"
+                >
+                  <Eye className="h-4 w-4" />
+                  Ver PDF
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={doc.status === "DRAFT"}
+                  onClick={() => {
+                    setOpenMenuDocId(null);
+                    void onDownloadFinalPdf(doc.id);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)] disabled:cursor-not-allowed disabled:text-[color:var(--text-muted)] disabled:hover:bg-transparent"
+                >
+                  <Download className="h-4 w-4" />
+                  Descargar
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpenMenuDocId(null);
+                    onOpenDocumentView(doc.id);
+                  }}
+                  className="flex w-full items-center gap-3 border-t border-[color:var(--border)] px-4 py-3 text-left text-sm text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-page-subtle)]"
+                >
+                  <FileText className="h-4 w-4" />
+                  Ir a documento
+                </button>
+              </div>,
+              window.document.body,
+            );
+          })()
+        : null}
     </div>
   );
 }
@@ -3597,22 +3664,67 @@ function CustomerFormDrawer({
                   placeholder="john@example.com"
                 />
               </div>
-              {/* Row 3 — Title | [empty] */}
-              <div className="grid gap-4 md:grid-cols-2">
+              {/* Row 3 — Title (full) */}
+              <CustomerField
+                label="Title"
+                value={values.business.primaryContactTitle}
+                onChange={(v) =>
+                  updateBusiness(
+                    "primaryContactTitle",
+                    toTitleCase(v).slice(0, 200),
+                  )
+                }
+                placeholder="President"
+              />
+              {/* Row 4 — Address Line 1 (full) */}
+              <CustomerField
+                label="Address line 1"
+                value={values.business.primaryContactAddressLine1}
+                onChange={(v) =>
+                  updateBusiness(
+                    "primaryContactAddressLine1",
+                    v.slice(0, 200),
+                  )
+                }
+                placeholder="123 Main St"
+              />
+              {/* Row 5 — City | State | ZIP (3 cols) */}
+              <div className="grid gap-4 md:grid-cols-3">
                 <CustomerField
-                  label="Title"
-                  value={values.business.primaryContactTitle}
+                  label="City"
+                  value={values.business.primaryContactCity}
                   onChange={(v) =>
                     updateBusiness(
-                      "primaryContactTitle",
-                      toTitleCase(v).slice(0, 200),
+                      "primaryContactCity",
+                      toTitleCase(v.replace(/[0-9]/g, "")).slice(0, 100),
                     )
                   }
-                  placeholder="President"
+                  placeholder="Pittsburg"
                 />
-                <div aria-hidden />
+                <CustomerField
+                  label="State"
+                  value={values.business.primaryContactState}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "primaryContactState",
+                      v.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 3),
+                    )
+                  }
+                  placeholder="CA"
+                />
+                <CustomerField
+                  label="ZIP code"
+                  value={values.business.primaryContactZipCode}
+                  onChange={(v) =>
+                    updateBusiness(
+                      "primaryContactZipCode",
+                      v.replace(/\D/g, "").slice(0, 9),
+                    )
+                  }
+                  placeholder="94565"
+                />
               </div>
-              {/* Row 4 — Notes (full) */}
+              {/* Row 6 — Notes (textarea, full) */}
               <CustomerField
                 label="Internal notes"
                 type="textarea"
@@ -3638,13 +3750,23 @@ function CustomerFormDrawer({
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-70"
-          >
-            {isSubmitting ? "Saving..." : mode === "create" ? "Create customer" : "Save changes"}
-          </button>
+          {mode === "create" && isBusiness && activeTab === "company" ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("representative")}
+              className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-70"
+            >
+              {isSubmitting ? "Saving..." : mode === "create" ? "Create customer" : "Save changes"}
+            </button>
+          )}
         </div>
       </form>
       {confirmDialog ? (
@@ -3697,6 +3819,10 @@ const EMPTY_BUSINESS: CustomerBusinessFormValues = {
   primaryContactEmail: "",
   primaryContactPhone: "",
   primaryContactTitle: "",
+  primaryContactAddressLine1: "",
+  primaryContactCity: "",
+  primaryContactState: "",
+  primaryContactZipCode: "",
 };
 
 function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
@@ -3721,6 +3847,11 @@ function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
           customer.business.primaryContactPhone ?? "",
         ),
         primaryContactTitle: customer.business.primaryContactTitle ?? "",
+        primaryContactAddressLine1:
+          customer.business.primaryContactAddressLine1 ?? "",
+        primaryContactCity: customer.business.primaryContactCity ?? "",
+        primaryContactState: customer.business.primaryContactState ?? "",
+        primaryContactZipCode: customer.business.primaryContactZipCode ?? "",
       }
     : EMPTY_BUSINESS;
 
