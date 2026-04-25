@@ -2500,9 +2500,8 @@ function CustomerListActions({
           <button
             type="button"
             onClick={() => { onCreateDocument(); setOpen(false); }}
-            className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"
+            className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"
           >
-            <FilePlus className="h-4 w-4" />
             Create Document
           </button>
           <button
