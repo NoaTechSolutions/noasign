@@ -1287,7 +1287,11 @@ export function DashboardSidebarDemo({
         open={createDrawerOpen}
         documentTypes={documentTypes}
         companyProfile={companyProfile}
-        presetCustomerId={pendingDraftCustomerId}
+        presetCustomer={
+          pendingDraftCustomerId
+            ? customers?.find((c) => c.id === pendingDraftCustomerId) ?? null
+            : null
+        }
         presetDocumentTypeId={pendingDraftTriple?.documentTypeId ?? null}
         presetFormDefinitionId={pendingDraftTriple?.formDefinitionId ?? null}
         presetSignatureTemplateId={
@@ -5578,7 +5582,7 @@ function CreateDraftDrawer({
   open,
   documentTypes,
   companyProfile,
-  presetCustomerId,
+  presetCustomer,
   presetDocumentTypeId,
   presetFormDefinitionId,
   presetSignatureTemplateId,
@@ -5589,7 +5593,7 @@ function CreateDraftDrawer({
   open: boolean;
   documentTypes: DocumentTypeCatalogItem[];
   companyProfile: Props["companyProfile"];
-  presetCustomerId: string | null;
+  presetCustomer: Customer | null;
   presetDocumentTypeId: string | null;
   presetFormDefinitionId: string | null;
   presetSignatureTemplateId: string | null;
@@ -5695,6 +5699,67 @@ function CreateDraftDrawer({
     );
   }, [selectedDocumentType]);
 
+  // When a customer is preset (entry from Customers section), pre-populate
+  // form fields. Form schemas across templates use a few naming conventions
+  // for the same data ("name" vs "customer_name", "address" vs
+  // "customer_address_line_1", etc.) — emit every plausible key here. The
+  // renderer ignores keys that don't exist in the schema, so over-supplying
+  // is harmless and avoids per-template wiring.
+  const customerInitialValues = useMemo<
+    Record<string, string> | undefined
+  >(() => {
+    if (!presetCustomer) return undefined;
+    const c = presetCustomer;
+    const b = c.business;
+    // Fallback chain mirrors getDisplayEmail/getDisplayPhone helpers used
+    // throughout the customer UI.
+    const email = b?.businessEmail || b?.primaryContactEmail || c.email || "";
+    const phone =
+      formatUsPhone(
+        b?.businessPhone || b?.primaryContactPhone || c.phone || "",
+      ) || "";
+    const addressLine1 = b?.businessAddressLine1 || c.addressLine1 || "";
+    const addressLine2 = b?.businessAddressLine2 || c.addressLine2 || "";
+    const city = b?.businessCity || c.city || "";
+    const state = b?.businessState || c.state || "";
+    const zip = b?.businessZipCode || c.zipCode || "";
+    const businessName = b?.businessName ?? "";
+    const licenseNumber = b?.licenseNumber ?? "";
+    return {
+      // Unprefixed keys (most common in NTSsign customer-facing schemas)
+      name: c.fullName,
+      full_name: c.fullName,
+      email,
+      phone,
+      address: addressLine1,
+      address_line_1: addressLine1,
+      address_line_2: addressLine2,
+      city,
+      state,
+      zip,
+      zip_code: zip,
+      notes: c.notes ?? "",
+      // Prefixed keys (alternate convention)
+      customer_name: c.fullName,
+      customer_full_name: c.fullName,
+      customer_email: email,
+      customer_phone: phone,
+      customer_address: addressLine1,
+      customer_address_line_1: addressLine1,
+      customer_address_line_2: addressLine2,
+      customer_city: city,
+      customer_state: state,
+      customer_zip: zip,
+      customer_zip_code: zip,
+      customer_notes: c.notes ?? "",
+      // Business-only fields (only present in BUSINESS-flavored schemas)
+      business_name: businessName,
+      customer_business_name: businessName,
+      license_number: licenseNumber,
+      customer_license_number: licenseNumber,
+    };
+  }, [presetCustomer]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -5780,7 +5845,7 @@ function CreateDraftDrawer({
         signatureTemplateId: selectedTemplateId,
         contractDate,
         dataJson: finalDataJson,
-        ...(presetCustomerId ? { customerId: presetCustomerId } : {}),
+        ...(presetCustomer ? { customerId: presetCustomer.id } : {}),
       });
 
       onClose();
@@ -5889,6 +5954,7 @@ function CreateDraftDrawer({
               onSubmit={handleRendererSubmit}
               onCancel={requestClose}
               isSubmitting={isSubmitting}
+              initialValues={customerInitialValues}
               canSubmit={
                 !!selectedDocumentTypeId &&
                 !!selectedFormDefinitionId &&
