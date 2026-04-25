@@ -123,6 +123,13 @@ type DocumentTypeCatalogItem = {
   }>;
 };
 
+// For BUSINESS customers, CreateDraftDrawer can pre-fill from either the
+// business row (businessName, businessEmail, businessPhone, business
+// address) or the primary-contact section (primaryContactName, etc.). User
+// picks which set via BusinessDataSelectorDialog. PERSONAL customers don't
+// see the picker — they only have one source.
+type CustomerDataSource = "business" | "contact";
+
 // Flattened cross-product of (documentType × formDefinition × signatureTemplate)
 // that a user can pick in the template selector. Each triple maps to a single
 // createDraftDocument payload.
@@ -601,6 +608,14 @@ export function DashboardSidebarDemo({
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [pendingDraftTriple, setPendingDraftTriple] =
     useState<DocumentDraftTriple | null>(null);
+  // Business Data Selector Modal: shows after the Template Selector for
+  // BUSINESS customers, so the user can pick which data set (business row
+  // or primary contact) gets pre-filled into the form. PERSONAL customers
+  // skip this — they only have one data source.
+  const [businessDataSelectorOpen, setBusinessDataSelectorOpen] =
+    useState(false);
+  const [pendingDataSource, setPendingDataSource] =
+    useState<CustomerDataSource | null>(null);
   // CreateDraftDrawer lives here (not inside DocumentsPanel) so opening a
   // draft from the Customers section doesn't force an activeSection switch
   // away from Customers — user stays in whatever section they started from.
@@ -779,11 +794,26 @@ export function DashboardSidebarDemo({
     setCreateDrawerOpen(true);
   }
 
+  // After a triple is locked in, decide whether to open the drawer directly
+  // or stop in the Business Data Selector first. BUSINESS customers see the
+  // selector (business row vs primary contact); PERSONAL customers skip
+  // it — they only have one data source.
+  function advanceAfterTriple(customerId: string | null) {
+    const customer = customerId
+      ? customers?.find((c) => c.id === customerId) ?? null
+      : null;
+    if (customer && customer.customerType === "BUSINESS") {
+      setBusinessDataSelectorOpen(true);
+      return;
+    }
+    openCreateDrawerFresh();
+  }
+
   // Single entry point for "start a new draft" (from customer view, from
   // Documents "+ New document", anywhere else). Flattens the user's
   // accessible template catalog into triples; if there's only one, skip the
-  // modal and advance straight to CreateDraftDrawer with it preset. Otherwise
-  // open the Template Selector so the user can pick explicitly.
+  // template modal. Then for BUSINESS customers stop in the data selector
+  // so the user picks business vs primary contact.
   function startNewDraft(customerId?: string) {
     const triples = flattenDocumentTypeTriples(documentTypes);
     if (triples.length === 0) {
@@ -799,9 +829,7 @@ export function DashboardSidebarDemo({
     }
     if (triples.length === 1) {
       setPendingDraftTriple(triples[0]);
-      openCreateDrawerFresh();
-      // No activeSection switch — the drawer is rendered at top level, so it
-      // can open on top of whatever section the user is already in.
+      advanceAfterTriple(customerId ?? null);
       return;
     }
     setTemplateSelectorOpen(true);
@@ -810,7 +838,7 @@ export function DashboardSidebarDemo({
   function handleTemplateSelected(triple: DocumentDraftTriple) {
     setPendingDraftTriple(triple);
     setTemplateSelectorOpen(false);
-    openCreateDrawerFresh();
+    advanceAfterTriple(pendingDraftCustomerId);
   }
 
   function cancelTemplateSelector() {
@@ -821,12 +849,28 @@ export function DashboardSidebarDemo({
     setPendingDraftCustomerId(null);
   }
 
+  function handleDataSourceSelected(source: CustomerDataSource) {
+    setPendingDataSource(source);
+    setBusinessDataSelectorOpen(false);
+    openCreateDrawerFresh();
+  }
+
+  function cancelBusinessDataSelector() {
+    setBusinessDataSelectorOpen(false);
+    // Cancelling here means the user backed out after picking a template
+    // for a customer — drop the whole pending draft state so the next
+    // unrelated New Document click starts fresh.
+    setPendingDraftCustomerId(null);
+    setPendingDraftTriple(null);
+  }
+
   function closeCreateDrawer() {
     setCreateDrawerOpen(false);
     removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
     setCreateDrawerVersion((current) => current + 1);
     if (pendingDraftCustomerId) setPendingDraftCustomerId(null);
     if (pendingDraftTriple) setPendingDraftTriple(null);
+    if (pendingDataSource) setPendingDataSource(null);
   }
 
   async function handleDocumentAction(
@@ -1282,6 +1326,19 @@ export function DashboardSidebarDemo({
           onPick={handleTemplateSelected}
         />
       ) : null}
+      {businessDataSelectorOpen && pendingDraftCustomerId ? (() => {
+        const customer = customers?.find(
+          (c) => c.id === pendingDraftCustomerId,
+        );
+        if (!customer) return null;
+        return (
+          <BusinessDataSelectorDialog
+            customer={customer}
+            onCancel={cancelBusinessDataSelector}
+            onPick={handleDataSourceSelected}
+          />
+        );
+      })() : null}
       <CreateDraftDrawer
         key={createDrawerVersion}
         open={createDrawerOpen}
@@ -1292,6 +1349,7 @@ export function DashboardSidebarDemo({
             ? customers?.find((c) => c.id === pendingDraftCustomerId) ?? null
             : null
         }
+        presetDataSource={pendingDataSource}
         presetDocumentTypeId={pendingDraftTriple?.documentTypeId ?? null}
         presetFormDefinitionId={pendingDraftTriple?.formDefinitionId ?? null}
         presetSignatureTemplateId={
@@ -2614,6 +2672,100 @@ function CustomerTypeSelectorDialog({
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400">
               A company with contact info
+            </div>
+          </button>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BusinessDataSelectorDialog({
+  customer,
+  onCancel,
+  onPick,
+}: {
+  customer: Customer;
+  onCancel: () => void;
+  onPick: (source: CustomerDataSource) => void;
+}) {
+  const b = customer.business;
+  const businessSubtitle = [
+    b?.businessEmail || b?.businessPhone || null,
+  ]
+    .filter(Boolean)
+    .join(" · ") || "—";
+  const contactSubtitle =
+    [
+      b?.primaryContactName || null,
+      b?.primaryContactEmail || b?.primaryContactPhone || null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "—";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+    >
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default"
+      />
+      <div className="relative w-full max-w-lg rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+          Pre-fill source
+        </div>
+        <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+          Use which data?
+        </h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {customer.fullName} has both a business profile and a primary
+          contact. Pick which one fills the document.
+        </p>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onPick("business")}
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-amber-400 dark:hover:bg-amber-500/10"
+          >
+            <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+              Business
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {b?.businessName ?? customer.fullName}
+            </div>
+            <div className="text-[11px] text-slate-400 dark:text-slate-500">
+              {businessSubtitle}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => onPick("contact")}
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+          >
+            <UserRound className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+              Primary contact
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {b?.primaryContactName || "No contact saved"}
+            </div>
+            <div className="text-[11px] text-slate-400 dark:text-slate-500">
+              {contactSubtitle}
             </div>
           </button>
         </div>
@@ -5582,6 +5734,7 @@ function CreateDraftDrawer({
   documentTypes,
   companyProfile,
   presetCustomer,
+  presetDataSource,
   presetDocumentTypeId,
   presetFormDefinitionId,
   presetSignatureTemplateId,
@@ -5593,6 +5746,7 @@ function CreateDraftDrawer({
   documentTypes: DocumentTypeCatalogItem[];
   companyProfile: Props["companyProfile"];
   presetCustomer: Customer | null;
+  presetDataSource: CustomerDataSource | null;
   presetDocumentTypeId: string | null;
   presetFormDefinitionId: string | null;
   presetSignatureTemplateId: string | null;
@@ -5699,35 +5853,76 @@ function CreateDraftDrawer({
   }, [selectedDocumentType]);
 
   // When a customer is preset (entry from Customers section), pre-populate
-  // form fields. Form schemas across templates use a few naming conventions
+  // form fields. Schemas across templates use multiple naming conventions
   // for the same data ("name" vs "customer_name", "address" vs
-  // "customer_address_line_1", etc.) — emit every plausible key here. The
+  // "customer_address_line_1", etc.) — emit every plausible key. The
   // renderer ignores keys that don't exist in the schema, so over-supplying
   // is harmless and avoids per-template wiring.
+  //
+  // For BUSINESS customers the source is chosen up front in the Business
+  // Data Selector: 'business' uses the business row, 'contact' uses the
+  // primary contact section. PERSONAL customers always use customer.* fields.
   const customerInitialValues = useMemo<
     Record<string, string> | undefined
   >(() => {
     if (!presetCustomer) return undefined;
     const c = presetCustomer;
     const b = c.business;
-    // Fallback chain mirrors getDisplayEmail/getDisplayPhone helpers used
-    // throughout the customer UI.
-    const email = b?.businessEmail || b?.primaryContactEmail || c.email || "";
-    const phone =
-      formatUsPhone(
-        b?.businessPhone || b?.primaryContactPhone || c.phone || "",
-      ) || "";
-    const addressLine1 = b?.businessAddressLine1 || c.addressLine1 || "";
-    const addressLine2 = b?.businessAddressLine2 || c.addressLine2 || "";
-    const city = b?.businessCity || c.city || "";
-    const state = b?.businessState || c.state || "";
-    const zip = b?.businessZipCode || c.zipCode || "";
+    const isBusiness = c.customerType === "BUSINESS";
+    const useContact = isBusiness && presetDataSource === "contact";
+
+    // Resolve each field from the chosen source. PERSONAL falls through to
+    // the customer's own fields. BUSINESS + 'business' uses the business
+    // row. BUSINESS + 'contact' uses the primary contact section.
+    const name = useContact
+      ? b?.primaryContactName ?? ""
+      : c.fullName;
+    const email = useContact
+      ? b?.primaryContactEmail ?? ""
+      : isBusiness
+        ? b?.businessEmail ?? ""
+        : c.email ?? "";
+    const phone = formatUsPhone(
+      useContact
+        ? b?.primaryContactPhone ?? ""
+        : isBusiness
+          ? b?.businessPhone ?? ""
+          : c.phone ?? "",
+    );
+    const addressLine1 = useContact
+      ? b?.primaryContactAddressLine1 ?? ""
+      : isBusiness
+        ? b?.businessAddressLine1 ?? ""
+        : c.addressLine1 ?? "";
+    const addressLine2 = useContact
+      ? ""
+      : isBusiness
+        ? b?.businessAddressLine2 ?? ""
+        : c.addressLine2 ?? "";
+    const city = useContact
+      ? b?.primaryContactCity ?? ""
+      : isBusiness
+        ? b?.businessCity ?? ""
+        : c.city ?? "";
+    const state = useContact
+      ? b?.primaryContactState ?? ""
+      : isBusiness
+        ? b?.businessState ?? ""
+        : c.state ?? "";
+    const zip = useContact
+      ? b?.primaryContactZipCode ?? ""
+      : isBusiness
+        ? b?.businessZipCode ?? ""
+        : c.zipCode ?? "";
+    const title = useContact ? b?.primaryContactTitle ?? "" : "";
     const businessName = b?.businessName ?? "";
     const licenseNumber = b?.licenseNumber ?? "";
+
     return {
       // Unprefixed keys (most common in NTSsign customer-facing schemas)
-      name: c.fullName,
-      full_name: c.fullName,
+      name,
+      full_name: name,
+      title,
       email,
       phone,
       address: addressLine1,
@@ -5739,8 +5934,9 @@ function CreateDraftDrawer({
       zip_code: zip,
       notes: c.notes ?? "",
       // Prefixed keys (alternate convention)
-      customer_name: c.fullName,
-      customer_full_name: c.fullName,
+      customer_name: name,
+      customer_full_name: name,
+      customer_title: title,
       customer_email: email,
       customer_phone: phone,
       customer_address: addressLine1,
@@ -5751,13 +5947,15 @@ function CreateDraftDrawer({
       customer_zip: zip,
       customer_zip_code: zip,
       customer_notes: c.notes ?? "",
-      // Business-only fields (only present in BUSINESS-flavored schemas)
+      // Business-row fields stay available regardless of source — the
+      // license number and business legal name belong to the company even
+      // when the contact's personal data fills the "customer" block.
       business_name: businessName,
       customer_business_name: businessName,
       license_number: licenseNumber,
       customer_license_number: licenseNumber,
     };
-  }, [presetCustomer]);
+  }, [presetCustomer, presetDataSource]);
 
   useEffect(() => {
     if (!open) return;
