@@ -2229,6 +2229,7 @@ function CustomersPanel(props: {
                         deleting={props.customerActionId === c.id}
                         onView={() => props.onSelectCustomer(c.id)}
                         onEdit={() => setEditingCustomer(c)}
+                        onCreateDocument={() => props.onStartCustomerDraft(c.id)}
                         onDelete={() => setConfirmDelete(c)}
                       />
                     </div>
@@ -2264,6 +2265,7 @@ function CustomersPanel(props: {
                         deleting={props.customerActionId === c.id}
                         onView={() => props.onSelectCustomer(c.id)}
                         onEdit={() => setEditingCustomer(c)}
+                        onCreateDocument={() => props.onStartCustomerDraft(c.id)}
                         onDelete={() => setConfirmDelete(c)}
                       />
                     </div>
@@ -2423,10 +2425,17 @@ function CustomerSortHeader({ label, columnKey, sortKey, sortDirection, onToggle
   );
 }
 
-function CustomerListActions({ deleting, onView, onEdit, onDelete }: {
+function CustomerListActions({
+  deleting,
+  onView,
+  onEdit,
+  onCreateDocument,
+  onDelete,
+}: {
   deleting: boolean;
   onView: () => void;
   onEdit: () => void;
+  onCreateDocument: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -2483,6 +2492,14 @@ function CustomerListActions({ deleting, onView, onEdit, onDelete }: {
             className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--brand-accent-strong)] transition hover:bg-[color:var(--badge-primary-bg)]"
           >
             Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => { onCreateDocument(); setOpen(false); }}
+            className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"
+          >
+            <FilePlus className="h-4 w-4" />
+            Create Document
           </button>
           <button
             type="button"
