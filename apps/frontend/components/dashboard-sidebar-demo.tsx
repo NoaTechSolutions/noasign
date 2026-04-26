@@ -2143,7 +2143,9 @@ function CustomersPanel(props: {
   // resolved to currentUserId here so the simple equality filter below
   // doesn't need to know about it).
   const [ownerFilter, setOwnerFilter] = useState<string>("");
+  const [ownerFilterMenuOpen, setOwnerFilterMenuOpen] = useState(false);
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
+  const ownerFilterMenuRef = useRef<HTMLDivElement | null>(null);
 
   const isMaster = props.currentUserRole === "MASTER";
   // Filter the user dropdown to active users in the same tenant only — master
@@ -2151,6 +2153,34 @@ function CustomersPanel(props: {
   const sameTenantUsers = useMemo(() => {
     return (props.tenantUsers ?? []).filter((u) => u.status === "ACTIVE");
   }, [props.tenantUsers]);
+
+  // Click-outside for the owner filter menu (mirrors the Documents
+  // filter-menu pattern at line ~1696 above).
+  useEffect(() => {
+    if (!ownerFilterMenuOpen) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (
+        !ownerFilterMenuRef.current?.contains(event.target as Node)
+      ) {
+        setOwnerFilterMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [ownerFilterMenuOpen]);
+
+  // Resolve the current filter to a display label for the column-header
+  // pill ("All", "Me", or the user's name/email).
+  const ownerFilterLabel = useMemo(() => {
+    if (!ownerFilter) return "All";
+    if (ownerFilter === props.currentUserId) return "Me";
+    const u = sameTenantUsers.find((x) => x.id === ownerFilter);
+    if (!u) return "—";
+    const name = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+    return name || u.email;
+  }, [ownerFilter, props.currentUserId, sameTenantUsers]);
 
   useEffect(() => {
     if (!successMessage) return;
@@ -2271,39 +2301,6 @@ function CustomersPanel(props: {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isMaster ? (
-              <div className="flex items-center gap-2">
-                <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">
-                  Owner
-                </label>
-                <select
-                  value={ownerFilter}
-                  onChange={(e) => {
-                    setCurrentPage(1);
-                    setOwnerFilter(e.target.value);
-                  }}
-                  className="inline-flex h-9 max-w-[12rem] items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-                >
-                  <option value="">All customers</option>
-                  {props.currentUserId ? (
-                    <option value={props.currentUserId}>My customers</option>
-                  ) : null}
-                  <option disabled>──────────</option>
-                  {sameTenantUsers.map((u) => {
-                    const fullName = [u.firstName, u.lastName]
-                      .filter(Boolean)
-                      .join(" ")
-                      .trim();
-                    const label = fullName ? `${fullName} (${u.email})` : u.email;
-                    return (
-                      <option key={u.id} value={u.id}>
-                        {label}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            ) : null}
             <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
               <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">Rows</label>
               <button
@@ -2342,23 +2339,115 @@ function CustomersPanel(props: {
           <div className="p-5"><EmptyBlock text={props.searchQuery ? `No customers matching "${props.searchQuery}".` : "No customers yet. Click 'New customer' to start."} /></div>
         ) : (
           <>
-            {/* Desktop header — master gets an extra Owner column. */}
+            {/* Desktop header. Master view drops Phone (signal-light column
+                that's visible inside the view drawer anyway) and gains an
+                Owner column. */}
             <div
               className={cn(
                 "hidden items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid",
                 isMaster
-                  ? "grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_60px_80px_100px_minmax(0,1fr)_64px]"
+                  ? "grid-cols-[minmax(0,1.5fr)_80px_100px_120px_minmax(0,1fr)_64px]"
                   : "grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px]",
               )}
             >
               <CustomerSortHeader label="Name" columnKey="name" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Phone</div>
+              {!isMaster ? (
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Phone</div>
+              ) : null}
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Docs</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Type</div>
               <CustomerSortHeader label="Created" columnKey="createdAt" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
               {isMaster ? (
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                  Owner
+                <div ref={ownerFilterMenuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setOwnerFilterMenuOpen((c) => !c)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-transparent px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:border-white/10 dark:hover:bg-white/5 dark:hover:text-slate-200"
+                  >
+                    <span>Owner</span>
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                      {ownerFilterLabel}
+                    </span>
+                    <ChevronsUpDown className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+                  </button>
+                  {ownerFilterMenuOpen ? (
+                    <div className="absolute left-0 top-[calc(100%+0.5rem)] z-30 max-h-72 min-w-56 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentPage(1);
+                          setOwnerFilter("");
+                          setOwnerFilterMenuOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                          ownerFilter === ""
+                            ? "bg-blue-600 text-white"
+                            : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                        )}
+                      >
+                        <span>All customers</span>
+                        {ownerFilter === "" ? (
+                          <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span>
+                        ) : null}
+                      </button>
+                      {props.currentUserId ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentPage(1);
+                            setOwnerFilter(props.currentUserId ?? "");
+                            setOwnerFilterMenuOpen(false);
+                          }}
+                          className={cn(
+                            "mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                            ownerFilter === props.currentUserId
+                              ? "bg-blue-600 text-white"
+                              : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                          )}
+                        >
+                          <span>My customers</span>
+                          {ownerFilter === props.currentUserId ? (
+                            <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span>
+                          ) : null}
+                        </button>
+                      ) : null}
+                      {sameTenantUsers.length > 0 ? (
+                        <div className="my-1 border-t border-slate-200 dark:border-white/10" />
+                      ) : null}
+                      {sameTenantUsers
+                        .filter((u) => u.id !== props.currentUserId)
+                        .map((u) => {
+                          const fullName = [u.firstName, u.lastName]
+                            .filter(Boolean)
+                            .join(" ")
+                            .trim();
+                          const label = fullName || u.email;
+                          return (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => {
+                                setCurrentPage(1);
+                                setOwnerFilter(u.id);
+                                setOwnerFilterMenuOpen(false);
+                              }}
+                              className={cn(
+                                "mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                                ownerFilter === u.id
+                                  ? "bg-blue-600 text-white"
+                                  : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                              )}
+                            >
+                              <span className="truncate">{label}</span>
+                              {ownerFilter === u.id ? (
+                                <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               <div className="text-right">Actions</div>
@@ -2403,7 +2492,7 @@ function CustomersPanel(props: {
                     className={cn(
                       "grid gap-3 md:items-center",
                       isMaster
-                        ? "md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_60px_80px_100px_minmax(0,1fr)_64px]"
+                        ? "md:grid-cols-[minmax(0,1.5fr)_80px_100px_120px_minmax(0,1fr)_64px]"
                         : "md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px]",
                     )}
                   >
@@ -2413,9 +2502,11 @@ function CustomersPanel(props: {
                         <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{getDisplayEmail(c)}</div>
                       ) : null}
                     </button>
-                    <div className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                      {getDisplayPhone(c) ? formatUsPhone(getDisplayPhone(c) ?? "") : <span className="text-slate-400 dark:text-slate-500">—</span>}
-                    </div>
+                    {!isMaster ? (
+                      <div className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {getDisplayPhone(c) ? formatUsPhone(getDisplayPhone(c) ?? "") : <span className="text-slate-400 dark:text-slate-500">—</span>}
+                      </div>
+                    ) : null}
                     <div className="text-sm text-slate-600 dark:text-slate-300">{c._count?.documents ?? 0}</div>
                     <div>
                       <CustomerTypeBadge type={c.customerType} />
@@ -2735,6 +2826,110 @@ function CustomerTypeBadge({ type }: { type: "PERSONAL" | "BUSINESS" }) {
     <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
       Personal
     </span>
+  );
+}
+
+function AssignToPicker({
+  value,
+  onChange,
+  tenantUsers,
+  currentUserId,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  tenantUsers: Props["users"];
+  currentUserId: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
+
+  const activeUsers = useMemo(
+    () => (tenantUsers ?? []).filter((u) => u.status === "ACTIVE"),
+    [tenantUsers],
+  );
+
+  const label = useMemo(() => {
+    if (!value) return "Me";
+    const u = activeUsers.find((x) => x.id === value);
+    if (!u) return "—";
+    const name = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+    return name || u.email;
+  }, [value, activeUsers]);
+
+  return (
+    <div ref={ref} className="relative mb-4">
+      <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+        Assign to
+      </label>
+      <button
+        type="button"
+        onClick={() => setOpen((c) => !c)}
+        className="mt-1.5 inline-flex h-12 w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5"
+      >
+        <span className="truncate">{label}</span>
+        <ChevronsUpDown className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+      </button>
+      {open ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+          <button
+            type="button"
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
+            className={cn(
+              "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+              value === ""
+                ? "bg-blue-600 text-white"
+                : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+            )}
+          >
+            <span>Me {currentUserId ? "(current user)" : ""}</span>
+            {value === "" ? (
+              <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span>
+            ) : null}
+          </button>
+          {activeUsers
+            .filter((u) => u.id !== currentUserId)
+            .map((u) => {
+              const fullName = [u.firstName, u.lastName]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+              const itemLabel = fullName ? `${fullName} (${u.email})` : u.email;
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(u.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                    value === u.id
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                  )}
+                >
+                  <span className="truncate">{itemLabel}</span>
+                  {value === u.id ? (
+                    <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span>
+                  ) : null}
+                </button>
+              );
+            })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -3922,40 +4117,15 @@ function CustomerFormDrawer({
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {/* Assign-to (master only, create mode). Empty = backend resolver
               defaults to currentUser. Selection is validated server-side
-              against the same companyProfileId. */}
+              against the same companyProfileId. Styled to match the
+              Documents module filter pattern (button+menu). */}
           {isMaster && mode === "create" ? (
-            <div className="mb-4 flex flex-col gap-1.5">
-              <label className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                Assign to
-              </label>
-              <select
-                value={values.userId}
-                onChange={(e) => update("userId", e.target.value)}
-                className="h-12 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition focus:border-blue-400 focus:bg-[color:var(--bg-elevated)]"
-              >
-                <option value="">
-                  Me{currentUserId ? "" : ""}
-                </option>
-                {(tenantUsers ?? [])
-                  .filter(
-                    (u) => u.status === "ACTIVE" && u.id !== currentUserId,
-                  )
-                  .map((u) => {
-                    const fullName = [u.firstName, u.lastName]
-                      .filter(Boolean)
-                      .join(" ")
-                      .trim();
-                    const label = fullName
-                      ? `${fullName} (${u.email})`
-                      : u.email;
-                    return (
-                      <option key={u.id} value={u.id}>
-                        {label}
-                      </option>
-                    );
-                  })}
-              </select>
-            </div>
+            <AssignToPicker
+              value={values.userId}
+              onChange={(v) => update("userId", v)}
+              tenantUsers={tenantUsers}
+              currentUserId={currentUserId}
+            />
           ) : null}
           {!isBusiness ? (
             <div className="grid gap-4">

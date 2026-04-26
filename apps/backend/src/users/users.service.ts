@@ -149,9 +149,22 @@ export class UsersService {
   async listUsers(requesterId: string) {
     const requester = await this.getMasterRequester(requesterId);
 
+    // NOA-237 Fix 5 — return ALL users in the master's tenant, not just the
+    // ones they personally created (parentCompanyProfileId match). Customer
+    // ownership (NOA-233) needs the assign-to dropdown to surface every user
+    // who can own a customer in this tenant — that's anyone whose
+    // companyProfileId matches, including co-masters and individual users
+    // brought in by other masters.
+    //
+    // The OR keeps backwards compatibility: every user previously returned
+    // (via parentCompanyProfileId) is still returned; we just add the
+    // master themselves and any companyProfileId-only matches.
     const users = await this.prisma.user.findMany({
       where: {
-        parentCompanyProfileId: requester.companyProfileId,
+        OR: [
+          { companyProfileId: requester.companyProfileId },
+          { parentCompanyProfileId: requester.companyProfileId },
+        ],
       },
       include: {
         companyProfile: {
