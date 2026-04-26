@@ -631,6 +631,12 @@ export function DashboardSidebarDemo({
     useState(false);
   const [pendingDataSource, setPendingDataSource] =
     useState<CustomerDataSource | null>(null);
+  // NOA-239 — after the template is locked in (Documents-section flow with
+  // no customer pre-set), surface a "Use a customer / Create blank" picker.
+  // Skipped when the flow already carries a customer (kebab + customer-view
+  // entry points lock the customer up front).
+  const [customerDataOptionOpen, setCustomerDataOptionOpen] = useState(false);
+  const [customerSelectorOpen, setCustomerSelectorOpen] = useState(false);
   // CreateDraftDrawer lives here (not inside DocumentsPanel) so opening a
   // draft from the Customers section doesn't force an activeSection switch
   // away from Customers — user stays in whatever section they started from.
@@ -809,19 +815,57 @@ export function DashboardSidebarDemo({
     setCreateDrawerOpen(true);
   }
 
-  // After a triple is locked in, decide whether to open the drawer directly
-  // or stop in the Business Data Selector first. BUSINESS customers see the
-  // selector (business row vs primary contact); PERSONAL customers skip
-  // it — they only have one data source.
+  // After a triple is locked in, decide which dialog (if any) comes next.
+  // Three cases:
+  //   1. Customer already locked + BUSINESS → BusinessDataSelector
+  //   2. Customer already locked + PERSONAL → straight to drawer
+  //   3. No customer yet (Documents-section flow) → CustomerDataOptionDialog
+  //      (NOA-239 — user picks "Use customer" or "Create blank")
   function advanceAfterTriple(customerId: string | null) {
-    const customer = customerId
-      ? customers?.find((c) => c.id === customerId) ?? null
-      : null;
-    if (customer && customer.customerType === "BUSINESS") {
+    if (customerId) {
+      const customer = customers?.find((c) => c.id === customerId) ?? null;
+      if (customer && customer.customerType === "BUSINESS") {
+        setBusinessDataSelectorOpen(true);
+        return;
+      }
+      openCreateDrawerFresh();
+      return;
+    }
+    setCustomerDataOptionOpen(true);
+  }
+
+  function handleCustomerDataOption(option: "customer" | "blank") {
+    setCustomerDataOptionOpen(false);
+    if (option === "blank") {
+      // No customer link → drawer opens with empty form.
+      openCreateDrawerFresh();
+      return;
+    }
+    setCustomerSelectorOpen(true);
+  }
+
+  function handleCustomerSelected(customer: Customer) {
+    setCustomerSelectorOpen(false);
+    setPendingDraftCustomerId(customer.id);
+    // Re-enter the post-triple decision now that we have a customer locked
+    // — funnels into the BUSINESS branch when applicable.
+    if (customer.customerType === "BUSINESS") {
       setBusinessDataSelectorOpen(true);
       return;
     }
     openCreateDrawerFresh();
+  }
+
+  function cancelCustomerDataOption() {
+    setCustomerDataOptionOpen(false);
+    // Drop the pending triple — bailing out of the flow shouldn't leak the
+    // selection into a later unrelated New Document click.
+    setPendingDraftTriple(null);
+  }
+
+  function cancelCustomerSelector() {
+    setCustomerSelectorOpen(false);
+    setPendingDraftTriple(null);
   }
 
   // Single entry point for "start a new draft" (from customer view, from
@@ -886,6 +930,11 @@ export function DashboardSidebarDemo({
     if (pendingDraftCustomerId) setPendingDraftCustomerId(null);
     if (pendingDraftTriple) setPendingDraftTriple(null);
     if (pendingDataSource) setPendingDataSource(null);
+    // Belt-and-suspenders — these dialogs should already be closed by the
+    // time the drawer renders, but if anything went sideways, clear them so
+    // the next entry point starts from a clean slate.
+    if (customerDataOptionOpen) setCustomerDataOptionOpen(false);
+    if (customerSelectorOpen) setCustomerSelectorOpen(false);
   }
 
   async function handleDocumentAction(
@@ -1357,6 +1406,19 @@ export function DashboardSidebarDemo({
           />
         );
       })() : null}
+      {customerDataOptionOpen ? (
+        <CustomerDataOptionDialog
+          onCancel={cancelCustomerDataOption}
+          onPick={handleCustomerDataOption}
+        />
+      ) : null}
+      {customerSelectorOpen ? (
+        <CustomerSelectDialog
+          customers={customers ?? []}
+          onCancel={cancelCustomerSelector}
+          onPick={handleCustomerSelected}
+        />
+      ) : null}
       <CreateDraftDrawer
         key={createDrawerVersion}
         open={createDrawerOpen}
@@ -2982,6 +3044,247 @@ function CustomerTypeSelectorDialog({
           </button>
         </div>
         <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Step that comes after the template is locked in for a Documents-section
+// draft (no customer pre-set). User picks whether to attach an existing
+// customer or start blank. Skipped entirely when the flow already carries a
+// customer (kebab "Create Document" / customer view "+ New Document").
+function CustomerDataOptionDialog({
+  onCancel,
+  onPick,
+}: {
+  onCancel: () => void;
+  onPick: (option: "customer" | "blank") => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+    >
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default"
+      />
+      <div className="relative w-full max-w-lg rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+          New document
+        </div>
+        <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+          Use a customer or start blank?
+        </h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Linking a customer pre-fills the form fields. You can also start
+          blank and fill the data manually.
+        </p>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onPick("customer")}
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+          >
+            <Contact className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+              Use a customer
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              Pre-fill from one of your saved customers.
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => onPick("blank")}
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-amber-400 dark:hover:bg-amber-500/10"
+          >
+            <FilePlus className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+              Create blank
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              Skip pre-fill and type the data yourself.
+            </div>
+          </button>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Customer picker shown after the user opted into "Use a customer". Search
+// box matches name / email / phone (and the BUSINESS-side equivalents); the
+// chip filter narrows by customer type. Cards render type badge + name +
+// most-relevant email/phone snippet.
+function CustomerSelectDialog({
+  customers,
+  onCancel,
+  onPick,
+  emptyHint,
+}: {
+  customers: Customer[];
+  onCancel: () => void;
+  onPick: (customer: Customer) => void;
+  // Override copy when the source list is empty (e.g. master picked a user
+  // who has no customers yet → "User X has no saved customers" beats the
+  // generic "No customers saved").
+  emptyHint?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "PERSONAL" | "BUSINESS">(
+    "ALL",
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return customers.filter((c) => {
+      if (typeFilter !== "ALL" && c.customerType !== typeFilter) return false;
+      if (!q) return true;
+      const hay = [
+        c.fullName,
+        c.email,
+        c.phone,
+        c.business?.businessName,
+        c.business?.businessEmail,
+        c.business?.businessPhone,
+        c.business?.primaryContactName,
+        c.business?.primaryContactEmail,
+        c.business?.primaryContactPhone,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [customers, query, typeFilter]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+    >
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default"
+      />
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              New document
+            </div>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+              Choose a customer
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Search by name, email or phone, or filter by customer type.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 dark:border-white/10">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, email or phone"
+              className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            {(["ALL", "PERSONAL", "BUSINESS"] as const).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setTypeFilter(opt)}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition",
+                  typeFilter === opt
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10",
+                )}
+              >
+                {opt === "ALL" ? "All" : opt === "PERSONAL" ? "Personal" : "Business"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {filtered.length === 0 ? (
+            <EmptyBlock
+              text={
+                customers.length === 0
+                  ? emptyHint ?? "No customers saved yet."
+                  : `No customers matching "${query}".`
+              }
+            />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {filtered.map((c) => {
+                const email = getDisplayEmail(c);
+                const phone = getDisplayPhone(c);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => onPick(c)}
+                    className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                  >
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <div className="min-w-0 truncate text-sm font-semibold text-slate-950 dark:text-white">
+                        {c.fullName}
+                      </div>
+                      <CustomerTypeBadge type={c.customerType} />
+                    </div>
+                    {email ? (
+                      <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                        {email}
+                      </div>
+                    ) : null}
+                    {phone ? (
+                      <div className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                        {formatUsPhone(phone)}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-white/10">
           <button
             type="button"
             onClick={onCancel}
