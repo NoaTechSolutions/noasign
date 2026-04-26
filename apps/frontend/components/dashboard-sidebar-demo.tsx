@@ -401,7 +401,15 @@ type Props = {
     signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
+    customerId?: string;
+    userId?: string;
   }) => Promise<DocDetail | void>;
+  // NOA-238 — master picks a target user; we re-fetch the templates via
+  // GET /documents/types?asUserId=<id> to surface only what that user can
+  // pick. Returns the per-user catalog (same shape as documentTypes).
+  onFetchTemplatesAsUser: (
+    targetUserId: string,
+  ) => Promise<DocumentTypeCatalogItem[]>;
   onUpdateMe: (payload: { firstName?: string; lastName?: string; title?: string; phone?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; zipCode?: string; avatarUrl?: string }) => Promise<unknown>;
   onUpdateCompanyProfile: (payload: {
     companyName?: string;
@@ -582,6 +590,7 @@ export function DashboardSidebarDemo({
   onPreviewFinalPdf,
   onDownloadFinalPdf,
   onCreateDraft,
+  onFetchTemplatesAsUser,
   onUpdateMe,
   onUpdateCompanyProfile,
   onCreateUser,
@@ -637,6 +646,18 @@ export function DashboardSidebarDemo({
   // entry points lock the customer up front).
   const [customerDataOptionOpen, setCustomerDataOptionOpen] = useState(false);
   const [customerSelectorOpen, setCustomerSelectorOpen] = useState(false);
+  // NOA-238 — when MASTER starts a Documents-section flow, they first pick
+  // the target user. pendingDraftTargetUserId carries the choice through
+  // the rest of the dialogs; targetUserDocumentTypes caches the templates
+  // re-fetched with ?asUserId=<id> so the Template Selector shows what
+  // the target user would see (not master's superset).
+  const [userSelectorOpen, setUserSelectorOpen] = useState(false);
+  const [pendingDraftTargetUserId, setPendingDraftTargetUserId] = useState<
+    string | null
+  >(null);
+  const [targetUserDocumentTypes, setTargetUserDocumentTypes] = useState<
+    DocumentTypeCatalogItem[] | null
+  >(null);
   // CreateDraftDrawer lives here (not inside DocumentsPanel) so opening a
   // draft from the Customers section doesn't force an activeSection switch
   // away from Customers — user stays in whatever section they started from.
@@ -858,40 +879,97 @@ export function DashboardSidebarDemo({
 
   function cancelCustomerDataOption() {
     setCustomerDataOptionOpen(false);
-    // Drop the pending triple — bailing out of the flow shouldn't leak the
-    // selection into a later unrelated New Document click.
+    // Drop the pending triple + master target stash — bailing out of the
+    // flow shouldn't leak the selection into a later unrelated New
+    // Document click.
     setPendingDraftTriple(null);
+    setPendingDraftTargetUserId(null);
+    setTargetUserDocumentTypes(null);
   }
 
   function cancelCustomerSelector() {
     setCustomerSelectorOpen(false);
     setPendingDraftTriple(null);
+    setPendingDraftTargetUserId(null);
+    setTargetUserDocumentTypes(null);
   }
+
+  // Resolve the catalog the active draft flow should use. Master picking
+  // a target user gets the per-user catalog (re-fetched via asUserId);
+  // everything else uses the master/own catalog already in props.
+  const effectiveDocumentTypes = targetUserDocumentTypes ?? documentTypes;
 
   // Single entry point for "start a new draft" (from customer view, from
   // Documents "+ New document", anywhere else). Flattens the user's
   // accessible template catalog into triples; if there's only one, skip the
   // template modal. Then for BUSINESS customers stop in the data selector
   // so the user picks business vs primary contact.
+  //
+  // NOA-238: when MASTER starts a Documents-section flow (no customerId),
+  // open UserSelectorDialog first so they pick the target user. The
+  // template / customer dialogs that come next will then use the target
+  // user's perspective.
   function startNewDraft(customerId?: string) {
-    const triples = flattenDocumentTypeTriples(documentTypes);
-    if (triples.length === 0) {
-      // Edge case: user has no templates assigned. The "+ New Document"
-      // buttons are already disabled in that case (see DocumentsPanel /
-      // CustomerViewDrawer), so hitting this path means the state got out
-      // of sync — silent no-op rather than a bogus modal.
-      return;
-    }
     if (customerId) {
       onCloseCustomerDetail();
       setPendingDraftCustomerId(customerId);
+      proceedFromTriplePool(documentTypes, customerId);
+      return;
+    }
+    // No customer pre-set → Documents-section flow. Master gets the user
+    // picker first; everyone else continues with their own catalog.
+    if (user?.role === "MASTER") {
+      setUserSelectorOpen(true);
+      return;
+    }
+    proceedFromTriplePool(documentTypes, null);
+  }
+
+  // Once we know which catalog to use (master's, target user's, or own),
+  // either skip the template modal (single triple) or open it.
+  function proceedFromTriplePool(
+    pool: DocumentTypeCatalogItem[],
+    customerId: string | null,
+  ) {
+    const triples = flattenDocumentTypeTriples(pool);
+    if (triples.length === 0) {
+      // Edge case: no templates available for this perspective. The
+      // "+ New Document" buttons are already disabled in that case, so
+      // hitting this path means the state got out of sync — silent no-op
+      // rather than a bogus modal.
+      return;
     }
     if (triples.length === 1) {
       setPendingDraftTriple(triples[0]);
-      advanceAfterTriple(customerId ?? null);
+      advanceAfterTriple(customerId);
       return;
     }
     setTemplateSelectorOpen(true);
+  }
+
+  async function handleTargetUserSelected(targetUser: {
+    id: string;
+    role: string;
+    email: string;
+  }) {
+    setPendingDraftTargetUserId(targetUser.id);
+    setUserSelectorOpen(false);
+    // Fetch the target user's catalog before opening the Template Selector
+    // so master sees what THAT user can pick (not master's superset).
+    let pool: DocumentTypeCatalogItem[];
+    try {
+      pool = await onFetchTemplatesAsUser(targetUser.id);
+    } catch {
+      // Fall back to master's full catalog if the as-user fetch fails —
+      // less precise but doesn't dead-end the flow.
+      pool = documentTypes;
+    }
+    setTargetUserDocumentTypes(pool);
+    proceedFromTriplePool(pool, null);
+  }
+
+  function cancelUserSelector() {
+    setUserSelectorOpen(false);
   }
 
   function handleTemplateSelected(triple: DocumentDraftTriple) {
@@ -904,8 +982,11 @@ export function DashboardSidebarDemo({
     setTemplateSelectorOpen(false);
     // If the flow was kicked off from a customer, drop the stashed customer
     // too — otherwise a later unrelated "+ New document" click would pick it
-    // up and incorrectly pre-link.
+    // up and incorrectly pre-link. Same goes for the master target user +
+    // its cached catalog.
     setPendingDraftCustomerId(null);
+    setPendingDraftTargetUserId(null);
+    setTargetUserDocumentTypes(null);
   }
 
   function handleDataSourceSelected(source: CustomerDataSource) {
@@ -930,11 +1011,14 @@ export function DashboardSidebarDemo({
     if (pendingDraftCustomerId) setPendingDraftCustomerId(null);
     if (pendingDraftTriple) setPendingDraftTriple(null);
     if (pendingDataSource) setPendingDataSource(null);
+    if (pendingDraftTargetUserId) setPendingDraftTargetUserId(null);
+    if (targetUserDocumentTypes) setTargetUserDocumentTypes(null);
     // Belt-and-suspenders — these dialogs should already be closed by the
     // time the drawer renders, but if anything went sideways, clear them so
     // the next entry point starts from a clean slate.
     if (customerDataOptionOpen) setCustomerDataOptionOpen(false);
     if (customerSelectorOpen) setCustomerSelectorOpen(false);
+    if (userSelectorOpen) setUserSelectorOpen(false);
   }
 
   async function handleDocumentAction(
@@ -1388,7 +1472,7 @@ export function DashboardSidebarDemo({
       />
       {templateSelectorOpen ? (
         <TemplateSelectorDialog
-          triples={flattenDocumentTypeTriples(documentTypes)}
+          triples={flattenDocumentTypeTriples(effectiveDocumentTypes)}
           onCancel={cancelTemplateSelector}
           onPick={handleTemplateSelected}
         />
@@ -1406,6 +1490,14 @@ export function DashboardSidebarDemo({
           />
         );
       })() : null}
+      {userSelectorOpen ? (
+        <UserSelectorDialog
+          users={users ?? []}
+          currentUserId={user?.id ?? null}
+          onCancel={cancelUserSelector}
+          onPick={(u) => void handleTargetUserSelected(u)}
+        />
+      ) : null}
       {customerDataOptionOpen ? (
         <CustomerDataOptionDialog
           onCancel={cancelCustomerDataOption}
@@ -1414,7 +1506,22 @@ export function DashboardSidebarDemo({
       ) : null}
       {customerSelectorOpen ? (
         <CustomerSelectDialog
-          customers={customers ?? []}
+          // Master acting on behalf of a target user: scope the picker to
+          // that user's customers (matches what the target user would see
+          // and ensures the resulting document is linkable to a customer
+          // they own).
+          customers={(() => {
+            const all = customers ?? [];
+            if (pendingDraftTargetUserId) {
+              return all.filter((c) => c.userId === pendingDraftTargetUserId);
+            }
+            return all;
+          })()}
+          emptyHint={
+            pendingDraftTargetUserId
+              ? "This user has no saved customers yet."
+              : undefined
+          }
           onCancel={cancelCustomerSelector}
           onPick={handleCustomerSelected}
         />
@@ -1435,6 +1542,7 @@ export function DashboardSidebarDemo({
         presetSignatureTemplateId={
           pendingDraftTriple?.signatureTemplateId ?? null
         }
+        presetTargetUserId={pendingDraftTargetUserId}
         onClose={closeCreateDrawer}
         onCreateDraft={onCreateDraft}
         onOpenDocumentView={(documentId) => {
@@ -3044,6 +3152,154 @@ function CustomerTypeSelectorDialog({
           </button>
         </div>
         <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// NOA-238 — first step of the master Documents-section flow. Master picks
+// the target user the draft will belong to (Document.userId on submit).
+// The rest of the flow then operates from that user's perspective:
+// templates re-fetched with ?asUserId=, customer picker filtered to the
+// target user's customers.
+function UserSelectorDialog({
+  users,
+  currentUserId,
+  onCancel,
+  onPick,
+}: {
+  users: NonNullable<Props["users"]>;
+  currentUserId: string | null;
+  onCancel: () => void;
+  onPick: (user: { id: string; role: string; email: string }) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const eligibleUsers = useMemo(() => {
+    return users.filter((u) => u.status === "ACTIVE");
+  }, [users]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return eligibleUsers;
+    return eligibleUsers.filter((u) => {
+      const fullName = [u.firstName, u.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return (
+        u.email.toLowerCase().includes(q) ||
+        fullName.includes(q) ||
+        u.role.toLowerCase().includes(q)
+      );
+    });
+  }, [eligibleUsers, query]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+    >
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default"
+      />
+      <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+              New document
+            </div>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+              Create on behalf of
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Pick the user this document will belong to. The next steps use
+              that user's templates and customers.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="border-b border-slate-200 px-6 py-4 dark:border-white/10">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, email or role"
+              className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900"
+            />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {filtered.length === 0 ? (
+            <EmptyBlock
+              text={
+                eligibleUsers.length === 0
+                  ? "No active users in this tenant."
+                  : `No users matching "${query}".`
+              }
+            />
+          ) : (
+            <div className="grid gap-2">
+              {filtered.map((u) => {
+                const fullName = [u.firstName, u.lastName]
+                  .filter(Boolean)
+                  .join(" ")
+                  .trim();
+                const label = fullName || u.email;
+                const isMe = u.id === currentUserId;
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => onPick({ id: u.id, role: u.role, email: u.email })}
+                    className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                  >
+                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-slate-200 transition group-hover:bg-blue-600 group-hover:text-white group-hover:ring-blue-600 dark:bg-white/10 dark:text-blue-400 dark:ring-white/10 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                      <UserRound className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                          {label}
+                        </div>
+                        {isMe ? (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                            Me
+                          </span>
+                        ) : null}
+                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                          {u.role.toLowerCase()}
+                        </span>
+                      </div>
+                      <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                        {u.email}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-white/10">
           <button
             type="button"
             onClick={onCancel}
@@ -6376,6 +6632,7 @@ function CreateDraftDrawer({
   presetDocumentTypeId,
   presetFormDefinitionId,
   presetSignatureTemplateId,
+  presetTargetUserId,
   onClose,
   onCreateDraft,
   onOpenDocumentView,
@@ -6388,6 +6645,10 @@ function CreateDraftDrawer({
   presetDocumentTypeId: string | null;
   presetFormDefinitionId: string | null;
   presetSignatureTemplateId: string | null;
+  // NOA-238 — when set, the resulting Document.userId is this id (master
+  // assigning to a target user). Empty string handled client-side; null
+  // means no override (caller becomes owner).
+  presetTargetUserId: string | null;
   onClose: () => void;
   onCreateDraft: (payload: {
     documentTypeId: string;
@@ -6396,6 +6657,7 @@ function CreateDraftDrawer({
     contractDate: string;
     dataJson: Record<string, unknown>;
     customerId?: string;
+    userId?: string;
   }) => Promise<DocDetail | void>;
   onOpenDocumentView: (documentId: string) => void;
 }) {
@@ -6681,6 +6943,8 @@ function CreateDraftDrawer({
         contractDate,
         dataJson: finalDataJson,
         ...(presetCustomer ? { customerId: presetCustomer.id } : {}),
+        // NOA-238 — master assigning the draft to a target user.
+        ...(presetTargetUserId ? { userId: presetTargetUserId } : {}),
       });
 
       onClose();

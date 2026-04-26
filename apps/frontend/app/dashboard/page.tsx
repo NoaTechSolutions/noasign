@@ -999,6 +999,18 @@ export default function DashboardPage() {
     }
   }
 
+  // NOA-238 — master refetches the document-types catalog from the target
+  // user's perspective so the Template Selector shows only what THAT user
+  // can pick (master sees all templates by default; the asUserId flip
+  // narrows that down per-tenant-user).
+  async function handleFetchTemplatesAsUser(
+    targetUserId: string,
+  ): Promise<DocumentTypeCatalogItem[]> {
+    return apiRequest<DocumentTypeCatalogItem[]>(
+      `/documents/types?asUserId=${encodeURIComponent(targetUserId)}`,
+    );
+  }
+
   async function handleCreateDraft(payload: {
     documentTypeId: string;
     formDefinitionId: string;
@@ -1006,6 +1018,7 @@ export default function DashboardPage() {
     contractDate: string;
     dataJson: Record<string, unknown>;
     customerId?: string;
+    userId?: string;
   }) {
     setError("");
 
@@ -1269,6 +1282,7 @@ export default function DashboardPage() {
           onPreviewFinalPdf={handlePreviewFinalPdf}
           onDownloadFinalPdf={handleDownloadFinalPdf}
           onCreateDraft={handleCreateDraft}
+          onFetchTemplatesAsUser={handleFetchTemplatesAsUser}
           onUpdateMe={handleUpdateMe}
           onUpdateCompanyProfile={handleUpdateCompanyProfile}
           onCreateUser={handleCreateUser}
