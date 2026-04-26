@@ -24,6 +24,9 @@ const prismaMock = {
     create: jest.fn(),
     update: jest.fn(),
   },
+  user: {
+    findFirst: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
 
@@ -39,8 +42,28 @@ beforeEach(() => {
   });
 });
 
-const tenantUser = { id: 'u-1', companyProfileId: 'cp-1' };
-const noTenantUser = { id: 'u-2', companyProfileId: null };
+// Default test user is a regular USER (not master) — most existing
+// privacy/scoping assertions are written from that POV.
+const tenantUser = {
+  id: 'u-1',
+  role: 'USER' as const,
+  companyProfileId: 'cp-1',
+};
+const masterUser = {
+  id: 'master-1',
+  role: 'MASTER' as const,
+  companyProfileId: 'cp-1',
+};
+const otherTenantUser = {
+  id: 'u-other',
+  role: 'USER' as const,
+  companyProfileId: 'cp-1',
+};
+const noTenantUser = {
+  id: 'u-2',
+  role: 'USER' as const,
+  companyProfileId: null,
+};
 
 describe('CustomersService', () => {
   let service: CustomersService;
@@ -193,7 +216,7 @@ describe('CustomersService', () => {
       );
     });
 
-    it('includes business relation + documents _count in findMany', async () => {
+    it('includes business relation + documents _count + owner in findMany', async () => {
       prismaMock.customer.findMany.mockResolvedValue([]);
       prismaMock.customer.count.mockResolvedValue(0);
       await service.list(tenantUser, {});
@@ -202,6 +225,14 @@ describe('CustomersService', () => {
           include: {
             _count: { select: { documents: true } },
             business: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         }),
       );
@@ -223,11 +254,21 @@ describe('CustomersService', () => {
       });
       const res = await service.findOne(tenantUser, 'c-1');
       expect(res.id).toBe('c-1');
+      // Non-master callers always carry the userId filter — they can't see
+      // teammates' customers even by id.
       expect(prismaMock.customer.findFirst).toHaveBeenCalledWith({
-        where: { id: 'c-1', companyProfileId: 'cp-1' },
+        where: { id: 'c-1', companyProfileId: 'cp-1', userId: 'u-1' },
         include: {
           _count: { select: { documents: true } },
           business: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
         },
       });
     });
@@ -252,8 +293,9 @@ describe('CustomersService', () => {
         fullName: 'New',
       });
       await service.update(tenantUser, 'c-1', { fullName: 'New' });
+      // Tenant + ownership check on the existing-row lookup.
       expect(prismaMock.customer.findFirst).toHaveBeenCalledWith({
-        where: { id: 'c-1', companyProfileId: 'cp-1' },
+        where: { id: 'c-1', companyProfileId: 'cp-1', userId: 'u-1' },
         include: { business: true },
       });
       expect(prismaMock.customer.update).toHaveBeenCalledWith({
@@ -337,4 +379,154 @@ describe('CustomersService', () => {
       expect(prismaMock.customer.delete).not.toHaveBeenCalled();
     });
   });
+
+  describe('ownership (NOA-233)', () => {
+    describe('list — userId filter', () => {
+      it('non-master is pinned to own userId regardless of query', async () => {
+        prismaMock.customer.findMany.mockResolvedValue([]);
+        prismaMock.customer.count.mockResolvedValue(0);
+        // Even if a non-master tries to filter by another user's id, the
+        // service overrides — they only ever see their own.
+        await service.list(tenantUser, { userId: 'u-other' });
+        expect(prismaMock.customer.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              companyProfileId: 'cp-1',
+              userId: 'u-1',
+            }),
+          }),
+        );
+      });
+
+      it('master without filter sees the whole tenant', async () => {
+        prismaMock.customer.findMany.mockResolvedValue([]);
+        prismaMock.customer.count.mockResolvedValue(0);
+        await service.list(masterUser, {});
+        const call = prismaMock.customer.findMany.mock.calls[0][0];
+        expect(call.where).toEqual({ companyProfileId: 'cp-1' });
+      });
+
+      it("master 'me' filter scopes to master's own id", async () => {
+        prismaMock.customer.findMany.mockResolvedValue([]);
+        prismaMock.customer.count.mockResolvedValue(0);
+        await service.list(masterUser, { userId: 'me' });
+        expect(prismaMock.customer.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ userId: 'master-1' }),
+          }),
+        );
+      });
+
+      it('master can filter by any user id', async () => {
+        prismaMock.customer.findMany.mockResolvedValue([]);
+        prismaMock.customer.count.mockResolvedValue(0);
+        await service.list(masterUser, { userId: 'u-other' });
+        expect(prismaMock.customer.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ userId: 'u-other' }),
+          }),
+        );
+      });
+    });
+
+    describe('create — userId assignment', () => {
+      it('non-master creating with dto.userId still gets owned by self', async () => {
+        prismaMock.customer.create.mockResolvedValue({ id: 'c-1' });
+        prismaMock.customer.findUniqueOrThrow.mockResolvedValue({ id: 'c-1' });
+        await service.create(tenantUser, {
+          fullName: 'Acme',
+          userId: 'u-other',
+        });
+        expect(prismaMock.customer.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ userId: 'u-1' }),
+        });
+        // Tenant lookup never happens for non-master — they can't reach the
+        // assignment branch.
+        expect(prismaMock.user.findFirst).not.toHaveBeenCalled();
+      });
+
+      it('master can assign to another user in same tenant', async () => {
+        prismaMock.user.findFirst.mockResolvedValue({ id: 'u-other' });
+        prismaMock.customer.create.mockResolvedValue({ id: 'c-1' });
+        prismaMock.customer.findUniqueOrThrow.mockResolvedValue({ id: 'c-1' });
+        await service.create(masterUser, {
+          fullName: 'Acme',
+          userId: 'u-other',
+        });
+        expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+          where: { id: 'u-other', companyProfileId: 'cp-1' },
+          select: { id: true },
+        });
+        expect(prismaMock.customer.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ userId: 'u-other' }),
+        });
+      });
+
+      it('master assigning to a user in a DIFFERENT tenant is rejected', async () => {
+        prismaMock.user.findFirst.mockResolvedValue(null);
+        await expect(
+          service.create(masterUser, {
+            fullName: 'Acme',
+            userId: 'cross-tenant-user',
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prismaMock.customer.create).not.toHaveBeenCalled();
+      });
+
+      it('master without dto.userId defaults to owning the row themselves', async () => {
+        prismaMock.customer.create.mockResolvedValue({ id: 'c-1' });
+        prismaMock.customer.findUniqueOrThrow.mockResolvedValue({ id: 'c-1' });
+        await service.create(masterUser, { fullName: 'Acme' });
+        expect(prismaMock.customer.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ userId: 'master-1' }),
+        });
+      });
+    });
+
+    describe('update — reassignment', () => {
+      it('non-master sending userId is rejected with 403', async () => {
+        prismaMock.customer.findFirst.mockResolvedValue({
+          id: 'c-1',
+          business: null,
+        });
+        await expect(
+          service.update(tenantUser, 'c-1', { userId: 'u-other' }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(prismaMock.customer.update).not.toHaveBeenCalled();
+      });
+
+      it('master can reassign to another user in same tenant', async () => {
+        prismaMock.customer.findFirst.mockResolvedValue({
+          id: 'c-1',
+          business: null,
+        });
+        prismaMock.user.findFirst.mockResolvedValue({ id: 'u-other' });
+        prismaMock.customer.update.mockResolvedValue({ id: 'c-1' });
+        prismaMock.customer.findUniqueOrThrow.mockResolvedValue({ id: 'c-1' });
+        await service.update(masterUser, 'c-1', { userId: 'u-other' });
+        expect(prismaMock.customer.update).toHaveBeenCalledWith({
+          where: { id: 'c-1' },
+          data: expect.objectContaining({
+            user: { connect: { id: 'u-other' } },
+          }),
+        });
+      });
+
+      it('master reassigning to a cross-tenant user is rejected', async () => {
+        prismaMock.customer.findFirst.mockResolvedValue({
+          id: 'c-1',
+          business: null,
+        });
+        prismaMock.user.findFirst.mockResolvedValue(null);
+        await expect(
+          service.update(masterUser, 'c-1', { userId: 'cross-tenant' }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(prismaMock.customer.update).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  // Suppress unused-vars warning for the otherTenantUser fixture; it's kept
+  // for future ownership tests that need a same-tenant non-master peer.
+  void otherTenantUser;
 });

@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
   ValidateNested,
@@ -15,6 +16,12 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsEnum(CustomerType)
   customerType?: CustomerType;
+
+  // Master may reassign ownership; non-master attempts are rejected by the
+  // service layer.
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
 
   @IsOptional()
   @ValidateNested()

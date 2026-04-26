@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
   ValidateNested,
@@ -15,6 +16,13 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsEnum(CustomerType)
   customerType?: CustomerType;
+
+  // Master may assign ownership at create time. Non-master users have this
+  // field overwritten by the service to their own id; the DTO accepts the
+  // shape but the service is the gate.
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
 
   @IsOptional()
   @ValidateNested()

@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Customer, CustomerBusiness, Prisma } from '@prisma/client';
+import type {
+  Customer,
+  CustomerBusiness,
+  Prisma,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateCustomerDto } from './dto/create-customer.dto';
 import type { ListCustomersQueryDto } from './dto/list-customers-query.dto';
@@ -12,12 +17,21 @@ import type { UpdateCustomerDto } from './dto/update-customer.dto';
 
 export type AuthUser = {
   id: string;
+  role: UserRole;
   companyProfileId: string | null;
+};
+
+export type CustomerOwnerSnapshot = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
 };
 
 export type CustomerWithCount = Customer & {
   _count: { documents: number };
   business: CustomerBusiness | null;
+  user?: CustomerOwnerSnapshot;
 };
 
 export type CustomerListResult = {
@@ -26,6 +40,19 @@ export type CustomerListResult = {
   limit: number;
   offset: number;
 };
+
+// Same shape included on every customer read — used by the master view to
+// show "Owner: …" without a separate request.
+const ownerInclude = {
+  user: {
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+    },
+  },
+} as const;
 
 @Injectable()
 export class CustomersService {
@@ -46,6 +73,15 @@ export class CustomersService {
       );
     }
 
+    // Resolve ownership: master may assign via dto.userId (validated to live
+    // in the same tenant); non-master users always own what they create,
+    // even if dto.userId tries to say otherwise.
+    const ownerUserId = await this.resolveOwnerForCreate(
+      user,
+      companyProfileId,
+      dto.userId,
+    );
+
     const customerData = normalizeOptionalFields(stripNestedFields(dto));
 
     return this.prisma.$transaction(async (tx) => {
@@ -55,6 +91,7 @@ export class CustomersService {
           fullName: dto.fullName.trim(),
           customerType,
           companyProfileId,
+          userId: ownerUserId,
           createdByUserId: user.id,
         },
       });
@@ -75,6 +112,7 @@ export class CustomersService {
         include: {
           _count: { select: { documents: true } },
           business: true,
+          ...ownerInclude,
         },
       });
     });
@@ -91,7 +129,10 @@ export class CustomersService {
     const orderByField = query.orderBy ?? 'createdAt';
     const orderDir = query.orderDir ?? 'desc';
 
-    const where: Prisma.CustomerWhereInput = { companyProfileId };
+    const where: Prisma.CustomerWhereInput = {
+      companyProfileId,
+      ...buildOwnershipFilter(user, query.userId),
+    };
 
     const searchTerm = query.search?.trim();
     if (searchTerm) {
@@ -115,6 +156,7 @@ export class CustomersService {
         include: {
           _count: { select: { documents: true } },
           business: true,
+          ...ownerInclude,
         },
       }),
       this.prisma.customer.count({ where }),
@@ -127,10 +169,15 @@ export class CustomersService {
     const companyProfileId = requireTenant(user);
 
     const customer = await this.prisma.customer.findFirst({
-      where: { id, companyProfileId },
+      where: {
+        id,
+        companyProfileId,
+        ...buildOwnershipFilter(user),
+      },
       include: {
         _count: { select: { documents: true } },
         business: true,
+        ...ownerInclude,
       },
     });
 
@@ -145,12 +192,30 @@ export class CustomersService {
     const companyProfileId = requireTenant(user);
 
     const existing = await this.prisma.customer.findFirst({
-      where: { id, companyProfileId },
+      where: {
+        id,
+        companyProfileId,
+        ...buildOwnershipFilter(user),
+      },
       include: { business: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Customer not found');
+    }
+
+    // Reassignment: master only. Non-master attempts to change userId are
+    // ignored silently (the field stays as-is) — the DTO is permissive on
+    // shape, the service is the gate.
+    let nextOwnerUserId: string | undefined;
+    if (dto.userId !== undefined) {
+      if (user.role !== 'MASTER') {
+        throw new ForbiddenException(
+          'Only master users can reassign customer ownership',
+        );
+      }
+      await this.assertUserInTenant(dto.userId, companyProfileId);
+      nextOwnerUserId = dto.userId;
     }
 
     const customerData: Prisma.CustomerUpdateInput = normalizeOptionalFields(
@@ -161,6 +226,9 @@ export class CustomersService {
     }
     if (dto.customerType !== undefined) {
       customerData.customerType = dto.customerType;
+    }
+    if (nextOwnerUserId !== undefined) {
+      customerData.user = { connect: { id: nextOwnerUserId } };
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -202,6 +270,7 @@ export class CustomersService {
         include: {
           _count: { select: { documents: true } },
           business: true,
+          ...ownerInclude,
         },
       });
     });
@@ -211,7 +280,11 @@ export class CustomersService {
     const companyProfileId = requireTenant(user);
 
     const existing = await this.prisma.customer.findFirst({
-      where: { id, companyProfileId },
+      where: {
+        id,
+        companyProfileId,
+        ...buildOwnershipFilter(user),
+      },
     });
 
     if (!existing) {
@@ -220,6 +293,40 @@ export class CustomersService {
 
     // customer_businesses row cascades via Prisma onDelete: Cascade.
     await this.prisma.customer.delete({ where: { id } });
+  }
+
+  private async resolveOwnerForCreate(
+    user: AuthUser,
+    companyProfileId: string,
+    requested: string | undefined,
+  ): Promise<string> {
+    // Non-master: forced to self regardless of payload.
+    if (user.role !== 'MASTER') {
+      return user.id;
+    }
+    // Master with explicit assignment: validate target lives in the same
+    // tenant before accepting it.
+    if (requested && requested !== user.id) {
+      await this.assertUserInTenant(requested, companyProfileId);
+      return requested;
+    }
+    // Master without explicit assignment: own the row themselves.
+    return user.id;
+  }
+
+  private async assertUserInTenant(
+    targetUserId: string,
+    companyProfileId: string,
+  ): Promise<void> {
+    const found = await this.prisma.user.findFirst({
+      where: { id: targetUserId, companyProfileId },
+      select: { id: true },
+    });
+    if (!found) {
+      throw new BadRequestException(
+        'Target user not found in the current tenant',
+      );
+    }
   }
 }
 
@@ -230,13 +337,40 @@ function requireTenant(user: AuthUser): string {
   return user.companyProfileId;
 }
 
+/** Per-user ownership filter for list/find/update/delete reads.
+ *
+ * - Non-master: always pinned to user.id (privacy guarantee — they can't
+ *   ever see another teammate's customers).
+ * - Master with `queryUserId` (from list filter): can scope to any user
+ *   ('me' resolves to their own id, otherwise the literal id is used).
+ *   Cross-tenant filtering still impossible because companyProfileId is
+ *   AND-ed alongside.
+ * - Master without `queryUserId`: no extra filter — sees the whole tenant.
+ */
+function buildOwnershipFilter(
+  user: AuthUser,
+  queryUserId?: string,
+): Prisma.CustomerWhereInput {
+  if (user.role !== 'MASTER') {
+    return { userId: user.id };
+  }
+  const requested = queryUserId?.trim();
+  if (!requested) return {};
+  if (requested === 'me') return { userId: user.id };
+  return { userId: requested };
+}
+
 /** Remove nested/meta fields so the rest of the DTO can be passed
  *  directly to Prisma customer create/update without type conflicts. */
 function stripNestedFields<
-  T extends { customerType?: unknown; business?: unknown },
->(dto: T): Omit<T, 'customerType' | 'business'> {
+  T extends {
+    customerType?: unknown;
+    business?: unknown;
+    userId?: unknown;
+  },
+>(dto: T): Omit<T, 'customerType' | 'business' | 'userId'> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { customerType: _ct, business: _biz, ...rest } = dto;
+  const { customerType: _ct, business: _biz, userId: _uid, ...rest } = dto;
   return rest;
 }
 
