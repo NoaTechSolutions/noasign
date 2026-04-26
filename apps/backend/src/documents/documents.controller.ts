@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -22,8 +23,11 @@ export class DocumentsController {
   constructor(private documentsService: DocumentsService) {}
 
   @Get('types')
-  async getDocumentTypes(@Req() req: any) {
-    return this.documentsService.getDocumentTypes(req.user.id);
+  async getDocumentTypes(
+    @Req() req: any,
+    @Query('asUserId') asUserId?: string,
+  ) {
+    return this.documentsService.getDocumentTypes(req.user.id, asUserId);
   }
 
   @Post('draft')

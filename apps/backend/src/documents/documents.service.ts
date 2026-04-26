@@ -398,17 +398,41 @@ export class DocumentsService {
     };
   }
 
-  async getDocumentTypes(userId: string) {
+  async getDocumentTypes(userId: string, asUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { role: true, companyProfileId: true },
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    if (user.role === 'MASTER') {
+    // NOA-238 — master may pass ?asUserId=<id> to see the catalog as the
+    // target user would. Validates the target lives in the same tenant
+    // before swapping perspective.
+    let effectiveUserId = userId;
+    let effectiveRole = user.role;
+    if (asUserId && asUserId !== userId) {
+      if (user.role !== 'MASTER') {
+        throw new ForbiddenException(
+          'Only master users can request templates as another user',
+        );
+      }
+      const target = await this.prisma.user.findFirst({
+        where: { id: asUserId, companyProfileId: user.companyProfileId },
+        select: { id: true, role: true },
+      });
+      if (!target) {
+        throw new BadRequestException(
+          'Target user not found in the current tenant',
+        );
+      }
+      effectiveUserId = target.id;
+      effectiveRole = target.role;
+    }
+
+    if (effectiveRole === 'MASTER') {
       const documentTypes = await this.prisma.documentType.findMany({
         include: {
           formDefinitions: {
@@ -429,7 +453,7 @@ export class DocumentsService {
     }
 
     const configs = await this.prisma.userDocumentConfig.findMany({
-      where: { userId, isActive: true },
+      where: { userId: effectiveUserId, isActive: true },
       include: {
         documentType: true,
         formDefinition: true,
@@ -556,10 +580,33 @@ export class DocumentsService {
       }
     }
 
+    // NOA-238 — master may assign the draft to another tenant user. The
+    // resulting Document.userId controls visibility under the per-user
+    // scope at getDocumentAccessScope, so this is effectively "create on
+    // behalf of <user>". Non-master attempts to override are rejected.
+    let ownerUserId: string = user.id;
+    if (body.userId && body.userId !== user.id) {
+      if (user.role !== 'MASTER') {
+        throw new ForbiddenException(
+          'Only master users can create documents on behalf of another user',
+        );
+      }
+      const target = await this.prisma.user.findFirst({
+        where: { id: body.userId, companyProfileId: user.companyProfileId },
+        select: { id: true },
+      });
+      if (!target) {
+        throw new BadRequestException(
+          'Target user not found in the current tenant',
+        );
+      }
+      ownerUserId = target.id;
+    }
+
     const document = await this.prisma.document.create({
       data: {
         documentNumber: await this.generateDocumentNumber(body.documentTypeId),
-        userId: user.id,
+        userId: ownerUserId,
         companyProfileId: user.companyProfileId,
         customerId: body.customerId ?? null,
         documentTypeId: body.documentTypeId,
