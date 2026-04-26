@@ -249,11 +249,18 @@ type Customer = {
   country: string | null;
   notes: string | null;
   companyProfileId: string;
+  userId: string;
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
   business?: CustomerBusiness | null;
   _count?: { documents: number };
+  user?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
 };
 
 type CustomerListResponse = {
@@ -297,6 +304,10 @@ type CustomerFormValues = {
   state: string;
   zipCode: string;
   notes: string;
+  // Empty string = "use the current logged-in user" (server default for
+  // master, forced for non-master). Non-master selections are silently
+  // overridden server-side; master selections must live in the same tenant.
+  userId: string;
   business: CustomerBusinessFormValues;
 };
 
@@ -740,6 +751,11 @@ export default function DashboardPage() {
     if (values.customerType === "BUSINESS") {
       payload.business = buildBusinessCreatePayload(values.business);
     }
+    // Master may have picked an explicit owner via the Assign-to dropdown;
+    // empty string means "default to me" — drop the key so the backend
+    // resolver decides.
+    const ownerId = values.userId?.trim();
+    if (ownerId) payload.userId = ownerId;
     await apiRequest<Customer>("/customers", { method: "POST", body: payload });
     const refreshed = await apiRequest<CustomerListResponse>(
       "/customers?limit=500&offset=0",
@@ -774,6 +790,9 @@ export default function DashboardPage() {
     if (values.customerType === "BUSINESS") {
       payload.business = buildBusinessUpdatePayload(values.business);
     }
+    // Reassignment (master only) — empty string = no change.
+    const ownerId = values.userId?.trim();
+    if (ownerId) payload.userId = ownerId;
     await apiRequest(`/customers/${customerId}`, {
       method: "PATCH",
       body: payload,

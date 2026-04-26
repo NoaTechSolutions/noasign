@@ -205,11 +205,21 @@ type Customer = {
   country: string | null;
   notes: string | null;
   companyProfileId: string;
+  userId: string;
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
   business?: CustomerBusiness | null;
   _count?: { documents: number };
+  // Owner snapshot. Backend includes it on every read so master views can
+  // render "Owner: …" without a separate request. Non-master callers see
+  // their own data here (it's just themselves).
+  user?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
 };
 
 type CustomerBusinessFormValues = {
@@ -246,6 +256,9 @@ type CustomerFormValues = {
   state: string;
   zipCode: string;
   notes: string;
+  // Master uses this to assign / reassign ownership; non-master leaves it
+  // empty (server forces it to self).
+  userId: string;
   business: CustomerBusinessFormValues;
 };
 
@@ -338,6 +351,8 @@ type Props = {
     email: string;
     role: string;
     status: string;
+    firstName?: string | null;
+    lastName?: string | null;
     createdAt: string;
     updatedAt: string;
   }> | null;
@@ -1247,6 +1262,9 @@ export function DashboardSidebarDemo({
               onPreviewFinalPdf={onPreviewFinalPdf}
               onDownloadFinalPdf={onDownloadFinalPdf}
               onStartCustomerDraft={(customerId) => startNewDraft(customerId)}
+              currentUserRole={user?.role ?? null}
+              currentUserId={user?.id ?? null}
+              tenantUsers={users}
             />
           ) : null}
 
@@ -2077,6 +2095,14 @@ function getDisplayPhone(c: Customer): string | null {
   return c.phone;
 }
 
+// "Owner: …" display label for the master view. Prefers full name, falls
+// back to email when the user record doesn't have first/last set.
+function getOwnerLabel(user: Customer["user"]): string {
+  if (!user) return "—";
+  const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  return name || user.email;
+}
+
 function CustomersPanel(props: {
   customers: Customer[] | null;
   customerDetail: Customer | null;
@@ -2096,6 +2122,10 @@ function CustomersPanel(props: {
   onPreviewFinalPdf: (documentId: string) => Promise<string>;
   onDownloadFinalPdf: (documentId: string) => Promise<void>;
   onStartCustomerDraft: (customerId: string) => void;
+  // Master sees an Owner column + filter dropdown. Tenant users hidden it.
+  currentUserRole: string | null;
+  currentUserId: string | null;
+  tenantUsers: Props["users"];
 }) {
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -2108,7 +2138,19 @@ function CustomersPanel(props: {
   const [typeSelectorOpen, setTypeSelectorOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  // Owner filter — master only. "" = all customers in tenant. Otherwise the
+  // value is a User.id that the master picked from the dropdown ('me' is
+  // resolved to currentUserId here so the simple equality filter below
+  // doesn't need to know about it).
+  const [ownerFilter, setOwnerFilter] = useState<string>("");
   const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const isMaster = props.currentUserRole === "MASTER";
+  // Filter the user dropdown to active users in the same tenant only — master
+  // shouldn't be able to assign to deactivated accounts.
+  const sameTenantUsers = useMemo(() => {
+    return (props.tenantUsers ?? []).filter((u) => u.status === "ACTIVE");
+  }, [props.tenantUsers]);
 
   useEffect(() => {
     if (!successMessage) return;
@@ -2119,6 +2161,11 @@ function CustomersPanel(props: {
   const filtered = useMemo(() => {
     const q = props.searchQuery.trim().toLowerCase();
     return (props.customers ?? []).filter((c) => {
+      // Owner filter is master-only and applies BEFORE the search filter.
+      // Non-master users never see anyone else's customers anyway (the
+      // backend already pinned their list scope), so this branch is a no-op
+      // for them.
+      if (isMaster && ownerFilter && c.userId !== ownerFilter) return false;
       if (!q) return true;
       const hay = [
         c.fullName,
@@ -2138,7 +2185,7 @@ function CustomersPanel(props: {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [props.customers, props.searchQuery]);
+  }, [props.customers, props.searchQuery, isMaster, ownerFilter]);
 
   const sorted = useMemo(() => {
     const items = [...filtered];
@@ -2224,6 +2271,39 @@ function CustomersPanel(props: {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isMaster ? (
+              <div className="flex items-center gap-2">
+                <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">
+                  Owner
+                </label>
+                <select
+                  value={ownerFilter}
+                  onChange={(e) => {
+                    setCurrentPage(1);
+                    setOwnerFilter(e.target.value);
+                  }}
+                  className="inline-flex h-9 max-w-[12rem] items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+                >
+                  <option value="">All customers</option>
+                  {props.currentUserId ? (
+                    <option value={props.currentUserId}>My customers</option>
+                  ) : null}
+                  <option disabled>──────────</option>
+                  {sameTenantUsers.map((u) => {
+                    const fullName = [u.firstName, u.lastName]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim();
+                    const label = fullName ? `${fullName} (${u.email})` : u.email;
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            ) : null}
             <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
               <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">Rows</label>
               <button
@@ -2262,13 +2342,25 @@ function CustomersPanel(props: {
           <div className="p-5"><EmptyBlock text={props.searchQuery ? `No customers matching "${props.searchQuery}".` : "No customers yet. Click 'New customer' to start."} /></div>
         ) : (
           <>
-            {/* Desktop header */}
-            <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
+            {/* Desktop header — master gets an extra Owner column. */}
+            <div
+              className={cn(
+                "hidden items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid",
+                isMaster
+                  ? "grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_60px_80px_100px_minmax(0,1fr)_64px]"
+                  : "grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px]",
+              )}
+            >
               <CustomerSortHeader label="Name" columnKey="name" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Phone</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Docs</div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Type</div>
               <CustomerSortHeader label="Created" columnKey="createdAt" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
+              {isMaster ? (
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                  Owner
+                </div>
+              ) : null}
               <div className="text-right">Actions</div>
             </div>
 
@@ -2307,7 +2399,14 @@ function CustomersPanel(props: {
                   key={c.id}
                   className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-blue-50/60 dark:bg-blue-500/10")}
                 >
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px] md:items-center">
+                  <div
+                    className={cn(
+                      "grid gap-3 md:items-center",
+                      isMaster
+                        ? "md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_60px_80px_100px_minmax(0,1fr)_64px]"
+                        : "md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px]",
+                    )}
+                  >
                     <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
                       <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">{c.fullName}</div>
                       {getDisplayEmail(c) ? (
@@ -2322,6 +2421,11 @@ function CustomersPanel(props: {
                       <CustomerTypeBadge type={c.customerType} />
                     </div>
                     <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(c.createdAt)}</div>
+                    {isMaster ? (
+                      <div className="min-w-0 truncate text-sm text-slate-600 dark:text-slate-300">
+                        {getOwnerLabel(c.user)}
+                      </div>
+                    ) : null}
                     <div className="flex justify-start lg:justify-end">
                       <CustomerListActions
                         deleting={props.customerActionId === c.id}
@@ -2382,6 +2486,7 @@ function CustomersPanel(props: {
           customer={props.customerDetail}
           isLoading={props.isDetailLoading}
           documents={props.documents}
+          isMaster={isMaster}
           onClose={props.onCloseCustomerDetail}
           onEdit={() => {
             if (props.customerDetail) {
@@ -2417,6 +2522,9 @@ function CustomersPanel(props: {
           mode="create"
           customer={null}
           initialType={createType}
+          isMaster={isMaster}
+          tenantUsers={props.tenantUsers}
+          currentUserId={props.currentUserId}
           onClose={() => setCreateOpen(false)}
           onSubmit={async (values) => {
             await props.onCreateCustomer(values);
@@ -2429,6 +2537,9 @@ function CustomersPanel(props: {
         <CustomerFormDrawer
           mode="edit"
           customer={editingCustomer}
+          isMaster={isMaster}
+          tenantUsers={props.tenantUsers}
+          currentUserId={props.currentUserId}
           onClose={() => setEditingCustomer(null)}
           onSubmit={async (values) => {
             await props.onUpdateCustomer(editingCustomer.id, values);
@@ -2948,6 +3059,7 @@ function CustomerViewDrawer({
   customer,
   isLoading,
   documents,
+  isMaster,
   onClose,
   onEdit,
   onCreateDocument,
@@ -2958,6 +3070,7 @@ function CustomerViewDrawer({
   customer: Customer | null;
   isLoading: boolean;
   documents: Doc[] | null;
+  isMaster: boolean;
   onClose: () => void;
   onEdit: () => void;
   onCreateDocument?: () => void;
@@ -3090,6 +3203,14 @@ function CustomerViewDrawer({
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                 {customer._count?.documents ?? 0} document
                 {(customer._count?.documents ?? 0) === 1 ? "" : "s"} linked
+              </p>
+            ) : null}
+            {customer && isMaster ? (
+              <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                Owner:{" "}
+                <span className="font-medium text-[color:var(--text-secondary)]">
+                  {getOwnerLabel(customer.user)}
+                </span>
               </p>
             ) : null}
           </div>
@@ -3558,12 +3679,18 @@ function CustomerFormDrawer({
   mode,
   customer,
   initialType,
+  isMaster,
+  tenantUsers,
+  currentUserId,
   onClose,
   onSubmit,
 }: {
   mode: "create" | "edit";
   customer: Customer | null;
   initialType?: "PERSONAL" | "BUSINESS";
+  isMaster: boolean;
+  tenantUsers: Props["users"];
+  currentUserId: string | null;
   onClose: () => void;
   onSubmit: (values: CustomerFormValues) => Promise<void>;
 }) {
@@ -3793,6 +3920,43 @@ function CustomerFormDrawer({
         ) : null}
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
+          {/* Assign-to (master only, create mode). Empty = backend resolver
+              defaults to currentUser. Selection is validated server-side
+              against the same companyProfileId. */}
+          {isMaster && mode === "create" ? (
+            <div className="mb-4 flex flex-col gap-1.5">
+              <label className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                Assign to
+              </label>
+              <select
+                value={values.userId}
+                onChange={(e) => update("userId", e.target.value)}
+                className="h-12 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition focus:border-blue-400 focus:bg-[color:var(--bg-elevated)]"
+              >
+                <option value="">
+                  Me{currentUserId ? "" : ""}
+                </option>
+                {(tenantUsers ?? [])
+                  .filter(
+                    (u) => u.status === "ACTIVE" && u.id !== currentUserId,
+                  )
+                  .map((u) => {
+                    const fullName = [u.firstName, u.lastName]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim();
+                    const label = fullName
+                      ? `${fullName} (${u.email})`
+                      : u.email;
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {label}
+                      </option>
+                    );
+                  })}
+              </select>
+            </div>
+          ) : null}
           {!isBusiness ? (
             <div className="grid gap-4">
               {/* Row 1 — Full name (full width) */}
@@ -4260,6 +4424,7 @@ function toCustomerFormValues(customer: Customer | null): CustomerFormValues {
     state: customer?.state ?? "",
     zipCode: customer?.zipCode ?? "",
     notes: customer?.notes ?? "",
+    userId: customer?.userId ?? "",
     business,
   };
 }
