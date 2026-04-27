@@ -1625,7 +1625,7 @@ export function DashboardSidebarDemo({
         }}
       />
       {documentSuccessMessage ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-[70] flex items-start justify-center md:items-center bg-slate-950/35 p-4">
           <button
             type="button"
             aria-label="Close document success popup"
@@ -3025,7 +3025,7 @@ function CustomerDeleteDialog({ customer, isDeleting, onCancel, onConfirm }: {
   onConfirm: () => void;
 }) {
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center md:items-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-dropdown)]">
         <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Delete customer?</h2>
         <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
@@ -3185,7 +3185,7 @@ function CustomerTypeSelectorDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/40 p-4"
     >
       <div className="w-full max-w-md rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
@@ -3286,7 +3286,7 @@ function UserSelectorDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/40 p-4"
     >
       <button
         type="button"
@@ -3494,7 +3494,7 @@ function CustomerDataOptionDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/40 p-4"
     >
       <button
         type="button"
@@ -3619,7 +3619,7 @@ function CustomerSelectDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/40 p-4"
     >
       <button
         type="button"
@@ -3775,7 +3775,7 @@ function BusinessDataSelectorDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/40 p-4"
     >
       <button
         type="button"
@@ -3884,7 +3884,7 @@ function TemplateSelectorDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/40 p-4"
     >
       <button
         type="button"
@@ -4154,7 +4154,7 @@ function CustomerViewDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center md:items-center bg-black/40 p-4">
       <button
         type="button"
         aria-label="Close drawer"
@@ -4818,7 +4818,7 @@ function CustomerFormDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center md:items-center bg-black/40 p-4">
       <button
         type="button"
         aria-label="Close drawer"
@@ -5278,7 +5278,7 @@ function CustomerFormDrawer({
         </div>
       </form>
       {confirmDialog ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[80] flex items-start justify-center md:items-center bg-slate-950/30 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
             <div className="text-lg font-semibold text-slate-950 dark:text-white">
               {confirmDialog.title}
@@ -5456,7 +5456,7 @@ function ForcePasswordChangeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[80] flex items-start justify-center md:items-center bg-slate-950/45 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
           Security
@@ -5761,7 +5761,7 @@ function BillingPanel({
       </div>
 
       {plansModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-start justify-center md:items-center bg-slate-950/55 p-4 backdrop-blur-sm">
           <button type="button" aria-label="Close plans modal" onClick={() => setPlansModalOpen(false)} className="absolute inset-0" />
           <div className="relative z-10 w-full max-w-4xl rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900 md:p-7">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -6316,7 +6316,7 @@ function ProfilePanel({
       <section className="grid gap-4">
         {/* Error / success popups — identical to MASTER */}
         {profileErrorMessage ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+          <div className="fixed inset-0 z-[70] flex items-start justify-center md:items-center bg-slate-950/35 p-4">
             <button type="button" aria-label="Close error popup" className="absolute inset-0" onClick={() => setProfileErrorMessage("")} />
             <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--danger-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
               <div className="text-lg font-semibold text-[color:var(--text-primary)]">Validation error</div>
@@ -6328,7 +6328,7 @@ function ProfilePanel({
           </div>
         ) : null}
         {profileSuccessMessage ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+          <div className="fixed inset-0 z-[70] flex items-start justify-center md:items-center bg-slate-950/35 p-4">
             <button type="button" aria-label="Close success popup" className="absolute inset-0" onClick={() => setProfileSuccessMessage("")} />
             <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--success-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
               <div className="text-lg font-semibold text-[color:var(--text-primary)]">Saved</div>
@@ -6464,7 +6464,7 @@ function ProfilePanel({
   return (
     <section className="grid gap-4">
       {profileErrorMessage ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-[70] flex items-start justify-center md:items-center bg-slate-950/35 p-4">
           <button
             type="button"
             aria-label="Close error popup"
@@ -6489,7 +6489,7 @@ function ProfilePanel({
         </div>
       ) : null}
       {profileSuccessMessage ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-[70] flex items-start justify-center md:items-center bg-slate-950/35 p-4">
           <button
             type="button"
             aria-label="Close success popup"
@@ -6816,7 +6816,7 @@ function ProfilePanel({
         </div>
       </div>
       {confirmDialog ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[80] flex items-start justify-center md:items-center bg-slate-950/30 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
             <div className="text-lg font-semibold text-slate-950 dark:text-white">{confirmDialog.title}</div>
             <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{confirmDialog.message}</p>
@@ -8012,7 +8012,7 @@ function DocumentViewer({
       </aside>
 
       {isPdfPreviewOpen && pdfPreviewUrl ? (
-        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div className="absolute inset-0 z-[70] flex items-start justify-center md:items-center bg-slate-950/70 p-4 backdrop-blur-sm">
           <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950 shadow-[0_28px_80px_rgba(10,18,32,0.55)]">
             <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
               <div>
