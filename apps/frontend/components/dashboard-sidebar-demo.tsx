@@ -658,6 +658,12 @@ export function DashboardSidebarDemo({
   const [targetUserDocumentTypes, setTargetUserDocumentTypes] = useState<
     DocumentTypeCatalogItem[] | null
   >(null);
+  // Whether the current pendingDraftCustomerId came from the in-flow
+  // CustomerSelectDialog (true) vs the kebab / customer-view shortcut
+  // (false). Drives where the BusinessDataSelector "Back" button returns
+  // to: pick-customer-again vs pick-template-again.
+  const [customerPickedViaDialog, setCustomerPickedViaDialog] =
+    useState(false);
   // CreateDraftDrawer lives here (not inside DocumentsPanel) so opening a
   // draft from the Customers section doesn't force an activeSection switch
   // away from Customers — user stays in whatever section they started from.
@@ -868,8 +874,10 @@ export function DashboardSidebarDemo({
   function handleCustomerSelected(customer: Customer) {
     setCustomerSelectorOpen(false);
     setPendingDraftCustomerId(customer.id);
-    // Re-enter the post-triple decision now that we have a customer locked
-    // — funnels into the BUSINESS branch when applicable.
+    // Mark this customer as picked-in-flow so the BusinessDataSelector's
+    // Back button can return to the customer picker (vs back to template,
+    // which is what the kebab/customer-view path would want).
+    setCustomerPickedViaDialog(true);
     if (customer.customerType === "BUSINESS") {
       setBusinessDataSelectorOpen(true);
       return;
@@ -972,6 +980,55 @@ export function DashboardSidebarDemo({
     setUserSelectorOpen(false);
   }
 
+  // Back-navigation handlers. Each closes the current modal and re-opens
+  // the immediately-previous one in the flow. They preserve any state
+  // already captured (template pick, target user, etc.) so the user can
+  // change just one step without redoing everything.
+  function backFromTemplateSelector() {
+    setTemplateSelectorOpen(false);
+    // Master flow: target user was picked first → re-open UserSelector.
+    // Non-master / customer-context: there's no prior step → fall through
+    // to cancel semantics (cleared state to avoid leaking).
+    if (user?.role === "MASTER") {
+      // Drop the cached target catalog so picking a different user
+      // refetches; we still keep the customer if any (kebab path).
+      setTargetUserDocumentTypes(null);
+      setPendingDraftTargetUserId(null);
+      setUserSelectorOpen(true);
+      return;
+    }
+    cancelTemplateSelector();
+  }
+
+  function backFromCustomerDataOption() {
+    setCustomerDataOptionOpen(false);
+    // Re-open the template picker so the user can change templates.
+    // Single-triple cases will see the lone option but the modal still
+    // serves as a confirm step.
+    setTemplateSelectorOpen(true);
+  }
+
+  function backFromCustomerSelector() {
+    setCustomerSelectorOpen(false);
+    setCustomerDataOptionOpen(true);
+  }
+
+  function backFromBusinessDataSelector() {
+    setBusinessDataSelectorOpen(false);
+    if (customerPickedViaDialog) {
+      // Documents-section flow — go back to the customer picker so the
+      // user can pick a different customer if they got the wrong one.
+      setPendingDraftCustomerId(null);
+      setCustomerPickedViaDialog(false);
+      setCustomerSelectorOpen(true);
+      return;
+    }
+    // Customer was pre-set (kebab / customer view) — back goes to the
+    // template picker. Customer stays locked since it was the entry
+    // point.
+    setTemplateSelectorOpen(true);
+  }
+
   function handleTemplateSelected(triple: DocumentDraftTriple) {
     setPendingDraftTriple(triple);
     setTemplateSelectorOpen(false);
@@ -1013,6 +1070,7 @@ export function DashboardSidebarDemo({
     if (pendingDataSource) setPendingDataSource(null);
     if (pendingDraftTargetUserId) setPendingDraftTargetUserId(null);
     if (targetUserDocumentTypes) setTargetUserDocumentTypes(null);
+    if (customerPickedViaDialog) setCustomerPickedViaDialog(false);
     // Belt-and-suspenders — these dialogs should already be closed by the
     // time the drawer renders, but if anything went sideways, clear them so
     // the next entry point starts from a clean slate.
@@ -1475,6 +1533,9 @@ export function DashboardSidebarDemo({
           triples={flattenDocumentTypeTriples(effectiveDocumentTypes)}
           onCancel={cancelTemplateSelector}
           onPick={handleTemplateSelected}
+          onBack={
+            user?.role === "MASTER" ? backFromTemplateSelector : undefined
+          }
         />
       ) : null}
       {businessDataSelectorOpen && pendingDraftCustomerId ? (() => {
@@ -1487,6 +1548,7 @@ export function DashboardSidebarDemo({
             customer={customer}
             onCancel={cancelBusinessDataSelector}
             onPick={handleDataSourceSelected}
+            onBack={backFromBusinessDataSelector}
           />
         );
       })() : null}
@@ -1496,12 +1558,20 @@ export function DashboardSidebarDemo({
           currentUserId={user?.id ?? null}
           onCancel={cancelUserSelector}
           onPick={(u) => void handleTargetUserSelected(u)}
+          onCreateBlank={() => {
+            // No target userId — master uses their own catalog (which is
+            // already in props.documentTypes); document.userId defaults to
+            // master.id at the backend.
+            setUserSelectorOpen(false);
+            proceedFromTriplePool(documentTypes, null);
+          }}
         />
       ) : null}
       {customerDataOptionOpen ? (
         <CustomerDataOptionDialog
           onCancel={cancelCustomerDataOption}
           onPick={handleCustomerDataOption}
+          onBack={backFromCustomerDataOption}
         />
       ) : null}
       {customerSelectorOpen ? (
@@ -1524,6 +1594,7 @@ export function DashboardSidebarDemo({
           }
           onCancel={cancelCustomerSelector}
           onPick={handleCustomerSelected}
+          onBack={backFromCustomerSelector}
         />
       ) : null}
       <CreateDraftDrawer
@@ -3175,16 +3246,26 @@ function UserSelectorDialog({
   currentUserId,
   onCancel,
   onPick,
+  onCreateBlank,
 }: {
   users: NonNullable<Props["users"]>;
   currentUserId: string | null;
   onCancel: () => void;
   onPick: (user: { id: string; role: string; email: string }) => void;
+  // "Create blank" — bypass user selection. Master proceeds with their own
+  // template catalog and the resulting Document.userId defaults to master.id.
+  onCreateBlank: () => void;
 }) {
+  const [view, setView] = useState<"options" | "list">("options");
   const [query, setQuery] = useState("");
+
   const eligibleUsers = useMemo(() => {
     return users.filter((u) => u.status === "ACTIVE");
   }, [users]);
+  const me = useMemo(
+    () => eligibleUsers.find((u) => u.id === currentUserId) ?? null,
+    [eligibleUsers, currentUserId],
+  );
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return eligibleUsers;
@@ -3220,11 +3301,12 @@ function UserSelectorDialog({
               New document
             </div>
             <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
-              Create on behalf of
+              {view === "options" ? "How do you want to start?" : "Pick a user"}
             </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Pick the user this document will belong to. The next steps use
-              that user's templates and customers.
+              {view === "options"
+                ? "Create blank, create for yourself, or pick another user to draft on behalf of."
+                : "Select the user this document will belong to. The next steps use that user's templates and customers."}
             </p>
           </div>
           <button
@@ -3236,70 +3318,152 @@ function UserSelectorDialog({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="border-b border-slate-200 px-6 py-4 dark:border-white/10">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, email or role"
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900"
-            />
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {filtered.length === 0 ? (
-            <EmptyBlock
-              text={
-                eligibleUsers.length === 0
-                  ? "No active users in this tenant."
-                  : `No users matching "${query}".`
-              }
-            />
-          ) : (
-            <div className="grid gap-2">
-              {filtered.map((u) => {
-                const fullName = [u.firstName, u.lastName]
-                  .filter(Boolean)
-                  .join(" ")
-                  .trim();
-                const label = fullName || u.email;
-                const isMe = u.id === currentUserId;
-                return (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => onPick({ id: u.id, role: u.role, email: u.email })}
-                    className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
-                  >
-                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-slate-200 transition group-hover:bg-blue-600 group-hover:text-white group-hover:ring-blue-600 dark:bg-white/10 dark:text-blue-400 dark:ring-white/10 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
-                      <UserRound className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
-                          {label}
-                        </div>
-                        {isMe ? (
-                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
-                            Me
-                          </span>
-                        ) : null}
-                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-700 dark:bg-white/10 dark:text-slate-300">
-                          {u.role.toLowerCase()}
-                        </span>
-                      </div>
-                      <div className="truncate text-xs text-slate-500 dark:text-slate-400">
-                        {u.email}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+
+        {view === "options" ? (
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="grid gap-3">
+              <button
+                type="button"
+                onClick={onCreateBlank}
+                className="group flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-amber-400 dark:hover:bg-amber-500/10"
+              >
+                <FilePlus className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    Create blank
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Skip ownership assignment. Document is owned by you and can
+                    be reassigned later.
+                  </div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (me) {
+                    onPick({ id: me.id, role: me.role, email: me.email });
+                  } else {
+                    // Master not in the tenantUsers list (edge case) — fall
+                    // back to the blank path; document.userId still defaults
+                    // to master.id at the backend.
+                    onCreateBlank();
+                  }
+                }}
+                className="group flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+              >
+                <UserRound className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    Create for me
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Use my own templates and customers. The document is owned
+                    by me.
+                  </div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                className="group flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-emerald-400 dark:hover:bg-emerald-500/10"
+              >
+                <Users className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    Select user
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Draft on behalf of a teammate. Their templates and
+                    customers will be used.
+                  </div>
+                </div>
+              </button>
             </div>
+          </div>
+        ) : (
+          <>
+            <div className="border-b border-slate-200 px-6 py-4 dark:border-white/10">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by name, email or role"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {filtered.length === 0 ? (
+                <EmptyBlock
+                  text={
+                    eligibleUsers.length === 0
+                      ? "No active users in this tenant."
+                      : `No users matching "${query}".`
+                  }
+                />
+              ) : (
+                <div className="grid gap-2">
+                  {filtered.map((u) => {
+                    const fullName = [u.firstName, u.lastName]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim();
+                    const label = fullName || u.email;
+                    const isMe = u.id === currentUserId;
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() =>
+                          onPick({ id: u.id, role: u.role, email: u.email })
+                        }
+                        className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                      >
+                        <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-slate-200 transition group-hover:bg-blue-600 group-hover:text-white group-hover:ring-blue-600 dark:bg-white/10 dark:text-blue-400 dark:ring-white/10 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                          <UserRound className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                              {label}
+                            </div>
+                            {isMe ? (
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                                Me
+                              </span>
+                            ) : null}
+                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                              {u.role.toLowerCase()}
+                            </span>
+                          </div>
+                          <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                            {u.email}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-white/10">
+          {view === "list" ? (
+            <button
+              type="button"
+              onClick={() => setView("options")}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
           )}
-        </div>
-        <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-white/10">
           <button
             type="button"
             onClick={onCancel}
@@ -3320,9 +3484,11 @@ function UserSelectorDialog({
 function CustomerDataOptionDialog({
   onCancel,
   onPick,
+  onBack,
 }: {
   onCancel: () => void;
   onPick: (option: "customer" | "blank") => void;
+  onBack?: () => void;
 }) {
   return (
     <div
@@ -3375,7 +3541,19 @@ function CustomerDataOptionDialog({
             </div>
           </button>
         </div>
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex items-center justify-between">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={onCancel}
@@ -3397,11 +3575,13 @@ function CustomerSelectDialog({
   customers,
   onCancel,
   onPick,
+  onBack,
   emptyHint,
 }: {
   customers: Customer[];
   onCancel: () => void;
   onPick: (customer: Customer) => void;
+  onBack?: () => void;
   // Override copy when the source list is empty (e.g. master picked a user
   // who has no customers yet → "User X has no saved customers" beats the
   // generic "No customers saved").
@@ -3540,7 +3720,19 @@ function CustomerSelectDialog({
             </div>
           )}
         </div>
-        <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-white/10">
+        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-white/10">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={onCancel}
@@ -3558,10 +3750,12 @@ function BusinessDataSelectorDialog({
   customer,
   onCancel,
   onPick,
+  onBack,
 }: {
   customer: Customer;
   onCancel: () => void;
   onPick: (source: CustomerDataSource) => void;
+  onBack?: () => void;
 }) {
   const b = customer.business;
   const businessSubtitle = [
@@ -3634,7 +3828,19 @@ function BusinessDataSelectorDialog({
             </div>
           </button>
         </div>
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex items-center justify-between">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={onCancel}
@@ -3652,10 +3858,12 @@ function TemplateSelectorDialog({
   triples,
   onCancel,
   onPick,
+  onBack,
 }: {
   triples: DocumentDraftTriple[];
   onCancel: () => void;
   onPick: (triple: DocumentDraftTriple) => void;
+  onBack?: () => void;
 }) {
   // Group by document type so visually-similar triples stay together when the
   // same document type has multiple form definitions or signature templates.
@@ -3735,7 +3943,19 @@ function TemplateSelectorDialog({
             </div>
           ))}
         </div>
-        <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-white/10">
+        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-white/10">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={onCancel}
