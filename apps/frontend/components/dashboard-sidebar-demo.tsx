@@ -1222,6 +1222,18 @@ export function DashboardSidebarDemo({
                               <ClipboardList className="h-4 w-4" />
                               <span>Access requests</span>
                             </button>
+                            <Link
+                              href="/dashboard/admin/form-definitions"
+                              onClick={() => {
+                                if (window.innerWidth < 1280) {
+                                  setOpen(false);
+                                }
+                              }}
+                              className="flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]"
+                            >
+                              <FileJson className="h-4 w-4" />
+                              <span>Form Definitions</span>
+                            </Link>
                           </div>
                         ) : null}
                       </div>

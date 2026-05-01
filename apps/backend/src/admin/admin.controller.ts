@@ -24,6 +24,13 @@ import { CreateUserDocumentConfigDto } from './dto/create-user-document-config.d
 export class AdminController {
   constructor(private adminService: AdminService) {}
 
+  // ── DocumentType endpoints (read-only helpers for admin UI) ──────────────
+
+  @Get('document-types')
+  async listDocumentTypes(@Req() req: any) {
+    return this.adminService.listDocumentTypes(req.user.id);
+  }
+
   // ── FormDefinition endpoints ─────────────────────────────────────────────
 
   @Post('form-definitions')
