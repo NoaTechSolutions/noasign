@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save, Trash2, X, Loader2 } from "lucide-react";
 import { adminApi, type DocumentTypeRef } from "../../lib/admin-api";
+import { validateDocumentSchema } from "../../lib/schema-validator";
 import {
   FormDefinitionMetaFields,
   type FormDefinitionMeta,
@@ -98,32 +99,27 @@ export function FormDefinitionEditor(props: FormDefinitionEditorProps) {
     };
   }, [isEdit, props.id]);
 
-  const parseResult = useMemo(() => {
-    try {
-      return { value: JSON.parse(schemaText) as unknown, error: null as string | null };
-    } catch (err) {
-      return { value: null, error: err instanceof Error ? err.message : "Invalid JSON" };
-    }
-  }, [schemaText]);
+  const validation = useMemo(() => validateDocumentSchema(schemaText), [schemaText]);
 
   const canSave =
     !saving &&
     !initialLoading &&
     meta.name.trim().length > 0 &&
     meta.documentTypeId.length > 0 &&
-    parseResult.error === null;
+    validation.valid;
 
   const handleSave = useCallback(async () => {
     if (!canSave) return;
     setSaving(true);
     setSaveError(null);
     try {
+      // Validation passed → JSON is parseable; this parse cannot throw.
       const payload = {
         name: meta.name.trim(),
         documentTypeId: meta.documentTypeId,
         description: meta.description.trim() || undefined,
         isActive: meta.isActive,
-        schemaJson: parseResult.value,
+        schemaJson: JSON.parse(schemaText) as unknown,
       };
       if (isEdit) {
         await adminApi.updateFormDefinition(props.id, payload);
@@ -136,7 +132,7 @@ export function FormDefinitionEditor(props: FormDefinitionEditorProps) {
     } finally {
       setSaving(false);
     }
-  }, [canSave, meta, parseResult.value, isEdit, props, router]);
+  }, [canSave, meta, schemaText, isEdit, props, router]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!isEdit) return;
@@ -230,7 +226,7 @@ export function FormDefinitionEditor(props: FormDefinitionEditorProps) {
         <JsonSchemaEditor
           value={schemaText}
           onChange={setSchemaText}
-          parseError={parseResult.error}
+          errors={validation.errors}
           disabled={saving}
         />
       </div>
