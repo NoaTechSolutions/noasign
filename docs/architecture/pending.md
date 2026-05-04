@@ -35,7 +35,7 @@ Replaces hardcoded form fields with a fully dynamic, schema-based system. Enable
 | Backend: admin endpoints SignatureTemplate CRUD | NOA-50 | Feature | High | POST/GET/PATCH/DELETE `/admin/signature-templates` |
 | Backend: admin endpoint UserDocumentConfig assignment | NOA-51 | Feature | High | POST/DELETE `/admin/users/:id/document-configs` |
 | Frontend: Dynamic document form renderer | NOA-52 | Feature | Urgent | Reemplaza form hardcodeado. Lee `schemaJson`, renderiza campos por `type` |
-| Frontend: Admin panel — FormDefinition manager | NOA-53 | Feature | High | Editor JSON + preview de campos. Solo visible para MASTER global |
+| Frontend: Admin panel — FormDefinition manager | NOA-53 | Feature | Medium | ⏸️ **PAUSED** — Onboarding via DB scripts hasta tener volumen. Phase 1: validation ✅ (760bb96). Phase 2: preview component creado pero con bug rendering (no se usa en prod). Se retoma cuando volumen de clientes justifique UI. |
 | Frontend: Admin panel — SignatureTemplate manager | NOA-54 | Feature | High | Crear/editar templates con providerTemplateId + fieldMappingJson |
 | Frontend: Admin panel — UserDocumentConfig assignments | NOA-55 | Feature | High | Asignar form+template a cada usuario por tipo de documento |
 
