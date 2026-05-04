@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { Save, Trash2, X, Loader2 } from "lucide-react";
 import { adminApi, type DocumentTypeRef } from "../../lib/admin-api";
 import { validateDocumentSchema } from "../../lib/schema-validator";
+import type { DocumentSchema } from "../document-form-renderer";
 import {
   FormDefinitionMetaFields,
   type FormDefinitionMeta,
 } from "./form-definition-meta-fields";
 import { JsonSchemaEditor } from "./json-schema-editor";
+import { SchemaPreview } from "./schema-preview";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 
 const EMPTY_META: FormDefinitionMeta = {
@@ -100,6 +102,25 @@ export function FormDefinitionEditor(props: FormDefinitionEditorProps) {
   }, [isEdit, props.id]);
 
   const validation = useMemo(() => validateDocumentSchema(schemaText), [schemaText]);
+
+  // Preview is debounced 500ms — validation/canSave run on every keystroke
+  // (instant feedback in the editor) while the rendered preview only updates
+  // after the user pauses typing (avoids re-rendering many fields per keystroke).
+  const [debouncedText, setDebouncedText] = useState(schemaText);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedText(schemaText), 500);
+    return () => clearTimeout(t);
+  }, [schemaText]);
+
+  const previewSchema = useMemo<DocumentSchema | null>(() => {
+    const result = validateDocumentSchema(debouncedText);
+    if (!result.valid) return null;
+    try {
+      return JSON.parse(debouncedText) as DocumentSchema;
+    } catch {
+      return null;
+    }
+  }, [debouncedText]);
 
   const canSave =
     !saving &&
@@ -223,12 +244,15 @@ export function FormDefinitionEditor(props: FormDefinitionEditorProps) {
           documentTypesLoading={docTypesLoading}
           disabled={saving}
         />
-        <JsonSchemaEditor
-          value={schemaText}
-          onChange={setSchemaText}
-          errors={validation.errors}
-          disabled={saving}
-        />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 min-w-0">
+          <JsonSchemaEditor
+            value={schemaText}
+            onChange={setSchemaText}
+            errors={validation.errors}
+            disabled={saving}
+          />
+          <SchemaPreview schema={previewSchema} errors={validation.errors} />
+        </div>
       </div>
 
       <DeleteConfirmDialog

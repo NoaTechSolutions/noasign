@@ -139,7 +139,7 @@ function iconForType(type: FieldType) {
 
 // ── Primitive field components ────────────────────────────────────────────────
 
-function BaseField({
+export function BaseField({
   label,
   icon,
   error,
@@ -177,7 +177,7 @@ function BaseField({
   );
 }
 
-function RendererField({
+export function RendererField({
   field,
   value,
   error,
