@@ -16,6 +16,10 @@ export interface FieldValidation {
   isEmail?: boolean;
 }
 
+export type AutoCalculateConfig =
+  | { type: "sum"; fields: string[] }
+  | { type: "copy"; source: string };
+
 export interface SchemaField {
   key: string;
   label: string;
@@ -30,6 +34,10 @@ export interface SchemaField {
   copyFrom?: string;
   /** Show field only when this toggle key is enabled */
   showWhen?: string;
+  /** Initial value applied when no initialValue is provided */
+  defaultValue?: string;
+  /** When set, the field becomes readonly and is auto-calculated from other fields */
+  autoCalculate?: AutoCalculateConfig;
 }
 
 export interface SectionToggle {
@@ -131,22 +139,32 @@ function iconForType(type: FieldType) {
 
 // ── Primitive field components ────────────────────────────────────────────────
 
-function BaseField({
+export function BaseField({
   label,
   icon,
   error,
+  computed,
   children,
 }: {
   label: string;
   icon?: React.ReactNode;
   error?: string;
+  computed?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
         {icon ? <span className="text-[color:var(--text-muted)]">{icon}</span> : null}
-        {label}
+        <span>{label}</span>
+        {computed ? (
+          <span
+            className="ml-auto rounded-full border border-[color:var(--brand-accent)]/40 bg-[color:var(--brand-accent)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[color:var(--brand-accent)]"
+            title="Auto-calculated from other fields"
+          >
+            computed
+          </span>
+        ) : null}
       </div>
       {children}
       {error ? (
@@ -159,11 +177,12 @@ function BaseField({
   );
 }
 
-function RendererField({
+export function RendererField({
   field,
   value,
   error,
   disabled,
+  computed,
   minDate,
   onChange,
 }: {
@@ -171,28 +190,31 @@ function RendererField({
   value: string;
   error?: string;
   disabled?: boolean;
+  computed?: boolean;
   minDate?: string;
   onChange: (value: string) => void;
 }) {
   const icon = iconForType(field.type);
+  // Computed fields are always readonly — disable interaction without losing the computed badge
+  const effectiveDisabled = disabled || computed;
   const inputClass = cn(
     "mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
     error && "border-[color:var(--danger-border)] focus:border-[color:var(--button-danger)]",
-    disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
+    effectiveDisabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
   );
 
   if (field.type === "textarea") {
     return (
-      <BaseField label={field.label} icon={icon} error={error}>
+      <BaseField label={field.label} icon={icon} error={error} computed={computed}>
         <textarea
           value={value}
           placeholder={field.placeholder}
-          disabled={disabled}
+          disabled={effectiveDisabled}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
             "mt-3 min-h-28 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
             error && "border-[color:var(--danger-border)] focus:border-[color:var(--button-danger)]",
-            disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
+            effectiveDisabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
           )}
         />
       </BaseField>
@@ -201,12 +223,12 @@ function RendererField({
 
   if (field.type === "currency") {
     return (
-      <BaseField label={field.label} icon={icon} error={error}>
+      <BaseField label={field.label} icon={icon} error={error} computed={computed}>
         <div
           className={cn(
             "mt-3 flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 transition focus-within:border-[color:var(--brand-accent)]",
             error && "border-[color:var(--danger-border)] focus-within:border-[color:var(--button-danger)]",
-            disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] opacity-80",
+            effectiveDisabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] opacity-80",
           )}
         >
           <span className="mr-3 text-sm font-semibold text-[color:var(--text-secondary)]">$</span>
@@ -215,7 +237,7 @@ function RendererField({
             inputMode="decimal"
             value={value}
             placeholder={field.placeholder}
-            disabled={disabled}
+            disabled={effectiveDisabled}
             onChange={(e) => onChange(applyTransform(e.target.value, "currency"))}
             className="h-full w-full bg-transparent text-sm text-[color:var(--text-primary)] outline-none placeholder:text-[color:var(--text-muted)]"
           />
@@ -227,13 +249,13 @@ function RendererField({
   if (field.type === "number") {
     const numMaxLength = MAX_2_DIGITS_KEYS.has(field.key) ? 2 : field.validation?.maxLength;
     return (
-      <BaseField label={field.label} icon={icon} error={error}>
+      <BaseField label={field.label} icon={icon} error={error} computed={computed}>
         <input
           type="text"
           inputMode="numeric"
           value={value}
           placeholder={field.placeholder}
-          disabled={disabled}
+          disabled={effectiveDisabled}
           onChange={(e) => onChange(applyDigitsOnly(e.target.value, numMaxLength))}
           className={inputClass}
         />
@@ -243,13 +265,13 @@ function RendererField({
 
   if (field.type === "phone") {
     return (
-      <BaseField label={field.label} icon={icon} error={error}>
+      <BaseField label={field.label} icon={icon} error={error} computed={computed}>
         <input
           type="text"
           inputMode="tel"
           value={value}
           placeholder={field.placeholder}
-          disabled={disabled}
+          disabled={effectiveDisabled}
           onChange={(e) => onChange(applyTransform(e.target.value, "phone"))}
           className={inputClass}
         />
@@ -259,11 +281,11 @@ function RendererField({
 
   if (field.type === "date") {
     return (
-      <BaseField label={field.label} icon={icon} error={error}>
+      <BaseField label={field.label} icon={icon} error={error} computed={computed}>
         <input
           type="date"
           value={value}
-          disabled={disabled}
+          disabled={effectiveDisabled}
           min={minDate}
           onChange={(e) => onChange(e.target.value)}
           className={inputClass}
@@ -274,13 +296,13 @@ function RendererField({
 
   // text | email — same rendering
   return (
-    <BaseField label={field.label} icon={icon} error={error}>
+    <BaseField label={field.label} icon={icon} error={error} computed={computed}>
       <input
         type="text"
         inputMode={field.type === "email" ? "email" : "text"}
         value={value}
         placeholder={field.placeholder}
-        disabled={disabled}
+        disabled={effectiveDisabled}
         onChange={(e) => {
           let next = e.target.value;
           if (LETTERS_ONLY_KEYS.has(field.key) || NO_DIGITS_KEYS.has(field.key)) {
@@ -333,17 +355,86 @@ export function DocumentFormRenderer({
 
   const [fields, setFields] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
-    for (const key of allFieldKeys) {
-      initial[key] = initialValues?.[key] ?? "";
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        // Computed fields are derived — never seed them from initialValues/defaultValue
+        if (field.autoCalculate) {
+          initial[field.key] = "";
+          continue;
+        }
+        const provided = initialValues?.[field.key];
+        if (provided !== undefined && provided !== "") {
+          initial[field.key] = provided;
+        } else if (field.defaultValue !== undefined) {
+          initial[field.key] = field.defaultValue;
+        } else {
+          initial[field.key] = "";
+        }
+      }
     }
     return initial;
   });
 
+  // ── Computed values (2-pass: sum first, then copy) ────────────────────────
+  // Currency-typed computed values are normalized to two decimals; other types pass through.
+  const computedValues = useMemo(() => {
+    const all: Record<string, string> = { ...fields };
+
+    function toNumber(raw: string | undefined): number {
+      if (!raw) return 0;
+      const n = parseFloat(raw);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function format(field: SchemaField, n: number): string {
+      return field.type === "currency" || field.type === "number"
+        ? n.toFixed(2)
+        : String(n);
+    }
+
+    // Pass 1 — sum
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        if (field.autoCalculate?.type === "sum") {
+          const total = field.autoCalculate.fields.reduce(
+            (acc, key) => acc + toNumber(all[key]),
+            0,
+          );
+          all[field.key] = format(field, total);
+        }
+      }
+    }
+
+    // Pass 2 — copy (may reference a sum result from pass 1)
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        if (field.autoCalculate?.type === "copy") {
+          const sourceValue = toNumber(all[field.autoCalculate.source]);
+          all[field.key] = format(field, sourceValue);
+        }
+      }
+    }
+
+    return all;
+  }, [fields, schema]);
+
   // ── Dirty tracking + cancel confirmation ──────────────────────────────────
 
   const isDirty = useMemo(
-    () => allFieldKeys.some((key) => (fields[key] ?? "") !== (initialValues?.[key] ?? "")),
-    [fields, allFieldKeys, initialValues],
+    () =>
+      schema.sections.some((section) =>
+        section.fields.some((field) => {
+          // Computed fields are derived — never count as dirty
+          if (field.autoCalculate) return false;
+          const current = fields[field.key] ?? "";
+          const baseline =
+            initialValues?.[field.key] !== undefined && initialValues[field.key] !== ""
+              ? initialValues[field.key]
+              : (field.defaultValue ?? "");
+          return current !== baseline;
+        }),
+      ),
+    [fields, schema, initialValues],
   );
 
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -386,6 +477,29 @@ export function DocumentFormRenderer({
     return initial;
   });
 
+  // Resolve the display/submit value for a field, honoring autoCalculate + copyFrom
+  function resolveValue(
+    field: SchemaField,
+    sectionKey: string,
+  ): { value: string; isComputed: boolean; isDisabledByCopy: boolean } {
+    if (field.autoCalculate) {
+      return { value: computedValues[field.key] ?? "", isComputed: true, isDisabledByCopy: false };
+    }
+    const copyOn = copyToggles[sectionKey] ?? false;
+    if (field.copyFrom && copyOn && fields[field.copyFrom]?.trim()) {
+      return {
+        value: fields[field.copyFrom] ?? "",
+        isComputed: false,
+        isDisabledByCopy: true,
+      };
+    }
+    return {
+      value: fields[field.key] ?? "",
+      isComputed: false,
+      isDisabledByCopy: false,
+    };
+  }
+
   // ── Validation ─────────────────────────────────────────────────────────────
 
   function getSectionFieldErrors(sectionKey: string): Record<string, string> {
@@ -396,6 +510,9 @@ export function DocumentFormRenderer({
     const copyOn = copyToggles[sectionKey] ?? false;
 
     for (const field of section.fields) {
+      // Computed fields are derived — never validated as user input
+      if (field.autoCalculate) continue;
+
       // Skip hidden fields
       if (field.showWhen) {
         const toggleOn = customToggles[`${sectionKey}:${field.showWhen}`] ?? false;
@@ -498,6 +615,12 @@ export function DocumentFormRenderer({
       const copyOn = copyToggles[section.key] ?? false;
 
       for (const field of section.fields) {
+        // Computed fields always use the latest derived value
+        if (field.autoCalculate) {
+          dataJson[field.key] = computedValues[field.key] ?? "";
+          continue;
+        }
+
         // Skip fields hidden by toggle
         if (field.showWhen) {
           const toggleOn = customToggles[`${section.key}:${field.showWhen}`] ?? false;
@@ -688,19 +811,15 @@ export function DocumentFormRenderer({
             {fieldGroups.map((group, groupIndex) => {
               if (group.length === 1) {
                 const field = group[0]!;
-                const isDisabledByCopy =
-                  field.copyFrom && copyOn && !!fields[field.copyFrom]?.trim();
+                const resolved = resolveValue(field, activeSectionDef.key);
                 return (
                   <RendererField
                     key={field.key}
                     field={field}
-                    value={
-                      isDisabledByCopy
-                        ? (fields[field.copyFrom!] ?? "")
-                        : (fields[field.key] ?? "")
-                    }
+                    value={resolved.value}
                     error={errors[field.key]}
-                    disabled={!!isDisabledByCopy}
+                    disabled={resolved.isDisabledByCopy}
+                    computed={resolved.isComputed}
                     minDate={getMinDate(field)}
                     onChange={(value) => {
                       setErrors((current) => {
@@ -720,19 +839,15 @@ export function DocumentFormRenderer({
               return (
                 <div key={`group-${groupIndex}`} className={`grid gap-3 ${colsClass}`}>
                   {group.map((field) => {
-                    const isDisabledByCopy =
-                      field.copyFrom && copyOn && !!fields[field.copyFrom]?.trim();
+                    const resolved = resolveValue(field, activeSectionDef.key);
                     return (
                       <RendererField
                         key={field.key}
                         field={field}
-                        value={
-                          isDisabledByCopy
-                            ? (fields[field.copyFrom!] ?? "")
-                            : (fields[field.key] ?? "")
-                        }
+                        value={resolved.value}
                         error={errors[field.key]}
-                        disabled={!!isDisabledByCopy}
+                        disabled={resolved.isDisabledByCopy}
+                        computed={resolved.isComputed}
                         minDate={getMinDate(field)}
                         onChange={(value) => {
                           setErrors((current) => {

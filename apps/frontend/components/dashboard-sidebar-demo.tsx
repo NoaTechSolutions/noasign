@@ -1222,6 +1222,18 @@ export function DashboardSidebarDemo({
                               <ClipboardList className="h-4 w-4" />
                               <span>Access requests</span>
                             </button>
+                            <Link
+                              href="/dashboard/admin/form-definitions"
+                              onClick={() => {
+                                if (window.innerWidth < 1280) {
+                                  setOpen(false);
+                                }
+                              }}
+                              className="flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]"
+                            >
+                              <FileJson className="h-4 w-4" />
+                              <span>Form Definitions</span>
+                            </Link>
                           </div>
                         ) : null}
                       </div>
@@ -3181,11 +3193,21 @@ function CustomerTypeSelectorDialog({
   onCancel: () => void;
   onPick: (type: "PERSONAL" | "BUSINESS") => void;
 }) {
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/60 backdrop-blur p-4 pt-20 md:pt-0"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
       <div className="w-full max-w-md rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
@@ -3282,18 +3304,22 @@ function UserSelectorDialog({
     });
   }, [eligibleUsers, query]);
 
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/60 backdrop-blur p-4 pt-20 md:pt-0"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onCancel}
-        className="absolute inset-0 cursor-default"
-      />
       <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
           <div>
@@ -3490,18 +3516,22 @@ function CustomerDataOptionDialog({
   onPick: (option: "customer" | "blank") => void;
   onBack?: () => void;
 }) {
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/60 backdrop-blur p-4 pt-20 md:pt-0"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onCancel}
-        className="absolute inset-0 cursor-default"
-      />
       <div className="relative w-full max-w-lg rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
         <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
           New document
@@ -3615,18 +3645,22 @@ function CustomerSelectDialog({
     });
   }, [customers, query, typeFilter]);
 
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/60 backdrop-blur p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onCancel}
-        className="absolute inset-0 cursor-default"
-      />
       <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
           <div>
@@ -3771,18 +3805,22 @@ function BusinessDataSelectorDialog({
       .filter(Boolean)
       .join(" · ") || "—";
 
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/60 backdrop-blur p-4 pt-20 md:pt-0"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onCancel}
-        className="absolute inset-0 cursor-default"
-      />
       <div className="relative w-full max-w-lg rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
         <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
           Pre-fill source
@@ -3880,18 +3918,22 @@ function TemplateSelectorDialog({
     return Array.from(map.values());
   }, [triples]);
 
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[60] flex items-start justify-center md:items-center bg-black/60 backdrop-blur p-4 pt-20 md:pt-0"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onCancel}
-        className="absolute inset-0 cursor-default"
-      />
       <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
           <div>

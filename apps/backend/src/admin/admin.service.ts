@@ -31,6 +31,17 @@ export class AdminService {
     return user;
   }
 
+  // ── DocumentType (read-only helpers for admin UI) ────────────────────────
+
+  async listDocumentTypes(userId: string) {
+    await this.assertRootMaster(userId);
+
+    return this.prisma.documentType.findMany({
+      select: { id: true, code: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   // ── FormDefinition CRUD ──────────────────────────────────────────────────
 
   async createFormDefinition(userId: string, dto: CreateFormDefinitionDto) {
@@ -61,7 +72,10 @@ export class AdminService {
 
     return this.prisma.formDefinition.findMany({
       where: documentTypeId ? { documentTypeId } : undefined,
-      include: { documentType: true },
+      include: {
+        documentType: true,
+        _count: { select: { userConfigs: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
