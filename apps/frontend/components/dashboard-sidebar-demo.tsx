@@ -1136,7 +1136,7 @@ export function DashboardSidebarDemo({
   }
 
   return (
-    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row xl:overflow-visible">
+    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 md:flex-row xl:overflow-visible">
       <Sidebar open={open} setOpen={setOpen}>
         <SidebarBody className="justify-between gap-3 xl:gap-8">
           <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-hidden">
