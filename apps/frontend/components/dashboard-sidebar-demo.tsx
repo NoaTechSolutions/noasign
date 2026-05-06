@@ -163,6 +163,70 @@ function flattenDocumentTypeTriples(
   return out;
 }
 
+// NOA-268 — TemplateSelectorDialog 2-step UX. Step 1 lets the user pick a
+// FormDefinition (with search + field count); step 2 narrows down to a
+// SignatureTemplate compatible with that FormDef's documentType. If a FormDef
+// has only one compatible SignatureTemplate the modal auto-picks (invisible
+// step). FormDefs with zero compatible templates are filtered out — the user
+// would have nothing to pick on step 2.
+type FormDefOption = {
+  id: string;
+  name: string;
+  documentTypeId: string;
+  documentTypeName: string;
+  fieldCount: number;
+  triples: DocumentDraftTriple[];
+};
+
+// schemaJson can take two shapes today: a flat field array (legacy) or a
+// sectioned object `{sections: [{fields: [...]}]}`. Sum across whichever
+// matches; unknown shapes report 0 rather than throwing.
+function countSchemaFields(schemaJson: unknown): number {
+  if (!schemaJson) return 0;
+  if (Array.isArray(schemaJson)) return schemaJson.length;
+  if (typeof schemaJson === "object" && schemaJson !== null) {
+    const sections = (schemaJson as { sections?: unknown }).sections;
+    if (Array.isArray(sections)) {
+      return sections.reduce<number>((acc, section) => {
+        if (section && typeof section === "object") {
+          const fields = (section as { fields?: unknown }).fields;
+          if (Array.isArray(fields)) return acc + fields.length;
+        }
+        return acc;
+      }, 0);
+    }
+  }
+  return 0;
+}
+
+function buildFormDefOptions(
+  documentTypes: DocumentTypeCatalogItem[],
+): FormDefOption[] {
+  const out: FormDefOption[] = [];
+  for (const dt of documentTypes) {
+    for (const fd of dt.formDefinitions) {
+      const triples: DocumentDraftTriple[] = dt.signatureTemplates.map((st) => ({
+        documentTypeId: dt.id,
+        documentTypeName: dt.name,
+        formDefinitionId: fd.id,
+        formDefinitionName: fd.name,
+        signatureTemplateId: st.id,
+        signatureTemplateName: st.name,
+      }));
+      if (triples.length === 0) continue;
+      out.push({
+        id: fd.id,
+        name: fd.name,
+        documentTypeId: dt.id,
+        documentTypeName: dt.name,
+        fieldCount: countSchemaFields(fd.schemaJson),
+        triples,
+      });
+    }
+  }
+  return out;
+}
+
 type CustomerBusiness = {
   id: string;
   customerId: string;
@@ -1542,7 +1606,7 @@ export function DashboardSidebarDemo({
       />
       {templateSelectorOpen ? (
         <TemplateSelectorDialog
-          triples={flattenDocumentTypeTriples(effectiveDocumentTypes)}
+          formDefOptions={buildFormDefOptions(effectiveDocumentTypes)}
           onCancel={cancelTemplateSelector}
           onPick={handleTemplateSelected}
           onBack={
@@ -3893,30 +3957,41 @@ function BusinessDataSelectorDialog({
 }
 
 function TemplateSelectorDialog({
-  triples,
+  formDefOptions,
   onCancel,
   onPick,
   onBack,
 }: {
-  triples: DocumentDraftTriple[];
+  formDefOptions: FormDefOption[];
   onCancel: () => void;
   onPick: (triple: DocumentDraftTriple) => void;
   onBack?: () => void;
 }) {
-  // Group by document type so visually-similar triples stay together when the
-  // same document type has multiple form definitions or signature templates.
-  const grouped = useMemo(() => {
-    const map = new Map<string, { name: string; items: DocumentDraftTriple[] }>();
-    for (const t of triples) {
-      const existing = map.get(t.documentTypeId);
-      if (existing) {
-        existing.items.push(t);
-      } else {
-        map.set(t.documentTypeId, { name: t.documentTypeName, items: [t] });
-      }
-    }
-    return Array.from(map.values());
-  }, [triples]);
+  // Skip step 1 entirely if there's only one FormDef option — keeps UX
+  // identical to the legacy single-step modal for users with one form
+  // available (e.g. regular users with a single UserDocumentConfig).
+  const [selectedFormDefId, setSelectedFormDefId] = useState<string | null>(
+    formDefOptions.length === 1 ? formDefOptions[0].id : null,
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const selectedFormDef = useMemo(
+    () => formDefOptions.find((f) => f.id === selectedFormDefId) ?? null,
+    [formDefOptions, selectedFormDefId],
+  );
+
+  const filteredFormDefs = useMemo(() => {
+    const sorted = [...formDefOptions].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        f.documentTypeName.toLowerCase().includes(q),
+    );
+  }, [formDefOptions, searchQuery]);
 
   // Lock body scroll while open. Click on the backdrop does NOT close —
   // closing requires the X button or an explicit action.
@@ -3928,6 +4003,29 @@ function TemplateSelectorDialog({
     };
   }, []);
 
+  // Auto-pick the triple when the chosen FormDef has only one compatible
+  // SignatureTemplate (invisible step 2 per spec).
+  const handleFormDefClick = (option: FormDefOption) => {
+    if (option.triples.length === 1) {
+      onPick(option.triples[0]);
+      return;
+    }
+    setSelectedFormDefId(option.id);
+  };
+
+  // Back routes step 2 → step 1 when there's >1 FormDef to go back to,
+  // otherwise to the outer flow's onBack (e.g. master returning to
+  // UserSelectorDialog). null hides the Back button.
+  const backAction = (() => {
+    if (selectedFormDef && formDefOptions.length > 1) {
+      return () => setSelectedFormDefId(null);
+    }
+    if (onBack) return onBack;
+    return null;
+  })();
+
+  const isStep2 = selectedFormDef !== null;
+
   return (
     <div
       role="dialog"
@@ -3936,15 +4034,17 @@ function TemplateSelectorDialog({
     >
       <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
-          <div>
+          <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
               New document
             </div>
             <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
-              Choose a template
+              {isStep2 ? "Choose a signature template" : "Choose a form"}
             </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Pick the document type and template you want to start from.
+            <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">
+              {isStep2
+                ? `Form: ${selectedFormDef!.name} · ${selectedFormDef!.documentTypeName}`
+                : "Pick the form you want to start from. You can search by name or document type."}
             </p>
           </div>
           <button
@@ -3956,40 +4056,87 @@ function TemplateSelectorDialog({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-          {grouped.map((group) => (
-            <div key={group.name}>
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                {group.name}
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {group.items.map((t) => (
-                  <button
-                    key={`${t.documentTypeId}:${t.formDefinitionId}:${t.signatureTemplateId}`}
-                    type="button"
-                    onClick={() => onPick(t)}
-                    className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
-                  >
-                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-slate-200 transition group-hover:bg-blue-600 group-hover:text-white group-hover:ring-blue-600 dark:bg-white/10 dark:text-blue-400 dark:ring-white/10 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                      {t.signatureTemplateName}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      Form: {t.formDefinitionName}
-                    </div>
-                  </button>
-                ))}
+
+        {!isStep2 ? (
+          <>
+            <div className="border-b border-slate-200 px-6 py-4 dark:border-white/10">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by form or document type"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900"
+                />
               </div>
             </div>
-          ))}
-        </div>
+            <div className="flex-1 overflow-y-auto">
+              {filteredFormDefs.length === 0 ? (
+                <div className="px-6 py-5">
+                  <EmptyBlock
+                    text={
+                      formDefOptions.length === 0
+                        ? "No forms available."
+                        : `No forms matching "${searchQuery}".`
+                    }
+                  />
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-200 dark:divide-white/10">
+                  {filteredFormDefs.map((option) => (
+                    <li key={option.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleFormDefClick(option)}
+                        className="group flex w-full items-center gap-3 px-6 py-3 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                      >
+                        <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white dark:bg-white/5 dark:text-blue-400 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                            {option.name}
+                          </div>
+                          <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                            {option.documentTypeName} · {option.fieldCount}{" "}
+                            {option.fieldCount === 1 ? "field" : "fields"}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-blue-500 dark:text-slate-500" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="grid gap-3 md:grid-cols-2">
+              {selectedFormDef!.triples.map((t) => (
+                <button
+                  key={`${t.formDefinitionId}:${t.signatureTemplateId}`}
+                  type="button"
+                  onClick={() => onPick(t)}
+                  className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                >
+                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-slate-200 transition group-hover:bg-blue-600 group-hover:text-white group-hover:ring-blue-600 dark:bg-white/10 dark:text-blue-400 dark:ring-white/10 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                    {t.signatureTemplateName}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-white/10">
-          {onBack ? (
+          {backAction ? (
             <button
               type="button"
-              onClick={onBack}
+              onClick={backAction}
               className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
             >
               <ChevronLeft className="h-4 w-4" />
