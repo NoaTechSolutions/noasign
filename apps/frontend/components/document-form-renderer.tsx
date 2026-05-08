@@ -18,7 +18,8 @@ export interface FieldValidation {
 
 export type AutoCalculateConfig =
   | { type: "sum"; fields: string[] }
-  | { type: "copy"; source: string };
+  | { type: "copy"; source: string }
+  | { type: "multiply"; fields: string[] };
 
 export interface SchemaField {
   key: string;
@@ -34,6 +35,8 @@ export interface SchemaField {
   copyFrom?: string;
   /** Show field only when this toggle key is enabled */
   showWhen?: string;
+  /** Hide field when this toggle key is enabled (inverse of showWhen) */
+  hideWhen?: string;
   /** Initial value applied when no initialValue is provided */
   defaultValue?: string;
   /** When set, the field becomes readonly and is auto-calculated from other fields */
@@ -326,6 +329,10 @@ export function RendererField({
 interface DocumentFormRendererProps {
   schema: DocumentSchema;
   initialValues?: Record<string, string>;
+  /** Override toggle starting values. Keys are `${sectionKey}:${toggleKey}`.
+   *  Falls back to schema's `toggle.defaultValue` when a key is missing.
+   *  Used by the customer-prefill flow to flip "isBusiness"-style toggles. */
+  initialToggles?: Record<string, boolean>;
   /** Injected into the final dataJson but not shown as editable fields */
   staticFields?: Record<string, string>;
   onSubmit: (dataJson: Record<string, string>) => Promise<void>;
@@ -338,6 +345,7 @@ interface DocumentFormRendererProps {
 export function DocumentFormRenderer({
   schema,
   initialValues,
+  initialToggles,
   staticFields,
   onSubmit,
   onCancel,
@@ -392,7 +400,26 @@ export function DocumentFormRenderer({
         : String(n);
     }
 
-    // Pass 1 — sum
+    // Pass 1 — multiply (depends only on user-typed values; runs before sum
+    // so a sum can aggregate multiply results, e.g. grand_total summing
+    // line_totals where each line_total = qty × unit_price).
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        if (field.autoCalculate?.type === "multiply") {
+          if (field.autoCalculate.fields.length === 0) {
+            all[field.key] = format(field, 0);
+            continue;
+          }
+          const product = field.autoCalculate.fields.reduce(
+            (acc, key) => acc * toNumber(all[key]),
+            1,
+          );
+          all[field.key] = format(field, product);
+        }
+      }
+    }
+
+    // Pass 2 — sum
     for (const section of schema.sections) {
       for (const field of section.fields) {
         if (field.autoCalculate?.type === "sum") {
@@ -405,7 +432,7 @@ export function DocumentFormRenderer({
       }
     }
 
-    // Pass 2 — copy (may reference a sum result from pass 1)
+    // Pass 3 — copy (may reference a sum or multiply result)
     for (const section of schema.sections) {
       for (const field of section.fields) {
         if (field.autoCalculate?.type === "copy") {
@@ -471,7 +498,9 @@ export function DocumentFormRenderer({
     const initial: Record<string, boolean> = {};
     for (const section of schema.sections) {
       for (const toggle of section.toggles ?? []) {
-        initial[`${section.key}:${toggle.key}`] = toggle.defaultValue ?? false;
+        const key = `${section.key}:${toggle.key}`;
+        // initialToggles override > schema defaultValue > false
+        initial[key] = initialToggles?.[key] ?? toggle.defaultValue ?? false;
       }
     }
     return initial;
@@ -514,6 +543,10 @@ export function DocumentFormRenderer({
       if (field.autoCalculate) continue;
 
       // Skip hidden fields
+      if (field.hideWhen) {
+        const hideToggleOn = customToggles[`${sectionKey}:${field.hideWhen}`] ?? false;
+        if (hideToggleOn) continue;
+      }
       if (field.showWhen) {
         const toggleOn = customToggles[`${sectionKey}:${field.showWhen}`] ?? false;
         if (!toggleOn) continue;
@@ -622,6 +655,13 @@ export function DocumentFormRenderer({
         }
 
         // Skip fields hidden by toggle
+        if (field.hideWhen) {
+          const hideToggleOn = customToggles[`${section.key}:${field.hideWhen}`] ?? false;
+          if (hideToggleOn) {
+            dataJson[field.key] = "";
+            continue;
+          }
+        }
         if (field.showWhen) {
           const toggleOn = customToggles[`${section.key}:${field.showWhen}`] ?? false;
           if (!toggleOn) {
@@ -688,6 +728,10 @@ export function DocumentFormRenderer({
   }
 
   function isFieldVisible(field: SchemaField, sectionKey: string): boolean {
+    if (field.hideWhen) {
+      const hideToggleOn = customToggles[`${sectionKey}:${field.hideWhen}`] ?? false;
+      if (hideToggleOn) return false;
+    }
     if (!field.showWhen) return true;
     return customToggles[`${sectionKey}:${field.showWhen}`] ?? false;
   }

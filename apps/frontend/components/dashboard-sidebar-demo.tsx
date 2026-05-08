@@ -7147,18 +7147,29 @@ function CreateDraftDrawer({
     }
     // When documentType changes, keep the formDef / sigTemplate only if they
     // still belong to the new type (true for Template Selector presets).
-    // Otherwise reset to empty — never silently auto-pick first, the user
-    // must pick explicitly via the Setup dropdowns.
-    setSelectedFormDefinitionId((current) =>
-      selectedDocumentType.formDefinitions.some((f) => f.id === current)
-        ? current
-        : "",
-    );
-    setSelectedTemplateId((current) =>
-      selectedDocumentType.signatureTemplates.some((s) => s.id === current)
-        ? current
-        : "",
-    );
+    // Otherwise: auto-pick when the new type has only one option — the
+    // Form / Template dropdown is hidden in that case (NOA-270 visibility
+    // fix), so leaving it empty would strand canSubmit at false with no
+    // way to recover. With multiple options, leave empty so the user picks
+    // explicitly via the (visible) dropdown.
+    setSelectedFormDefinitionId((current) => {
+      if (selectedDocumentType.formDefinitions.some((f) => f.id === current)) {
+        return current;
+      }
+      if (selectedDocumentType.formDefinitions.length === 1) {
+        return selectedDocumentType.formDefinitions[0].id;
+      }
+      return "";
+    });
+    setSelectedTemplateId((current) => {
+      if (selectedDocumentType.signatureTemplates.some((s) => s.id === current)) {
+        return current;
+      }
+      if (selectedDocumentType.signatureTemplates.length === 1) {
+        return selectedDocumentType.signatureTemplates[0].id;
+      }
+      return "";
+    });
   }, [selectedDocumentType]);
 
   // When a customer is preset (entry from Customers section), pre-populate
@@ -7227,10 +7238,23 @@ function CreateDraftDrawer({
     const businessName = b?.businessName ?? "";
     const licenseNumber = b?.licenseNumber ?? "";
 
+    // Split full name into first/last so schemas with separate name fields
+    // (e.g. Laura's invoice) can prefill correctly. First token is first
+    // name, the rest joins as last name — handles "Maria José Rodriguez" as
+    // first="Maria", last="José Rodriguez". For BUSINESS the personal name
+    // fields are typically hidden (hideWhen: 'isBusiness') so the awkward
+    // split of e.g. "Constructora San Martin SAC" into first/last doesn't
+    // surface.
+    const [firstName = "", ...nameRest] = (name || "").trim().split(/\s+/);
+    const lastName = nameRest.join(" ");
+    const contactPerson = b?.primaryContactName ?? "";
+
     return {
       // Unprefixed keys (most common in NTSsign customer-facing schemas)
       name,
       full_name: name,
+      first_name: firstName,
+      last_name: lastName,
       title,
       email,
       phone,
@@ -7242,9 +7266,12 @@ function CreateDraftDrawer({
       zip,
       zip_code: zip,
       notes: c.notes ?? "",
+      contact_person: contactPerson,
       // Prefixed keys (alternate convention)
       customer_name: name,
       customer_full_name: name,
+      customer_first_name: firstName,
+      customer_last_name: lastName,
       customer_title: title,
       customer_email: email,
       customer_phone: phone,
@@ -7256,6 +7283,7 @@ function CreateDraftDrawer({
       customer_zip: zip,
       customer_zip_code: zip,
       customer_notes: c.notes ?? "",
+      customer_contact_person: contactPerson,
       // Business-row fields stay available regardless of source — the
       // license number and business legal name belong to the company even
       // when the contact's personal data fills the "customer" block.
@@ -7407,38 +7435,51 @@ function CreateDraftDrawer({
             </div>
             {isSetupOpen ? (
               <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {/* NOA-270 — editable for all users. Options filtered to types
+                    with at least 1 FormDefinition (defensive; backend already
+                    scopes the catalog to the user's UserDocumentConfigs for
+                    non-MASTER roles via getDocumentTypes(userId)). */}
                 <SelectField
                   label="Document type"
                   value={selectedDocumentTypeId}
                   onChange={setSelectedDocumentTypeId}
                   icon={<FileText className="h-4 w-4" />}
-                  disabled
-                  options={documentTypes.map((item) => ({ value: item.id, label: item.name }))}
+                  options={documentTypes
+                    .filter((item) => (item.formDefinitions ?? []).length > 0)
+                    .map((item) => ({ value: item.id, label: item.name }))}
                 />
                 <EditableField
                   icon={<ScanText className="h-4 w-4" />}
-                  label="Contract date"
+                  label="Document date"
                   type="date"
                   value={contractDate}
                   onChange={setContractDate}
-                  disabled
                 />
-                <SelectField
-                  label="Form"
-                  value={selectedFormDefinitionId}
-                  onChange={setSelectedFormDefinitionId}
-                  icon={<FileJson className="h-4 w-4" />}
-                  disabled
-                  options={(selectedDocumentType?.formDefinitions ?? []).map((item) => ({ value: item.id, label: item.name }))}
-                />
-                <SelectField
-                  label="Template"
-                  value={selectedTemplateId}
-                  onChange={setSelectedTemplateId}
-                  icon={<LayoutDashboard className="h-4 w-4" />}
-                  disabled
-                  options={(selectedDocumentType?.signatureTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
-                />
+                {/* NOA-270 — only render Form selector when there's a real
+                    choice. With a single FormDefinition the auto-pick from
+                    TemplateSelectorDialog already locked it in; showing a
+                    disabled dropdown with one option is just visual noise. */}
+                {(selectedDocumentType?.formDefinitions ?? []).length > 1 ? (
+                  <SelectField
+                    label="Form"
+                    value={selectedFormDefinitionId}
+                    onChange={setSelectedFormDefinitionId}
+                    icon={<FileJson className="h-4 w-4" />}
+                    disabled
+                    options={(selectedDocumentType?.formDefinitions ?? []).map((item) => ({ value: item.id, label: item.name }))}
+                  />
+                ) : null}
+                {/* Same rule for SignatureTemplate. */}
+                {(selectedDocumentType?.signatureTemplates ?? []).length > 1 ? (
+                  <SelectField
+                    label="Template"
+                    value={selectedTemplateId}
+                    onChange={setSelectedTemplateId}
+                    icon={<LayoutDashboard className="h-4 w-4" />}
+                    disabled
+                    options={(selectedDocumentType?.signatureTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -7456,6 +7497,27 @@ function CreateDraftDrawer({
               </div>
             );
           }
+          // NOA-270 — when a BUSINESS customer is preset, flip any
+          // `isBusiness` toggle in the schema so the business-specific
+          // fields (showWhen) appear and personal fields (hideWhen) hide.
+          // Convention-based: any toggle whose key === "isBusiness" is
+          // driven by customer.customerType. Other toggles fall back to
+          // schema defaults.
+          let initialToggles: Record<string, boolean> | undefined;
+          if (presetCustomer) {
+            const isBusiness = presetCustomer.customerType === "BUSINESS";
+            const overrides: Record<string, boolean> = {};
+            for (const section of schema.sections) {
+              for (const toggle of section.toggles ?? []) {
+                if (toggle.key === "isBusiness") {
+                  overrides[`${section.key}:${toggle.key}`] = isBusiness;
+                }
+              }
+            }
+            if (Object.keys(overrides).length > 0) {
+              initialToggles = overrides;
+            }
+          }
           return (
             <DocumentFormRenderer
               schema={schema}
@@ -7463,6 +7525,7 @@ function CreateDraftDrawer({
               onCancel={requestClose}
               isSubmitting={isSubmitting}
               initialValues={customerInitialValues}
+              initialToggles={initialToggles}
               canSubmit={
                 !!selectedDocumentTypeId &&
                 !!selectedFormDefinitionId &&
