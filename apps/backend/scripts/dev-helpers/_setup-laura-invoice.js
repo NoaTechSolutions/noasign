@@ -1,20 +1,20 @@
 // Throwaway one-shot — sets up Laura Bravo's custom Invoice form:
 //   - Reuses DocumentType INVOICE (created by _setup-invoice-test.js)
 //   - Creates/updates FormDefinition "Invoice - Laura Bravo"
-//     (3 sections, 33 fields — NOA-270 Phase 1)
+//     (3 sections — Beneficiary, Services with dynamic line_items, Payment)
 //   - Reuses (or creates) SignatureTemplate "Invoice (placeholder)" PLACEHOLDER_NOT_SENDABLE
 //   - Wires UserDocumentConfig laura.bravo@ntssign.test → form + template
 //
-// NOA-268 + NOA-270 (Phase 1). Idempotent — safe to re-run; all upserts.
+// NOA-268 + NOA-270 + NOA-272. Idempotent — safe to re-run; all upserts.
 // Re-running updates the existing FormDefinition in place, preserving its id
 // so the UserDocumentConfig FK keeps working without touching it.
 //
-// Phase 1 uses two renderer extensions added in the same NOA-270 commit:
-//   - hideWhen: inverse of showWhen (hide field when toggle ON)
-//   - autoCalculate { type: "multiply", fields: [...] }: line_total = qty × price
-//
-// Dynamic line items (add/remove, max 5) are deferred to Phase 2 — current
-// schema still uses 5 fixed items, but each line_total now auto-multiplies.
+// Renderer extensions used:
+//   - hideWhen (NOA-270): inverse of showWhen (hide field when toggle ON)
+//   - autoCalculate "multiply" (NOA-270): line_total = qty × unit_price
+//   - dynamic_array (NOA-272): Services adds/removes 0-10 items at runtime
+//   - autoCalculate "sum" with wildcard (NOA-272): grand_total aggregates
+//     across array items via "line_items[*].line_total"
 //
 // Line totals are MANUAL (no autoCalculate). The renderer only supports `sum`
 // and `copy` autoCalculate types — qty × unitPrice multiplication is a future
@@ -66,41 +66,43 @@ const SCHEMA = {
         { key: 'zip',     label: 'Zip/Postal Code', type: 'text', required: true, row: 'csz' },
       ],
     },
-    // NOA-270 Phase 1: each line_total auto-multiplies (qty × unit_price);
-    // grand_total auto-sums all 5 line_totals. The "Amounts" section was
-    // dropped — grand_total now lives at the bottom of Services. Tax/IVA
-    // is deferred (Phase 2 once the renderer supports multiply-by-constant
-    // for percentages, or restored as a manual field if Laura needs it).
+    // NOA-272 Phase 2: services is now a dynamic_array (0-10 items, Laura
+    // adds/removes on demand). Each item auto-calculates line_total via
+    // per-item multiply (qty × unit_price). grand_total uses wildcard sum
+    // over the array (line_items[*].line_total) and lives at the bottom
+    // of Services (Amounts section was already removed in Phase 1).
+    // NOA-272 Chunk 1 feedback: removed `service_description` (redundant —
+    // each item already has its own Description). Per-item layout: Description
+    // full-width (no row), then Qty + Unit Price + Line Total in a row of 3
+    // (all share row='item'). Renderer respects itemField `row` via groupFields.
     {
       key: 'services',
       label: 'Services',
       fields: [
-        { key: 'service_description', label: 'Service Description', type: 'textarea', required: true },
-
-        { key: 'item1Description', label: 'Item 1 — Description', type: 'text' },
-        { key: 'item1Quantity',    label: 'Qty',         type: 'number',   row: 'item1' },
-        { key: 'item1UnitPrice',   label: 'Unit Price',  type: 'currency', row: 'item1' },
-        { key: 'item1LineTotal',   label: 'Line Total',  type: 'currency', row: 'item1', autoCalculate: { type: 'multiply', fields: ['item1Quantity', 'item1UnitPrice'] } },
-
-        { key: 'item2Description', label: 'Item 2 — Description', type: 'text' },
-        { key: 'item2Quantity',    label: 'Qty',         type: 'number',   row: 'item2' },
-        { key: 'item2UnitPrice',   label: 'Unit Price',  type: 'currency', row: 'item2' },
-        { key: 'item2LineTotal',   label: 'Line Total',  type: 'currency', row: 'item2', autoCalculate: { type: 'multiply', fields: ['item2Quantity', 'item2UnitPrice'] } },
-
-        { key: 'item3Description', label: 'Item 3 — Description', type: 'text' },
-        { key: 'item3Quantity',    label: 'Qty',         type: 'number',   row: 'item3' },
-        { key: 'item3UnitPrice',   label: 'Unit Price',  type: 'currency', row: 'item3' },
-        { key: 'item3LineTotal',   label: 'Line Total',  type: 'currency', row: 'item3', autoCalculate: { type: 'multiply', fields: ['item3Quantity', 'item3UnitPrice'] } },
-
-        { key: 'item4Description', label: 'Item 4 — Description', type: 'text' },
-        { key: 'item4Quantity',    label: 'Qty',         type: 'number',   row: 'item4' },
-        { key: 'item4UnitPrice',   label: 'Unit Price',  type: 'currency', row: 'item4' },
-        { key: 'item4LineTotal',   label: 'Line Total',  type: 'currency', row: 'item4', autoCalculate: { type: 'multiply', fields: ['item4Quantity', 'item4UnitPrice'] } },
-
-        { key: 'item5Description', label: 'Item 5 — Description', type: 'text' },
-        { key: 'item5Quantity',    label: 'Qty',         type: 'number',   row: 'item5' },
-        { key: 'item5UnitPrice',   label: 'Unit Price',  type: 'currency', row: 'item5' },
-        { key: 'item5LineTotal',   label: 'Line Total',  type: 'currency', row: 'item5', autoCalculate: { type: 'multiply', fields: ['item5Quantity', 'item5UnitPrice'] } },
+        {
+          key: 'line_items',
+          label: 'Services',
+          type: 'dynamic_array',
+          // minItems = initial seeded count (NOT a Remove-disabled constraint).
+          // Form opens with Item 1 visible; user can still Remove down to 0
+          // and Add back up. Per Chunk 1 feedback.
+          minItems: 1,
+          maxItems: 10,
+          addButtonLabel: 'Add Service',
+          removeButtonLabel: 'Remove',
+          itemFields: [
+            { key: 'description', label: 'Description', type: 'text', required: true },
+            { key: 'qty',         label: 'Qty',         type: 'number',   required: true, row: 'item' },
+            { key: 'unit_price',  label: 'Unit Price',  type: 'currency', required: true, row: 'item' },
+            {
+              key: 'line_total',
+              label: 'Line Total',
+              type: 'currency',
+              row: 'item',
+              autoCalculate: { type: 'multiply', fields: ['qty', 'unit_price'] },
+            },
+          ],
+        },
 
         {
           key: 'grand_total',
@@ -108,20 +110,22 @@ const SCHEMA = {
           type: 'currency',
           autoCalculate: {
             type: 'sum',
-            fields: ['item1LineTotal', 'item2LineTotal', 'item3LineTotal', 'item4LineTotal', 'item5LineTotal'],
+            fields: ['line_items[*].line_total'],
           },
         },
       ],
     },
-    {
-      key: 'payment',
-      label: 'Payment Information',
-      fields: [
-        { key: 'payment_terms', label: 'Payment Terms', type: 'text', placeholder: 'e.g., Net 30' },
-        { key: 'bank_name',     label: 'Bank Name',     type: 'text' },
-        { key: 'bank_account',  label: 'Account Number', type: 'text' },
-      ],
-    },
+    // NOA-272 Chunk 1 feedback: Payment Information temporarily hidden.
+    // Schema kept commented for easy restoration when needed.
+    // {
+    //   key: 'payment',
+    //   label: 'Payment Information',
+    //   fields: [
+    //     { key: 'payment_terms', label: 'Payment Terms', type: 'text', placeholder: 'e.g., Net 30' },
+    //     { key: 'bank_name',     label: 'Bank Name',     type: 'text' },
+    //     { key: 'bank_account',  label: 'Account Number', type: 'text' },
+    //   ],
+    // },
   ],
 };
 

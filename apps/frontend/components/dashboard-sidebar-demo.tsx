@@ -1128,6 +1128,24 @@ export function DashboardSidebarDemo({
   function closeCreateDrawer() {
     setCreateDrawerOpen(false);
     removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
+    // NOA-272 Chunk 3 Bug 1 fix — drop the per-draft sessionId so the next
+    // "New Document" generates a fresh persistKey (no line_items leak across
+    // drafts). Also sweep any orphan noasign:form-arrays:* keys defensively,
+    // in case the renderer's clearPersistedArrays didn't run (race during
+    // unmount, exception path, X→confirm bypassing renderer).
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem("noasign:draft-session-id");
+        for (let i = window.sessionStorage.length - 1; i >= 0; i--) {
+          const key = window.sessionStorage.key(i);
+          if (key && key.startsWith("noasign:form-arrays:")) {
+            window.sessionStorage.removeItem(key);
+          }
+        }
+      } catch {
+        // Storage unavailable — silently degrade.
+      }
+    }
     setCreateDrawerVersion((current) => current + 1);
     if (pendingDraftCustomerId) setPendingDraftCustomerId(null);
     if (pendingDraftTriple) setPendingDraftTriple(null);
@@ -7088,6 +7106,32 @@ function CreateDraftDrawer({
   );
   const [contractDate, setContractDate] = useState("");
 
+  // NOA-272 Chunk 3 Bug 1 fix — per-draft session id stored in sessionStorage.
+  // Each fresh "New Document" generates a unique id; closeCreateDrawer
+  // (parent) clears it on save success / confirmed cancel / X-confirm,
+  // forcing the next mount to generate a new id. The id is part of the
+  // arrays persistKey so two drafts with the same documentType+formDef
+  // never share their line_items state. Refresh during the same edit
+  // session preserves the id (sessionStorage survives F5), so arrays
+  // restoration still works.
+  const [sessionId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    const KEY = "noasign:draft-session-id";
+    try {
+      let sid = window.sessionStorage.getItem(KEY);
+      if (!sid) {
+        sid =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        window.sessionStorage.setItem(KEY, sid);
+      }
+      return sid;
+    } catch {
+      return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+  });
+
   useEffect(() => {
     if (!open) return;
 
@@ -7438,8 +7482,10 @@ function CreateDraftDrawer({
                 {/* NOA-270 — editable for all users. Options filtered to types
                     with at least 1 FormDefinition (defensive; backend already
                     scopes the catalog to the user's UserDocumentConfigs for
-                    non-MASTER roles via getDocumentTypes(userId)). */}
-                <SelectField
+                    non-MASTER roles via getDocumentTypes(userId)).
+                    NOA-277 — uses PopoverSelectField for non-native dropdown
+                    styling consistent with the rows-per-page pattern. */}
+                <PopoverSelectField
                   label="Document type"
                   value={selectedDocumentTypeId}
                   onChange={setSelectedDocumentTypeId}
@@ -7518,14 +7564,31 @@ function CreateDraftDrawer({
               initialToggles = overrides;
             }
           }
+          // NOA-272 Chunk 3 — sessionStorage key for dynamic_array persistence.
+          // Scoped by documentType + formDefinition + per-draft sessionId so
+          // distinct drafts can never collide (Bug 1 fix). When sessionId is
+          // missing (SSR / sessionStorage unavailable), persistence is
+          // disabled. Refresh keeps the same sessionId (sessionStorage
+          // survives F5) so restoration after refresh works (Bug 2 scope).
+          const persistKey =
+            sessionId && selectedDocumentType?.code && selectedFormDefinitionId
+              ? `noasign:form-arrays:${selectedDocumentType.code}:${selectedFormDefinitionId}:${sessionId}`
+              : undefined;
+          // NOA-272 Chunk 3 Bug 3 fix — pass `onClose` (not `requestClose`)
+          // as the renderer's onCancel. The renderer already shows its own
+          // confirm dialog for dirty state (incluye arrays); routing back to
+          // requestClose would surface a SECOND confirm from the drawer.
+          // The drawer's own confirm via requestClose still applies to its
+          // X button + backdrop click (paths that bypass the renderer).
           return (
             <DocumentFormRenderer
               schema={schema}
               onSubmit={handleRendererSubmit}
-              onCancel={requestClose}
+              onCancel={onClose}
               isSubmitting={isSubmitting}
               initialValues={customerInitialValues}
               initialToggles={initialToggles}
+              persistKey={persistKey}
               canSubmit={
                 !!selectedDocumentTypeId &&
                 !!selectedFormDefinitionId &&
@@ -8492,6 +8555,102 @@ function EditableField({
           <span>{error}</span>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// NOA-277 — drop-in replacement for SelectField that uses a custom popover
+// (button + absolute-positioned panel) instead of native <select>. Same API,
+// same outer card chrome — only the dropdown UI changes. Mirrors the
+// "rows per page" pattern from DocumentsPanel pagination so the design
+// system stays consistent and the OS-native dropdown style is gone.
+//
+// Currently used only for "Document type" in the CreateDraftDrawer setup
+// card. SelectField is still used elsewhere (Form / Template selectors,
+// hidden when only one option exists). Other call sites can migrate
+// incrementally without breaking anything.
+function PopoverSelectField({
+  label,
+  value,
+  onChange,
+  options,
+  icon,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  icon?: ReactNode;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label ?? "Select";
+
+  return (
+    <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
+        <span className="text-[color:var(--text-muted)]">
+          {icon ?? <FileJson className="h-4 w-4" />}
+        </span>
+        {label}
+      </div>
+      <div ref={menuRef} className="relative mt-3">
+        <button
+          type="button"
+          onClick={() => !disabled && setOpen((current) => !current)}
+          disabled={disabled}
+          className={cn(
+            "inline-flex h-11 w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
+            disabled && "cursor-not-allowed opacity-60 hover:border-slate-200 hover:bg-slate-50 dark:hover:bg-white/5",
+          )}
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+        </button>
+        {open && !disabled ? (
+          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+            {options.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-slate-400 dark:text-slate-500">
+                No options
+              </div>
+            ) : (
+              options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                    option.value === value
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-white/[0.08]",
+                  )}
+                >
+                  <span className="truncate">{option.label}</span>
+                </button>
+              ))
+            )}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

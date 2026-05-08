@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Calendar, DollarSign, Mail, Phone, Text, Hash } from "lucide-react";
+import { AlertTriangle, Calendar, DollarSign, Mail, Phone, Text, Hash, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Schema types ─────────────────────────────────────────────────────────────
 
-export type FieldType = "text" | "email" | "phone" | "date" | "number" | "currency" | "textarea";
+export type FieldType = "text" | "email" | "phone" | "date" | "number" | "currency" | "textarea" | "dynamic_array";
 
 export interface FieldValidation {
   min?: number;
@@ -41,6 +41,19 @@ export interface SchemaField {
   defaultValue?: string;
   /** When set, the field becomes readonly and is auto-calculated from other fields */
   autoCalculate?: AutoCalculateConfig;
+  // ── NOA-272 dynamic_array support ────────────────────────────────────────
+  /** dynamic_array only — schema for each item's fields. Each item creates a
+   *  row with these fields. Per-item autoCalculate (multiply) references
+   *  sibling itemField keys WITHIN the same item (not top-level). */
+  itemFields?: SchemaField[];
+  /** dynamic_array only — minimum items required (default 0) */
+  minItems?: number;
+  /** dynamic_array only — maximum items allowed (default 10) */
+  maxItems?: number;
+  /** dynamic_array only — label for the add button (default "Add") */
+  addButtonLabel?: string;
+  /** dynamic_array only — label for the remove button (default "Remove") */
+  removeButtonLabel?: string;
 }
 
 export interface SectionToggle {
@@ -326,6 +339,97 @@ export function RendererField({
 
 // ── Main renderer ─────────────────────────────────────────────────────────────
 
+// NOA-272 Chunk 3 — sessionStorage helpers for dynamic_array state.
+// Flat fields and toggles are NOT persisted (consistent with current drawer
+// behavior — only setup-card state lives in sessionStorage today). Arrays
+// are persisted because the typical UX of "add 3 services, refresh, lose
+// them" is the most disruptive case for Laura.
+function loadPersistedArrays(
+  persistKey: string | undefined,
+): Record<string, Array<Record<string, string>>> | null {
+  if (!persistKey || typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(persistKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, Array<Record<string, string>>>;
+  } catch {
+    return null;
+  }
+}
+
+function savePersistedArrays(
+  persistKey: string | undefined,
+  arrays: Record<string, Array<Record<string, string>>>,
+) {
+  if (!persistKey || typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(persistKey, JSON.stringify(arrays));
+  } catch {
+    // Storage quota exceeded or unavailable — silently degrade.
+  }
+}
+
+function clearPersistedArrays(persistKey: string | undefined) {
+  if (!persistKey || typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(persistKey);
+  } catch {
+    // ignore
+  }
+}
+
+// Compute the seeded initial arrays state from a schema. Used both for the
+// useState initializer AND for the isDirty comparison baseline (so editing
+// items always reads as dirty against a clean form).
+function buildSeededArrays(
+  schema: DocumentSchema,
+): Record<string, Array<Record<string, string>>> {
+  const seeded: Record<string, Array<Record<string, string>>> = {};
+  for (const section of schema.sections) {
+    for (const field of section.fields) {
+      if (field.type === "dynamic_array") {
+        const min = field.minItems ?? 0;
+        const itemFields = field.itemFields ?? [];
+        const items: Array<Record<string, string>> = [];
+        for (let i = 0; i < min; i++) {
+          const item: Record<string, string> = {};
+          for (const itemField of itemFields) {
+            item[itemField.key] = itemField.defaultValue ?? "";
+          }
+          items.push(item);
+        }
+        seeded[field.key] = items;
+      }
+    }
+  }
+  return seeded;
+}
+
+// Defensive merge — only restore keys/items that match the current schema's
+// itemFields shape. Prevents leaking stale items from a different schema if
+// the persistKey ever collides.
+function mergePersistedArraysWithSeeded(
+  seeded: Record<string, Array<Record<string, string>>>,
+  persisted: Record<string, Array<Record<string, string>>> | null,
+): Record<string, Array<Record<string, string>>> {
+  if (!persisted) return seeded;
+  const result: Record<string, Array<Record<string, string>>> = { ...seeded };
+  for (const key of Object.keys(seeded)) {
+    const candidate = persisted[key];
+    if (Array.isArray(candidate)) {
+      result[key] = candidate.filter(
+        (item): item is Record<string, string> =>
+          typeof item === "object" && item !== null && !Array.isArray(item),
+      );
+    }
+  }
+  return result;
+}
+
 interface DocumentFormRendererProps {
   schema: DocumentSchema;
   initialValues?: Record<string, string>;
@@ -335,6 +439,10 @@ interface DocumentFormRendererProps {
   initialToggles?: Record<string, boolean>;
   /** Injected into the final dataJson but not shown as editable fields */
   staticFields?: Record<string, string>;
+  /** sessionStorage key for persisting dynamic_array state across refreshes.
+   *  When null/undefined, persistence is disabled. The key should incorporate
+   *  enough context (e.g. documentTypeCode) so distinct drafts don't collide. */
+  persistKey?: string;
   onSubmit: (dataJson: Record<string, string>) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -347,6 +455,7 @@ export function DocumentFormRenderer({
   initialValues,
   initialToggles,
   staticFields,
+  persistKey,
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -365,6 +474,8 @@ export function DocumentFormRenderer({
     const initial: Record<string, string> = {};
     for (const section of schema.sections) {
       for (const field of section.fields) {
+        // dynamic_array fields live in the separate `arrays` state below
+        if (field.type === "dynamic_array") continue;
         // Computed fields are derived — never seed them from initialValues/defaultValue
         if (field.autoCalculate) {
           initial[field.key] = "";
@@ -383,7 +494,185 @@ export function DocumentFormRenderer({
     return initial;
   });
 
-  // ── Computed values (2-pass: sum first, then copy) ────────────────────────
+  // NOA-272 — separate state for dynamic_array fields. Each entry maps a
+  // top-level array key (e.g. "line_items") to its current array of items.
+  // Each item is a Record<string, string> matching the itemFields schema.
+  // Kept separate from `fields` so the existing string-only pipeline (validation,
+  // computed values, copyFrom, etc.) doesn't have to cope with mixed value types.
+  // Submission flattens this into bracket-notation flat keys for BoldSign.
+  //
+  // Initial count from `minItems` (default 0) — seeds N empty items at mount
+  // so Laura's invoice opens with Item 1 already visible (no empty state).
+  // `minItems` is NOT enforced as a Remove constraint; Remove can still take
+  // the array down to 0 items if the user wants.
+  //
+  // NOA-272 Chunk 3 — persisted to sessionStorage when `persistKey` is set.
+  // On mount we merge the persisted state (if any) over the seeded defaults.
+  // The merge is defensive — only itemKeys that exist in the current schema
+  // are restored, so a stale persistKey collision can't leak old items.
+  const [arrays, setArrays] = useState<Record<string, Array<Record<string, string>>>>(
+    () => mergePersistedArraysWithSeeded(buildSeededArrays(schema), loadPersistedArrays(persistKey)),
+  );
+
+  // Snapshot of the seeded state — never changes after mount, never includes
+  // persisted values. Used as the baseline for isDirty: editing items reads
+  // as dirty whether the form started fresh or was restored from session.
+  const [initialArrays] = useState<Record<string, Array<Record<string, string>>>>(
+    () => buildSeededArrays(schema),
+  );
+
+  // Persist arrays to sessionStorage on every change. Cleared on submit
+  // success or confirmed cancel (see handleSubmit + cancel dialog handlers).
+  useEffect(() => {
+    savePersistedArrays(persistKey, arrays);
+  }, [persistKey, arrays]);
+
+  // ── Dynamic array validation helpers (NOA-272 Chunk 2) ───────────────────
+
+  // An item counts as "empty" when the user has not entered ANY value across
+  // its raw fields. Computed fields (autoCalculate) live in computedArrays —
+  // they're never user-typed, so they're absent from the raw `item` we check
+  // here. No special-case needed.
+  function isItemEmpty(item: Record<string, string>): boolean {
+    return Object.values(item).every((v) => !v || v.trim() === "");
+  }
+
+  // Validate one dynamic_array's items for submit-time semantics:
+  //   1. Drop completely empty items silently (auto-cleanup).
+  //   2. Enforce minItems (after filter) → global error keyed at the array key.
+  //   3. For each surviving item, every itemField marked required must be filled.
+  // Per-field errors are keyed `${arrayKey}[${origIndex}].${itemField.key}` so
+  // the rendered item cards can look them up by their visible index.
+  function validateDynamicArray(
+    items: Array<Record<string, string>>,
+    arrayKey: string,
+    itemFields: SchemaField[],
+    minItems: number,
+    arrayLabel: string,
+  ): {
+    errors: Record<string, string>;
+    filteredItems: Array<Record<string, string>>;
+  } {
+    const errors: Record<string, string> = {};
+    const filteredItems: Array<Record<string, string>> = [];
+    const filteredOriginalIndices: number[] = [];
+
+    items.forEach((item, origIdx) => {
+      if (!isItemEmpty(item)) {
+        filteredItems.push(item);
+        filteredOriginalIndices.push(origIdx);
+      }
+    });
+
+    if (filteredItems.length < minItems) {
+      const word = minItems === 1 ? "item is" : "items are";
+      errors[arrayKey] = `At least ${minItems} complete ${arrayLabel.toLowerCase()} ${word} required`;
+      return { errors, filteredItems };
+    }
+
+    filteredItems.forEach((item, filteredIdx) => {
+      const origIdx = filteredOriginalIndices[filteredIdx]!;
+      for (const itemField of itemFields) {
+        if (!itemField.required) continue;
+        const value = item[itemField.key];
+        if (!value || value.trim() === "") {
+          errors[`${arrayKey}[${origIdx}].${itemField.key}`] =
+            `${itemField.label} is required`;
+        }
+      }
+    });
+
+    return { errors, filteredItems };
+  }
+
+  // ── Dynamic array handlers (NOA-272) ──────────────────────────────────────
+
+  // Add a new empty item to a dynamic_array. Seeds each itemField with its
+  // defaultValue (or "") to keep the rendered inputs controlled.
+  function handleAddArrayItem(arrayKey: string, itemFields: SchemaField[], maxItems: number) {
+    setArrays((current) => {
+      const items = current[arrayKey] ?? [];
+      if (items.length >= maxItems) return current;
+      const newItem: Record<string, string> = {};
+      for (const itemField of itemFields) {
+        newItem[itemField.key] = itemField.defaultValue ?? "";
+      }
+      return { ...current, [arrayKey]: [...items, newItem] };
+    });
+  }
+
+  // Remove item at index. Native array filtering does the renumbering for free
+  // (subsequent items shift down their index), so wildcard sums recompute
+  // automatically without explicit key renaming.
+  function handleRemoveArrayItem(arrayKey: string, index: number) {
+    setArrays((current) => {
+      const items = current[arrayKey] ?? [];
+      return { ...current, [arrayKey]: items.filter((_, i) => i !== index) };
+    });
+  }
+
+  function handleArrayItemChange(
+    arrayKey: string,
+    index: number,
+    fieldKey: string,
+    value: string,
+  ) {
+    setArrays((current) => {
+      const items = current[arrayKey] ?? [];
+      const next = items.slice();
+      next[index] = { ...next[index], [fieldKey]: value };
+      return { ...current, [arrayKey]: next };
+    });
+    // NOA-272 — clear the per-field error for this exact item field, plus the
+    // global array error. Same UX pattern used for top-level fields: typing
+    // into an errored field clears that error so the user sees feedback that
+    // their fix is registered.
+    setErrors((current) => {
+      const next = { ...current };
+      delete next[`${arrayKey}[${index}].${fieldKey}`];
+      delete next[arrayKey];
+      return next;
+    });
+  }
+
+  // Per-item computed values. Each itemField with autoCalculate (multiply for
+  // line_total = qty × unit_price) is resolved against the SAME ITEM's fields
+  // (not top-level). Wildcard sums in the top-level pipeline read from this
+  // memo so they aggregate computed line totals, not raw input.
+  const computedArrays = useMemo(() => {
+    function toNum(raw: string | undefined): number {
+      if (!raw) return 0;
+      const n = parseFloat(raw);
+      return Number.isFinite(n) ? n : 0;
+    }
+    const result: Record<string, Array<Record<string, string>>> = {};
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        if (field.type !== "dynamic_array") continue;
+        const items = arrays[field.key] ?? [];
+        const itemFields = field.itemFields ?? [];
+        result[field.key] = items.map((item) => {
+          const computedItem = { ...item };
+          for (const itemField of itemFields) {
+            if (itemField.autoCalculate?.type === "multiply") {
+              const product = itemField.autoCalculate.fields.reduce(
+                (acc, k) => acc * toNum(computedItem[k]),
+                1,
+              );
+              computedItem[itemField.key] =
+                itemField.type === "currency" || itemField.type === "number"
+                  ? product.toFixed(2)
+                  : String(product);
+            }
+          }
+          return computedItem;
+        });
+      }
+    }
+    return result;
+  }, [arrays, schema]);
+
+  // ── Computed values (3-pass: multiply → sum → copy) ───────────────────────
   // Currency-typed computed values are normalized to two decimals; other types pass through.
   const computedValues = useMemo(() => {
     const all: Record<string, string> = { ...fields };
@@ -400,9 +689,7 @@ export function DocumentFormRenderer({
         : String(n);
     }
 
-    // Pass 1 — multiply (depends only on user-typed values; runs before sum
-    // so a sum can aggregate multiply results, e.g. grand_total summing
-    // line_totals where each line_total = qty × unit_price).
+    // Pass 1 — multiply (top-level only; per-item multiplies run in computedArrays).
     for (const section of schema.sections) {
       for (const field of section.fields) {
         if (field.autoCalculate?.type === "multiply") {
@@ -419,14 +706,26 @@ export function DocumentFormRenderer({
       }
     }
 
-    // Pass 2 — sum
+    // Pass 2 — sum (supports wildcard "arrayKey[*].itemFieldKey" to aggregate
+    // across all items of a dynamic_array — e.g. grand_total summing
+    // line_items[*].line_total).
     for (const section of schema.sections) {
       for (const field of section.fields) {
         if (field.autoCalculate?.type === "sum") {
-          const total = field.autoCalculate.fields.reduce(
-            (acc, key) => acc + toNumber(all[key]),
-            0,
-          );
+          let total = 0;
+          for (const ref of field.autoCalculate.fields) {
+            const wildcard = ref.match(/^([^[\s]+)\[\*\]\.(.+)$/);
+            if (wildcard) {
+              const arrayKey = wildcard[1];
+              const itemFieldKey = wildcard[2];
+              const items = computedArrays[arrayKey] ?? [];
+              for (const item of items) {
+                total += toNumber(item[itemFieldKey]);
+              }
+            } else {
+              total += toNumber(all[ref]);
+            }
+          }
           all[field.key] = format(field, total);
         }
       }
@@ -443,26 +742,32 @@ export function DocumentFormRenderer({
     }
 
     return all;
-  }, [fields, schema]);
+  }, [fields, schema, computedArrays]);
 
   // ── Dirty tracking + cancel confirmation ──────────────────────────────────
 
-  const isDirty = useMemo(
-    () =>
-      schema.sections.some((section) =>
-        section.fields.some((field) => {
-          // Computed fields are derived — never count as dirty
-          if (field.autoCalculate) return false;
-          const current = fields[field.key] ?? "";
-          const baseline =
-            initialValues?.[field.key] !== undefined && initialValues[field.key] !== ""
-              ? initialValues[field.key]
-              : (field.defaultValue ?? "");
-          return current !== baseline;
-        }),
-      ),
-    [fields, schema, initialValues],
-  );
+  const isDirty = useMemo(() => {
+    // Top-level fields — skip computed and dynamic_array (the latter lives
+    // in `arrays`, not `fields`, and is checked separately below).
+    const fieldsDirty = schema.sections.some((section) =>
+      section.fields.some((field) => {
+        if (field.autoCalculate) return false;
+        if (field.type === "dynamic_array") return false;
+        const current = fields[field.key] ?? "";
+        const baseline =
+          initialValues?.[field.key] !== undefined && initialValues[field.key] !== ""
+            ? initialValues[field.key]
+            : (field.defaultValue ?? "");
+        return current !== baseline;
+      }),
+    );
+    if (fieldsDirty) return true;
+
+    // NOA-272 Chunk 3 — arrays vs the seeded baseline. JSON.stringify is
+    // acceptable here: max 10 items × ~4 fields = ~40 keys, perf negligible.
+    // Object key order is stable within a single JS engine session.
+    return JSON.stringify(arrays) !== JSON.stringify(initialArrays);
+  }, [fields, schema, initialValues, arrays, initialArrays]);
 
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
@@ -629,10 +934,35 @@ export function DocumentFormRenderer({
   // ── Submit ─────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    // Validate all sections
+    // Validate all sections (top-level fields)
     const allErrors: Record<string, string> = {};
     for (const section of schema.sections) {
       Object.assign(allErrors, getSectionFieldErrors(section.key));
+    }
+
+    // NOA-272 Chunk 2 — validate dynamic_array fields:
+    //   1. Drop empty items silently (auto-cleanup at submit time).
+    //   2. Enforce minItems on the filtered count → global error.
+    //   3. Per-item required-field validation on surviving items.
+    // Filtered items captured here are also what gets flattened into the
+    // submission below, so empty items don't leak into the saved dataJson.
+    const filteredArrays: Record<string, Array<Record<string, string>>> = {};
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        if (field.type !== "dynamic_array") continue;
+        const items = arrays[field.key] ?? [];
+        const min = field.minItems ?? 0;
+        const itemFields = field.itemFields ?? [];
+        const result = validateDynamicArray(
+          items,
+          field.key,
+          itemFields,
+          min,
+          field.label ?? field.key,
+        );
+        Object.assign(allErrors, result.errors);
+        filteredArrays[field.key] = result.filteredItems;
+      }
     }
 
     if (Object.keys(allErrors).length > 0) {
@@ -648,6 +978,10 @@ export function DocumentFormRenderer({
       const copyOn = copyToggles[section.key] ?? false;
 
       for (const field of section.fields) {
+        // dynamic_array fields are flattened separately below — skip here so
+        // we don't accidentally serialize "[object Object]" as a string value.
+        if (field.type === "dynamic_array") continue;
+
         // Computed fields always use the latest derived value
         if (field.autoCalculate) {
           dataJson[field.key] = computedValues[field.key] ?? "";
@@ -679,6 +1013,37 @@ export function DocumentFormRenderer({
       }
     }
 
+    // NOA-272 — flatten dynamic arrays into bracket-notation flat keys for
+    // BoldSign compatibility. Each surviving item becomes:
+    //   line_items[0].description, line_items[0].qty, line_items[0].unit_price,
+    //   line_items[0].line_total (from computed values, not raw input)
+    // Indices are re-numbered against the filtered array so empty items leave
+    // no holes in the flat key sequence.
+    for (const section of schema.sections) {
+      for (const field of section.fields) {
+        if (field.type !== "dynamic_array") continue;
+        const items = filteredArrays[field.key] ?? [];
+        const itemFields = field.itemFields ?? [];
+        items.forEach((rawItem, idx) => {
+          // Find the original index of this item to read its computed values.
+          // computedArrays is parallel to the unfiltered `arrays`, so we look up
+          // by reference equality.
+          const originalArr = arrays[field.key] ?? [];
+          const origIdx = originalArr.indexOf(rawItem);
+          const computedItem =
+            origIdx >= 0
+              ? computedArrays[field.key]?.[origIdx] ?? rawItem
+              : rawItem;
+          for (const itemField of itemFields) {
+            const value = itemField.autoCalculate
+              ? (computedItem[itemField.key] ?? "")
+              : (rawItem[itemField.key] ?? "");
+            dataJson[`${field.key}[${idx}].${itemField.key}`] = value;
+          }
+        });
+      }
+    }
+
     // Inject static fields
     if (staticFields) {
       Object.assign(dataJson, staticFields);
@@ -690,6 +1055,9 @@ export function DocumentFormRenderer({
     );
 
     await onSubmit(filtered);
+    // Submit succeeded (errors throw above) — drop the persisted arrays so the
+    // next New Document opens fresh.
+    clearPersistedArrays(persistKey);
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -764,7 +1132,13 @@ export function DocumentFormRenderer({
               </button>
               <button
                 type="button"
-                onClick={() => { setCancelConfirmOpen(false); onCancel(); }}
+                onClick={() => {
+                  setCancelConfirmOpen(false);
+                  // NOA-272 Chunk 3 — confirmed discard: drop persisted arrays
+                  // so the next mount starts from the seeded baseline.
+                  clearPersistedArrays(persistKey);
+                  onCancel();
+                }}
                 className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
               >
                 Yes
@@ -855,6 +1229,135 @@ export function DocumentFormRenderer({
             {fieldGroups.map((group, groupIndex) => {
               if (group.length === 1) {
                 const field = group[0]!;
+                // NOA-272 — dynamic_array fields render their own UI (not a
+                // single input). They never share a row, so this branch
+                // captures them entirely.
+                if (field.type === "dynamic_array") {
+                  const items = arrays[field.key] ?? [];
+                  const computedItems = computedArrays[field.key] ?? items;
+                  const itemFields = field.itemFields ?? [];
+                  const max = field.maxItems ?? 10;
+                  const addLabel = field.addButtonLabel ?? "Add item";
+                  const removeLabel = field.removeButtonLabel ?? "Remove";
+                  const atMax = items.length >= max;
+                  return (
+                    <div
+                      key={field.key}
+                      className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
+                          {field.label} ({items.length}/{max})
+                        </div>
+                        {atMax ? (
+                          <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                            Maximum {max} reached
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* NOA-272 — global array error (e.g. "At least 1 item required") */}
+                      {errors[field.key] ? (
+                        <div className="mb-3 flex items-start gap-2 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-3 py-2 text-xs font-medium text-[color:var(--danger-text)]">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          <span>{errors[field.key]}</span>
+                        </div>
+                      ) : null}
+
+                      {items.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-[color:var(--border)] px-4 py-8 text-center text-sm text-[color:var(--text-muted)]">
+                          No items yet. Click "{addLabel}" to add one.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {items.map((_, itemIndex) => {
+                            const computedItem = computedItems[itemIndex] ?? items[itemIndex] ?? {};
+                            return (
+                              <div
+                                key={itemIndex}
+                                className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.04]"
+                              >
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                    Item {itemIndex + 1}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveArrayItem(field.key, itemIndex)}
+                                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:border-rose-200 hover:bg-rose-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-rose-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10"
+                                    aria-label={`${removeLabel} item ${itemIndex + 1}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    {removeLabel}
+                                  </button>
+                                </div>
+                                {/* NOA-272 — respect itemField `row` so e.g.
+                                    description renders full-width and qty +
+                                    unit_price + line_total share a row of 3.
+                                    Mirrors the top-level groupFields pattern. */}
+                                <div className="space-y-3">
+                                  {groupFields(itemFields).map((rowGroup, rowIdx) => {
+                                    const renderItemField = (itemField: SchemaField) => {
+                                      const isComputed = !!itemField.autoCalculate;
+                                      const itemValue = isComputed
+                                        ? (computedItem[itemField.key] ?? "")
+                                        : (items[itemIndex]?.[itemField.key] ?? "");
+                                      const itemErrorKey = `${field.key}[${itemIndex}].${itemField.key}`;
+                                      return (
+                                        <RendererField
+                                          key={itemField.key}
+                                          field={itemField}
+                                          value={itemValue}
+                                          computed={isComputed}
+                                          error={errors[itemErrorKey]}
+                                          onChange={(value) => {
+                                            handleArrayItemChange(
+                                              field.key,
+                                              itemIndex,
+                                              itemField.key,
+                                              value,
+                                            );
+                                          }}
+                                        />
+                                      );
+                                    };
+                                    if (rowGroup.length === 1) {
+                                      return renderItemField(rowGroup[0]!);
+                                    }
+                                    const colsClass =
+                                      rowGroup.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3";
+                                    return (
+                                      <div
+                                        key={`item-${itemIndex}-row-${rowIdx}`}
+                                        className={`grid gap-3 ${colsClass}`}
+                                      >
+                                        {rowGroup.map(renderItemField)}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleAddArrayItem(field.key, itemFields, max)
+                          }
+                          disabled={atMax}
+                          className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-blue-600 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-blue-300 dark:hover:border-blue-400/30 dark:hover:bg-blue-500/10 dark:disabled:hover:bg-white/[0.04]"
+                        >
+                          <Plus className="h-4 w-4" />
+                          {addLabel}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
                 const resolved = resolveValue(field, activeSectionDef.key);
                 return (
                   <RendererField
