@@ -9792,7 +9792,21 @@ function formatCountdownLabel(totalSeconds: number) {
 }
 
 function buildTimeline(document: DocDetail) {
-  return [{ label: "Created", value: formatDate(document.createdAt) }, { label: "Sent", value: formatDate(document.sentAt) }, { label: "Viewed", value: formatDate(document.viewedAt) }, { label: "Signed", value: formatDate(document.signedAt) }, { label: "Completed", value: formatDate(document.completedAt) }, { label: "Cancelled", value: formatDate(document.cancelledAt) }];
+  // NOA-281 — only include states that actually happened (have a real
+  // timestamp). Previously we returned all 6 entries unconditionally and
+  // `formatDate(null)` rendered "Not available", which added visual noise
+  // and looked like a failure. Now: a DRAFT only shows "Created"; a SENT
+  // doc shows "Created" + "Sent"; a CANCELLED doc shows whatever happened
+  // before cancellation plus "Cancelled". Order stays chronological by
+  // the natural flow of the array entries below.
+  const entries: Array<{ label: string; value: string }> = [];
+  if (document.createdAt) entries.push({ label: "Created", value: formatDate(document.createdAt) });
+  if (document.sentAt) entries.push({ label: "Sent", value: formatDate(document.sentAt) });
+  if (document.viewedAt) entries.push({ label: "Viewed", value: formatDate(document.viewedAt) });
+  if (document.signedAt) entries.push({ label: "Signed", value: formatDate(document.signedAt) });
+  if (document.completedAt) entries.push({ label: "Completed", value: formatDate(document.completedAt) });
+  if (document.cancelledAt) entries.push({ label: "Cancelled", value: formatDate(document.cancelledAt) });
+  return entries;
 }
 
 
