@@ -443,6 +443,19 @@ interface DocumentFormRendererProps {
    *  When null/undefined, persistence is disabled. The key should incorporate
    *  enough context (e.g. documentTypeCode) so distinct drafts don't collide. */
   persistKey?: string;
+  /** NOA-280 — explicit initial state for dynamic_array fields. When set,
+   *  overrides the seeded (minItems) defaults. Persisted state from
+   *  `persistKey` still wins if present (live edits beat the snapshot).
+   *  Used by DocumentViewer to hydrate readOnly views from a saved draft's
+   *  flat-keyed dataJson, deserialized back to nested arrays. */
+  initialArrays?: Record<string, Array<Record<string, string>>>;
+  /** NOA-280 — render the form as a static, non-editable view. All inputs
+   *  become disabled, dynamic_array Add/Remove controls hide, the bottom
+   *  action bar hides, and the internal tab bar hides (assumes the parent
+   *  component provides its own section navigation, e.g. DocumentViewer
+   *  showing one schema section per outer viewer tab). Persistence is also
+   *  effectively disabled — without edits there's nothing to persist. */
+  readOnly?: boolean;
   onSubmit: (dataJson: Record<string, string>) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -456,6 +469,8 @@ export function DocumentFormRenderer({
   initialToggles,
   staticFields,
   persistKey,
+  initialArrays,
+  readOnly = false,
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -511,13 +526,19 @@ export function DocumentFormRenderer({
   // The merge is defensive — only itemKeys that exist in the current schema
   // are restored, so a stale persistKey collision can't leak old items.
   const [arrays, setArrays] = useState<Record<string, Array<Record<string, string>>>>(
-    () => mergePersistedArraysWithSeeded(buildSeededArrays(schema), loadPersistedArrays(persistKey)),
+    () => {
+      // Priority: persisted (live edits) > initialArrays (explicit prop) > seeded (defaults).
+      const overlay = loadPersistedArrays(persistKey) ?? initialArrays ?? null;
+      return mergePersistedArraysWithSeeded(buildSeededArrays(schema), overlay);
+    },
   );
 
   // Snapshot of the seeded state — never changes after mount, never includes
   // persisted values. Used as the baseline for isDirty: editing items reads
   // as dirty whether the form started fresh or was restored from session.
-  const [initialArrays] = useState<Record<string, Array<Record<string, string>>>>(
+  // (Renamed from `initialArrays` in NOA-280 to avoid collision with the new
+  // `initialArrays` prop that's used to hydrate readOnly views.)
+  const [seededArraysBaseline] = useState<Record<string, Array<Record<string, string>>>>(
     () => buildSeededArrays(schema),
   );
 
@@ -766,8 +787,8 @@ export function DocumentFormRenderer({
     // NOA-272 Chunk 3 — arrays vs the seeded baseline. JSON.stringify is
     // acceptable here: max 10 items × ~4 fields = ~40 keys, perf negligible.
     // Object key order is stable within a single JS engine session.
-    return JSON.stringify(arrays) !== JSON.stringify(initialArrays);
-  }, [fields, schema, initialValues, arrays, initialArrays]);
+    return JSON.stringify(arrays) !== JSON.stringify(seededArraysBaseline);
+  }, [fields, schema, initialValues, arrays, seededArraysBaseline]);
 
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
@@ -1148,34 +1169,38 @@ export function DocumentFormRenderer({
         </div>
       ) : null}
 
-      {/* Tab bar */}
-      <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
-        <div className="flex flex-wrap gap-2">
-          {schema.sections.map((section) => {
-            const accessible = canAccessSection(section.key);
-            return (
-              <button
-                key={section.key}
-                type="button"
-                onClick={() => {
-                  if (!accessible) return;
-                  setActiveSection(section.key);
-                }}
-                disabled={!accessible}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
-                  activeSection === section.key
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
-                  !accessible && "cursor-not-allowed opacity-45 hover:bg-slate-50 dark:hover:bg-white/[0.04]",
-                )}
-              >
-                {section.label}
-              </button>
-            );
-          })}
+      {/* Tab bar — hidden in readOnly mode (NOA-280: parent component, e.g.
+          DocumentViewer, provides outer section navigation and passes a
+          single-section sub-schema per tab). */}
+      {!readOnly ? (
+        <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
+          <div className="flex flex-wrap gap-2">
+            {schema.sections.map((section) => {
+              const accessible = canAccessSection(section.key);
+              return (
+                <button
+                  key={section.key}
+                  type="button"
+                  onClick={() => {
+                    if (!accessible) return;
+                    setActiveSection(section.key);
+                  }}
+                  disabled={!accessible}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
+                    activeSection === section.key
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
+                    !accessible && "cursor-not-allowed opacity-45 hover:bg-slate-50 dark:hover:bg-white/[0.04]",
+                  )}
+                >
+                  {section.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Fields */}
       <div className="px-5 py-5">
@@ -1194,6 +1219,7 @@ export function DocumentFormRenderer({
                     }))
                   }
                   disabled={
+                    readOnly ||
                     !activeSectionDef.fields
                       .filter((f) => f.copyFrom)
                       .some((f) => fields[f.copyFrom!]?.trim())
@@ -1213,6 +1239,7 @@ export function DocumentFormRenderer({
                 <input
                   type="checkbox"
                   checked={customToggles[`${activeSectionDef.key}:${toggle.key}`] ?? false}
+                  disabled={readOnly}
                   onChange={(e) =>
                     setCustomToggles((current) => ({
                       ...current,
@@ -1281,15 +1308,18 @@ export function DocumentFormRenderer({
                                   <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
                                     Item {itemIndex + 1}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveArrayItem(field.key, itemIndex)}
-                                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:border-rose-200 hover:bg-rose-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-rose-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10"
-                                    aria-label={`${removeLabel} item ${itemIndex + 1}`}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                    {removeLabel}
-                                  </button>
+                                  {/* NOA-280 — Remove hidden in readOnly view */}
+                                  {!readOnly ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveArrayItem(field.key, itemIndex)}
+                                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:border-rose-200 hover:bg-rose-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-rose-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10"
+                                      aria-label={`${removeLabel} item ${itemIndex + 1}`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      {removeLabel}
+                                    </button>
+                                  ) : null}
                                 </div>
                                 {/* NOA-272 — respect itemField `row` so e.g.
                                     description renders full-width and qty +
@@ -1309,6 +1339,7 @@ export function DocumentFormRenderer({
                                           field={itemField}
                                           value={itemValue}
                                           computed={isComputed}
+                                          disabled={readOnly}
                                           error={errors[itemErrorKey]}
                                           onChange={(value) => {
                                             handleArrayItemChange(
@@ -1342,19 +1373,22 @@ export function DocumentFormRenderer({
                         </div>
                       )}
 
-                      <div className="mt-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleAddArrayItem(field.key, itemFields, max)
-                          }
-                          disabled={atMax}
-                          className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-blue-600 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-blue-300 dark:hover:border-blue-400/30 dark:hover:bg-blue-500/10 dark:disabled:hover:bg-white/[0.04]"
-                        >
-                          <Plus className="h-4 w-4" />
-                          {addLabel}
-                        </button>
-                      </div>
+                      {/* NOA-280 — Add hidden in readOnly view */}
+                      {!readOnly ? (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleAddArrayItem(field.key, itemFields, max)
+                            }
+                            disabled={atMax}
+                            className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-blue-600 transition hover:border-blue-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-blue-300 dark:hover:border-blue-400/30 dark:hover:bg-blue-500/10 dark:disabled:hover:bg-white/[0.04]"
+                          >
+                            <Plus className="h-4 w-4" />
+                            {addLabel}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 }
@@ -1365,7 +1399,7 @@ export function DocumentFormRenderer({
                     field={field}
                     value={resolved.value}
                     error={errors[field.key]}
-                    disabled={resolved.isDisabledByCopy}
+                    disabled={readOnly || resolved.isDisabledByCopy}
                     computed={resolved.isComputed}
                     minDate={getMinDate(field)}
                     onChange={(value) => {
@@ -1393,7 +1427,7 @@ export function DocumentFormRenderer({
                         field={field}
                         value={resolved.value}
                         error={errors[field.key]}
-                        disabled={resolved.isDisabledByCopy}
+                        disabled={readOnly || resolved.isDisabledByCopy}
                         computed={resolved.isComputed}
                         minDate={getMinDate(field)}
                         onChange={(value) => {
@@ -1414,44 +1448,48 @@ export function DocumentFormRenderer({
         ) : null}
       </div>
 
-      {/* Bottom bar */}
-      <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
-        {tabError ? (
-          <div className="mb-3 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
-            {tabError}
+      {/* Bottom bar — hidden in readOnly mode (NOA-280: viewer provides
+          its own close button outside the renderer; no submit/cancel/
+          continue actions are meaningful for a static view). */}
+      {!readOnly ? (
+        <div className="border-t border-slate-200 px-5 py-4 dark:border-white/10">
+          {tabError ? (
+            <div className="mb-3 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
+              {tabError}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+            >
+              Cancel
+            </button>
+            {isLastSection ? (
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={isSubmitting || !canSubmit}
+                className={cn(
+                  "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
+                  (isSubmitting || !canSubmit) && "cursor-not-allowed opacity-60",
+                )}
+              >
+                {isSubmitting ? "Creating..." : "Create draft"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNextSection}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                Continue
+              </button>
+            )}
           </div>
-        ) : null}
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
-          >
-            Cancel
-          </button>
-          {isLastSection ? (
-            <button
-              type="button"
-              onClick={() => void handleSubmit()}
-              disabled={isSubmitting || !canSubmit}
-              className={cn(
-                "rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700",
-                (isSubmitting || !canSubmit) && "cursor-not-allowed opacity-60",
-              )}
-            >
-              {isSubmitting ? "Creating..." : "Create draft"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleNextSection}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-            >
-              Continue
-            </button>
-          )}
         </div>
-      </div>
+      ) : null}
     </>
   );
 }

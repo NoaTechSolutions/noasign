@@ -678,6 +678,14 @@ export function DashboardSidebarDemo({
   const [documentViewerInitialEditingTab, setDocumentViewerInitialEditingTab] =
     useState<EditableViewerTabKey | null>(null);
   const [documentSuccessMessage, setDocumentSuccessMessage] = useState("");
+  // NOA-280 — when user clicks Edit on a schema-driven draft, show this
+  // notice instead of opening the legacy viewer-with-edit-tabs (which
+  // doesn't fit schema-driven dataJson). Until NOA-285 ships a proper
+  // schema-driven Edit, the user's recovery path is Cancel + recreate.
+  const [schemaDrivenEditNotice, setSchemaDrivenEditNotice] = useState<{
+    documentId: string;
+    documentNumber: string;
+  } | null>(null);
   const requestedSection = parseSectionKey(searchParams.get(SECTION_QUERY_KEY));
   const [activeSection, setActiveSection] = useState<SectionKey>(requestedSection);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1509,6 +1517,19 @@ export function DashboardSidebarDemo({
                 });
               }}
               onOpenDocumentEdit={(documentId) => {
+                // NOA-280 — schema-driven drafts intercept Edit and show a
+                // notice modal. The legacy viewer-with-edit-tabs only knows
+                // hardcoded client/project/pricing keys, which produce a
+                // partially-empty Frankenstein form on Laura's invoice
+                // dataJson. Real schema-driven Edit lands in NOA-285.
+                const targetDoc = documents?.find((d) => d.id === documentId);
+                if (targetDoc?.formDefinition) {
+                  setSchemaDrivenEditNotice({
+                    documentId,
+                    documentNumber: targetDoc.documentNumber,
+                  });
+                  return;
+                }
                 openDocumentViewer({
                   documentId,
                   tab: "client",
@@ -1615,6 +1636,7 @@ export function DashboardSidebarDemo({
         actionInFlight={documentActionId}
         initialActiveTab={documentViewerInitialTab}
         initialEditingTab={documentViewerInitialEditingTab}
+        documentTypes={effectiveDocumentTypes}
         onClose={closeDocumentViewer}
         onAction={handleDocumentAction}
         onUpdateDraft={onUpdateDraft}
@@ -1622,6 +1644,17 @@ export function DashboardSidebarDemo({
         onPreviewFinalPdf={onPreviewFinalPdf}
         onDownloadFinalPdf={onDownloadFinalPdf}
       />
+      {schemaDrivenEditNotice ? (
+        <SchemaDrivenEditNotice
+          documentNumber={schemaDrivenEditNotice.documentNumber}
+          onClose={() => setSchemaDrivenEditNotice(null)}
+          onCancelDraft={async () => {
+            const id = schemaDrivenEditNotice.documentId;
+            setSchemaDrivenEditNotice(null);
+            await handleDocumentAction(id, "cancel");
+          }}
+        />
+      ) : null}
       {templateSelectorOpen ? (
         <TemplateSelectorDialog
           formDefOptions={buildFormDefOptions(effectiveDocumentTypes)}
@@ -7641,6 +7674,7 @@ function DocumentViewer({
   actionInFlight,
   initialActiveTab,
   initialEditingTab,
+  documentTypes,
   onClose,
   onAction,
   onUpdateDraft,
@@ -7654,6 +7688,10 @@ function DocumentViewer({
   actionInFlight: string | null;
   initialActiveTab: ViewerTabKey;
   initialEditingTab: EditableViewerTabKey | null;
+  /** NOA-280 — needed to look up the schema for the document's
+   *  formDefinition so the viewer can render schema-driven instead of the
+   *  legacy hardcoded client/project/pricing extractors. */
+  documentTypes: DocumentTypeCatalogItem[];
   onClose: () => void;
   onAction: (
     documentId: string,
@@ -7698,6 +7736,105 @@ function DocumentViewer({
   const clientEntries = useMemo(() => getClientEntries(document), [document]);
   const projectEntries = useMemo(() => getProjectEntries(document), [document]);
   const pricingEntries = useMemo(() => getPricingEntries(document), [document]);
+
+  // NOA-280 — schema-driven viewer. Look up the document's FormDefinition
+  // schema from the documentTypes catalog (already loaded by the parent).
+  // Match by documentType.code + formDefinition.name; the backend's
+  // /documents/:id response only includes formDefinition.{name, key}, not
+  // schemaJson, so the lookup keeps us off the backend critical path.
+  const schemaForDoc = useMemo<DocumentSchema | undefined>(() => {
+    if (!document?.documentType?.code || !document?.formDefinition?.name) return undefined;
+    const docType = documentTypes.find((dt) => dt.code === document.documentType?.code);
+    if (!docType) return undefined;
+    const formDef = docType.formDefinitions.find(
+      (fd) => fd.name === document.formDefinition?.name,
+    );
+    return formDef?.schemaJson as DocumentSchema | undefined;
+  }, [document, documentTypes]);
+
+  const schemaSectionKeys = useMemo(
+    () => schemaForDoc?.sections.map((s) => s.key) ?? [],
+    [schemaForDoc],
+  );
+
+  // NOA-280 — deduce toggle state from saved dataJson presence. The renderer
+  // never persists toggle state in dataJson today; for the readOnly viewer
+  // we infer isBusiness from whether business_name has a value (only set
+  // when the customer was a business at submit time).
+  // TODO: NOA-283 — replace with _toggles key from dataJson once toggle
+  // persistence is implemented.
+  // Workaround: deducir de presencia de business_name
+  const deducedToggles = useMemo<Record<string, boolean> | undefined>(() => {
+    if (!schemaForDoc || !document?.data?.dataJson) return undefined;
+    const dataJson = document.data.dataJson as Record<string, unknown>;
+    const overrides: Record<string, boolean> = {};
+    for (const section of schemaForDoc.sections) {
+      for (const toggle of section.toggles ?? []) {
+        if (toggle.key === "isBusiness") {
+          const businessName = dataJson.business_name;
+          overrides[`${section.key}:${toggle.key}`] =
+            typeof businessName === "string" && businessName.trim().length > 0;
+        }
+      }
+    }
+    return Object.keys(overrides).length > 0 ? overrides : undefined;
+  }, [schemaForDoc, document]);
+
+  // NOA-280 — deserialize the saved dataJson's flat-key bracket-notation
+  // (line_items[0].description, line_items[0].qty, ...) back into the
+  // nested arrays state shape the renderer expects. Mirror image of the
+  // submit-time flatten in handleSubmit.
+  const deserializedArrays = useMemo<
+    Record<string, Array<Record<string, string>>> | undefined
+  >(() => {
+    if (!schemaForDoc || !document?.data?.dataJson) return undefined;
+    const dataJson = document.data.dataJson as Record<string, unknown>;
+    const result: Record<string, Array<Record<string, string>>> = {};
+    for (const section of schemaForDoc.sections) {
+      for (const field of section.fields) {
+        if (field.type !== "dynamic_array") continue;
+        const arrayKey = field.key;
+        const itemFields = field.itemFields ?? [];
+        const indexPattern = new RegExp(
+          `^${arrayKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\[(\\d+)\\]\\.`,
+        );
+        let maxIdx = -1;
+        for (const key of Object.keys(dataJson)) {
+          const match = key.match(indexPattern);
+          if (match) maxIdx = Math.max(maxIdx, parseInt(match[1]!, 10));
+        }
+        const items: Array<Record<string, string>> = [];
+        for (let i = 0; i <= maxIdx; i++) {
+          const item: Record<string, string> = {};
+          for (const itemField of itemFields) {
+            const val = dataJson[`${arrayKey}[${i}].${itemField.key}`];
+            item[itemField.key] =
+              typeof val === "string" ? val : val == null ? "" : String(val);
+          }
+          items.push(item);
+        }
+        if (items.length > 0) result[arrayKey] = items;
+      }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }, [schemaForDoc, document]);
+
+  // NOA-280 — coerce dataJson scalar values to strings for the renderer's
+  // initialValues prop (renderer fields all hold strings; numbers/booleans
+  // get stringified, dynamic_array flat keys are skipped because they're
+  // rebuilt into nested form via deserializedArrays above).
+  const stringifiedInitialValues = useMemo<Record<string, string> | undefined>(() => {
+    if (!document?.data?.dataJson) return undefined;
+    const dataJson = document.data.dataJson as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(dataJson)) {
+      // Skip flat-key array entries — they're handled by deserializedArrays.
+      if (k.includes("[") && k.includes("].")) continue;
+      if (typeof v === "string") out[k] = v;
+      else if (v != null) out[k] = String(v);
+    }
+    return out;
+  }, [document]);
   const hasPdfStage = document?.status === "SIGNED" || document?.status === "COMPLETED";
   const isDraft = document?.status === "DRAFT";
   const canDownloadPdf = hasPdfStage && Boolean(document?.providerDocumentId);
@@ -7888,9 +8025,17 @@ function DocumentViewer({
     setEditingTab(null);
   }
 
-  async function handleTabChange(nextTab: typeof activeTab) {
+  function handleTabChange(nextTab: typeof activeTab) {
+    // NOA-280 — block tab switching while a legacy edit is active. The user
+    // must Save or Cancel from the TabEditorToolbar explicitly. Previously
+    // we auto-called saveEditingTab() here, which silently PATCH'd partial
+    // edits to the backend whenever the user navigated away — surprising
+    // behavior, especially for schema-driven docs where the edit form is
+    // partially populated (Frankenstein form, see NOA-285).
+    // TODO: NOA-285 — when schema-driven Edit reuses CreateDraftDrawer,
+    // this guard becomes obsolete. Remove with saveEditingTab cleanup.
     if (editingTab && nextTab !== editingTab) {
-      await saveEditingTab();
+      return;
     }
     setActiveTab(nextTab);
   }
@@ -7904,9 +8049,9 @@ function DocumentViewer({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4">
       <button type="button" aria-label="Close document viewer" onClick={onClose} className="absolute inset-0" />
-      <aside className="relative z-10 flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
+      <aside className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 md:gap-4 md:px-5 md:py-5 dark:border-white/10">
           <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
             <div className="min-w-0">
@@ -7973,27 +8118,50 @@ function DocumentViewer({
 
         <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
           <div className="flex flex-wrap gap-2">
-            {[
-              { key: "client", label: "Client" },
-              { key: "project", label: "Project" },
-              { key: "pricing", label: "Pricing" },
-              { key: "timeline", label: "Timeline" },
-              ...(hasPdfStage ? [{ key: "pdf", label: "Final PDF" }] : []),
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => void handleTabChange(tab.key as typeof activeTab)}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
-                  activeTab === tab.key
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {/* NOA-280 — tabs derived from the document's FormDefinition
+                schema (Beneficiary, Services, etc. for Laura's invoice)
+                instead of the legacy hardcoded client/project/pricing
+                tabs. Timeline + Final PDF stay as viewer-specific tabs.
+                If schema lookup failed (e.g. doc from a deleted form),
+                fall back to legacy tabs so old documents still render. */}
+            {(schemaForDoc
+              ? [
+                  ...schemaForDoc.sections.map((s) => ({ key: s.key, label: s.label })),
+                  { key: "timeline", label: "Timeline" },
+                  ...(hasPdfStage ? [{ key: "pdf", label: "Final PDF" }] : []),
+                ]
+              : [
+                  { key: "client", label: "Client" },
+                  { key: "project", label: "Project" },
+                  { key: "pricing", label: "Pricing" },
+                  { key: "timeline", label: "Timeline" },
+                  ...(hasPdfStage ? [{ key: "pdf", label: "Final PDF" }] : []),
+                ]
+            ).map((tab) => {
+              // NOA-280 — lock non-active tabs while a legacy edit is in
+              // progress. Pairs with handleTabChange's guard to force the
+              // user to Save or Cancel via the TabEditorToolbar.
+              const isLocked = Boolean(editingTab) && tab.key !== editingTab;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => handleTabChange(tab.key as typeof activeTab)}
+                  disabled={isLocked}
+                  aria-disabled={isLocked}
+                  title={isLocked ? "Save or cancel current edit first" : undefined}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
+                    activeTab === tab.key
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
+                    isLocked && "cursor-not-allowed opacity-50 hover:bg-slate-50 dark:hover:bg-white/[0.04]",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -8002,6 +8170,37 @@ function DocumentViewer({
             <EmptyBlock text="Loading document detail..." />
           ) : !document ? (
             <EmptyBlock text="Select a document to inspect its detail." />
+          ) : schemaForDoc && schemaSectionKeys.includes(activeTab as string) ? (
+            // NOA-280 — schema-driven render of the active section. Build a
+            // single-section sub-schema and hand it to DocumentFormRenderer
+            // in readOnly mode. Hydrated from the saved dataJson:
+            // - flat scalar fields → initialValues
+            // - dynamic_array flat keys → deserialized into nested arrays
+            // - isBusiness toggle → deduced from business_name presence
+            //   (workaround for NOA-283).
+            (() => {
+              const sectionDef = schemaForDoc.sections.find((s) => s.key === activeTab);
+              if (!sectionDef) {
+                return <EmptyBlock text="Section not found in schema." />;
+              }
+              const subSchema: DocumentSchema = { sections: [sectionDef] };
+              return (
+                <DocumentFormRenderer
+                  // Force remount per (doc, section) — the renderer's useState
+                  // lazy init reads initialArrays once on mount; without a key,
+                  // React reuses the instance across tab switches and the array
+                  // state from the first-visited section sticks (NOA-280 bug).
+                  key={`viewer-section-${document?.id ?? "none"}-${activeTab}`}
+                  schema={subSchema}
+                  initialValues={stringifiedInitialValues}
+                  initialToggles={deducedToggles}
+                  initialArrays={deserializedArrays}
+                  readOnly
+                  onSubmit={() => Promise.resolve()}
+                  onCancel={onClose}
+                />
+              );
+            })()
           ) : activeTab === "client" ? (
             clientProfile.name || clientProfile.email || clientProfile.phone || clientProfile.address || clientProfile.city || clientProfile.state || clientProfile.zip ? (
               <div className="grid gap-4">
@@ -8810,6 +9009,71 @@ function EmptyBlock({ text }: { text: string }) {
   return <div className="rounded-[1.5rem] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--bg-surface)] px-5 py-8 text-center text-sm text-[color:var(--text-secondary)]">{text}</div>;
 }
 
+// NOA-280 — shown when user clicks Edit on a schema-driven draft. The
+// legacy edit flow doesn't fit schema-driven dataJson, so until NOA-285
+// ships a real schema-driven Edit, the recovery path is Cancel + recreate.
+function SchemaDrivenEditNotice({
+  documentNumber,
+  onClose,
+  onCancelDraft,
+}: {
+  documentNumber: string;
+  onClose: () => void;
+  onCancelDraft: () => Promise<void> | void;
+}) {
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="schema-edit-notice-title"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
+    >
+      <button type="button" aria-label="Close notice" onClick={onClose} className="absolute inset-0" />
+      <div className="relative z-10 w-full max-w-md rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
+        <h2 id="schema-edit-notice-title" className="text-lg font-semibold text-slate-950 dark:text-white">
+          Edit not available yet
+        </h2>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          We&apos;re redesigning the edit experience for this document type to give you a better workflow. For now, to modify draft <span className="font-medium text-slate-900 dark:text-white">{documentNumber}</span>, please cancel it and create a new one with the updated information.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isCancelling}
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (isCancelling) return;
+              setIsCancelling(true);
+              try {
+                await onCancelDraft();
+              } finally {
+                setIsCancelling(false);
+              }
+            }}
+            disabled={isCancelling}
+            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:bg-rose-500/20"
+          >
+            {isCancelling ? "Cancelling..." : "Cancel draft"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    window.document.body,
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const tones: Record<string, string> = {
     DRAFT: "bg-[color:var(--badge-neutral-bg)] text-[color:var(--badge-neutral-text)]",
@@ -9198,10 +9462,16 @@ function getDisplayName(email?: string | null) {
 
 function getFinalCustomerName(document: Doc) {
   const data = document.data?.dataJson ?? {};
+  const personalName = [data.first_name, data.last_name]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean)
+    .join(" ");
   const candidates = [
     data.customer_name,
     data.client_name,
     data.customer_full_name,
+    data.business_name,
+    personalName,
   ];
 
   for (const candidate of candidates) {
@@ -9218,6 +9488,7 @@ function getFinalCustomerEmail(document: Doc) {
   const candidates = [
     data.customer_email,
     data.client_email,
+    data.email,
   ];
 
   for (const candidate of candidates) {
@@ -9229,6 +9500,12 @@ function getFinalCustomerEmail(document: Doc) {
   return null;
 }
 
+// TODO: NOA-284 — getClientProfile / getProjectProfile / getPricingEntries
+// (and the related getClientEntries / getProjectEntries) are legacy
+// extractors that read hardcoded keys from dataJson. They stay as fallback
+// for pre-schema-driven docs. Remove after telemetry confirms zero usage
+// (i.e. all live docs are bound to a FormDefinition the viewer can resolve
+// via documentTypes catalog).
 function getClientProfile(document: DocDetail | null) {
   const data = document?.data?.dataJson ?? {};
 
