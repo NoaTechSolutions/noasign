@@ -2,12 +2,6 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
 :root {
   --background: #ffffff;
   --foreground: #0e1f3d;
@@ -300,4 +294,63 @@ input {
 ::selection {
   background: rgba(255, 153, 0, 0.22);
   color: var(--text-primary);
+}
+
+/* ============================================
+   VIEW TRANSITIONS — Theme Toggle
+   ============================================
+   Smooth swap between light/dark via the View Transition API.
+   The ThemeToggle (components/ui/theme-toggle.tsx) wraps setTheme
+   in document.startViewTransition() when supported.
+   ============================================ */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.4s;
+}
+
+/* Circular reveal expanding from the toggle position. The legacy ThemeToggle
+   in the login layout sits top-right (right-4 top-4 = ~1rem from each edge).
+   Anchor the reveal at calc(100% - 2.5rem) horizontally and 2.5rem from top. */
+@supports (clip-path: circle()) {
+  ::view-transition-old(root) {
+    clip-path: circle(100%);
+  }
+
+  ::view-transition-new(root) {
+    clip-path: circle(0% at calc(100% - 2.5rem) 2.5rem);
+    animation-name: reveal-circle;
+    animation-duration: 0.5s;
+    animation-timing-function: ease-in-out;
+  }
+
+  @keyframes reveal-circle {
+    from {
+      clip-path: circle(0% at var(--toggle-x, 96%) var(--toggle-y, 3.5%));
+    }
+    to {
+      clip-path: circle(150% at var(--toggle-x, 96%) var(--toggle-y, 3.5%));
+    }
+  }
+}
+
+/* Fallback: simple fade for browsers without clip-path on view-transitions */
+@supports not (clip-path: circle()) {
+  ::view-transition-old(root) {
+    animation: fade-out 0.4s ease-out;
+  }
+
+  ::view-transition-new(root) {
+    animation: fade-in 0.4s ease-in;
+  }
+
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 }

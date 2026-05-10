@@ -16,6 +16,7 @@ import {
   ScrollText,
   ShieldCheck,
 } from "lucide-react";
+import { Button, Checkbox, Input, Label } from "@/components/ui";
 import { API_URL, apiRequest } from "../../lib/api";
 import { getStoredUser, persistSession, updateStoredUser } from "../../lib/auth-storage";
 
@@ -152,9 +153,6 @@ export function LoginForm() {
   const neutralButtonClassName = isDarkTheme
     ? "inline-flex items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
     : "inline-flex items-center justify-center rounded-2xl border border-[#022977] bg-white text-[#022977] transition hover:bg-[#f5f8ff]";
-  const primaryButtonClassName = isDarkTheme
-    ? "inline-flex items-center justify-center rounded-2xl bg-[color:var(--button-primary)] text-white transition hover:bg-[color:var(--button-primary-hover)]"
-    : "inline-flex items-center justify-center rounded-2xl bg-[#0400f0] text-white transition hover:bg-[#0300c8]";
   const documentTypeCardClassName = (checked: boolean) =>
     checked
       ? "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
@@ -675,32 +673,35 @@ export function LoginForm() {
           onSubmit={handleSubmit}
           noValidate
         >
-          <FieldLabel label="Email">
-            <input
+          <div className="grid gap-1">
+            <Label htmlFor="email">Email</Label>
+            <Input
               id="email"
               type="email"
               autoComplete="email"
               placeholder="owner@company.com"
               value={email}
+              error={Boolean(loginErrors.email)}
               onChange={(event) => {
                 setEmail(event.target.value);
                 setLoginErrors((current) => ({ ...current, email: undefined, form: undefined }));
               }}
-              className={inputClass(Boolean(loginErrors.email), isDarkTheme)}
             />
             {loginErrors.email ? (
               <InputError text={loginErrors.email} />
             ) : null}
-          </FieldLabel>
+          </div>
 
-          <FieldLabel label="Password">
+          <div className="grid gap-1">
+            <Label htmlFor="password">Password</Label>
             <div className="relative">
-              <input
+              <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 placeholder="Enter your password"
                 value={password}
+                error={Boolean(loginErrors.password)}
                 onChange={(event) => {
                   setPassword(event.target.value);
                   setLoginErrors((current) => ({
@@ -709,7 +710,7 @@ export function LoginForm() {
                     form: undefined,
                   }));
                 }}
-                className={`${inputClass(Boolean(loginErrors.password), isDarkTheme)} pr-12`}
+                className="pr-12"
               />
               <button
                 type="button"
@@ -729,31 +730,29 @@ export function LoginForm() {
             ) : password !== password.trim() ? (
               <p className="mt-1.5 text-xs text-amber-500">Your password has leading or trailing spaces — make sure that&apos;s intentional.</p>
             ) : null}
-          </FieldLabel>
+          </div>
 
           {loginErrors.form ? (
             <InputError text={loginErrors.form} />
           ) : null}
 
           <div className="flex flex-col gap-3 text-sm text-[color:var(--ink-soft)] sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(event) => setRememberMe(event.target.checked)}
-                className="h-4 w-4 rounded border-[color:var(--border-strong)] text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent-soft)]"
-              />
-              <span>Remember me</span>
-            </label>
+            <Checkbox
+              id="remember"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+              label="Remember me"
+            />
           </div>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
             disabled={isSubmitting || isLoginFormInvalid}
-            className={`${primaryButtonClassName} group h-13 px-5 text-sm font-semibold shadow-[var(--shadow-strong)] disabled:cursor-not-allowed disabled:opacity-70`}
+            className="w-full h-13 shadow-[var(--shadow-strong)]"
           >
             {isSubmitting ? "Signing in..." : "Sign in"}
-          </button>
+          </Button>
 
           <button
             type="button"
@@ -809,10 +808,13 @@ export function LoginForm() {
 
             {createAccountStep === 1 ? (
               <>
-              <FieldLabel label="Full name">
-                <input
+              <div className="grid gap-1">
+                <Label htmlFor="account-fullName">Full name</Label>
+                <Input
+                  id="account-fullName"
                   type="text"
                   value={accountRequestForm.fullName}
+                  error={Boolean(accountRequestErrors.fullName)}
                   onChange={(event) => {
                     setAccountRequestForm((current) => ({
                       ...current,
@@ -825,17 +827,19 @@ export function LoginForm() {
                     }));
                   }}
                   placeholder="John Smith"
-                  className={inputClass(Boolean(accountRequestErrors.fullName), isDarkTheme)}
                 />
                 {accountRequestErrors.fullName ? (
                   <InputError text={accountRequestErrors.fullName} />
                 ) : null}
-              </FieldLabel>
+              </div>
 
-              <FieldLabel label="Email">
-                <input
+              <div className="grid gap-1">
+                <Label htmlFor="account-email">Email</Label>
+                <Input
+                  id="account-email"
                   type="email"
                   value={accountRequestForm.email}
+                  error={Boolean(accountRequestErrors.email)}
                   onChange={(event) => {
                     setAccountRequestForm((current) => ({
                       ...current,
@@ -848,17 +852,19 @@ export function LoginForm() {
                     }));
                   }}
                   placeholder="owner@company.com"
-                  className={inputClass(Boolean(accountRequestErrors.email), isDarkTheme)}
                 />
                 {accountRequestErrors.email ? (
                   <InputError text={accountRequestErrors.email} />
                 ) : null}
-              </FieldLabel>
+              </div>
 
-              <FieldLabel label="Confirm email">
-                <input
+              <div className="grid gap-1">
+                <Label htmlFor="account-confirmEmail">Confirm email</Label>
+                <Input
+                  id="account-confirmEmail"
                   type="email"
                   value={accountRequestForm.confirmEmail}
+                  error={Boolean(accountRequestErrors.confirmEmail)}
                   onChange={(event) => {
                     setAccountRequestForm((current) => ({
                       ...current,
@@ -875,12 +881,11 @@ export function LoginForm() {
                   onCut={(event) => event.preventDefault()}
                   autoComplete="off"
                   placeholder="Confirm your email"
-                  className={inputClass(Boolean(accountRequestErrors.confirmEmail), isDarkTheme)}
                 />
                 {accountRequestErrors.confirmEmail ? (
                   <InputError text={accountRequestErrors.confirmEmail} />
                 ) : null}
-              </FieldLabel>
+              </div>
               </>
             ) : (
               <div className="grid gap-2">
@@ -950,22 +955,24 @@ export function LoginForm() {
                   {createAccountStep === 1 ? "Cancel" : "Back"}
                 </button>
                 {createAccountStep === 1 ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
                     onClick={continueCreateAccount}
                     disabled={isAccountRequestInvalid}
-                    className={`${primaryButtonClassName} h-12 px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-70`}
+                    className="h-12 px-4"
                   >
                     Continue
-                  </button>
+                  </Button>
                 ) : (
-                  <button
+                  <Button
                     type="submit"
+                    variant="primary"
                     disabled={isSubmittingRequest || isAccountRequestInvalid}
-                    className={`${primaryButtonClassName} h-12 px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-70`}
+                    className="h-12 px-4"
                   >
                     {isSubmittingRequest ? "Submitting..." : "Submit request"}
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -1011,10 +1018,13 @@ export function LoginForm() {
               </div>
             </div>
 
-            <FieldLabel label="Email">
-              <input
+            <div className="grid gap-1">
+              <Label htmlFor="forgot-email">Email</Label>
+              <Input
+                id="forgot-email"
                 type="email"
                 value={forgotPasswordForm.email}
+                error={Boolean(forgotPasswordErrors.email)}
                 onChange={(event) => {
                   setForgotPasswordForm({ email: event.target.value });
                   setForgotPasswordErrors((current) => ({
@@ -1024,12 +1034,11 @@ export function LoginForm() {
                   }));
                 }}
                 placeholder="owner@company.com"
-                className={inputClass(Boolean(forgotPasswordErrors.email), isDarkTheme)}
               />
               {forgotPasswordErrors.email ? (
                 <InputError text={forgotPasswordErrors.email} />
               ) : null}
-            </FieldLabel>
+            </div>
 
             {forgotPasswordErrors.form ? (
               <InputError text={forgotPasswordErrors.form} />
@@ -1058,13 +1067,14 @@ export function LoginForm() {
               >
                 Cancel
               </button>
-              <button
+              <Button
                 type="submit"
+                variant="primary"
                 disabled={isSubmittingForgotPassword || isForgotPasswordInvalid}
-                className="inline-flex h-12 items-center justify-center rounded-2xl bg-[color:var(--button-primary)] px-4 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:opacity-70"
+                className="h-12 px-4"
               >
                 {isSubmittingForgotPassword ? "Submitting..." : "Send instructions"}
-              </button>
+              </Button>
             </div>
           </motion.form>
         ) : activeView === "forcePasswordChange" ? (
@@ -1090,7 +1100,8 @@ export function LoginForm() {
               </div>
             </div>
 
-            <FieldLabel label="New password">
+            <div className="grid gap-1">
+              <Label htmlFor="forced-password">New password</Label>
               <PasswordField
                 id="forced-password"
                 value={forcePasswordForm.password}
@@ -1108,16 +1119,16 @@ export function LoginForm() {
                   setShowForcedPassword((current) => !current)
                 }
                 hasError={Boolean(forcePasswordErrors.password)}
-                isDarkTheme={isDarkTheme}
                 autoComplete="new-password"
                 placeholder="Create a new password"
               />
               {forcePasswordErrors.password ? (
                 <InputError text={forcePasswordErrors.password} />
               ) : null}
-            </FieldLabel>
+            </div>
 
-            <FieldLabel label="Confirm password">
+            <div className="grid gap-1">
+              <Label htmlFor="forced-confirm-password">Confirm password</Label>
               <PasswordField
                 id="forced-confirm-password"
                 value={forcePasswordForm.confirmPassword}
@@ -1137,7 +1148,6 @@ export function LoginForm() {
                   setShowForcedConfirmPassword((current) => !current)
                 }
                 hasError={Boolean(forcePasswordErrors.confirmPassword)}
-                isDarkTheme={isDarkTheme}
                 autoComplete="new-password"
                 placeholder="Confirm your new password"
                 disablePaste
@@ -1145,7 +1155,7 @@ export function LoginForm() {
               {forcePasswordErrors.confirmPassword ? (
                 <InputError text={forcePasswordErrors.confirmPassword} />
               ) : null}
-            </FieldLabel>
+            </div>
 
             {forcePasswordErrors.form ? (
               <InputError text={forcePasswordErrors.form} />
@@ -1157,13 +1167,14 @@ export function LoginForm() {
               </div>
             ) : null}
 
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={isSubmittingForcePassword || isForcePasswordInvalid}
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[color:var(--button-primary)] px-4 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-12 px-4"
             >
               {isSubmittingForcePassword ? "Saving..." : "Update password"}
-            </button>
+            </Button>
           </motion.form>
         ) : (
           <motion.form
@@ -1188,7 +1199,8 @@ export function LoginForm() {
               </div>
             </div>
 
-            <FieldLabel label="New password">
+            <div className="grid gap-1">
+              <Label htmlFor="reset-password">New password</Label>
               <PasswordField
                 id="reset-password"
                 value={resetPasswordForm.password}
@@ -1206,16 +1218,16 @@ export function LoginForm() {
                   setShowResetPassword((current) => !current)
                 }
                 hasError={Boolean(resetPasswordErrors.password)}
-                isDarkTheme={isDarkTheme}
                 autoComplete="new-password"
                 placeholder="Create a new password"
               />
               {resetPasswordErrors.password ? (
                 <InputError text={resetPasswordErrors.password} />
               ) : null}
-            </FieldLabel>
+            </div>
 
-            <FieldLabel label="Confirm password">
+            <div className="grid gap-1">
+              <Label htmlFor="reset-confirm-password">Confirm password</Label>
               <PasswordField
                 id="reset-confirm-password"
                 value={resetPasswordForm.confirmPassword}
@@ -1235,7 +1247,6 @@ export function LoginForm() {
                   setShowResetConfirmPassword((current) => !current)
                 }
                 hasError={Boolean(resetPasswordErrors.confirmPassword)}
-                isDarkTheme={isDarkTheme}
                 autoComplete="new-password"
                 placeholder="Confirm your new password"
                 disablePaste
@@ -1243,7 +1254,7 @@ export function LoginForm() {
               {resetPasswordErrors.confirmPassword ? (
                 <InputError text={resetPasswordErrors.confirmPassword} />
               ) : null}
-            </FieldLabel>
+            </div>
 
             {resetPasswordErrors.form ? (
               <InputError text={resetPasswordErrors.form} />
@@ -1255,13 +1266,14 @@ export function LoginForm() {
               </div>
             ) : null}
 
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={isSubmittingResetPassword || isResetPasswordInvalid}
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[color:var(--button-primary)] px-4 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-12 px-4"
             >
               {isSubmittingResetPassword ? "Saving..." : "Reset password"}
-            </button>
+            </Button>
           </motion.form>
         )}
         </AnimatePresence>
@@ -1276,7 +1288,6 @@ function PasswordField({
   showValue,
   onToggleVisibility,
   hasError,
-  isDarkTheme,
   autoComplete,
   placeholder,
   disablePaste = false,
@@ -1287,24 +1298,24 @@ function PasswordField({
   showValue: boolean;
   onToggleVisibility: () => void;
   hasError: boolean;
-  isDarkTheme: boolean;
   autoComplete?: string;
   placeholder: string;
   disablePaste?: boolean;
 }) {
   return (
     <div className="relative">
-      <input
+      <Input
         id={id}
         type={showValue ? "text" : "password"}
         autoComplete={autoComplete}
         placeholder={placeholder}
         value={value}
+        error={hasError}
         onChange={(event) => onChange(event.target.value)}
         onPaste={disablePaste ? (event) => event.preventDefault() : undefined}
         onCopy={disablePaste ? (event) => event.preventDefault() : undefined}
         onCut={disablePaste ? (event) => event.preventDefault() : undefined}
-        className={`${inputClass(hasError, isDarkTheme)} pr-12`}
+        className="pr-12"
       />
       <button
         type="button"
@@ -1318,33 +1329,8 @@ function PasswordField({
   );
 }
 
-function FieldLabel({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="grid gap-1">
-      <span className="text-sm font-medium text-[color:var(--ink)]">{label}</span>
-      {children}
-    </label>
-  );
-}
-
 function InputError({ text }: { text: string }) {
   return <div className="text-sm text-[color:var(--danger-text)]">{text}</div>;
-}
-
-function inputClass(hasError: boolean, isDarkTheme = true) {
-  return `block h-13 w-full rounded-2xl border bg-[color:var(--surface)] px-4 text-base text-[color:var(--ink)] outline-none transition focus:ring-4 ${
-    hasError
-      ? "border-[color:var(--danger-border)] focus:border-[color:var(--danger-text)] focus:ring-[color:var(--danger-bg)]"
-      : isDarkTheme
-        ? "border-[color:var(--border)] focus:border-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent-soft)]"
-        : "border-[#022977] focus:border-[#022977] focus:ring-[rgba(2,41,119,0.12)]"
-  }`;
 }
 
 function isValidEmail(value: string) {
