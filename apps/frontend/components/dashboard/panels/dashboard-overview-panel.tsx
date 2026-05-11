@@ -4,10 +4,13 @@ import { useTheme } from "next-themes";
 import { LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModuleLayout } from "@/components/layouts";
-// FASE 3 POC (Opción A) — circular import. MiniMetric es helper compartido
-// con otros panels (BillingPanel + futuros). Deuda técnica: mover a
-// `components/dashboard/shared/ui.tsx` en FASE 3.5.
-import { MiniMetric } from "../../dashboard-sidebar-demo";
+// FASE 3.5 — helpers centralizados.
+import { formatBillingMonthShort } from "@/lib/format";
+import { MiniMetric } from "@/components/dashboard/shared/ui";
+// buildContractStats stays in monolith (orchestrator logic, not a shared helper).
+// Importing for type-only usage in the panel props would create circular
+// import — but we replaced that with explicit ContractStats type below, so
+// no monolith import is needed here anymore.
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,15 +43,7 @@ type TopState = {
   tone: StateTone;
 };
 
-// ─── Local helpers (moved from monolith) ──────────────────────────────────────
-
-function formatBillingMonthShort(billingPeriod?: string) {
-  if (!billingPeriod) return "Mon";
-  const [year, month] = billingPeriod.split("-");
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  if (Number.isNaN(date.getTime())) return "Mon";
-  return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date);
-}
+// ─── Local helpers (panel-exclusive) ──────────────────────────────────────────
 
 function statusDetail(label: string) {
   if (label === "Draft") return "Ready to edit";

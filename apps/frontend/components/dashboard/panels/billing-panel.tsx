@@ -4,20 +4,15 @@ import { useEffect, useState } from "react";
 import { CreditCard, FileText, WalletCards } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModuleLayout } from "@/components/layouts";
-// FASE 3 POC (Opción A) — circular import. Helpers compartidos viven en el
-// monolito y se exportan desde ahí. Deuda técnica: mover StatPill,
-// DetailRow, EmptyBlock, MiniMetric, formatCurrency, session utils a
-// `lib/format.ts` + `lib/session-storage.ts` + `components/dashboard/shared/ui.tsx`
-// en FASE 3.5 cuando se extraigan más panels.
+// FASE 3.5 — helpers centralizados en lib/ y components/dashboard/shared/
+import { formatCurrency, formatBillingMonthLabel } from "@/lib/format";
+import { readSessionBoolean, writeSessionBoolean } from "@/lib/session-storage";
 import {
   DetailRow,
   EmptyBlock,
   MiniMetric,
   StatPill,
-  formatCurrency,
-  readSessionBoolean,
-  writeSessionBoolean,
-} from "../../dashboard-sidebar-demo";
+} from "@/components/dashboard/shared/ui";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,14 +52,6 @@ type BillingHistoryItem = {
 // ─── Billing-only helpers (moved from monolith) ───────────────────────────────
 
 const BILLING_PLANS_MODAL_KEY = "ntssign:billing:plans-modal-open";
-
-function formatBillingMonthLabel(billingPeriod?: string) {
-  if (!billingPeriod) return "Unknown month";
-  const [year, month] = billingPeriod.split("-");
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  if (Number.isNaN(date.getTime())) return billingPeriod;
-  return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(date);
-}
 
 function BillingHistoryRow({
   month,
