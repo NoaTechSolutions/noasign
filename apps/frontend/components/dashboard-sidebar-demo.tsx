@@ -1365,6 +1365,10 @@ export function DashboardSidebarDemo({
               onDocumentAction={handleDocumentAction}
               onCreateDraft={onCreateDraft}
               onStartNewDraft={() => startNewDraft()}
+              canStartNewDraft={
+                user?.role === "MASTER" ||
+                flattenDocumentTypeTriples(documentTypes).length > 0
+              }
             />
           ) : null}
 

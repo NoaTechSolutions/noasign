@@ -116,6 +116,7 @@ export function DocumentsPanel(props: {
     customerId?: string;
   }) => Promise<DocDetail | void>;
   onStartNewDraft: () => void;
+  canStartNewDraft: boolean;
 }) {
 
   const [pageSize, setPageSize] = useState(10);
@@ -307,7 +308,13 @@ export function DocumentsPanel(props: {
             <button
               type="button"
               onClick={props.onStartNewDraft}
-              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
+              disabled={!props.canStartNewDraft}
+              title={
+                !props.canStartNewDraft
+                  ? "No document templates available. Contact your admin."
+                  : undefined
+              }
+              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:hover:bg-slate-300 dark:disabled:bg-white/10 dark:disabled:text-slate-500 md:w-auto"
             >
               New document
             </button>
