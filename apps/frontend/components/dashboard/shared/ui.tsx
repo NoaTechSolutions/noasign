@@ -53,6 +53,33 @@ export function CompanyAvatar({
   );
 }
 
+export function CustomerTypeBadge({ type }: { type: "PERSONAL" | "BUSINESS" }) {
+  if (type === "BUSINESS") {
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+        Business
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
+      Personal
+    </span>
+  );
+}
+
+export function StatusBadge({ status }: { status: string }) {
+  const tones: Record<string, string> = {
+    DRAFT: "bg-[color:var(--badge-neutral-bg)] text-[color:var(--badge-neutral-text)]",
+    SENT: "bg-[color:var(--badge-primary-bg)] text-[color:var(--badge-primary-text)]",
+    VIEWED: "bg-[color:var(--info-bg)] text-[color:var(--info-text)]",
+    SIGNED: "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
+    COMPLETED: "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
+    CANCELLED: "bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]",
+  };
+  return <span className={cn("rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]", tones[status] ?? "bg-[color:var(--badge-neutral-bg)] text-[color:var(--badge-neutral-text)]")}>{status}</span>;
+}
+
 export function EditableField({
   icon,
   label,
