@@ -66,9 +66,9 @@ function SortHeader({
       type="button"
       onClick={() => onToggleSort(columnKey)}
       className={cn(
-        "inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] transition hover:text-slate-700 dark:hover:text-slate-200",
+        "inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] transition hover:text-[color:var(--text-secondary)] dark:hover:text-[color:var(--text-primary)]",
         align === "right" && "ml-auto",
-        isActive ? "text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400",
+        isActive ? "text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]" : "text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]",
       )}
     >
       <span>{label}</span>
@@ -232,11 +232,11 @@ export function DocumentsPanel(props: {
       icon={<FileText className="h-5 w-5" />}
     >
       <section className="grid gap-4">
-      <div className="rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+      <div className="rounded-[1.9rem] border border-[color:var(--border)] bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Documents workspace</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">Documents workspace</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               Review documents, apply filters and manage lifecycle actions.
             </p>
           </div>
@@ -244,10 +244,10 @@ export function DocumentsPanel(props: {
           <button
             type="button"
             onClick={() => setMobileStatsOpen((current) => !current)}
-            className="inline-flex h-11 items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5 md:hidden"
+            className="inline-flex h-11 items-center justify-between rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/5 md:hidden"
           >
             <span>Workspace metrics</span>
-            <ChevronRight className={cn("h-4 w-4 text-slate-400 transition-transform dark:text-slate-500", mobileStatsOpen && "rotate-90")} />
+            <ChevronRight className={cn("h-4 w-4 text-[color:var(--text-muted)] transition-transform dark:text-[color:var(--text-muted)]", mobileStatsOpen && "rotate-90")} />
           </button>
           </div>
           <div className={cn("grid grid-cols-2 gap-3 md:grid-cols-4", mobileStatsOpen ? "grid" : "hidden md:grid")}>
@@ -259,29 +259,29 @@ export function DocumentsPanel(props: {
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
             <input value={props.searchQuery} onChange={(event) => {
               setCurrentPage(1);
               props.onSearchQueryChange(event.target.value);
-            }} placeholder="Search by number, status or type" className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900 dark:focus:text-white" />
+            }} placeholder="Search by number, status or type" className="h-12 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] pl-11 pr-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:bg-white focus:text-[color:var(--text-primary)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:caret-[color:var(--brand-accent)] dark:placeholder:text-[color:var(--text-muted)] dark:focus:border-[color:var(--brand-accent)] dark:focus:bg-[color:var(--bg-elevated)] dark:focus:text-[color:var(--text-primary)]" />
           </div>
           <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-3 md:contents">
             <div ref={filterMenuRef} className="relative">
               <button
                 type="button"
                 onClick={() => setFilterMenuOpen((current) => !current)}
-                className="inline-flex h-12 w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5 md:w-auto"
+                className="inline-flex h-12 w-full items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/5 md:w-auto"
               >
                 <span className="inline-flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4" />
                   <span>Filter</span>
                 </span>
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                <span className="rounded-full bg-[color:var(--bg-surface-strong)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-secondary)] dark:bg-white/10 dark:text-[color:var(--text-secondary)]">
                   {props.statusFilter === "ALL" ? "All" : props.statusFilter.toLowerCase()}
                 </span>
               </button>
               {filterMenuOpen ? (
-                <div className="absolute left-0 top-[calc(100%+0.35rem)] z-20 min-w-44 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+                <div className="absolute left-0 top-[calc(100%+0.35rem)] z-20 min-w-44 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)] dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
                   {(["ALL", "DRAFT", "SENT", "VIEWED", "SIGNED", "COMPLETED", "CANCELLED"] as const).map((option) => (
                     <button
                       key={option}
@@ -294,8 +294,8 @@ export function DocumentsPanel(props: {
                       className={cn(
                         "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
                         props.statusFilter === option
-                          ? "bg-blue-600 text-white"
-                          : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                          ? "bg-[color:var(--button-primary)] text-white"
+                          : "text-[color:var(--text-secondary)] hover:bg-white/80 dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                       )}
                     >
                       <span>{option === "ALL" ? "All" : option.toLowerCase()}</span>
@@ -314,7 +314,7 @@ export function DocumentsPanel(props: {
                   ? "No document templates available. Contact your admin."
                   : undefined
               }
-              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:hover:bg-slate-300 dark:disabled:bg-white/10 dark:disabled:text-slate-500 md:w-auto"
+              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[color:var(--button-primary)] px-4 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:bg-[color:var(--button-disabled)] disabled:text-[color:var(--text-disabled)] disabled:hover:bg-[color:var(--button-disabled)] dark:disabled:bg-white/10 dark:disabled:text-[color:var(--text-disabled)] md:w-auto"
             >
               New document
             </button>
@@ -322,27 +322,27 @@ export function DocumentsPanel(props: {
         </div>
       </div>
 
-      <div className="overflow-visible rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
+      <div className="overflow-visible rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
+        <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-5 py-4 dark:border-white/10">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Results</div>
-            <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{props.isLoading ? "Loading..." : `${totalDocuments} contracts`}</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Results</div>
+            <div className="mt-1 text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{props.isLoading ? "Loading..." : `${totalDocuments} contracts`}</div>
           </div>
           <div className="flex items-center gap-2">
             <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
-            <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">
+            <label className="hidden text-xs font-medium text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)] md:block">
               Rows
             </label>
             <button
               type="button"
               onClick={() => setPageSizeMenuOpen((current) => !current)}
-              className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-3 text-sm font-medium text-[color:var(--text-secondary)] outline-none transition hover:border-[color:var(--border-strong)] hover:bg-white focus:border-[color:var(--brand-accent)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
             >
               <span>{pageSize}</span>
-              <ChevronsUpDown className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <ChevronsUpDown className="h-4 w-4 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]" />
             </button>
             {pageSizeMenuOpen ? (
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-28 rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-28 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)] dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
                 {[10, 20, 30].map((size) => (
                   <button
                     key={size}
@@ -355,8 +355,8 @@ export function DocumentsPanel(props: {
                     className={cn(
                       "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
                       pageSize === size
-                        ? "bg-blue-600 text-white"
-                        : "text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-white/8",
+                        ? "bg-[color:var(--button-primary)] text-white"
+                        : "text-[color:var(--text-secondary)] hover:bg-white dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                     )}
                   >
                     <span>{size}</span>
@@ -376,7 +376,7 @@ export function DocumentsPanel(props: {
         ) : props.documents && props.documents.length > 0 ? (
           <>
             {props.currentUserRole === "MASTER" ? (
-              <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
+              <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--bg-page-subtle)]/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
                 <SortHeader label="User" columnKey="user" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
                 <SortHeader label="Company" columnKey="company" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
                 <SortHeader label="Client" columnKey="client" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
@@ -386,7 +386,7 @@ export function DocumentsPanel(props: {
                 <div className="text-right">Actions</div>
               </div>
             ) : (
-              <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
+              <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--bg-page-subtle)]/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
                 <SortHeader label="Client" columnKey="client" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
                 <SortHeader label="Document" columnKey="document" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
                 <SortHeader label="Date" columnKey="date" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
@@ -395,18 +395,18 @@ export function DocumentsPanel(props: {
               </div>
             )}
 
-            <div className="divide-y divide-slate-200 dark:divide-white/10 md:hidden">
+            <div className="divide-y divide-[color:var(--divider)] dark:divide-white/10 md:hidden">
               {paginatedDocuments.map((document) => (
                 <div
                   key={`${document.id}-mobile`}
                   className={cn(
-                    "px-4 py-3 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]",
-                    props.selectedDocumentId === document.id && "bg-blue-50/60 dark:bg-blue-500/10",
+                    "px-4 py-3 transition hover:bg-[color:var(--bg-page-subtle)]/80 dark:hover:bg-white/[0.03]",
+                    props.selectedDocumentId === document.id && "bg-[color:var(--card-selected-bg)] dark:bg-[color:var(--card-selected-bg)]",
                   )}
                 >
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                      <div className="truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
                         {props.currentUserRole === "MASTER"
                           ? getDisplayName(document.user?.email)
                           : getFinalCustomerName(document)}
@@ -416,10 +416,10 @@ export function DocumentsPanel(props: {
                         onClick={() => props.onSelectDocument(document.id)}
                         className="mt-1 block text-left"
                       >
-                        <div className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                        <div className="truncate text-sm font-medium text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]">
                           {document.documentNumber}
                         </div>
-                        <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+                        <div className="mt-0.5 truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                           {props.currentUserRole === "MASTER"
                             ? getFinalCustomerName(document)
                             : document.documentType?.name ?? "Untyped document"}
@@ -437,7 +437,7 @@ export function DocumentsPanel(props: {
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-[112px_minmax(0,1fr)] items-center gap-3">
-                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <div className="text-xs font-medium text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                       {formatDate(document.contractDate)}
                     </div>
                     <div className="flex justify-start">
@@ -448,30 +448,30 @@ export function DocumentsPanel(props: {
               ))}
             </div>
 
-              <div className="hidden divide-y divide-slate-200 dark:divide-white/10 md:block">
+              <div className="hidden divide-y divide-[color:var(--divider)] dark:divide-white/10 md:block">
                 {paginatedDocuments.map((document) => (
-                  <div key={document.id} className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedDocumentId === document.id && "bg-blue-50/60 dark:bg-blue-500/10")}>
+                  <div key={document.id} className={cn("px-4 py-4 transition hover:bg-[color:var(--bg-page-subtle)]/80 dark:hover:bg-white/[0.03]", props.selectedDocumentId === document.id && "bg-[color:var(--card-selected-bg)] dark:bg-[color:var(--card-selected-bg)]")}>
                     {props.currentUserRole === "MASTER" ? (
                       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] md:items-center">
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getDisplayName(document.user?.email)}</div>
+                          <div className="text-sm font-medium text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]">{getDisplayName(document.user?.email)}</div>
                           {document.user?.email ? (
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.user.email}</div>
+                            <div className="mt-1 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{document.user.email}</div>
                           ) : null}
                         </div>
 
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{document.companyProfile?.companyName ?? "No company"}</div>
+                          <div className="text-sm font-medium text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]">{document.companyProfile?.companyName ?? "No company"}</div>
                         </div>
 
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getFinalCustomerName(document)}</div>
+                          <div className="text-sm font-medium text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]">{getFinalCustomerName(document)}</div>
                         </div>
 
                         <div className="min-w-0">
                           <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
+                              <span className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{document.documentNumber}</span>
                               {document.isOverage ? (
                                 <InlineBadge
                                   tone="rose"
@@ -481,7 +481,7 @@ export function DocumentsPanel(props: {
                                 </InlineBadge>
                               ) : null}
                             </div>
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
+                            <div className="mt-1 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{document.documentType?.name ?? "Untyped document"}</div>
                           </button>
                         </div>
 
@@ -489,7 +489,7 @@ export function DocumentsPanel(props: {
                           <StatusBadge status={document.status} />
                         </div>
 
-                        <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(document.createdAt)}</div>
+                        <div className="text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">{formatDate(document.createdAt)}</div>
 
                         <div className="flex justify-start lg:justify-end">
                           <DocumentListActions
@@ -504,9 +504,9 @@ export function DocumentsPanel(props: {
                     ) : (
                       <div className="grid gap-3 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] md:items-center">
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getFinalCustomerName(document)}</div>
+                          <div className="text-sm font-medium text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]">{getFinalCustomerName(document)}</div>
                           {getFinalCustomerEmail(document) ? (
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 lg:hidden">
+                            <div className="mt-1 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)] lg:hidden">
                               {getFinalCustomerEmail(document)}
                             </div>
                           ) : null}
@@ -515,7 +515,7 @@ export function DocumentsPanel(props: {
                         <div className="min-w-0">
                           <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
+                              <span className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{document.documentNumber}</span>
                               {document.isOverage ? (
                                 <InlineBadge
                                   tone="rose"
@@ -525,11 +525,11 @@ export function DocumentsPanel(props: {
                                 </InlineBadge>
                               ) : null}
                             </div>
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
+                            <div className="mt-1 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{document.documentType?.name ?? "Untyped document"}</div>
                           </button>
                         </div>
 
-                        <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(document.contractDate)}</div>
+                        <div className="text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">{formatDate(document.contractDate)}</div>
 
                         <div className="flex items-center">
                           <StatusBadge status={document.status} />
@@ -549,13 +549,13 @@ export function DocumentsPanel(props: {
                   </div>
                 ))}
               </div>
-            <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-slate-500 dark:text-slate-400">
-                Showing <span className="font-semibold text-slate-900 dark:text-white">{pageStart + 1}</span>
+            <div className="flex flex-col gap-3 border-t border-[color:var(--border)] px-5 py-4 text-sm dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                Showing <span className="font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{pageStart + 1}</span>
                 {" "}-{" "}
-                <span className="font-semibold text-slate-900 dark:text-white">{pageEnd}</span>
+                <span className="font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{pageEnd}</span>
                 {" "}of{" "}
-                <span className="font-semibold text-slate-900 dark:text-white">{totalDocuments}</span>
+                <span className="font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{totalDocuments}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -565,13 +565,13 @@ export function DocumentsPanel(props: {
                   className={cn(
                     "rounded-xl border px-3 py-2 text-sm font-medium transition",
                     safePage === 1
-                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
+                      ? "cursor-not-allowed border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-muted)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-muted)]"
+                      : "border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
                   )}
                 >
                   Previous
                 </button>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-3 py-2 text-sm font-semibold text-[color:var(--text-secondary)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)]">
                   {safePage} / {totalPages}
                 </div>
                 <button
@@ -581,8 +581,8 @@ export function DocumentsPanel(props: {
                   className={cn(
                     "rounded-xl border px-3 py-2 text-sm font-medium transition",
                     safePage === totalPages
-                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
+                      ? "cursor-not-allowed border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-muted)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-muted)]"
+                      : "border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
                   )}
                 >
                   Next
