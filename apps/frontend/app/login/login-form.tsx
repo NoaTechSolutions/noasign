@@ -147,9 +147,8 @@ export function LoginForm() {
   const loginLogoSrc = isDarkTheme
     ? "/img/NTSSign_blanco_SinFondo.svg"
     : "/img/NTSSign_AzulDark_SinFondo.svg";
-  const authCardClassName = isDarkTheme
-    ? "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--border-strong)] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[var(--shadow-medium)] md:gap-5 md:p-7 lg:p-7"
-    : "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--brand-secondary)] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[0_18px_50px_rgba(2,41,119,0.12)] md:gap-5 md:p-7 lg:p-7";
+  const authCardClassName =
+    "flex w-full max-w-[420px] flex-col gap-5 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-8 shadow-[var(--shadow-soft)] transition-colors";
   const neutralButtonClassName = isDarkTheme
     ? "inline-flex items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
     : "inline-flex items-center justify-center rounded-2xl border border-[color:var(--brand-secondary)] bg-white text-[color:var(--brand-secondary)] transition hover:bg-[color:var(--bg-page-subtle)]";
@@ -645,21 +644,52 @@ export function LoginForm() {
   }
 
   return (
-      <div className="mx-auto grid w-full max-w-md gap-4 md:max-w-[30rem] md:gap-6 xl:max-w-md">
-        <div className="grid justify-items-center gap-2 text-center md:gap-4">
-          <div className="inline-flex flex-col items-center gap-2">
-            <div className="relative h-[10.9rem] w-[10.9rem] overflow-hidden md:h-[10.4rem] md:w-[10.4rem]">
-              <NextImage
-                src={loginLogoSrc}
-                alt="NTSsign"
-                fill
-                className="object-contain"
-                sizes="166px"
-                priority
-              />
-            </div>
+      <div className="mx-auto flex w-full max-w-[420px] flex-col items-center">
+        {/* Phone: vertical brand block (logo + wordmark stacked) */}
+        <header className="mb-7 flex flex-col items-center gap-3 md:hidden">
+          <div className="relative h-12 w-12 overflow-hidden">
+            <NextImage
+              src={loginLogoSrc}
+              alt="NTSsign"
+              fill
+              className="object-contain"
+              sizes="48px"
+              priority
+            />
           </div>
-        </div>
+          <div className="text-[18px] font-medium leading-[1.25] tracking-[-0.01em] text-[color:var(--text-primary)]">
+            NTSsign
+          </div>
+        </header>
+
+        {/* Tablet+ (when no side panel): brand horizontal row above form header */}
+        <header className="mb-6 hidden items-center gap-3 self-start md:flex lg:hidden">
+          <div className="relative h-11 w-11 overflow-hidden">
+            <NextImage
+              src={loginLogoSrc}
+              alt="NTSsign"
+              fill
+              className="object-contain"
+              sizes="44px"
+              priority
+            />
+          </div>
+          <div className="text-[17px] font-medium text-[color:var(--text-primary)]">
+            NTSsign
+          </div>
+        </header>
+
+        {/* Tablet+: form header (title + subtitle). Hidden on phone. */}
+        {activeView === "login" ? (
+          <header className="mb-6 hidden w-full max-w-[420px] flex-col gap-1.5 md:flex">
+            <h2 className="m-0 text-[24px] font-medium leading-[1.2] tracking-[-0.015em] text-[color:var(--text-primary)] lg:text-[28px]">
+              Welcome back
+            </h2>
+            <p className="m-0 text-sm font-normal leading-[1.5] text-[color:var(--text-secondary)] lg:text-[15px]">
+              Sign in to continue managing your documents.
+            </p>
+          </header>
+        ) : null}
 
         <AnimatePresence mode="wait" initial={false}>
         {activeView === "login" ? (
@@ -673,27 +703,38 @@ export function LoginForm() {
           onSubmit={handleSubmit}
           noValidate
         >
-          <div className="grid gap-1">
-            <Label htmlFor="email">Email</Label>
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="email"
+              className="text-xs font-medium leading-[1.25] text-[color:var(--text-muted)]"
+            >
+              Email
+            </label>
             <Input
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="owner@company.com"
+              placeholder="you@company.com"
               value={email}
               error={Boolean(loginErrors.email)}
               onChange={(event) => {
                 setEmail(event.target.value);
                 setLoginErrors((current) => ({ ...current, email: undefined, form: undefined }));
               }}
+              className="h-12"
             />
             {loginErrors.email ? (
               <InputError text={loginErrors.email} />
             ) : null}
           </div>
 
-          <div className="grid gap-1">
-            <Label htmlFor="password">Password</Label>
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="password"
+              className="text-xs font-medium leading-[1.25] text-[color:var(--text-muted)]"
+            >
+              Password
+            </label>
             <div className="relative">
               <Input
                 id="password"
@@ -710,25 +751,28 @@ export function LoginForm() {
                     form: undefined,
                   }));
                 }}
-                className="pr-12"
+                className="h-12 pr-12"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((current) => !current)}
-                className="absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-surface)] hover:text-[color:var(--text-primary)]"
+                className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg-page-subtle)] hover:text-[color:var(--text-primary)]"
                 aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
               >
                 {showPassword ? (
-                  <EyeOff className="h-4.5 w-4.5" />
+                  <EyeOff className="h-[18px] w-[18px]" />
                 ) : (
-                  <Eye className="h-4.5 w-4.5" />
+                  <Eye className="h-[18px] w-[18px]" />
                 )}
               </button>
             </div>
             {loginErrors.password ? (
               <InputError text={loginErrors.password} />
             ) : password !== password.trim() ? (
-              <p className="mt-1.5 text-xs text-[color:var(--warning-text)]">Your password has leading or trailing spaces — make sure that&apos;s intentional.</p>
+              <p className="mt-1 text-[11px] font-medium leading-[1.25] text-[color:var(--brand-highlight)]">
+                Your password has leading or trailing spaces — make sure that&apos;s intentional.
+              </p>
             ) : null}
           </div>
 
@@ -736,45 +780,42 @@ export function LoginForm() {
             <InputError text={loginErrors.form} />
           ) : null}
 
-          <div className="flex flex-col gap-3 text-sm text-[color:var(--ink-soft)] sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          {/* Remember-me + Forgot password row */}
+          <div className="-mt-1 flex items-center justify-between gap-3">
             <Checkbox
               id="remember"
               checked={rememberMe}
               onChange={(event) => setRememberMe(event.target.checked)}
               label="Remember me"
             />
+            <button
+              type="button"
+              onClick={() => setActiveView("forgotPassword")}
+              className="text-[13px] font-medium leading-[1.25] text-[color:var(--brand-secondary)] transition hover:underline dark:text-[color:var(--brand-accent)]"
+            >
+              Forgot password?
+            </button>
           </div>
 
           <Button
             type="submit"
             variant="primary"
             disabled={isSubmitting || isLoginFormInvalid}
-            className="w-full h-13 shadow-[var(--shadow-strong)]"
+            className="h-12 w-full"
           >
-            {isSubmitting ? "Signing in..." : "Sign in"}
+            {isSubmitting ? "Signing in..." : "Login"}
           </Button>
 
-          <button
-            type="button"
-            onClick={() => {
-              openCreateAccount();
-            }}
-            className={`${neutralButtonClassName} h-13 px-5 text-sm font-semibold shadow-[var(--shadow-soft)]`}
-          >
-            Create account
-          </button>
-
-          <a
-            href="https://noatechsolutions.com/"
-            target="_blank"
-            rel="noreferrer"
-            className="text-center text-sm text-[color:var(--brand-highlight)] hover:text-[color:var(--button-warning-hover)]"
-          >
-            Created by{" "}
-            <span className="font-semibold text-[color:var(--brand-highlight)]">
-              NoaTechSolutions
-            </span>
-          </a>
+          <p className="text-center text-[13px] font-normal leading-[1.5] text-[color:var(--text-secondary)]">
+            Don&apos;t have access?{" "}
+            <button
+              type="button"
+              onClick={() => openCreateAccount()}
+              className="font-medium text-[color:var(--brand-secondary)] transition hover:underline dark:text-[color:var(--brand-accent)]"
+            >
+              Request access
+            </button>
+          </p>
         </motion.form>
         ) : activeView === "createAccount" ? (
           <motion.form
