@@ -1250,7 +1250,7 @@ export function DashboardSidebarDemo({
                   className="inline-flex items-center gap-3 rounded-2xl px-1 py-1 transition hover:bg-[color:var(--bg-surface)]"
                 >
                   {isIndividualUser ? (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-sm font-semibold text-blue-700 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-sm font-semibold text-[color:var(--brand-secondary)] shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-[color:var(--bg-page)] dark:text-[color:var(--brand-accent)]">
                       {user?.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
@@ -1679,16 +1679,16 @@ function UserSelectorDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
+      <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5 dark:border-white/10">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               New document
             </div>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+            <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               {view === "options" ? "How do you want to start?" : "Pick a user"}
             </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               {view === "options"
                 ? "Create blank, create for yourself, or pick another user to draft on behalf of."
                 : "Select the user this document will belong to. The next steps use that user's templates and customers."}
@@ -1698,7 +1698,7 @@ function UserSelectorDialog({
             type="button"
             onClick={onCancel}
             aria-label="Close"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] transition hover:border-[color:var(--danger-border)] hover:bg-[color:var(--danger-bg)] hover:text-[color:var(--danger-text)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:border-[color:var(--danger-border)] dark:hover:bg-[color:var(--danger-bg)] dark:hover:text-[color:var(--danger-text)]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1710,14 +1710,14 @@ function UserSelectorDialog({
               <button
                 type="button"
                 onClick={onCreateBlank}
-                className="group flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-amber-400 dark:hover:bg-amber-500/10"
+                className="group flex w-full items-start gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-highlight)] hover:bg-[color:var(--warning-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-highlight)] dark:hover:bg-[color:var(--warning-bg)]"
               >
-                <FilePlus className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <FilePlus className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning-text)] dark:text-[color:var(--warning-text)]" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
                     Create blank
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="mt-0.5 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                     Skip ownership assignment. Document is owned by you and can
                     be reassigned later.
                   </div>
@@ -1735,14 +1735,14 @@ function UserSelectorDialog({
                     onCreateBlank();
                   }
                 }}
-                className="group flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                className="group flex w-full items-start gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
               >
-                <UserRound className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                <UserRound className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
                     Create for me
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="mt-0.5 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                     Use my own templates and customers. The document is owned
                     by me.
                   </div>
@@ -1751,14 +1751,14 @@ function UserSelectorDialog({
               <button
                 type="button"
                 onClick={() => setView("list")}
-                className="group flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-emerald-400 dark:hover:bg-emerald-500/10"
+                className="group flex w-full items-start gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--success-border)] hover:bg-[color:var(--success-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--success-border)] dark:hover:bg-[color:var(--success-bg)]"
               >
-                <Users className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <Users className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--success)] dark:text-[color:var(--success-text)]" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
                     Select user
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="mt-0.5 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                     Draft on behalf of a teammate. Their templates and
                     customers will be used.
                   </div>
@@ -1768,14 +1768,14 @@ function UserSelectorDialog({
           </div>
         ) : (
           <>
-            <div className="border-b border-slate-200 px-6 py-4 dark:border-white/10">
+            <div className="border-b border-[color:var(--border)] px-6 py-4 dark:border-white/10">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search by name, email or role"
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900"
+                  className="h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] pl-11 pr-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:caret-[color:var(--brand-accent)] dark:placeholder:text-[color:var(--text-muted)] dark:focus:border-[color:var(--brand-accent)] dark:focus:bg-[color:var(--bg-elevated)]"
                 />
               </div>
             </div>
@@ -1804,26 +1804,26 @@ function UserSelectorDialog({
                         onClick={() =>
                           onPick({ id: u.id, role: u.role, email: u.email })
                         }
-                        className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                        className="group flex w-full items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-3 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
                       >
-                        <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-slate-200 transition group-hover:bg-blue-600 group-hover:text-white group-hover:ring-blue-600 dark:bg-white/10 dark:text-blue-400 dark:ring-white/10 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                        <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[color:var(--brand-accent-strong)] ring-1 ring-[color:var(--border)] transition group-hover:bg-[color:var(--button-primary)] group-hover:text-white group-hover:ring-[color:var(--brand-accent-strong)] dark:bg-white/10 dark:text-[color:var(--brand-accent)] dark:ring-white/10 dark:group-hover:bg-[color:var(--brand-accent)] dark:group-hover:text-white">
                           <UserRound className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                            <div className="truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
                               {label}
                             </div>
                             {isMe ? (
-                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                              <span className="rounded-full bg-[color:var(--badge-primary-bg)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--brand-secondary)] dark:bg-[color:var(--brand-accent-soft)] dark:text-[color:var(--brand-accent)]">
                                 Me
                               </span>
                             ) : null}
-                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                            <span className="rounded-full bg-[color:var(--bg-surface-strong)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-secondary)] dark:bg-white/10 dark:text-[color:var(--text-secondary)]">
                               {u.role.toLowerCase()}
                             </span>
                           </div>
-                          <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                          <div className="truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                             {u.email}
                           </div>
                         </div>
@@ -1836,12 +1836,12 @@ function UserSelectorDialog({
           </>
         )}
 
-        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-white/10">
+        <div className="flex items-center justify-between border-t border-[color:var(--border)] px-6 py-4 dark:border-white/10">
           {view === "list" ? (
             <button
               type="button"
               onClick={() => setView("options")}
-              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
@@ -1852,7 +1852,7 @@ function UserSelectorDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -1891,14 +1891,14 @@ function CustomerDataOptionDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <div className="relative w-full max-w-lg rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+      <div className="relative w-full max-w-lg rounded-[1.8rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
           New document
         </div>
-        <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+        <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
           Use a customer or start blank?
         </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
           Linking a customer pre-fills the form fields. You can also start
           blank and fill the data manually.
         </p>
@@ -1906,26 +1906,26 @@ function CustomerDataOptionDialog({
           <button
             type="button"
             onClick={() => onPick("customer")}
-            className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
           >
-            <Contact className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+            <Contact className="h-5 w-5 text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]" />
+            <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               Use a customer
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               Pre-fill from one of your saved customers.
             </div>
           </button>
           <button
             type="button"
             onClick={() => onPick("blank")}
-            className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-amber-400 dark:hover:bg-amber-500/10"
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-highlight)] hover:bg-[color:var(--warning-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-highlight)] dark:hover:bg-[color:var(--warning-bg)]"
           >
-            <FilePlus className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+            <FilePlus className="h-5 w-5 text-[color:var(--warning-text)] dark:text-[color:var(--warning-text)]" />
+            <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               Create blank
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               Skip pre-fill and type the data yourself.
             </div>
           </button>
@@ -1935,7 +1935,7 @@ function CustomerDataOptionDialog({
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
@@ -1946,7 +1946,7 @@ function CustomerDataOptionDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -2020,16 +2020,16 @@ function CustomerSelectDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5 dark:border-white/10">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               New document
             </div>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+            <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               Choose a customer
             </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               Search by name, email or phone, or filter by customer type.
             </p>
           </div>
@@ -2037,19 +2037,19 @@ function CustomerSelectDialog({
             type="button"
             onClick={onCancel}
             aria-label="Close"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] transition hover:border-[color:var(--danger-border)] hover:bg-[color:var(--danger-bg)] hover:text-[color:var(--danger-text)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:border-[color:var(--danger-border)] dark:hover:bg-[color:var(--danger-bg)] dark:hover:text-[color:var(--danger-text)]"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-4 dark:border-white/10">
+        <div className="flex flex-col gap-3 border-b border-[color:var(--border)] px-6 py-4 dark:border-white/10">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, email or phone"
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900"
+              className="h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] pl-11 pr-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:caret-[color:var(--brand-accent)] dark:placeholder:text-[color:var(--text-muted)] dark:focus:border-[color:var(--brand-accent)] dark:focus:bg-[color:var(--bg-elevated)]"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -2061,8 +2061,8 @@ function CustomerSelectDialog({
                 className={cn(
                   "rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition",
                   typeFilter === opt
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10",
+                    ? "bg-[color:var(--button-primary)] text-white"
+                    : "bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-surface-strong)] dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:bg-white/10",
                 )}
               >
                 {opt === "ALL" ? "All" : opt === "PERSONAL" ? "Personal" : "Business"}
@@ -2089,21 +2089,21 @@ function CustomerSelectDialog({
                     key={c.id}
                     type="button"
                     onClick={() => onPick(c)}
-                    className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                    className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
                   >
                     <div className="flex w-full items-center justify-between gap-2">
-                      <div className="min-w-0 truncate text-sm font-semibold text-slate-950 dark:text-white">
+                      <div className="min-w-0 truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
                         {c.fullName}
                       </div>
                       <CustomerTypeBadge type={c.customerType} />
                     </div>
                     {email ? (
-                      <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                      <div className="truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                         {email}
                       </div>
                     ) : null}
                     {phone ? (
-                      <div className="truncate text-[11px] text-slate-400 dark:text-slate-500">
+                      <div className="truncate text-[11px] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                         {formatUsPhone(phone)}
                       </div>
                     ) : null}
@@ -2113,12 +2113,12 @@ function CustomerSelectDialog({
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-white/10">
+        <div className="flex items-center justify-between border-t border-[color:var(--border)] px-6 py-4 dark:border-white/10">
           {onBack ? (
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
@@ -2129,7 +2129,7 @@ function CustomerSelectDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -2180,14 +2180,14 @@ function BusinessDataSelectorDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <div className="relative w-full max-w-lg rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+      <div className="relative w-full max-w-lg rounded-[1.8rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
           Pre-fill source
         </div>
-        <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+        <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
           Use which data?
         </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
           {customer.fullName} has both a business profile and a primary
           contact. Pick which one fills the document.
         </p>
@@ -2195,32 +2195,32 @@ function BusinessDataSelectorDialog({
           <button
             type="button"
             onClick={() => onPick("business")}
-            className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-amber-400 dark:hover:bg-amber-500/10"
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-highlight)] hover:bg-[color:var(--warning-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-highlight)] dark:hover:bg-[color:var(--warning-bg)]"
           >
-            <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+            <Building2 className="h-5 w-5 text-[color:var(--warning-text)] dark:text-[color:var(--warning-text)]" />
+            <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               Business
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               {b?.businessName ?? customer.fullName}
             </div>
-            <div className="text-[11px] text-slate-400 dark:text-slate-500">
+            <div className="text-[11px] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               {businessSubtitle}
             </div>
           </button>
           <button
             type="button"
             onClick={() => onPick("contact")}
-            className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
           >
-            <UserRound className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <div className="text-sm font-semibold text-slate-950 dark:text-white">
+            <UserRound className="h-5 w-5 text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]" />
+            <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               Primary contact
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               {b?.primaryContactName || "No contact saved"}
             </div>
-            <div className="text-[11px] text-slate-400 dark:text-slate-500">
+            <div className="text-[11px] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               {contactSubtitle}
             </div>
           </button>
@@ -2230,7 +2230,7 @@ function BusinessDataSelectorDialog({
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
@@ -2241,7 +2241,7 @@ function BusinessDataSelectorDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -2327,16 +2327,16 @@ function TemplateSelectorDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-6 py-5 dark:border-white/10">
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5 dark:border-white/10">
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               New document
             </div>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">
+            <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               {isStep2 ? "Choose a signature template" : "Choose a form"}
             </h2>
-            <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 truncate text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               {isStep2
                 ? `Form: ${selectedFormDef!.name} · ${selectedFormDef!.documentTypeName}`
                 : "Pick the form you want to start from. You can search by name or document type."}
@@ -2346,7 +2346,7 @@ function TemplateSelectorDialog({
             type="button"
             onClick={onCancel}
             aria-label="Close"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] transition hover:border-[color:var(--danger-border)] hover:bg-[color:var(--danger-bg)] hover:text-[color:var(--danger-text)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:border-[color:var(--danger-border)] dark:hover:bg-[color:var(--danger-bg)] dark:hover:text-[color:var(--danger-text)]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -2354,14 +2354,14 @@ function TemplateSelectorDialog({
 
         {!isStep2 ? (
           <>
-            <div className="border-b border-slate-200 px-6 py-4 dark:border-white/10">
+            <div className="border-b border-[color:var(--border)] px-6 py-4 dark:border-white/10">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by form or document type"
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900"
+                  className="h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] pl-11 pr-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:caret-[color:var(--brand-accent)] dark:placeholder:text-[color:var(--text-muted)] dark:focus:border-[color:var(--brand-accent)] dark:focus:bg-[color:var(--bg-elevated)]"
                 />
               </div>
             </div>
@@ -2377,27 +2377,27 @@ function TemplateSelectorDialog({
                   />
                 </div>
               ) : (
-                <ul className="divide-y divide-slate-200 dark:divide-white/10">
+                <ul className="divide-y divide-[color:var(--divider)] dark:divide-white/10">
                   {filteredFormDefs.map((option) => (
                     <li key={option.id}>
                       <button
                         type="button"
                         onClick={() => handleFormDefClick(option)}
-                        className="group flex w-full items-center gap-3 px-6 py-3 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                        className="group flex w-full items-center gap-3 px-6 py-3 text-left transition hover:bg-[color:var(--bg-surface)] dark:hover:bg-[color:var(--bg-surface-strong)]/60"
                       >
-                        <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-blue-600 transition group-hover:bg-blue-600 group-hover:text-white dark:bg-white/5 dark:text-blue-400 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                        <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color:var(--bg-surface)] text-[color:var(--brand-accent-strong)] transition group-hover:bg-[color:var(--button-primary)] group-hover:text-white dark:bg-white/5 dark:text-[color:var(--brand-accent)] dark:group-hover:bg-[color:var(--brand-accent)] dark:group-hover:text-white">
                           <FileText className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                          <div className="truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
                             {option.name}
                           </div>
-                          <div className="truncate text-xs text-slate-500 dark:text-slate-400">
+                          <div className="truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                             {option.documentTypeName} · {option.fieldCount}{" "}
                             {option.fieldCount === 1 ? "field" : "fields"}
                           </div>
                         </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-blue-500 dark:text-slate-500" />
+                        <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-hover:text-[color:var(--brand-accent)] dark:text-[color:var(--text-muted)]" />
                       </button>
                     </li>
                   ))}
@@ -2413,12 +2413,12 @@ function TemplateSelectorDialog({
                   key={`${t.formDefinitionId}:${t.signatureTemplateId}`}
                   type="button"
                   onClick={() => onPick(t)}
-                  className="group flex flex-col items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+                  className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
                 >
-                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-slate-200 transition group-hover:bg-blue-600 group-hover:text-white group-hover:ring-blue-600 dark:bg-white/10 dark:text-blue-400 dark:ring-white/10 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[color:var(--brand-accent-strong)] ring-1 ring-[color:var(--border)] transition group-hover:bg-[color:var(--button-primary)] group-hover:text-white group-hover:ring-[color:var(--brand-accent-strong)] dark:bg-white/10 dark:text-[color:var(--brand-accent)] dark:ring-white/10 dark:group-hover:bg-[color:var(--brand-accent)] dark:group-hover:text-white">
                     <FileText className="h-4 w-4" />
                   </div>
-                  <div className="text-sm font-semibold text-slate-950 dark:text-white">
+                  <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
                     {t.signatureTemplateName}
                   </div>
                 </button>
@@ -2427,12 +2427,12 @@ function TemplateSelectorDialog({
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-white/10">
+        <div className="flex items-center justify-between border-t border-[color:var(--border)] px-6 py-4 dark:border-white/10">
           {backAction ? (
             <button
               type="button"
               onClick={backAction}
-              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
             >
               <ChevronLeft className="h-4 w-4" />
               Back
@@ -2443,7 +2443,7 @@ function TemplateSelectorDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -2463,11 +2463,11 @@ function PlaceholderPanel({
   rows: Array<[string, string]>;
 }) {
   return (
-    <section className="rounded-[1.9rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
-      <h2 className="text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
+    <section className="rounded-[1.9rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+      <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
         {title}
       </h2>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
         {description}
       </p>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -2988,24 +2988,24 @@ function CreateDraftDrawer({
       <button type="button" aria-label="Close draft creator" onClick={requestClose} className="absolute inset-0" />
       <aside
         ref={drawerScrollRef}
-        className="relative z-10 flex max-h-[98vh] w-full max-w-[90vw] flex-col overflow-y-auto rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 md:h-[96vh] md:max-h-[96vh] md:max-w-[96vw]"
+        className="relative z-10 flex max-h-[98vh] w-full max-w-[90vw] flex-col overflow-y-auto rounded-[2rem] border border-[color:var(--border)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[color:var(--bg-page)] md:h-[96vh] md:max-h-[96vh] md:max-w-[96vw]"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 dark:border-white/10">
+        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] px-5 py-5 dark:border-white/10">
           <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Create draft</div>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">New document</h2>
-            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Create a draft, then continue editing it in the document viewer.</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Create draft</div>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">New document</h2>
+            <div className="mt-2 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Create a draft, then continue editing it in the document viewer.</div>
           </div>
           <button
             type="button"
             onClick={requestClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] transition hover:bg-[color:var(--badge-danger-bg)] dark:border-[color:var(--danger-border)] dark:bg-[color:var(--danger-bg)] dark:text-[color:var(--danger-text)] dark:hover:bg-[color:var(--badge-danger-bg)]"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
+        <div className="border-b border-[color:var(--border)] px-5 py-4 dark:border-white/10">
           <div className="rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-5">
             <div className="flex items-center justify-between gap-3">
               <button
@@ -3143,16 +3143,16 @@ function CreateDraftDrawer({
       </aside>
       {confirmCloseOpen ? (
         <div className="absolute inset-0 z-[60] flex min-h-full items-center justify-center bg-black/60 backdrop-blur p-4">
-          <div className="w-full max-w-sm -translate-y-[50%] rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 md:translate-y-0">
-            <div className="text-lg font-semibold text-slate-950 dark:text-white">Cancel draft?</div>
-            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+          <div className="w-full max-w-sm -translate-y-[50%] rounded-[1.75rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[color:var(--bg-page)] md:translate-y-0">
+            <div className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">Cancel draft?</div>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               If you close this popup now, the information entered here will be discarded.
             </p>
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setConfirmCloseOpen(false)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+                className="rounded-xl border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
               >
                 No
               </button>
@@ -3162,7 +3162,7 @@ function CreateDraftDrawer({
                   setConfirmCloseOpen(false);
                   onClose();
                 }}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+                className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]"
               >
                 Yes
               </button>
@@ -3559,25 +3559,25 @@ function DocumentViewer({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4">
       <button type="button" aria-label="Close document viewer" onClick={onClose} className="absolute inset-0" />
-      <aside className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 md:gap-4 md:px-5 md:py-5 dark:border-white/10">
+      <aside className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[color:var(--bg-page)]">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-4 md:gap-4 md:px-5 md:py-5 dark:border-white/10">
           <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Document view</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Document view</div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-lg font-semibold tracking-[-0.04em] text-slate-950 md:text-2xl dark:text-white">
+                <h2 className="truncate text-lg font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] md:text-2xl dark:text-[color:var(--text-primary)]">
                   {isLoading ? "Loading..." : document?.documentNumber ?? "Document detail"}
                 </h2>
                 {document ? <StatusBadge status={document.status} /> : null}
               </div>
-              <div className="mt-1 text-xs text-slate-500 md:mt-2 md:text-sm dark:text-slate-400">
+              <div className="mt-1 text-xs text-[color:var(--text-muted)] md:mt-2 md:text-sm dark:text-[color:var(--text-muted)]">
                 {isLoading ? "Preparing detail..." : document?.documentType?.name ?? "Contract"}
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-white md:h-10 md:w-10 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] transition hover:bg-white md:h-10 md:w-10 dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:bg-white/10"
             >
               <X className="h-4 w-4" />
             </button>
@@ -3624,7 +3624,7 @@ function DocumentViewer({
           ) : null}
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
+        <div className="border-b border-[color:var(--border)] px-5 py-3 dark:border-white/10">
           <div className="flex flex-wrap gap-2">
             {/* NOA-280 — tabs derived from the document's FormDefinition
                 schema (Beneficiary, Services, etc. for Laura's invoice)
@@ -3661,9 +3661,9 @@ function DocumentViewer({
                   className={cn(
                     "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
                     activeTab === tab.key
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
-                    isLocked && "cursor-not-allowed opacity-50 hover:bg-slate-50 dark:hover:bg-white/[0.04]",
+                      ? "border-[color:var(--brand-accent-strong)] bg-[color:var(--button-primary)] text-white"
+                      : "border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-secondary)] dark:hover:bg-white/10",
+                    isLocked && "cursor-not-allowed opacity-50 hover:bg-[color:var(--bg-page-subtle)] dark:hover:bg-white/[0.04]",
                   )}
                 >
                   {tab.label}
@@ -3987,17 +3987,17 @@ function DocumentViewer({
           ) : activeTab === "timeline" ? (
             <div className="grid gap-3">
               {buildTimeline(document).map((item) => (
-                <div key={item.label} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-white/10 dark:bg-white/[0.04]">
-                  <span className="text-slate-500 dark:text-slate-400">{item.label}</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{item.value}</span>
+                <div key={item.label} className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 py-3 text-sm dark:border-white/10 dark:bg-white/[0.04]">
+                  <span className="text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{item.label}</span>
+                  <span className="font-medium text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{item.value}</span>
                 </div>
               ))}
             </div>
           ) : (
             <div className="grid gap-4">
-              <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-12 text-center dark:border-white/10 dark:bg-white/[0.04]">
-                <div className="text-lg font-semibold text-slate-900 dark:text-white">Final signed PDF</div>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              <div className="rounded-[1.6rem] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--bg-page-subtle)] px-5 py-12 text-center dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">Final signed PDF</div>
+                <p className="mt-2 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                   Download the signed PDF once the signature provider confirms the document as completed.
                 </p>
                 <button
@@ -4005,7 +4005,7 @@ function DocumentViewer({
                   onClick={() => void openPdfPreview()}
                   disabled={!document || actionInFlight === document.id}
                   className={cn(
-                    "mt-5 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/10",
+                    "mt-5 inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-white px-4 py-3 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-surface)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
                     (!document || actionInFlight === document.id) && "cursor-not-allowed opacity-60",
                   )}
                 >
@@ -4018,7 +4018,7 @@ function DocumentViewer({
                     onClick={() => void onDownloadFinalPdf(document.id)}
                     disabled={actionInFlight === document.id}
                     className={cn(
-                      "mt-3 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/10",
+                      "mt-3 inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-white px-4 py-3 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-surface)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
                       actionInFlight === document.id && "cursor-not-allowed opacity-60",
                     )}
                   >
@@ -4035,11 +4035,11 @@ function DocumentViewer({
 
       {isPdfPreviewOpen && pdfPreviewUrl ? (
         <div className="absolute inset-0 z-[70] flex items-start justify-center md:items-center bg-black/60 p-4 backdrop-blur">
-          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950 shadow-[0_28px_80px_rgba(10,18,32,0.55)]">
+          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[color:var(--bg-page)] shadow-[0_28px_80px_rgba(10,18,32,0.55)]">
             <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
               <div>
                 <div className="text-sm font-semibold text-white">Signed PDF preview</div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-[color:var(--text-muted)]">
                   {document?.documentNumber ?? "Document"}
                 </div>
               </div>
@@ -4057,13 +4057,13 @@ function DocumentViewer({
                 <button
                   type="button"
                   onClick={closePdfPreview}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[color:var(--text-primary)] transition hover:bg-white/10"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
-            <div className="min-h-0 flex-1 bg-slate-900">
+            <div className="min-h-0 flex-1 bg-[color:var(--bg-elevated)]">
               <iframe
                 title="Signed PDF preview"
                 src={pdfPreviewUrl}
@@ -4172,17 +4172,17 @@ function PopoverSelectField({
           onClick={() => !disabled && setOpen((current) => !current)}
           disabled={disabled}
           className={cn(
-            "inline-flex h-11 w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
-            disabled && "cursor-not-allowed opacity-60 hover:border-slate-200 hover:bg-slate-50 dark:hover:bg-white/5",
+            "inline-flex h-11 w-full items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-secondary)] outline-none transition hover:border-[color:var(--border-strong)] hover:bg-white focus:border-[color:var(--brand-accent)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
+            disabled && "cursor-not-allowed opacity-60 hover:border-[color:var(--border)] hover:bg-[color:var(--bg-page-subtle)] dark:hover:bg-white/5",
           )}
         >
           <span className="truncate">{selectedLabel}</span>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+          <ChevronsUpDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]" />
         </button>
         {open && !disabled ? (
-          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 max-h-60 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)] dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
             {options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-slate-400 dark:text-slate-500">
+              <div className="px-3 py-2 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                 No options
               </div>
             ) : (
@@ -4197,8 +4197,8 @@ function PopoverSelectField({
                   className={cn(
                     "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
                     option.value === value
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-white/[0.08]",
+                      ? "bg-[color:var(--button-primary)] text-white"
+                      : "text-[color:var(--text-secondary)] hover:bg-white dark:text-[color:var(--text-primary)] dark:hover:bg-white/[0.08]",
                   )}
                 >
                   <span className="truncate">{option.label}</span>
@@ -4389,19 +4389,19 @@ function SchemaDrivenEditNotice({
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
       <button type="button" aria-label="Close notice" onClick={onClose} className="absolute inset-0" />
-      <div className="relative z-10 w-full max-w-md rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
-        <h2 id="schema-edit-notice-title" className="text-lg font-semibold text-slate-950 dark:text-white">
+      <div className="relative z-10 w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <h2 id="schema-edit-notice-title" className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
           Edit not available yet
         </h2>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          We&apos;re redesigning the edit experience for this document type to give you a better workflow. For now, to modify draft <span className="font-medium text-slate-900 dark:text-white">{documentNumber}</span>, please cancel it and create a new one with the updated information.
+        <p className="mt-2 text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">
+          We&apos;re redesigning the edit experience for this document type to give you a better workflow. For now, to modify draft <span className="font-medium text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{documentNumber}</span>, please cancel it and create a new one with the updated information.
         </p>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={isCancelling}
-            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 py-2 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
           >
             Close
           </button>
@@ -4417,7 +4417,7 @@ function SchemaDrivenEditNotice({
               }
             }}
             disabled={isCancelling}
-            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:bg-rose-500/20"
+            className="rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-2 text-sm font-semibold text-[color:var(--danger-text)] transition hover:bg-[color:var(--badge-danger-bg)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[color:var(--danger-border)] dark:bg-[color:var(--danger-bg)] dark:text-[color:var(--danger-text)] dark:hover:bg-[color:var(--badge-danger-bg)]"
           >
             {isCancelling ? "Cancelling..." : "Cancel draft"}
           </button>
@@ -4438,7 +4438,7 @@ function Logo() {
   const logoShellClass =
     isDarkTheme
       ? "border-white/10 bg-white"
-      : "border-slate-200 bg-[#022977]";
+      : "border-[color:var(--border)] bg-[#022977]";
 
   return (
     <Link href="/dashboard" className="relative z-20 mx-auto flex w-full flex-col items-center justify-center gap-2 py-1 text-center text-sm font-normal text-[color:var(--text-primary)]">
@@ -4476,7 +4476,7 @@ function LogoIcon() {
   const logoShellClass =
     isDarkTheme
       ? "border-white/10 bg-white"
-      : "border-slate-200 bg-[#022977]";
+      : "border-[color:var(--border)] bg-[#022977]";
 
   return (
     <Link href="/dashboard" className="relative z-20 mx-auto flex items-center justify-center py-1 text-sm font-normal text-[color:var(--text-primary)]">
