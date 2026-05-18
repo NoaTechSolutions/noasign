@@ -153,6 +153,15 @@ export function LoginForm() {
     useState<ForgotPasswordErrors>({});
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState("");
   const [forgotPasswordResetLink, setForgotPasswordResetLink] = useState("");
+  const [forgotPasswordCooldown, setForgotPasswordCooldown] = useState(0);
+
+  useEffect(() => {
+    if (forgotPasswordCooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setForgotPasswordCooldown((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [forgotPasswordCooldown]);
   const [forcePasswordForm, setForcePasswordForm] = useState<ForcePasswordForm>({
     password: "",
     confirmPassword: "",
@@ -491,12 +500,37 @@ export function LoginForm() {
       });
       setForgotPasswordSuccess(data.message);
       setForgotPasswordResetLink(data.resetLink ?? "");
+      // Designer's `sent` state: 60s resend cooldown.
+      setForgotPasswordCooldown(60);
     } catch (submitError) {
       setForgotPasswordErrors({
         form:
           submitError instanceof Error
             ? submitError.message
             : "Unable to process forgot password request",
+      });
+    } finally {
+      setIsSubmittingForgotPassword(false);
+    }
+  }
+
+  async function resendForgotPasswordLink() {
+    if (forgotPasswordCooldown > 0 || isSubmittingForgotPassword) return;
+    setIsSubmittingForgotPassword(true);
+    try {
+      const data = await apiRequest<ForgotPasswordResponse>("/auth/forgot-password", {
+        method: "POST",
+        body: { email: forgotPasswordForm.email.trim().toLowerCase() },
+      });
+      setForgotPasswordSuccess(data.message);
+      setForgotPasswordResetLink(data.resetLink ?? "");
+      setForgotPasswordCooldown(60);
+    } catch (submitError) {
+      setForgotPasswordErrors({
+        form:
+          submitError instanceof Error
+            ? submitError.message
+            : "Unable to resend reset link",
       });
     } finally {
       setIsSubmittingForgotPassword(false);
@@ -1295,75 +1329,120 @@ export function LoginForm() {
           </motion.form>
           )
         ) : activeView === "forgotPassword" ? (
-          <motion.form
-            key="forgot-password-view"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            onSubmit={handleForgotPasswordSubmit}
-            className={authCardClassName}
-            noValidate
-          >
-            <CardHead
-              title="Reset your password"
-              sub="We'll email you a single-use link that expires in 15 minutes."
-              icon="envelope"
-            />
-
-            <div className="grid gap-1">
-              <Label htmlFor="forgot-email">Email</Label>
-              <Input
-                id="forgot-email"
-                type="email"
-                value={forgotPasswordForm.email}
-                error={Boolean(forgotPasswordErrors.email)}
-                onChange={(event) => {
-                  setForgotPasswordForm({ email: event.target.value });
-                  setForgotPasswordErrors((current) => ({
-                    ...current,
-                    email: undefined,
-                    form: undefined,
-                  }));
-                }}
-                placeholder="you@company.com"
-                className="h-12"
-              />
-              {forgotPasswordErrors.email ? (
-                <InputError text={forgotPasswordErrors.email} />
-              ) : null}
-            </div>
-
-            {forgotPasswordErrors.form ? (
-              <InputError text={forgotPasswordErrors.form} />
-            ) : null}
-
-            {forgotPasswordSuccess ? (
-              <div className="rounded-xl border border-[color:var(--success-border)] bg-[color:var(--success-bg)] px-4 py-3 text-sm text-[color:var(--success-text)]">
-                {forgotPasswordSuccess}
-              </div>
-            ) : null}
-
-            {forgotPasswordResetLink ? (
-              <a
-                href={forgotPasswordResetLink}
-                className="inline-flex h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-surface-strong)]"
-              >
-                Open reset link
-              </a>
-            ) : null}
-
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSubmittingForgotPassword || isForgotPasswordInvalid}
-              className="h-12 w-full"
+          forgotPasswordSuccess ? (
+            // ===== State: sent (designer's "sent" block) =====
+            <motion.div
+              key="forgot-password-sent"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className={authCardClassName}
             >
-              {isSubmittingForgotPassword ? "Sending..." : "Send reset link"}
-            </Button>
+              <CardHead
+                title="Check your inbox"
+                sub="We sent a reset link to:"
+                icon="envelope"
+              />
 
-            <BackLink onClick={() => setActiveView("login")} label="Back to login" />
-          </motion.form>
+              {/* Email echo */}
+              <div className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 py-3 text-[14px] font-medium text-[color:var(--text-primary)]">
+                <Mail className="h-4 w-4 text-[color:var(--brand-secondary)] dark:text-[color:var(--brand-accent)]" />
+                <span>{forgotPasswordForm.email}</span>
+              </div>
+
+              <p className="m-0 text-center text-[13px] font-normal leading-[1.5] text-[color:var(--text-secondary)]">
+                The link expires in <strong className="font-medium text-[color:var(--text-primary)]">15 minutes</strong> and can only be used once. If you don&apos;t see the email, check spam or try resending.
+              </p>
+
+              {forgotPasswordResetLink ? (
+                <a
+                  href={forgotPasswordResetLink}
+                  className="inline-flex h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-surface-strong)]"
+                >
+                  Open reset link
+                </a>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => void resendForgotPasswordLink()}
+                disabled={forgotPasswordCooldown > 0 || isSubmittingForgotPassword}
+                className="h-12 w-full"
+              >
+                {forgotPasswordCooldown > 0
+                  ? `Resend available in ${forgotPasswordCooldown}s`
+                  : isSubmittingForgotPassword
+                    ? "Resending..."
+                    : "Resend link"}
+              </Button>
+
+              {forgotPasswordErrors.form ? <InputError text={forgotPasswordErrors.form} /> : null}
+
+              <BackLink
+                onClick={() => {
+                  setForgotPasswordSuccess("");
+                  setForgotPasswordResetLink("");
+                  setForgotPasswordCooldown(0);
+                  setActiveView("login");
+                }}
+                label="Back to login"
+              />
+            </motion.div>
+          ) : (
+            // ===== State: request (form) =====
+            <motion.form
+              key="forgot-password-view"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              onSubmit={handleForgotPasswordSubmit}
+              className={authCardClassName}
+              noValidate
+            >
+              <CardHead
+                title="Reset your password"
+                sub="We'll email you a single-use link that expires in 15 minutes."
+                icon="envelope"
+              />
+
+              <div className="grid gap-1">
+                <Label htmlFor="forgot-email">Email</Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  value={forgotPasswordForm.email}
+                  error={Boolean(forgotPasswordErrors.email)}
+                  onChange={(event) => {
+                    setForgotPasswordForm({ email: event.target.value });
+                    setForgotPasswordErrors((current) => ({
+                      ...current,
+                      email: undefined,
+                      form: undefined,
+                    }));
+                  }}
+                  placeholder="you@company.com"
+                  className="h-12"
+                />
+                {forgotPasswordErrors.email ? <InputError text={forgotPasswordErrors.email} /> : null}
+              </div>
+
+              {forgotPasswordErrors.form ? <InputError text={forgotPasswordErrors.form} /> : null}
+
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={isSubmittingForgotPassword || isForgotPasswordInvalid}
+                className="h-12 w-full"
+              >
+                {isSubmittingForgotPassword ? "Sending..." : "Send reset link"}
+              </Button>
+
+              <BackLink onClick={() => setActiveView("login")} label="Back to login" />
+            </motion.form>
+          )
         ) : activeView === "forcePasswordChange" ? (
           <motion.form
             key="force-password-view"
@@ -1459,100 +1538,130 @@ export function LoginForm() {
             </Button>
           </motion.form>
         ) : (
-          <motion.form
-            key="reset-password-view"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            onSubmit={handleResetPasswordSubmit}
-            className={authCardClassName}
-            noValidate
-          >
-            <CardHead
-              title="Set a new password"
-              sub="Pick something strong — minimum 8 characters with a mix of letters and numbers."
-              icon="lock"
-            />
-
-            <div className="grid gap-1">
-              <Label htmlFor="reset-password">New password</Label>
-              <PasswordField
-                id="reset-password"
-                value={resetPasswordForm.password}
-                onChange={(value) => {
-                  setResetPasswordForm((current) => ({ ...current, password: value }));
-                  setResetPasswordErrors((current) => ({
-                    ...current,
-                    password: undefined,
-                    confirmPassword: undefined,
-                    form: undefined,
-                  }));
-                }}
-                showValue={showResetPassword}
-                onToggleVisibility={() =>
-                  setShowResetPassword((current) => !current)
-                }
-                hasError={Boolean(resetPasswordErrors.password)}
-                autoComplete="new-password"
-                placeholder="Create a new password"
-              />
-              {resetPasswordErrors.password ? (
-                <InputError text={resetPasswordErrors.password} />
-              ) : null}
-            </div>
-
-            <div className="grid gap-1">
-              <Label htmlFor="reset-confirm-password">Confirm password</Label>
-              <PasswordField
-                id="reset-confirm-password"
-                value={resetPasswordForm.confirmPassword}
-                onChange={(value) => {
-                  setResetPasswordForm((current) => ({
-                    ...current,
-                    confirmPassword: value,
-                  }));
-                  setResetPasswordErrors((current) => ({
-                    ...current,
-                    confirmPassword: undefined,
-                    form: undefined,
-                  }));
-                }}
-                showValue={showResetConfirmPassword}
-                onToggleVisibility={() =>
-                  setShowResetConfirmPassword((current) => !current)
-                }
-                hasError={Boolean(resetPasswordErrors.confirmPassword)}
-                autoComplete="new-password"
-                placeholder="Confirm your new password"
-                disablePaste
-              />
-              {resetPasswordErrors.confirmPassword ? (
-                <InputError text={resetPasswordErrors.confirmPassword} />
-              ) : null}
-            </div>
-
-            {resetPasswordErrors.form ? (
-              <InputError text={resetPasswordErrors.form} />
-            ) : null}
-
-            {resetPasswordSuccess ? (
-              <div className="rounded-2xl border border-[color:var(--success-border)] bg-[color:var(--success-bg)] px-4 py-3 text-sm text-[color:var(--success-text)]">
-                {resetPasswordSuccess}
-              </div>
-            ) : null}
-
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isSubmittingResetPassword || isResetPasswordInvalid}
-              className="h-12 w-full"
+          resetPasswordSuccess ? (
+            // ===== State: success (designer's success block with check list) =====
+            <motion.div
+              key="reset-password-success"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className={authCardClassName + " items-center text-center"}
             >
-              {isSubmittingResetPassword ? "Saving..." : "Update password"}
-            </Button>
+              <CardHead
+                title="Password updated"
+                sub="Your account is secure. The recovery event was added to your audit trail."
+                icon="lock"
+              />
 
-            <BackLink onClick={() => setActiveView("login")} label="Cancel and back to login" />
-          </motion.form>
+              <ul className="m-0 flex w-full list-none flex-col gap-2 p-0">
+                {[
+                  "New password set and encrypted at rest with AES-256.",
+                  "All previous sessions on other devices have been signed out.",
+                  "Confirmation email sent.",
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-2.5 text-[13px] font-normal leading-[1.5] text-[color:var(--text-secondary)]">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[color:var(--success)]" aria-hidden>
+                      <path d="m5 12 5 5L20 7" />
+                    </svg>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  setResetPasswordSuccess("");
+                  setResetPasswordForm({ password: "", confirmPassword: "" });
+                  setActiveView("login");
+                }}
+                className="mt-2 h-12 w-full"
+              >
+                Continue to login
+              </Button>
+            </motion.div>
+          ) : (
+            // ===== State: reset (form) =====
+            <motion.form
+              key="reset-password-view"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              onSubmit={handleResetPasswordSubmit}
+              className={authCardClassName}
+              noValidate
+            >
+              <CardHead
+                title="Set a new password"
+                sub="Pick something strong — minimum 8 characters with a mix of letters and numbers."
+                icon="lock"
+              />
+
+              <div className="grid gap-2">
+                <Label htmlFor="reset-password">New password</Label>
+                <PasswordField
+                  id="reset-password"
+                  value={resetPasswordForm.password}
+                  onChange={(value) => {
+                    setResetPasswordForm((current) => ({ ...current, password: value }));
+                    setResetPasswordErrors((current) => ({
+                      ...current,
+                      password: undefined,
+                      confirmPassword: undefined,
+                      form: undefined,
+                    }));
+                  }}
+                  showValue={showResetPassword}
+                  onToggleVisibility={() => setShowResetPassword((current) => !current)}
+                  hasError={Boolean(resetPasswordErrors.password)}
+                  autoComplete="new-password"
+                  placeholder="At least 8 characters"
+                />
+                <StrengthMeter value={resetPasswordForm.password} />
+                {resetPasswordErrors.password ? <InputError text={resetPasswordErrors.password} /> : null}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="reset-confirm-password">Confirm new password</Label>
+                <PasswordField
+                  id="reset-confirm-password"
+                  value={resetPasswordForm.confirmPassword}
+                  onChange={(value) => {
+                    setResetPasswordForm((current) => ({ ...current, confirmPassword: value }));
+                    setResetPasswordErrors((current) => ({
+                      ...current,
+                      confirmPassword: undefined,
+                      form: undefined,
+                    }));
+                  }}
+                  showValue={showResetConfirmPassword}
+                  onToggleVisibility={() => setShowResetConfirmPassword((current) => !current)}
+                  hasError={Boolean(resetPasswordErrors.confirmPassword)}
+                  autoComplete="new-password"
+                  placeholder="Repeat your new password"
+                  disablePaste
+                />
+                <MatchIndicator password={resetPasswordForm.password} confirm={resetPasswordForm.confirmPassword} />
+                {resetPasswordErrors.confirmPassword ? <InputError text={resetPasswordErrors.confirmPassword} /> : null}
+              </div>
+
+              {resetPasswordErrors.form ? <InputError text={resetPasswordErrors.form} /> : null}
+
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={isSubmittingResetPassword || isResetPasswordInvalid}
+                className="h-12 w-full"
+              >
+                {isSubmittingResetPassword ? "Saving..." : "Update password"}
+              </Button>
+
+              <BackLink onClick={() => setActiveView("login")} label="Cancel and back to login" />
+            </motion.form>
+          )
         )}
         </AnimatePresence>
       </div>
@@ -1649,6 +1758,106 @@ function CardHead({
         {sub}
       </p>
     </header>
+  );
+}
+
+/**
+ * Password strength meter — 4 bars + label.
+ * Score mirrors the designer's `score()` function from forgot-password.html:
+ *   +1 length>=8, +1 length>=12, +1 mixed case, +1 digit, +1 special
+ *   clamped to 0-4. Labels: "—", "Weak", "Fair", "Good", "Strong".
+ */
+function calcStrength(value: string): number {
+  if (!value) return 0;
+  let s = 0;
+  if (value.length >= 8) s++;
+  if (value.length >= 12) s++;
+  if (/[a-z]/.test(value) && /[A-Z]/.test(value)) s++;
+  if (/\d/.test(value)) s++;
+  if (/[^A-Za-z0-9]/.test(value)) s++;
+  return Math.max(0, Math.min(4, s));
+}
+
+function StrengthMeter({ value }: { value: string }) {
+  const score = calcStrength(value);
+  const labels = ["—", "Weak", "Fair", "Good", "Strong"];
+  const tones = ["", "danger", "warning", "info", "success"] as const;
+  const activeTone = tones[score];
+  const valueColor =
+    activeTone === "danger"
+      ? "var(--danger-text)"
+      : activeTone === "warning"
+        ? "var(--warning-text)"
+        : activeTone === "info"
+          ? "var(--info-text)"
+          : activeTone === "success"
+            ? "var(--success)"
+            : "var(--text-muted)";
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-1">
+        {[1, 2, 3, 4].map((bar) => {
+          const filled = bar <= score;
+          const tone = filled ? tones[bar] : "";
+          const bg =
+            tone === "danger"
+              ? "var(--danger-text)"
+              : tone === "warning"
+                ? "var(--warning-text)"
+                : tone === "info"
+                  ? "var(--info-text)"
+                  : tone === "success"
+                    ? "var(--success)"
+                    : "var(--border)";
+          return (
+            <span
+              key={bar}
+              aria-hidden
+              className="h-1.5 flex-1 rounded-full transition"
+              style={{ background: bg }}
+            />
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="font-medium text-[color:var(--text-muted)]">Strength</span>
+        <span style={{ color: valueColor }} className="font-medium">
+          {labels[score]}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Match indicator — green check or red cross with text.
+ * Mirrors the designer's `.match` indicator from forgot-password.html.
+ */
+function MatchIndicator({ password, confirm }: { password: string; confirm: string }) {
+  if (!confirm) return null;
+  const matches = password === confirm;
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 text-[11px] font-medium"
+      style={{
+        color: matches ? "var(--success)" : "var(--danger-text)",
+      }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-3.5 w-3.5"
+        aria-hidden
+      >
+        {matches ? <path d="m5 12 5 5L20 7" /> : <path d="M6 6 18 18 M18 6 6 18" />}
+      </svg>
+      <span>{matches ? "Passwords match" : "Passwords don't match"}</span>
+    </div>
   );
 }
 
