@@ -3,10 +3,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
+  --background: #f0f4ff;
   --foreground: #022977;
   --panel: rgba(245, 249, 255, 0.96);
-  --surface: #f0f4ff;
+  --surface: #ffffff;
   --surface-strong: #dce9ff;
   --surface-dark: #022977;
   --ink: #022977;
@@ -20,11 +20,11 @@
   --brand-accent-hover: #048fdd;
   --brand-accent-soft: rgba(5, 165, 255, 0.18);
   --brand-highlight: #ff9900;
-  --bg-page: #ffffff;
-  --bg-page-subtle: #f0f4ff;
-  --bg-surface: #f0f4ff;
+  --bg-page: #f0f4ff;
+  --bg-page-subtle: #f7f8fa;
+  --bg-surface: #ffffff;
   --bg-surface-strong: #dce9ff;
-  --bg-elevated: #f7f8fa;
+  --bg-elevated: #ffffff;
   --bg-shell: linear-gradient(180deg, #f0f4ff 0%, #e3edff 100%);
   --bg-shell-inner: linear-gradient(
     180deg,
