@@ -149,16 +149,16 @@ export function LoginForm() {
     : "/img/NTSSign_AzulDark_SinFondo.svg";
   const authCardClassName = isDarkTheme
     ? "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--border-strong)] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[var(--shadow-medium)] md:gap-5 md:p-7 lg:p-7"
-    : "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[#022977] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[0_18px_50px_rgba(2,41,119,0.12)] md:gap-5 md:p-7 lg:p-7";
+    : "grid gap-4 bg-transparent p-0 shadow-none sm:rounded-[2rem] sm:border sm:border-[color:var(--brand-secondary)] sm:bg-[image:var(--bg-form)] sm:p-5 sm:shadow-[0_18px_50px_rgba(2,41,119,0.12)] md:gap-5 md:p-7 lg:p-7";
   const neutralButtonClassName = isDarkTheme
     ? "inline-flex items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
-    : "inline-flex items-center justify-center rounded-2xl border border-[#022977] bg-white text-[#022977] transition hover:bg-[#f5f8ff]";
+    : "inline-flex items-center justify-center rounded-2xl border border-[color:var(--brand-secondary)] bg-white text-[color:var(--brand-secondary)] transition hover:bg-[color:var(--bg-page-subtle)]";
   const documentTypeCardClassName = (checked: boolean) =>
     checked
       ? "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
       : isDarkTheme
         ? "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--bg-surface)]"
-        : "border-[#022977] bg-white text-[color:var(--text-primary)] hover:bg-[#f5f8ff]";
+        : "border-[color:var(--brand-secondary)] bg-white text-[color:var(--text-primary)] hover:bg-[color:var(--bg-page-subtle)]";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -728,7 +728,7 @@ export function LoginForm() {
             {loginErrors.password ? (
               <InputError text={loginErrors.password} />
             ) : password !== password.trim() ? (
-              <p className="mt-1.5 text-xs text-amber-500">Your password has leading or trailing spaces — make sure that&apos;s intentional.</p>
+              <p className="mt-1.5 text-xs text-[color:var(--warning-text)]">Your password has leading or trailing spaces — make sure that&apos;s intentional.</p>
             ) : null}
           </div>
 
