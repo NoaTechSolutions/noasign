@@ -11,10 +11,13 @@ import {
   EyeOff,
   FileSpreadsheet,
   FileText,
+  Lock,
+  Mail,
   PackageCheck,
   Receipt,
   ScrollText,
   ShieldCheck,
+  UserPlus,
 } from "lucide-react";
 import { Button, Checkbox, Input, Label } from "@/components/ui";
 import { API_URL, apiRequest } from "../../lib/api";
@@ -828,24 +831,15 @@ export function LoginForm() {
           className={authCardClassName}
             noValidate
           >
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => backToLogin()}
-                className={`${neutralButtonClassName} h-10 w-10 text-[color:var(--text-secondary)]`}
-                aria-label="Back to login"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-                  Account request
-                </div>
-                <div className="mt-1 text-xl font-semibold text-[color:var(--text-primary)]">
-                  {createAccountStep === 1 ? "Create account" : "Request document types"}
-                </div>
-              </div>
-            </div>
+            <CardHead
+              title={createAccountStep === 1 ? "Request access" : "Document types"}
+              sub={
+                createAccountStep === 1
+                  ? "Tell us a bit about you. We'll review and reach out shortly."
+                  : "Pick the document types you'd like to use in your workspace."
+              }
+              icon={createAccountStep === 1 ? "user-plus" : "files"}
+            />
 
             {createAccountStep === 1 ? (
               <>
@@ -985,49 +979,31 @@ export function LoginForm() {
                 </div>
               ) : null}
 
-              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                <button
+              {createAccountStep === 1 ? (
+                <Button
                   type="button"
-                  onClick={() =>
-                    createAccountStep === 1 ? backToLogin() : setCreateAccountStep(1)
-                  }
-                  className={`${neutralButtonClassName} h-12 px-4 text-sm font-medium`}
+                  variant="primary"
+                  onClick={continueCreateAccount}
+                  disabled={isAccountRequestInvalid}
+                  className="h-12 w-full"
                 >
-                  {createAccountStep === 1 ? "Cancel" : "Back"}
-                </button>
-                {createAccountStep === 1 ? (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={continueCreateAccount}
-                    disabled={isAccountRequestInvalid}
-                    className="h-12 px-4"
-                  >
-                    Continue
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={isSubmittingRequest || isAccountRequestInvalid}
-                    className="h-12 px-4"
-                  >
-                    {isSubmittingRequest ? "Submitting..." : "Submit request"}
-                  </Button>
-                )}
-              </div>
+                  Continue
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={isSubmittingRequest || isAccountRequestInvalid}
+                  className="h-12 w-full"
+                >
+                  {isSubmittingRequest ? "Submitting..." : "Submit request"}
+                </Button>
+              )}
 
-              <a
-                href="https://noatechsolutions.com/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-center text-sm text-[color:var(--brand-highlight)] hover:text-[color:var(--button-warning-hover)]"
-              >
-                Created by{" "}
-                <span className="font-semibold text-[color:var(--brand-highlight)]">
-                  NoaTechSolutions
-                </span>
-              </a>
+              <BackLink
+                onClick={() => (createAccountStep === 1 ? backToLogin() : setCreateAccountStep(1))}
+                label={createAccountStep === 1 ? "Back to login" : "Back"}
+              />
             </motion.form>
         ) : activeView === "forgotPassword" ? (
           <motion.form
@@ -1040,24 +1016,11 @@ export function LoginForm() {
             className={authCardClassName}
             noValidate
           >
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setActiveView("login")}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)]"
-                aria-label="Back to login"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-                  Account recovery
-                </div>
-                <div className="mt-1 text-xl font-semibold text-[color:var(--text-primary)]">
-                  Forgot password
-                </div>
-              </div>
-            </div>
+            <CardHead
+              title="Reset your password"
+              sub="We'll email you a single-use link that expires in 15 minutes."
+              icon="envelope"
+            />
 
             <div className="grid gap-1">
               <Label htmlFor="forgot-email">Email</Label>
@@ -1074,7 +1037,8 @@ export function LoginForm() {
                     form: undefined,
                   }));
                 }}
-                placeholder="owner@company.com"
+                placeholder="you@company.com"
+                className="h-12"
               />
               {forgotPasswordErrors.email ? (
                 <InputError text={forgotPasswordErrors.email} />
@@ -1086,7 +1050,7 @@ export function LoginForm() {
             ) : null}
 
             {forgotPasswordSuccess ? (
-              <div className="rounded-2xl border border-[color:var(--success-border)] bg-[color:var(--success-bg)] px-4 py-3 text-sm text-[color:var(--success-text)]">
+              <div className="rounded-xl border border-[color:var(--success-border)] bg-[color:var(--success-bg)] px-4 py-3 text-sm text-[color:var(--success-text)]">
                 {forgotPasswordSuccess}
               </div>
             ) : null}
@@ -1094,29 +1058,22 @@ export function LoginForm() {
             {forgotPasswordResetLink ? (
               <a
                 href={forgotPasswordResetLink}
-                className="inline-flex h-12 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
+                className="inline-flex h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-surface-strong)]"
               >
                 Open reset link
               </a>
             ) : null}
 
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setActiveView("login")}
-                className="inline-flex h-12 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
-              >
-                Cancel
-              </button>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={isSubmittingForgotPassword || isForgotPasswordInvalid}
-                className="h-12 px-4"
-              >
-                {isSubmittingForgotPassword ? "Submitting..." : "Send instructions"}
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSubmittingForgotPassword || isForgotPasswordInvalid}
+              className="h-12 w-full"
+            >
+              {isSubmittingForgotPassword ? "Sending..." : "Send reset link"}
+            </Button>
+
+            <BackLink onClick={() => setActiveView("login")} label="Back to login" />
           </motion.form>
         ) : activeView === "forcePasswordChange" ? (
           <motion.form
@@ -1129,17 +1086,12 @@ export function LoginForm() {
             className={authCardClassName}
             noValidate
           >
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-                Security update
-              </div>
-              <div className="mt-1 text-xl font-semibold text-[color:var(--text-primary)]">
-                Change temporary password
-              </div>
-              <div className="mt-2 text-sm text-[color:var(--text-secondary)]">
-                For security, create a new password before entering the workspace.
-              </div>
-            </div>
+            <CardHead
+              title="Choose a new password"
+              sub="For security, create a new password before entering the workspace."
+              icon="lock"
+              tone="warning"
+            />
 
             <div className="grid gap-1">
               <Label htmlFor="forced-password">New password</Label>
@@ -1212,7 +1164,7 @@ export function LoginForm() {
               type="submit"
               variant="primary"
               disabled={isSubmittingForcePassword || isForcePasswordInvalid}
-              className="h-12 px-4"
+              className="h-12 w-full"
             >
               {isSubmittingForcePassword ? "Saving..." : "Update password"}
             </Button>
@@ -1228,17 +1180,11 @@ export function LoginForm() {
             className={authCardClassName}
             noValidate
           >
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-                Account recovery
-              </div>
-              <div className="mt-1 text-xl font-semibold text-[color:var(--text-primary)]">
-                Reset password
-              </div>
-              <div className="mt-2 text-sm text-[color:var(--text-secondary)]">
-                Create a new password to recover access to your workspace.
-              </div>
-            </div>
+            <CardHead
+              title="Set a new password"
+              sub="Pick something strong — minimum 8 characters with a mix of letters and numbers."
+              icon="lock"
+            />
 
             <div className="grid gap-1">
               <Label htmlFor="reset-password">New password</Label>
@@ -1311,10 +1257,12 @@ export function LoginForm() {
               type="submit"
               variant="primary"
               disabled={isSubmittingResetPassword || isResetPasswordInvalid}
-              className="h-12 px-4"
+              className="h-12 w-full"
             >
-              {isSubmittingResetPassword ? "Saving..." : "Reset password"}
+              {isSubmittingResetPassword ? "Saving..." : "Update password"}
             </Button>
+
+            <BackLink onClick={() => setActiveView("login")} label="Cancel and back to login" />
           </motion.form>
         )}
         </AnimatePresence>
@@ -1372,6 +1320,63 @@ function PasswordField({
 
 function InputError({ text }: { text: string }) {
   return <div className="text-sm text-[color:var(--danger-text)]">{text}</div>;
+}
+
+/**
+ * Card head — icon container + title + subtitle.
+ * Mirrors the designer's `.card__head` block from forgot-password.html.
+ */
+function CardHead({
+  title,
+  sub,
+  icon,
+  tone = "brand",
+}: {
+  title: string;
+  sub: string;
+  icon: "envelope" | "lock" | "user-plus" | "files";
+  tone?: "brand" | "warning";
+}) {
+  const IconCmp =
+    icon === "envelope" ? Mail : icon === "lock" ? Lock : icon === "user-plus" ? UserPlus : FileText;
+
+  const toneStyles =
+    tone === "warning"
+      ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
+      : "bg-[color:var(--badge-primary-bg)] text-[color:var(--brand-secondary)] dark:text-[color:var(--brand-accent)]";
+
+  return (
+    <header className="flex flex-col items-center gap-3 text-center">
+      <div
+        aria-hidden
+        className={`grid h-12 w-12 place-items-center rounded-xl ${toneStyles}`}
+      >
+        <IconCmp className="h-5 w-5" strokeWidth={1.75} />
+      </div>
+      <h3 className="m-0 text-[20px] font-medium leading-[1.25] tracking-[-0.01em] text-[color:var(--text-primary)]">
+        {title}
+      </h3>
+      <p className="m-0 text-[13px] font-normal leading-[1.5] text-[color:var(--text-secondary)]">
+        {sub}
+      </p>
+    </header>
+  );
+}
+
+/**
+ * Back link — inline "← Back to login" at the bottom of secondary views.
+ */
+function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mx-auto inline-flex items-center gap-1.5 text-[13px] font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--brand-secondary)] dark:hover:text-[color:var(--brand-accent)]"
+    >
+      <ArrowLeft className="h-3.5 w-3.5" />
+      {label}
+    </button>
+  );
 }
 
 function isValidEmail(value: string) {
