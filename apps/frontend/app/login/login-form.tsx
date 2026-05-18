@@ -62,19 +62,41 @@ type LoginErrors = {
 };
 
 type AccountRequestErrors = {
+  accountType?: string;
   fullName?: string;
+  companyName?: string;
+  contactName?: string;
   email?: string;
   confirmEmail?: string;
   requestedDocumentTypes?: string;
+  otherDocType?: string;
   form?: string;
 };
 
+type AccountType = "" | "personal" | "business";
+
 type AccountRequestForm = {
-  fullName: string;
+  accountType: AccountType;
+  fullName: string;       // Personal only
+  companyName: string;    // Business only
+  contactName: string;    // Business only
   email: string;
   confirmEmail: string;
+  phone: string;          // Optional
   requestedDocumentTypes: string[];
+  otherDocType: string;   // Required when "Others" is selected
+  referral: string;       // Optional
+  notes: string;          // Optional
 };
+
+const ACCOUNT_TOTAL_STEPS = 4;
+const REFERRAL_OPTIONS = [
+  { value: "google", label: "Google Search" },
+  { value: "social", label: "Social Media" },
+  { value: "referral", label: "Referral from a colleague" },
+  { value: "ad", label: "Advertisement" },
+  { value: "other", label: "Other" },
+];
 
 type ForgotPasswordForm = {
   email: string;
@@ -110,12 +132,19 @@ export function LoginForm() {
   const [activeView, setActiveView] = useState<
     "login" | "createAccount" | "forgotPassword" | "forcePasswordChange" | "resetPassword"
   >("login");
-  const [createAccountStep, setCreateAccountStep] = useState<1 | 2>(1);
+  const [createAccountStep, setCreateAccountStep] = useState<1 | 2 | 3 | 4>(1);
   const [accountRequestForm, setAccountRequestForm] = useState<AccountRequestForm>({
+    accountType: "",
     fullName: "",
+    companyName: "",
+    contactName: "",
     email: "",
     confirmEmail: "",
+    phone: "",
     requestedDocumentTypes: [],
+    otherDocType: "",
+    referral: "",
+    notes: "",
   });
   const [forgotPasswordForm, setForgotPasswordForm] = useState<ForgotPasswordForm>({
     email: "",
@@ -183,21 +212,36 @@ export function LoginForm() {
     [loginErrors],
   );
   const isAccountRequestInvalid = useMemo(() => {
-    const emailValue = accountRequestForm.email.trim();
-    const confirmEmailValue = accountRequestForm.confirmEmail.trim();
-
     if (createAccountStep === 1) {
+      return !accountRequestForm.accountType;
+    }
+    if (createAccountStep === 2) {
+      const email = accountRequestForm.email.trim();
+      const confirmEmail = accountRequestForm.confirmEmail.trim();
+      const isBusiness = accountRequestForm.accountType === "business";
+      const identityFilled = isBusiness
+        ? accountRequestForm.companyName.trim() && accountRequestForm.contactName.trim()
+        : Boolean(accountRequestForm.fullName.trim());
       return (
-        !accountRequestForm.fullName.trim() ||
-        !emailValue ||
-        !confirmEmailValue ||
-        !isValidEmail(emailValue) ||
-        !isValidEmail(confirmEmailValue) ||
-        emailValue.toLowerCase() !== confirmEmailValue.toLowerCase()
+        !identityFilled ||
+        !email ||
+        !confirmEmail ||
+        !isValidEmail(email) ||
+        !isValidEmail(confirmEmail) ||
+        email.toLowerCase() !== confirmEmail.toLowerCase()
       );
     }
-
-    return accountRequestForm.requestedDocumentTypes.length === 0;
+    if (createAccountStep === 3) {
+      if (accountRequestForm.requestedDocumentTypes.length === 0) return true;
+      if (
+        accountRequestForm.requestedDocumentTypes.includes("Others") &&
+        !accountRequestForm.otherDocType.trim()
+      ) {
+        return true;
+      }
+      return false;
+    }
+    return false;
   }, [accountRequestForm, createAccountStep]);
   const isForgotPasswordInvalid = useMemo(() => {
     const emailValue = forgotPasswordForm.email.trim();
@@ -296,73 +340,73 @@ export function LoginForm() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  function validateAccountRequestForm() {
+  function validateAccountRequestStep(step: 1 | 2 | 3 | 4) {
     const nextErrors: AccountRequestErrors = {};
-    const normalizedFullName = accountRequestForm.fullName.trim();
-    const normalizedEmail = accountRequestForm.email.trim();
-    const normalizedConfirmEmail = accountRequestForm.confirmEmail.trim();
 
-    if (!normalizedFullName) {
-      nextErrors.fullName = "Full name is required.";
+    if (step === 1) {
+      if (!accountRequestForm.accountType) {
+        nextErrors.accountType = "Please choose an account type to continue.";
+      }
     }
 
-    if (!normalizedEmail) {
-      nextErrors.email = "Email is required.";
-    } else if (!isValidEmail(normalizedEmail)) {
-      nextErrors.email = "Enter a valid email address.";
+    if (step === 2) {
+      const isBusiness = accountRequestForm.accountType === "business";
+      if (isBusiness) {
+        if (!accountRequestForm.companyName.trim()) {
+          nextErrors.companyName = "Company name is required.";
+        }
+        if (!accountRequestForm.contactName.trim()) {
+          nextErrors.contactName = "Primary contact name is required.";
+        }
+      } else if (!accountRequestForm.fullName.trim()) {
+        nextErrors.fullName = "Full name is required.";
+      }
+
+      const normalizedEmail = accountRequestForm.email.trim();
+      const normalizedConfirmEmail = accountRequestForm.confirmEmail.trim();
+
+      if (!normalizedEmail) {
+        nextErrors.email = "Email is required.";
+      } else if (!isValidEmail(normalizedEmail)) {
+        nextErrors.email = "Enter a valid email address.";
+      }
+
+      if (!normalizedConfirmEmail) {
+        nextErrors.confirmEmail = "Confirm email is required.";
+      } else if (!isValidEmail(normalizedConfirmEmail)) {
+        nextErrors.confirmEmail = "Enter a valid email address.";
+      } else if (
+        normalizedEmail &&
+        isValidEmail(normalizedEmail) &&
+        normalizedEmail.toLowerCase() !== normalizedConfirmEmail.toLowerCase()
+      ) {
+        nextErrors.confirmEmail = "Both email fields must match.";
+      }
     }
 
-    if (!normalizedConfirmEmail) {
-      nextErrors.confirmEmail = "Confirm email is required.";
-    } else if (!isValidEmail(normalizedConfirmEmail)) {
-      nextErrors.confirmEmail = "Enter a valid email address.";
-    } else if (
-      normalizedEmail &&
-      isValidEmail(normalizedEmail) &&
-      normalizedEmail.toLowerCase() !== normalizedConfirmEmail.toLowerCase()
-    ) {
-      nextErrors.confirmEmail = "Both email fields must match.";
+    if (step === 3) {
+      if (accountRequestForm.requestedDocumentTypes.length === 0) {
+        nextErrors.requestedDocumentTypes = "Select at least one document type.";
+      } else if (
+        accountRequestForm.requestedDocumentTypes.includes("Others") &&
+        !accountRequestForm.otherDocType.trim()
+      ) {
+        nextErrors.otherDocType = "Describe the \"Other\" document type.";
+      }
     }
 
-    if (createAccountStep === 2 && accountRequestForm.requestedDocumentTypes.length === 0) {
-      nextErrors.requestedDocumentTypes =
-        "Select at least one document type.";
-    }
+    // Step 4: all fields optional — no validation needed.
 
     setAccountRequestErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
 
-  function validateAccountRequestStepOne() {
-    const nextErrors: AccountRequestErrors = {};
-    const normalizedFullName = accountRequestForm.fullName.trim();
-    const normalizedEmail = accountRequestForm.email.trim();
-    const normalizedConfirmEmail = accountRequestForm.confirmEmail.trim();
-
-    if (!normalizedFullName) {
-      nextErrors.fullName = "Full name is required.";
+  function validateAccountRequestForm() {
+    // Used by handleAccountRequestSubmit (final submit) — validate all step bundles.
+    for (const step of [1, 2, 3] as const) {
+      if (!validateAccountRequestStep(step)) return false;
     }
-
-    if (!normalizedEmail) {
-      nextErrors.email = "Email is required.";
-    } else if (!isValidEmail(normalizedEmail)) {
-      nextErrors.email = "Enter a valid email address.";
-    }
-
-    if (!normalizedConfirmEmail) {
-      nextErrors.confirmEmail = "Confirm email is required.";
-    } else if (!isValidEmail(normalizedConfirmEmail)) {
-      nextErrors.confirmEmail = "Enter a valid email address.";
-    } else if (
-      normalizedEmail &&
-      isValidEmail(normalizedEmail) &&
-      normalizedEmail.toLowerCase() !== normalizedConfirmEmail.toLowerCase()
-    ) {
-      nextErrors.confirmEmail = "Both email fields must match.";
-    }
-
-    setAccountRequestErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    return true;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -566,15 +610,30 @@ export function LoginForm() {
     setAccountRequestSuccess("");
 
     try {
+      // Map the wizard form (designer's 4-step shape) to the backend DTO
+      // (fullName + email + requestedDocumentTypes). Business accounts encode
+      // company + contact into fullName; "Others" docType embeds the inline
+      // text. Phone, referral and notes are designer-only for now.
+      const composedFullName =
+        accountRequestForm.accountType === "business"
+          ? `${accountRequestForm.companyName.trim()} (Contact: ${accountRequestForm.contactName.trim()})`
+          : accountRequestForm.fullName.trim();
+
+      const docTypesForBackend = accountRequestForm.requestedDocumentTypes.map((value) =>
+        value === "Others" && accountRequestForm.otherDocType.trim()
+          ? `Others: ${accountRequestForm.otherDocType.trim()}`
+          : value,
+      );
+
       const response = await fetch(`${API_URL}/users/account-requests`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          fullName: accountRequestForm.fullName.trim(),
+          fullName: composedFullName,
           email: accountRequestForm.email.trim().toLowerCase(),
-          requestedDocumentTypes: accountRequestForm.requestedDocumentTypes,
+          requestedDocumentTypes: docTypesForBackend,
         }),
       });
 
@@ -591,15 +650,10 @@ export function LoginForm() {
         return;
       }
 
-      setAccountRequestForm({
-        fullName: "",
-        email: "",
-        confirmEmail: "",
-        requestedDocumentTypes: [],
-      });
-      setCreateAccountStep(1);
+      // Keep email in state so the success view can echo it. The form itself is
+      // wiped except for the echo; createAccountStep reset to 1 for next time.
       setAccountRequestSuccess(
-        "Request submitted successfully. Our team will contact you as soon as possible.",
+        `Request submitted successfully for ${accountRequestForm.email.trim()}.`,
       );
     } catch (submitError) {
       setAccountRequestErrors({
@@ -638,12 +692,20 @@ export function LoginForm() {
   }
 
   function continueCreateAccount() {
-    if (!validateAccountRequestStepOne()) {
+    // Validate the CURRENT step before advancing. Steps run 1 -> 4.
+    if (!validateAccountRequestStep(createAccountStep)) {
       return;
     }
 
     setAccountRequestErrors({});
-    setCreateAccountStep(2);
+    const next = Math.min(createAccountStep + 1, ACCOUNT_TOTAL_STEPS) as 1 | 2 | 3 | 4;
+    setCreateAccountStep(next);
+  }
+
+  function previousCreateAccountStep() {
+    setAccountRequestErrors({});
+    const prev = Math.max(createAccountStep - 1, 1) as 1 | 2 | 3 | 4;
+    setCreateAccountStep(prev);
   }
 
   return (
@@ -821,6 +883,60 @@ export function LoginForm() {
           </p>
         </motion.form>
         ) : activeView === "createAccount" ? (
+          accountRequestSuccess ? (
+            <motion.div
+              key="create-account-success"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className={authCardClassName + " items-center text-center"}
+            >
+              <div
+                aria-hidden
+                className="grid h-16 w-16 place-items-center rounded-full bg-[color:var(--success-bg)] text-[color:var(--success)]"
+              >
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+                  <path d="m6 16 7 7L26 9" />
+                </svg>
+              </div>
+              <h3 className="m-0 text-[22px] font-medium leading-[1.25] tracking-[-0.01em] text-[color:var(--text-primary)]">
+                Request received
+              </h3>
+              <p className="m-0 text-[14px] font-normal leading-[1.6] text-[color:var(--text-secondary)]">
+                Thank you for your interest in NTSsign. We&apos;ll review your request and send login credentials within 1-2 business days. Check your email at:
+              </p>
+              <span className="mt-1 inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 py-2 text-[13px] font-medium text-[color:var(--text-primary)]">
+                <Mail className="h-3.5 w-3.5 text-[color:var(--brand-secondary)] dark:text-[color:var(--brand-accent)]" />
+                {accountRequestForm.email}
+              </span>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  setAccountRequestSuccess("");
+                  setAccountRequestForm({
+                    accountType: "",
+                    fullName: "",
+                    companyName: "",
+                    contactName: "",
+                    email: "",
+                    confirmEmail: "",
+                    phone: "",
+                    requestedDocumentTypes: [],
+                    otherDocType: "",
+                    referral: "",
+                    notes: "",
+                  });
+                  setCreateAccountStep(1);
+                  setActiveView("login");
+                }}
+                className="mt-3 h-12 w-full"
+              >
+                Back to login
+              </Button>
+            </motion.div>
+          ) : (
           <motion.form
             key="create-account-view"
             initial={{ opacity: 0, x: 24 }}
@@ -828,164 +944,329 @@ export function LoginForm() {
             exit={{ opacity: 0, x: -24 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
             onSubmit={handleAccountRequestSubmit}
-          className={authCardClassName}
+            className={authCardClassName + " max-w-[520px]"}
             noValidate
           >
-            <CardHead
-              title={createAccountStep === 1 ? "Request access" : "Document types"}
-              sub={
-                createAccountStep === 1
-                  ? "Tell us a bit about you. We'll review and reach out shortly."
-                  : "Pick the document types you'd like to use in your workspace."
-              }
-              icon={createAccountStep === 1 ? "user-plus" : "files"}
-            />
+            {/* Card title (matches the designer's .card__header) */}
+            <header className="flex flex-col gap-2">
+              <h3 className="m-0 text-[22px] font-medium leading-[1.25] tracking-[-0.01em] text-[color:var(--text-primary)]">
+                Request access
+              </h3>
+              <p className="m-0 text-[14px] font-normal leading-[1.5] text-[color:var(--text-secondary)]">
+                Fill out the form below and we&apos;ll get back to you within 1-2 business days.
+              </p>
+            </header>
 
+            {/* Stepper */}
+            <Stepper currentStep={createAccountStep} totalSteps={ACCOUNT_TOTAL_STEPS} labels={["Account", "Identity", "Documents", "Notes"]} />
+
+            {/* ===== Step 1: Account type ===== */}
             {createAccountStep === 1 ? (
-              <>
-              <div className="grid gap-1">
-                <Label htmlFor="account-fullName">Full name</Label>
-                <Input
-                  id="account-fullName"
-                  type="text"
-                  value={accountRequestForm.fullName}
-                  error={Boolean(accountRequestErrors.fullName)}
-                  onChange={(event) => {
-                    setAccountRequestForm((current) => ({
-                      ...current,
-                      fullName: event.target.value,
-                    }));
-                    setAccountRequestErrors((current) => ({
-                      ...current,
-                      fullName: undefined,
-                      form: undefined,
-                    }));
-                  }}
-                  placeholder="John Smith"
-                />
-                {accountRequestErrors.fullName ? (
-                  <InputError text={accountRequestErrors.fullName} />
-                ) : null}
-              </div>
-
-              <div className="grid gap-1">
-                <Label htmlFor="account-email">Email</Label>
-                <Input
-                  id="account-email"
-                  type="email"
-                  value={accountRequestForm.email}
-                  error={Boolean(accountRequestErrors.email)}
-                  onChange={(event) => {
-                    setAccountRequestForm((current) => ({
-                      ...current,
-                      email: event.target.value,
-                    }));
-                    setAccountRequestErrors((current) => ({
-                      ...current,
-                      email: undefined,
-                      form: undefined,
-                    }));
-                  }}
-                  placeholder="owner@company.com"
-                />
-                {accountRequestErrors.email ? (
-                  <InputError text={accountRequestErrors.email} />
-                ) : null}
-              </div>
-
-              <div className="grid gap-1">
-                <Label htmlFor="account-confirmEmail">Confirm email</Label>
-                <Input
-                  id="account-confirmEmail"
-                  type="email"
-                  value={accountRequestForm.confirmEmail}
-                  error={Boolean(accountRequestErrors.confirmEmail)}
-                  onChange={(event) => {
-                    setAccountRequestForm((current) => ({
-                      ...current,
-                      confirmEmail: event.target.value,
-                    }));
-                    setAccountRequestErrors((current) => ({
-                      ...current,
-                      confirmEmail: undefined,
-                      form: undefined,
-                    }));
-                  }}
-                  onPaste={(event) => event.preventDefault()}
-                  onCopy={(event) => event.preventDefault()}
-                  onCut={(event) => event.preventDefault()}
-                  autoComplete="off"
-                  placeholder="Confirm your email"
-                />
-                {accountRequestErrors.confirmEmail ? (
-                  <InputError text={accountRequestErrors.confirmEmail} />
-                ) : null}
-              </div>
-              </>
-            ) : (
-              <div className="grid gap-2">
-                <div className="text-sm font-medium text-[color:var(--ink)]">
-                  Requested document types
+              <section className="flex flex-col gap-4">
+                <header className="flex flex-col gap-1.5">
+                  <h4 className="m-0 text-[15px] font-medium text-[color:var(--text-primary)]">Choose your account type</h4>
+                  <p className="m-0 text-[13px] font-normal text-[color:var(--text-secondary)]">This determines what details we&apos;ll need from you.</p>
+                </header>
+                <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-required="true">
+                  <AccountTypeCard
+                    value="personal"
+                    label="Personal"
+                    checked={accountRequestForm.accountType === "personal"}
+                    onSelect={() => {
+                      setAccountRequestForm((current) => ({ ...current, accountType: "personal" }));
+                      setAccountRequestErrors((current) => ({ ...current, accountType: undefined, form: undefined }));
+                    }}
+                    icon={
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    }
+                  />
+                  <AccountTypeCard
+                    value="business"
+                    label="Business"
+                    checked={accountRequestForm.accountType === "business"}
+                    onSelect={() => {
+                      setAccountRequestForm((current) => ({ ...current, accountType: "business" }));
+                      setAccountRequestErrors((current) => ({ ...current, accountType: undefined, form: undefined }));
+                    }}
+                    icon={
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M13 9h.01M13 13h.01M13 17h.01" />
+                      </svg>
+                    }
+                  />
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {requestableDocuments.map((documentType) => {
-                    const checked = accountRequestForm.requestedDocumentTypes.includes(
-                      documentType.value,
-                    );
+                {accountRequestErrors.accountType ? <InputError text={accountRequestErrors.accountType} /> : null}
+              </section>
+            ) : null}
 
-                    return (
-                      <button
-                        key={documentType.value}
-                        type="button"
-                        onClick={() => {
-                          toggleRequestedDocumentType(documentType.value);
-                          setAccountRequestErrors((current) => ({
-                            ...current,
-                            requestedDocumentTypes: undefined,
-                            form: undefined,
-                          }));
+            {/* ===== Step 2: Identity ===== */}
+            {createAccountStep === 2 ? (
+              <section className="flex flex-col gap-4">
+                <header className="flex flex-col gap-1.5">
+                  <h4 className="m-0 text-[15px] font-medium text-[color:var(--text-primary)]">
+                    {accountRequestForm.accountType === "business" ? "Tell us about your company" : "Tell us about you"}
+                  </h4>
+                  <p className="m-0 text-[13px] font-normal text-[color:var(--text-secondary)]">
+                    {accountRequestForm.accountType === "business"
+                      ? "We'll send credentials to the contact email below."
+                      : "We'll send your login credentials to this email."}
+                  </p>
+                </header>
+
+                {accountRequestForm.accountType === "business" ? (
+                  <>
+                    <div className="grid gap-1">
+                      <Label htmlFor="account-companyName">Company name *</Label>
+                      <Input
+                        id="account-companyName"
+                        type="text"
+                        value={accountRequestForm.companyName}
+                        error={Boolean(accountRequestErrors.companyName)}
+                        onChange={(event) => {
+                          setAccountRequestForm((current) => ({ ...current, companyName: event.target.value }));
+                          setAccountRequestErrors((current) => ({ ...current, companyName: undefined, form: undefined }));
                         }}
-                        className={`flex items-center gap-2 rounded-2xl border px-4 py-4 text-left text-sm font-medium transition ${documentTypeCardClassName(
-                          checked,
-                        )}`}
+                        placeholder="Acme Construction LLC"
+                        className="h-12"
+                      />
+                      {accountRequestErrors.companyName ? <InputError text={accountRequestErrors.companyName} /> : null}
+                    </div>
+                    <div className="grid gap-1">
+                      <Label htmlFor="account-contactName">Primary contact name *</Label>
+                      <Input
+                        id="account-contactName"
+                        type="text"
+                        value={accountRequestForm.contactName}
+                        error={Boolean(accountRequestErrors.contactName)}
+                        onChange={(event) => {
+                          setAccountRequestForm((current) => ({ ...current, contactName: event.target.value }));
+                          setAccountRequestErrors((current) => ({ ...current, contactName: undefined, form: undefined }));
+                        }}
+                        placeholder="John Smith"
+                        className="h-12"
+                      />
+                      {accountRequestErrors.contactName ? <InputError text={accountRequestErrors.contactName} /> : null}
+                    </div>
+                  </>
+                ) : (
+                  <div className="grid gap-1">
+                    <Label htmlFor="account-fullName">Full name *</Label>
+                    <Input
+                      id="account-fullName"
+                      type="text"
+                      value={accountRequestForm.fullName}
+                      error={Boolean(accountRequestErrors.fullName)}
+                      onChange={(event) => {
+                        setAccountRequestForm((current) => ({ ...current, fullName: event.target.value }));
+                        setAccountRequestErrors((current) => ({ ...current, fullName: undefined, form: undefined }));
+                      }}
+                      placeholder="John Smith"
+                      className="h-12"
+                    />
+                    {accountRequestErrors.fullName ? <InputError text={accountRequestErrors.fullName} /> : null}
+                  </div>
+                )}
+
+                <div className="grid gap-1">
+                  <Label htmlFor="account-email">Email *</Label>
+                  <Input
+                    id="account-email"
+                    type="email"
+                    value={accountRequestForm.email}
+                    error={Boolean(accountRequestErrors.email)}
+                    onChange={(event) => {
+                      setAccountRequestForm((current) => ({ ...current, email: event.target.value }));
+                      setAccountRequestErrors((current) => ({ ...current, email: undefined, form: undefined }));
+                    }}
+                    placeholder="john@company.com"
+                    className="h-12"
+                  />
+                  {accountRequestErrors.email ? <InputError text={accountRequestErrors.email} /> : null}
+                </div>
+
+                <div className="grid gap-1">
+                  <Label htmlFor="account-confirmEmail">Confirm email *</Label>
+                  <Input
+                    id="account-confirmEmail"
+                    type="email"
+                    value={accountRequestForm.confirmEmail}
+                    error={Boolean(accountRequestErrors.confirmEmail)}
+                    onChange={(event) => {
+                      setAccountRequestForm((current) => ({ ...current, confirmEmail: event.target.value }));
+                      setAccountRequestErrors((current) => ({ ...current, confirmEmail: undefined, form: undefined }));
+                    }}
+                    onPaste={(event) => event.preventDefault()}
+                    onCopy={(event) => event.preventDefault()}
+                    onCut={(event) => event.preventDefault()}
+                    autoComplete="off"
+                    placeholder="john@company.com"
+                    className="h-12"
+                  />
+                  {accountRequestErrors.confirmEmail ? <InputError text={accountRequestErrors.confirmEmail} /> : null}
+                </div>
+
+                <div className="grid gap-1">
+                  <Label htmlFor="account-phone">Phone number (optional)</Label>
+                  <Input
+                    id="account-phone"
+                    type="tel"
+                    value={accountRequestForm.phone}
+                    onChange={(event) => {
+                      setAccountRequestForm((current) => ({ ...current, phone: event.target.value }));
+                    }}
+                    placeholder="(555) 123-4567"
+                    className="h-12"
+                  />
+                </div>
+              </section>
+            ) : null}
+
+            {/* ===== Step 3: Document types ===== */}
+            {createAccountStep === 3 ? (
+              <section className="flex flex-col gap-4">
+                <header className="flex flex-col gap-1.5">
+                  <h4 className="m-0 text-[15px] font-medium text-[color:var(--text-primary)]">What will you be sending?</h4>
+                  <p className="m-0 text-[13px] font-normal text-[color:var(--text-secondary)]">
+                    Select at least one. You can change this later in your workspace settings.
+                  </p>
+                </header>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {requestableDocuments.map((documentType) => {
+                    const checked = accountRequestForm.requestedDocumentTypes.includes(documentType.value);
+                    return (
+                      <label
+                        key={documentType.value}
+                        className="inline-flex cursor-pointer items-center gap-2.5 text-[14px] font-normal text-[color:var(--text-secondary)]"
                       >
-                        <span
-                          className={`flex h-9 w-9 items-center justify-center ${
-                            isDarkTheme
-                              ? "bg-transparent"
-                              : "rounded-xl bg-[color:var(--bg-page-subtle)]"
-                          }`}
-                        >
-                          {documentType.icon}
-                        </span>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            toggleRequestedDocumentType(documentType.value);
+                            setAccountRequestErrors((current) => ({
+                              ...current,
+                              requestedDocumentTypes: undefined,
+                              otherDocType: undefined,
+                              form: undefined,
+                            }));
+                          }}
+                          className="h-5 w-5 cursor-pointer appearance-none rounded border-[1.5px] border-[color:var(--border-strong)] bg-[color:var(--bg-elevated)] transition checked:border-[color:var(--brand-secondary)] checked:bg-[color:var(--brand-secondary)] dark:checked:border-[color:var(--brand-accent)] dark:checked:bg-[color:var(--brand-accent)]"
+                          style={{
+                            backgroundImage: checked
+                              ? `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8.5L6.5 12L13 4.5'/></svg>")`
+                              : undefined,
+                            backgroundRepeat: "no-repeat",
+                            backgroundPosition: "center",
+                            backgroundSize: "14px",
+                          }}
+                        />
                         <span>{documentType.label}</span>
-                      </button>
+                      </label>
                     );
                   })}
                 </div>
-                {accountRequestErrors.requestedDocumentTypes ? (
-                  <InputError text={accountRequestErrors.requestedDocumentTypes} />
+
+                {accountRequestForm.requestedDocumentTypes.includes("Others") ? (
+                  <Input
+                    id="account-otherDocType"
+                    type="text"
+                    value={accountRequestForm.otherDocType}
+                    error={Boolean(accountRequestErrors.otherDocType)}
+                    onChange={(event) => {
+                      setAccountRequestForm((current) => ({ ...current, otherDocType: event.target.value }));
+                      setAccountRequestErrors((current) => ({ ...current, otherDocType: undefined, form: undefined }));
+                    }}
+                    placeholder="Specify document types..."
+                    className="h-10 text-[13px]"
+                  />
                 ) : null}
-              </div>
-            )}
 
-              {accountRequestErrors.form ? (
-                <InputError text={accountRequestErrors.form} />
-              ) : null}
+                {accountRequestErrors.requestedDocumentTypes ? <InputError text={accountRequestErrors.requestedDocumentTypes} /> : null}
+                {accountRequestErrors.otherDocType ? <InputError text={accountRequestErrors.otherDocType} /> : null}
+              </section>
+            ) : null}
 
-              {accountRequestSuccess ? (
-                <div className="rounded-2xl border border-[color:var(--success-border)] bg-[color:var(--success-bg)] px-4 py-3 text-sm text-[color:var(--success-text)]">
-                  {accountRequestSuccess}
+            {/* ===== Step 4: Notes ===== */}
+            {createAccountStep === 4 ? (
+              <section className="flex flex-col gap-4">
+                <header className="flex flex-col gap-1.5">
+                  <h4 className="m-0 text-[15px] font-medium text-[color:var(--text-primary)]">Anything else we should know?</h4>
+                  <p className="m-0 text-[13px] font-normal text-[color:var(--text-secondary)]">
+                    Optional — this helps us prep your workspace before you log in.
+                  </p>
+                </header>
+
+                <div className="grid gap-1">
+                  <Label htmlFor="account-referral">How did you hear about us?</Label>
+                  <div className="relative">
+                    <select
+                      id="account-referral"
+                      value={accountRequestForm.referral}
+                      onChange={(event) =>
+                        setAccountRequestForm((current) => ({ ...current, referral: event.target.value }))
+                      }
+                      className="h-12 w-full cursor-pointer appearance-none rounded-lg border-[1.5px] border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 pr-11 text-sm text-[color:var(--text-primary)] transition focus:border-[color:var(--brand-accent)] focus:outline-none"
+                    >
+                      <option value="">Select an option</option>
+                      {REFERRAL_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)]">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                        <path d="m4 6 4 4 4-4" />
+                      </svg>
+                    </span>
+                  </div>
                 </div>
-              ) : null}
 
-              {createAccountStep === 1 ? (
+                <div className="grid gap-1">
+                  <Label htmlFor="account-notes">Additional notes</Label>
+                  <div className="relative">
+                    <textarea
+                      id="account-notes"
+                      value={accountRequestForm.notes}
+                      onChange={(event) =>
+                        setAccountRequestForm((current) => ({ ...current, notes: event.target.value.slice(0, 500) }))
+                      }
+                      placeholder="Tell us more about your needs..."
+                      rows={3}
+                      className="min-h-[80px] w-full resize-y rounded-lg border-[1.5px] border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 pb-6 pt-3 text-sm text-[color:var(--text-primary)] transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:outline-none"
+                    />
+                    <span className="pointer-events-none absolute bottom-2 right-3 bg-[color:var(--bg-elevated)] px-1 text-[11px] font-normal text-[color:var(--text-muted)] tabular-nums">
+                      {accountRequestForm.notes.length} / 500
+                    </span>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            {accountRequestErrors.form ? <InputError text={accountRequestErrors.form} /> : null}
+
+            {/* Nav buttons */}
+            <div className="flex flex-col-reverse gap-3 sm:flex-row">
+              {createAccountStep > 1 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={previousCreateAccountStep}
+                  className="h-12 flex-1"
+                >
+                  Back
+                </Button>
+              ) : null}
+              {createAccountStep < ACCOUNT_TOTAL_STEPS ? (
                 <Button
                   type="button"
                   variant="primary"
                   onClick={continueCreateAccount}
                   disabled={isAccountRequestInvalid}
-                  className="h-12 w-full"
+                  className="h-12 flex-1"
                 >
                   Continue
                 </Button>
@@ -993,18 +1274,26 @@ export function LoginForm() {
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={isSubmittingRequest || isAccountRequestInvalid}
-                  className="h-12 w-full"
+                  disabled={isSubmittingRequest}
+                  className="h-12 flex-1"
                 >
                   {isSubmittingRequest ? "Submitting..." : "Submit request"}
                 </Button>
               )}
+            </div>
 
-              <BackLink
-                onClick={() => (createAccountStep === 1 ? backToLogin() : setCreateAccountStep(1))}
-                label={createAccountStep === 1 ? "Back to login" : "Back"}
-              />
-            </motion.form>
+            <p className="text-center text-[13px] font-normal text-[color:var(--text-secondary)]">
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={() => backToLogin()}
+                className="font-medium text-[color:var(--brand-secondary)] transition hover:underline dark:text-[color:var(--brand-accent)]"
+              >
+                Back to login
+              </button>
+            </p>
+          </motion.form>
+          )
         ) : activeView === "forgotPassword" ? (
           <motion.form
             key="forgot-password-view"
@@ -1360,6 +1649,145 @@ function CardHead({
         {sub}
       </p>
     </header>
+  );
+}
+
+/**
+ * Stepper — horizontal dots with connectors. Mirrors the designer's
+ * `.stepper` component from request-access.html.
+ */
+function Stepper({
+  currentStep,
+  totalSteps,
+  labels,
+}: {
+  currentStep: number;
+  totalSteps: number;
+  labels: string[];
+}) {
+  return (
+    <div
+      role="progressbar"
+      aria-valuemin={1}
+      aria-valuemax={totalSteps}
+      aria-valuenow={currentStep}
+      className="flex items-center gap-1.5"
+    >
+      {Array.from({ length: totalSteps }, (_, index) => {
+        const stepNumber = index + 1;
+        const state =
+          stepNumber < currentStep ? "complete" : stepNumber === currentStep ? "active" : "idle";
+        const isLast = stepNumber === totalSteps;
+        return (
+          <div key={stepNumber} className="flex flex-1 items-center gap-1.5">
+            <div className="flex flex-col items-center gap-1">
+              <div
+                aria-hidden
+                className={
+                  "grid h-7 w-7 place-items-center rounded-full text-[11px] font-medium transition " +
+                  (state === "active"
+                    ? "bg-[color:var(--brand-secondary)] text-white dark:bg-[color:var(--brand-accent)] dark:text-white"
+                    : state === "complete"
+                      ? "bg-[color:var(--success)] text-white"
+                      : "bg-[color:var(--bg-page-subtle)] text-[color:var(--text-muted)] border border-[color:var(--border)]")
+                }
+              >
+                {state === "complete" ? (
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                    <path d="m3 8.5 3.5 3.5L13 5" />
+                  </svg>
+                ) : (
+                  stepNumber
+                )}
+              </div>
+              <span
+                className={
+                  "text-[10px] font-medium uppercase tracking-[0.1em] " +
+                  (state === "active" || state === "complete"
+                    ? "text-[color:var(--text-primary)]"
+                    : "text-[color:var(--text-muted)]")
+                }
+              >
+                {labels[index]}
+              </span>
+            </div>
+            {!isLast ? (
+              <div
+                aria-hidden
+                className={
+                  "mb-5 h-[1px] flex-1 transition " +
+                  (state === "complete" ? "bg-[color:var(--success)]" : "bg-[color:var(--border)]")
+                }
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Account type card — radio-style card with icon + label + check indicator.
+ * Mirrors the designer's `.account-card` from request-access.html.
+ */
+function AccountTypeCard({
+  value,
+  label,
+  icon,
+  checked,
+  onSelect,
+}: {
+  value: string;
+  label: string;
+  icon: React.ReactNode;
+  checked: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <label
+      className={
+        "flex cursor-pointer items-center gap-3 rounded-lg border-[1.5px] p-3.5 transition " +
+        (checked
+          ? "border-[color:var(--brand-secondary)] bg-[color:var(--badge-primary-bg)] dark:border-[color:var(--brand-accent)] dark:bg-[color:var(--brand-accent-soft)]"
+          : "border-[color:var(--border)] bg-[color:var(--bg-elevated)] hover:border-[color:var(--border-strong)]")
+      }
+    >
+      <input
+        type="radio"
+        name="accountType"
+        value={value}
+        checked={checked}
+        onChange={onSelect}
+        className="sr-only"
+      />
+      <span
+        className={
+          "grid h-9 w-9 flex-shrink-0 place-items-center rounded-md " +
+          (checked
+            ? "bg-[color:var(--brand-secondary)] text-white dark:bg-[color:var(--brand-accent)]"
+            : "bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)]")
+        }
+      >
+        <span className="block h-[18px] w-[18px]">{icon}</span>
+      </span>
+      <span className="flex-1 text-[14px] font-medium text-[color:var(--text-primary)]">{label}</span>
+      <span
+        aria-hidden
+        className={
+          "grid h-[18px] w-[18px] place-items-center rounded-full border-[1.5px] transition " +
+          (checked
+            ? "border-[color:var(--brand-secondary)] bg-[color:var(--brand-secondary)] text-white dark:border-[color:var(--brand-accent)] dark:bg-[color:var(--brand-accent)]"
+            : "border-[color:var(--border-strong)] bg-transparent")
+        }
+      >
+        {checked ? (
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5">
+            <path d="m3 8.5 3.5 3.5L13 5" />
+          </svg>
+        ) : null}
+      </span>
+    </label>
   );
 }
 
