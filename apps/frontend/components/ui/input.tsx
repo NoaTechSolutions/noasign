@@ -9,7 +9,7 @@ export function Input({ error = false, className, ...props }: InputProps) {
     <input
       className={cn(
         "w-full rounded-lg border-[1.5px] px-[14px] py-[11px] text-sm",
-        "bg-white dark:bg-[#161d30]",
+        "bg-white dark:bg-[color:var(--bg-elevated)]",
         "text-[color:var(--text-primary)]",
         "transition-colors",
         "focus:outline-none focus:ring-2",

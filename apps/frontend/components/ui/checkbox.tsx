@@ -13,7 +13,7 @@ export function Checkbox({ label, className, id, ...props }: CheckboxProps) {
         className={cn(
           "w-[18px] h-[18px] rounded border-[1.5px]",
           "border-[color:var(--border)]",
-          "bg-white dark:bg-[#161d30]",
+          "bg-white dark:bg-[color:var(--bg-elevated)]",
           "checked:bg-[color:var(--brand-accent)]",
           "checked:border-[color:var(--brand-accent)]",
           "focus:outline-none focus:ring-2 focus:ring-[color:var(--focus-ring)]",

@@ -47,11 +47,11 @@ export function ThemeToggle() {
         onClick={() => setIsOpen((v) => !v)}
         className={cn(
           "flex items-center gap-2 rounded-[10px] border-[1.5px] px-4 py-2.5",
-          "bg-white/95 dark:bg-[rgba(30,41,59,0.95)]",
-          "border-black/10 dark:border-white/15",
-          "shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
+          "bg-white/95 dark:bg-[color:var(--bg-elevated)]",
+          "border-[color:var(--border)]",
+          "shadow-[var(--shadow-soft)]",
           "backdrop-blur-[10px]",
-          "transition-all hover:bg-white dark:hover:bg-[rgba(30,41,59,1)]",
+          "transition-all hover:bg-white dark:hover:bg-[color:var(--bg-surface-strong)]",
         )}
       >
         <span className="text-base">{themeLabels[currentTheme].icon}</span>
@@ -81,9 +81,9 @@ export function ThemeToggle() {
             className={cn(
               "absolute left-0 top-[calc(100%+8px)] z-[1001]",
               "min-w-[140px] rounded-[10px] border-[1.5px] p-1.5",
-              "bg-white dark:bg-[#1e293b]",
-              "border-black/10 dark:border-white/15",
-              "shadow-[0_8px_24px_rgba(0,0,0,0.12)]",
+              "bg-[color:var(--menu-bg)]",
+              "border-[color:var(--menu-border)]",
+              "shadow-[var(--shadow-dropdown)]",
               "animate-in fade-in slide-in-from-top-2 duration-200",
             )}
           >
@@ -94,16 +94,17 @@ export function ThemeToggle() {
                 onClick={() => handleThemeChange(t)}
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm",
+                  "text-[color:var(--menu-text)]",
                   "transition-colors",
-                  "hover:bg-[#f5f5f7] dark:hover:bg-[#334155]",
+                  "hover:bg-[color:var(--menu-hover)]",
                   currentTheme === t &&
-                    "bg-[#e8f0fe] dark:bg-[rgba(59,130,246,0.15)] text-[#0052cc] dark:text-[#3b82f6] font-semibold",
+                    "bg-[color:var(--menu-active)] text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)] font-medium",
                 )}
               >
                 <span className="text-base">{themeLabels[t].icon}</span>
                 <span>{themeLabels[t].label}</span>
                 {currentTheme === t ? (
-                  <span className="ml-auto text-[#0052cc] dark:text-[#3b82f6]">✓</span>
+                  <span className="ml-auto text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]">✓</span>
                 ) : null}
               </button>
             ))}
