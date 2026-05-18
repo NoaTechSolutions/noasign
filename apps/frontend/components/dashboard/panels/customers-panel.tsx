@@ -233,29 +233,29 @@ export function CustomersPanel(props: {
     >
       <section className="grid gap-4">
       {/* Card 1: Header + Search + New */}
-      <div className="rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+      <div className="rounded-[1.9rem] border border-[color:var(--border)] bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Customers workspace</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">Customers workspace</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               Manage the people you send documents to. Reuse their contact data on future drafts.
             </p>
           </div>
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
             <input
               value={props.searchQuery}
               onChange={(e) => { setCurrentPage(1); props.onSearchQueryChange(e.target.value); }}
               placeholder="Search by name, email or phone"
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900 dark:focus:text-white"
+              className="h-12 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] pl-11 pr-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:bg-white focus:text-[color:var(--text-primary)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:caret-[color:var(--brand-accent)] dark:placeholder:text-[color:var(--text-muted)] dark:focus:border-[color:var(--brand-accent)] dark:focus:bg-[color:var(--bg-elevated)] dark:focus:text-[color:var(--text-primary)]"
             />
           </div>
           <button
             type="button"
             onClick={() => setTypeSelectorOpen(true)}
-            className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
+            className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[color:var(--button-primary)] px-4 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] md:w-auto"
           >
             New customer
           </button>
@@ -263,27 +263,27 @@ export function CustomersPanel(props: {
       </div>
 
       {/* Card 2 (table) — full width. Selection opens CustomerViewDrawer modal. */}
-      <div className="overflow-visible rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
+      <div className="overflow-visible rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
+        <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-5 py-4 dark:border-white/10">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Results</div>
-            <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Results</div>
+            <div className="mt-1 text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               {props.isLoading ? "Loading..." : `${total} ${total === 1 ? "customer" : "customers"}`}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
-              <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">Rows</label>
+              <label className="hidden text-xs font-medium text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)] md:block">Rows</label>
               <button
                 type="button"
                 onClick={() => setPageSizeMenuOpen((c) => !c)}
-                className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+                className="inline-flex h-9 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-3 text-sm font-medium text-[color:var(--text-secondary)] outline-none transition hover:border-[color:var(--border-strong)] hover:bg-white focus:border-[color:var(--brand-accent)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
               >
                 <span>{pageSize}</span>
-                <ChevronsUpDown className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                <ChevronsUpDown className="h-4 w-4 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]" />
               </button>
               {pageSizeMenuOpen ? (
-                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-28 rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-28 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)] dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
                   {[10, 20, 30].map((size) => (
                     <button
                       key={size}
@@ -291,7 +291,7 @@ export function CustomersPanel(props: {
                       onClick={() => { setPageSize(size); setCurrentPage(1); setPageSizeMenuOpen(false); }}
                       className={cn(
                         "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
-                        pageSize === size ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-white/8",
+                        pageSize === size ? "bg-[color:var(--button-primary)] text-white" : "text-[color:var(--text-secondary)] hover:bg-white dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                       )}
                     >
                       <span>{size}</span>
@@ -315,7 +315,7 @@ export function CustomersPanel(props: {
                 Owner column. */}
             <div
               className={cn(
-                "hidden items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid",
+                "hidden items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--bg-page-subtle)]/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid",
                 isMaster
                   ? "grid-cols-[minmax(0,1.5fr)_80px_100px_120px_minmax(0,1fr)_64px]"
                   : "grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_80px_100px_120px_64px]",
@@ -323,26 +323,26 @@ export function CustomersPanel(props: {
             >
               <CustomerSortHeader label="Name" columnKey="name" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
               {!isMaster ? (
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Phone</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Phone</div>
               ) : null}
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Docs</div>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Type</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Docs</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Type</div>
               <CustomerSortHeader label="Created" columnKey="createdAt" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
               {isMaster ? (
                 <div ref={ownerFilterMenuRef} className="relative">
                   <button
                     type="button"
                     onClick={() => setOwnerFilterMenuOpen((c) => !c)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-transparent px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 transition hover:border-slate-200 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:border-white/10 dark:hover:bg-white/5 dark:hover:text-slate-200"
+                    className="inline-flex items-center gap-2 rounded-xl border border-transparent px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--bg-surface)] hover:text-[color:var(--text-secondary)] dark:text-[color:var(--text-muted)] dark:hover:border-white/10 dark:hover:bg-white/5 dark:hover:text-[color:var(--text-primary)]"
                   >
                     <span>Owner</span>
-                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                    <span className="rounded-full bg-[color:var(--bg-surface-strong)] px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-[color:var(--text-secondary)] dark:bg-white/10 dark:text-[color:var(--text-secondary)]">
                       {ownerFilterLabel}
                     </span>
-                    <ChevronsUpDown className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+                    <ChevronsUpDown className="h-3 w-3 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]" />
                   </button>
                   {ownerFilterMenuOpen ? (
-                    <div className="absolute left-0 top-[calc(100%+0.5rem)] z-30 max-h-72 min-w-56 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+                    <div className="absolute left-0 top-[calc(100%+0.5rem)] z-30 max-h-72 min-w-56 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)] dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
                       <button
                         type="button"
                         onClick={() => {
@@ -353,8 +353,8 @@ export function CustomersPanel(props: {
                         className={cn(
                           "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
                           ownerFilter === ""
-                            ? "bg-blue-600 text-white"
-                            : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                            ? "bg-[color:var(--button-primary)] text-white"
+                            : "text-[color:var(--text-secondary)] hover:bg-white/80 dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                         )}
                       >
                         <span>All customers</span>
@@ -373,8 +373,8 @@ export function CustomersPanel(props: {
                           className={cn(
                             "mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
                             ownerFilter === props.currentUserId
-                              ? "bg-blue-600 text-white"
-                              : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                              ? "bg-[color:var(--button-primary)] text-white"
+                              : "text-[color:var(--text-secondary)] hover:bg-white/80 dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                           )}
                         >
                           <span>My customers</span>
@@ -384,7 +384,7 @@ export function CustomersPanel(props: {
                         </button>
                       ) : null}
                       {sameTenantUsers.length > 0 ? (
-                        <div className="my-1 border-t border-slate-200 dark:border-white/10" />
+                        <div className="my-1 border-t border-[color:var(--border)] dark:border-white/10" />
                       ) : null}
                       {sameTenantUsers
                         .filter((u) => u.id !== props.currentUserId)
@@ -406,8 +406,8 @@ export function CustomersPanel(props: {
                               className={cn(
                                 "mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
                                 ownerFilter === u.id
-                                  ? "bg-blue-600 text-white"
-                                  : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                                  ? "bg-[color:var(--button-primary)] text-white"
+                                  : "text-[color:var(--text-secondary)] hover:bg-white/80 dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                               )}
                             >
                               <span className="truncate">{label}</span>
@@ -425,18 +425,18 @@ export function CustomersPanel(props: {
             </div>
 
             {/* Mobile rows */}
-            <div className="divide-y divide-slate-200 dark:divide-white/10 md:hidden">
+            <div className="divide-y divide-[color:var(--divider)] dark:divide-white/10 md:hidden">
               {paginated.map((c) => (
-                <div key={`${c.id}-mobile`} className={cn("px-4 py-3 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-blue-50/60 dark:bg-blue-500/10")}>
+                <div key={`${c.id}-mobile`} className={cn("px-4 py-3 transition hover:bg-[color:var(--bg-page-subtle)]/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-[color:var(--card-selected-bg)] dark:bg-[color:var(--card-selected-bg)]")}>
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
                       <div className="flex items-center gap-2">
-                        <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">{c.fullName}</div>
+                        <div className="truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{c.fullName}</div>
                         <CustomerTypeBadge type={c.customerType} />
                       </div>
-                      {getDisplayEmail(c) ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{getDisplayEmail(c)}</div> : null}
-                      {getDisplayPhone(c) ? <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{formatUsPhone(getDisplayPhone(c) ?? "")}</div> : null}
-                      <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{formatDate(c.createdAt)} • {c._count?.documents ?? 0} docs</div>
+                      {getDisplayEmail(c) ? <div className="mt-0.5 truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{getDisplayEmail(c)}</div> : null}
+                      {getDisplayPhone(c) ? <div className="mt-0.5 truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{formatUsPhone(getDisplayPhone(c) ?? "")}</div> : null}
+                      <div className="mt-1 text-[11px] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{formatDate(c.createdAt)} • {c._count?.documents ?? 0} docs</div>
                     </button>
                     <div className="flex justify-end">
                       <CustomerListActions
@@ -453,11 +453,11 @@ export function CustomersPanel(props: {
             </div>
 
             {/* Desktop rows */}
-            <div className="hidden divide-y divide-slate-200 dark:divide-white/10 md:block">
+            <div className="hidden divide-y divide-[color:var(--divider)] dark:divide-white/10 md:block">
               {paginated.map((c) => (
                 <div
                   key={c.id}
-                  className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-blue-50/60 dark:bg-blue-500/10")}
+                  className={cn("px-4 py-4 transition hover:bg-[color:var(--bg-page-subtle)]/80 dark:hover:bg-white/[0.03]", props.selectedCustomerId === c.id && "bg-[color:var(--card-selected-bg)] dark:bg-[color:var(--card-selected-bg)]")}
                 >
                   <div
                     className={cn(
@@ -468,23 +468,23 @@ export function CustomersPanel(props: {
                     )}
                   >
                     <button type="button" onClick={() => props.onSelectCustomer(c.id)} className="min-w-0 text-left">
-                      <div className="truncate text-sm font-semibold text-slate-950 dark:text-white">{c.fullName}</div>
+                      <div className="truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{c.fullName}</div>
                       {getDisplayEmail(c) ? (
-                        <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{getDisplayEmail(c)}</div>
+                        <div className="mt-0.5 truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{getDisplayEmail(c)}</div>
                       ) : null}
                     </button>
                     {!isMaster ? (
-                      <div className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                        {getDisplayPhone(c) ? formatUsPhone(getDisplayPhone(c) ?? "") : <span className="text-slate-400 dark:text-slate-500">—</span>}
+                      <div className="min-w-0 truncate text-sm font-medium text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]">
+                        {getDisplayPhone(c) ? formatUsPhone(getDisplayPhone(c) ?? "") : <span className="text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">—</span>}
                       </div>
                     ) : null}
-                    <div className="text-sm text-slate-600 dark:text-slate-300">{c._count?.documents ?? 0}</div>
+                    <div className="text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">{c._count?.documents ?? 0}</div>
                     <div>
                       <CustomerTypeBadge type={c.customerType} />
                     </div>
-                    <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(c.createdAt)}</div>
+                    <div className="text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">{formatDate(c.createdAt)}</div>
                     {isMaster ? (
-                      <div className="min-w-0 truncate text-sm text-slate-600 dark:text-slate-300">
+                      <div className="min-w-0 truncate text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">
                         {getOwnerLabel(c.user)}
                       </div>
                     ) : null}
@@ -503,11 +503,11 @@ export function CustomersPanel(props: {
             </div>
 
             {/* Pagination */}
-            <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-slate-500 dark:text-slate-400">
-                Showing <span className="font-semibold text-slate-900 dark:text-white">{total === 0 ? 0 : pageStart + 1}</span>
-                {" "}-{" "}<span className="font-semibold text-slate-900 dark:text-white">{pageEnd}</span>
-                {" "}of{" "}<span className="font-semibold text-slate-900 dark:text-white">{total}</span>
+            <div className="flex flex-col gap-3 border-t border-[color:var(--border)] px-5 py-4 text-sm dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                Showing <span className="font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{total === 0 ? 0 : pageStart + 1}</span>
+                {" "}-{" "}<span className="font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{pageEnd}</span>
+                {" "}of{" "}<span className="font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{total}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -517,13 +517,13 @@ export function CustomersPanel(props: {
                   className={cn(
                     "rounded-xl border px-3 py-2 text-sm font-medium transition",
                     safePage === 1
-                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
+                      ? "cursor-not-allowed border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-muted)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-muted)]"
+                      : "border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
                   )}
                 >
                   Previous
                 </button>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">{safePage} / {totalPages}</div>
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-3 py-2 text-sm font-semibold text-[color:var(--text-secondary)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)]">{safePage} / {totalPages}</div>
                 <button
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -531,8 +531,8 @@ export function CustomersPanel(props: {
                   className={cn(
                     "rounded-xl border px-3 py-2 text-sm font-medium transition",
                     safePage === totalPages
-                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
+                      ? "cursor-not-allowed border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-muted)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-muted)]"
+                      : "border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
                   )}
                 >
                   Next
@@ -614,9 +614,9 @@ export function CustomersPanel(props: {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-6 right-6 z-[70] flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-[0_18px_40px_rgba(16,185,129,0.18)] dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+          className="fixed bottom-6 right-6 z-[70] flex items-center gap-3 rounded-2xl border border-[color:var(--success-border)] bg-[color:var(--success-bg)] px-4 py-3 text-sm font-medium text-[color:var(--success-text)] shadow-[0_18px_40px_rgba(16,185,129,0.18)] dark:border-[color:var(--success-border)] dark:bg-[color:var(--success-bg)] dark:text-[color:var(--success-text)]"
         >
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-[color:var(--success)] dark:text-[color:var(--success-text)]" />
           <span>{successMessage}</span>
         </div>
       ) : null}
@@ -652,7 +652,7 @@ function CustomerSortHeader({ label, columnKey, sortKey, sortDirection, onToggle
       onClick={() => onToggleSort(columnKey)}
       className={cn(
         "inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition",
-        isActive ? "text-slate-900 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+        isActive ? "text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]" : "text-[color:var(--text-muted)] hover:text-[color:var(--text-secondary)] dark:text-[color:var(--text-muted)] dark:hover:text-[color:var(--text-primary)]",
       )}
     >
       <span>{label}</span>
@@ -776,7 +776,7 @@ function CustomerDeleteDialog({ customer, isDeleting, onCancel, onConfirm }: {
             type="button"
             onClick={onConfirm}
             disabled={isDeleting}
-            className="inline-flex h-11 items-center rounded-2xl bg-rose-600 px-5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:opacity-70"
+            className="inline-flex h-11 items-center rounded-2xl bg-[color:var(--button-danger)] px-5 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)] disabled:opacity-70"
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </button>
@@ -829,13 +829,13 @@ function AssignToPicker({
       <button
         type="button"
         onClick={() => setOpen((c) => !c)}
-        className="mt-1.5 inline-flex h-12 w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5"
+        className="mt-1.5 inline-flex h-12 w-full items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-secondary)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/5"
       >
         <span className="truncate">{label}</span>
-        <ChevronsUpDown className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+        <ChevronsUpDown className="h-4 w-4 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]" />
       </button>
       {open ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 max-h-72 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)] dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
           <button
             type="button"
             onClick={() => {
@@ -845,8 +845,8 @@ function AssignToPicker({
             className={cn(
               "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
               value === ""
-                ? "bg-blue-600 text-white"
-                : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                ? "bg-[color:var(--button-primary)] text-white"
+                : "text-[color:var(--text-secondary)] hover:bg-white/80 dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
             )}
           >
             <span>Me {currentUserId ? "(current user)" : ""}</span>
@@ -873,8 +873,8 @@ function AssignToPicker({
                   className={cn(
                     "mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
                     value === u.id
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
+                      ? "bg-[color:var(--button-primary)] text-white"
+                      : "text-[color:var(--text-secondary)] hover:bg-white/80 dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                   )}
                 >
                   <span className="truncate">{itemLabel}</span>
@@ -913,37 +913,37 @@ function CustomerTypeSelectorDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      <div className="w-full max-w-md rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+      <div className="w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <h2 className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
           New customer
         </h2>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        <p className="mt-2 text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">
           What kind of customer would you like to add?
         </p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => onPick("PERSONAL")}
-            className="flex flex-col items-start gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400 dark:hover:bg-blue-500/10"
+            className="flex flex-col items-start gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
           >
-            <UserRound className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+            <UserRound className="h-5 w-5 text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]" />
+            <div className="mt-1 text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               Personal
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               An individual person
             </div>
           </button>
           <button
             type="button"
             onClick={() => onPick("BUSINESS")}
-            className="flex flex-col items-start gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-amber-400 dark:hover:bg-amber-500/10"
+            className="flex flex-col items-start gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-highlight)] hover:bg-[color:var(--warning-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-highlight)] dark:hover:bg-[color:var(--warning-bg)]"
           >
-            <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <div className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
+            <Building2 className="h-5 w-5 text-[color:var(--warning-text)] dark:text-[color:var(--warning-text)]" />
+            <div className="mt-1 text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               Business
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               A company with contact info
             </div>
           </button>
@@ -952,7 +952,7 @@ function CustomerTypeSelectorDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -984,10 +984,10 @@ function CustomerField({
   disabled?: boolean;
 }) {
   const base = cn(
-    "w-full rounded-2xl border bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-blue-500 outline-none transition placeholder:text-[color:var(--text-muted)] focus:bg-[color:var(--bg-elevated)]",
+    "w-full rounded-2xl border bg-[color:var(--bg-surface)] px-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:bg-[color:var(--bg-elevated)]",
     error
-      ? "border-rose-400 focus:border-rose-500"
-      : "border-[color:var(--border)] focus:border-blue-400",
+      ? "border-[color:var(--danger-border)] focus:border-[color:var(--button-danger)]"
+      : "border-[color:var(--border)] focus:border-[color:var(--brand-accent)]",
     disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
   );
   return (
@@ -1016,7 +1016,7 @@ function CustomerField({
         />
       )}
       {error ? (
-        <span className="text-xs text-rose-600 dark:text-rose-400">{error}</span>
+        <span className="text-xs text-[color:var(--danger-text)] dark:text-[color:var(--danger-text)]">{error}</span>
       ) : null}
     </label>
   );
@@ -1187,7 +1187,7 @@ function CustomerViewDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:border-[color:var(--danger-border)] hover:bg-[color:var(--danger-bg)] hover:text-[color:var(--danger-text)] dark:hover:border-[color:var(--danger-border)] dark:hover:bg-[color:var(--danger-bg)] dark:hover:text-[color:var(--danger-text)]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1202,8 +1202,8 @@ function CustomerViewDrawer({
               className={cn(
                 "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
                 activeTab === tab.key
-                  ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
-                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
+                  ? "border-b-2 border-[color:var(--brand-accent)] font-semibold text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--bg-page-subtle)] hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
               )}
             >
               {tab.label}
@@ -1228,7 +1228,7 @@ function CustomerViewDrawer({
                   type="button"
                   onClick={onCreateDocument}
                   disabled={!onCreateDocument}
-                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-[color:var(--button-primary)] px-4 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <FilePlus className="h-4 w-4" />
                   New Document
@@ -1576,7 +1576,7 @@ function CustomerViewDrawer({
               type="button"
               onClick={onEdit}
               disabled={!customer || isLoading}
-              className="inline-flex h-11 items-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[color:var(--button-primary)] px-5 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Pencil className="h-4 w-4" />
               Edit
@@ -1853,7 +1853,7 @@ function CustomerFormDrawer({
             type="button"
             onClick={requestClose}
             aria-label="Close"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] transition hover:border-[color:var(--danger-border)] hover:bg-[color:var(--danger-bg)] hover:text-[color:var(--danger-text)] dark:hover:border-[color:var(--danger-border)] dark:hover:bg-[color:var(--danger-bg)] dark:hover:text-[color:var(--danger-text)]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1867,8 +1867,8 @@ function CustomerFormDrawer({
               className={cn(
                 "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
                 activeTab === "company"
-                  ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
-                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
+                  ? "border-b-2 border-[color:var(--brand-accent)] font-semibold text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--bg-page-subtle)] hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
               )}
             >
               Company
@@ -1879,8 +1879,8 @@ function CustomerFormDrawer({
               className={cn(
                 "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
                 activeTab === "representative"
-                  ? "border-b-2 border-blue-600 font-semibold text-[color:var(--text-primary)]"
-                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-slate-50 hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
+                  ? "border-b-2 border-[color:var(--brand-accent)] font-semibold text-[color:var(--text-primary)]"
+                  : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--bg-page-subtle)] hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
               )}
             >
               Representative
@@ -2225,7 +2225,7 @@ function CustomerFormDrawer({
             </div>
           )}
           {submitError ? (
-            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+            <div className="mt-4 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)] dark:border-[color:var(--danger-border)] dark:bg-[color:var(--danger-bg)] dark:text-[color:var(--danger-text)]">
               {submitError}
             </div>
           ) : null}
@@ -2257,7 +2257,7 @@ function CustomerFormDrawer({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex h-11 items-center rounded-2xl bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-70"
+              className="inline-flex h-11 items-center rounded-2xl bg-[color:var(--button-primary)] px-5 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] disabled:opacity-70"
             >
               {isSubmitting
                 ? "Saving..."
@@ -2274,25 +2274,25 @@ function CustomerFormDrawer({
       </form>
       {confirmDialog ? (
         <div className="fixed inset-0 z-[80] flex items-start justify-center md:items-center bg-black/60 p-4 pt-20 md:pt-0 backdrop-blur">
-          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
-            <div className="text-lg font-semibold text-slate-950 dark:text-white">
+          <div className="w-full max-w-sm rounded-[1.75rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[color:var(--bg-page)]">
+            <div className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
               {confirmDialog.title}
             </div>
-            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               {confirmDialog.message}
             </p>
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setConfirmDialog(null)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+                className="rounded-xl border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
               >
                 No
               </button>
               <button
                 type="button"
                 onClick={confirmDialog.onConfirm}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+                className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]"
               >
                 Yes
               </button>

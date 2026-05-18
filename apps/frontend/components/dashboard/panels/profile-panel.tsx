@@ -795,11 +795,11 @@ export function ProfilePanel({
           ) : null}
 
           {/* Hero — same gradient/layout as MASTER, avatar circle with edit button */}
-          <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
+          <div className="rounded-[1.9rem] border border-[color:var(--brand-accent-soft)] bg-[linear-gradient(135deg,#ffffff_0%,#f0f4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b0f1a_0%,#0f1628_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
                 <div className="relative h-24 w-24 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
-                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-[color:var(--brand-secondary)] shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-[color:var(--bg-page)] dark:text-[color:var(--brand-accent)] sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
                     {user.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
@@ -811,7 +811,7 @@ export function ProfilePanel({
                     type="button"
                     onClick={() => userAvatarInputRef.current?.click()}
                     disabled={isUploadingAvatar}
-                    className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-950"
+                    className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[color:var(--button-primary)] text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[color:var(--bg-page)]"
                     aria-label="Upload profile picture"
                     title="Upload profile picture"
                   >
@@ -831,10 +831,10 @@ export function ProfilePanel({
                   />
                 </div>
                 <div className="text-center sm:text-left">
-                  <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
+                  <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)] md:text-5xl">
                     {displayName}
                   </h2>
-                  <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-white/88">{user.email}</p>
+                  <p className="mt-3 text-sm leading-6 text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]/88">{user.email}</p>
                   <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
                     <ProfileChip label={user.role} />
                     {user.accountType ? <ProfileChip label={user.accountType.charAt(0) + user.accountType.slice(1).toLowerCase()} /> : null}
@@ -846,12 +846,12 @@ export function ProfilePanel({
 
           {/* Personal info — same card, edit button and all fields identical to MASTER Primary Contact */}
           <div className="grid gap-4">
-            <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+            <div className="rounded-[1.8rem] border border-[color:var(--border)] bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
               <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
                   onClick={togglePrimaryContactOpen}
-                  className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)] transition hover:text-[color:var(--text-secondary)] dark:text-[color:var(--text-muted)] dark:hover:text-[color:var(--text-primary)]"
                   aria-expanded={isPrimaryContactOpen}
                 >
                   <ChevronRight className={cn("h-4 w-4 transition-transform", isPrimaryContactOpen && "rotate-90")} />
@@ -973,11 +973,11 @@ export function ProfilePanel({
             </div>
           </div>
         ) : null}
-        <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
+        <div className="rounded-[1.9rem] border border-[color:var(--brand-accent-soft)] bg-[linear-gradient(135deg,#ffffff_0%,#f0f4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b0f1a_0%,#0f1628_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
               <div className="relative h-24 w-24 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
-                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-[color:var(--brand-secondary)] shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-[color:var(--bg-page)] dark:text-[color:var(--brand-accent)] sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
                   {companyProfile?.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -993,7 +993,7 @@ export function ProfilePanel({
                   type="button"
                   onClick={() => logoInputRef.current?.click()}
                   disabled={isUploadingLogo}
-                  className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-950"
+                  className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[color:var(--button-primary)] text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-[color:var(--button-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[color:var(--bg-page)]"
                   aria-label="Upload company logo"
                   title="Upload logo"
                 >
@@ -1013,10 +1013,10 @@ export function ProfilePanel({
                 />
               </div>
               <div className="text-center sm:text-left">
-                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)] md:text-5xl">
                   {companyName}
                 </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-700 dark:text-white/88 md:text-base">
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--text-secondary)] dark:text-[color:var(--text-primary)]/88 md:text-base">
                   {companyProfile?.email ?? ""}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -1026,9 +1026,9 @@ export function ProfilePanel({
                 </div>
               </div>
             </div>
-            <div className="inline-flex items-center gap-3 rounded-full border border-blue-100 bg-white/90 px-4 py-3 text-slate-900 shadow-[0_10px_30px_rgba(37,99,235,0.10)] backdrop-blur dark:border-white/14 dark:bg-white/10 dark:text-white dark:shadow-none">
-              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/60">Current plan</span>
-              <span className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">
+            <div className="inline-flex items-center gap-3 rounded-full border border-[color:var(--brand-accent-soft)] bg-white/90 px-4 py-3 text-[color:var(--text-primary)] shadow-[0_10px_30px_rgba(37,99,235,0.10)] backdrop-blur dark:border-white/14 dark:bg-white/10 dark:text-[color:var(--text-primary)] dark:shadow-none">
+              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-primary)]/60">Current plan</span>
+              <span className="rounded-full bg-[color:var(--button-primary)] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">
                 {usage?.planName ?? companyProfile?.planName ?? "-"}
               </span>
             </div>
@@ -1036,12 +1036,12 @@ export function ProfilePanel({
         </div>
 
         <div className="grid gap-4">
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+          <div className="rounded-[1.8rem] border border-[color:var(--border)] bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={toggleCompanyDetailsOpen}
-                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] transition hover:text-[color:var(--text-secondary)] dark:text-[color:var(--text-muted)] dark:hover:text-[color:var(--text-primary)]"
                 aria-expanded={isCompanyDetailsOpen}
               >
                 <ChevronRight className={cn("h-4 w-4 transition-transform", isCompanyDetailsOpen && "rotate-90")} />
@@ -1140,12 +1140,12 @@ export function ProfilePanel({
             )) : null}
           </div>
 
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
+          <div className="rounded-[1.8rem] border border-[color:var(--border)] bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={toggleInsuranceOpen}
-                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)] transition hover:text-[color:var(--text-secondary)] dark:text-[color:var(--text-muted)] dark:hover:text-[color:var(--text-primary)]"
                 aria-expanded={isInsuranceOpen}
               >
                 <ChevronRight className={cn("h-4 w-4 transition-transform", isInsuranceOpen && "rotate-90")} />
@@ -1190,12 +1190,12 @@ export function ProfilePanel({
             )) : null}
           </div>
 
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+          <div className="rounded-[1.8rem] border border-[color:var(--border)] bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={togglePrimaryContactOpen}
-                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)] transition hover:text-[color:var(--text-secondary)] dark:text-[color:var(--text-muted)] dark:hover:text-[color:var(--text-primary)]"
                 aria-expanded={isPrimaryContactOpen}
               >
                 <ChevronRight className={cn("h-4 w-4 transition-transform", isPrimaryContactOpen && "rotate-90")} />
@@ -1277,21 +1277,21 @@ export function ProfilePanel({
         </div>
         {confirmDialog ? (
           <div className="fixed inset-0 z-[80] flex items-start justify-center md:items-center bg-black/60 p-4 pt-20 md:pt-0 backdrop-blur">
-            <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
-              <div className="text-lg font-semibold text-slate-950 dark:text-white">{confirmDialog.title}</div>
-              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{confirmDialog.message}</p>
+            <div className="w-full max-w-sm rounded-[1.75rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[color:var(--bg-page)]">
+              <div className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{confirmDialog.title}</div>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{confirmDialog.message}</p>
               <div className="mt-5 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setConfirmDialog(null)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+                  className="rounded-xl border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
                 >
                   No
                 </button>
                 <button
                   type="button"
                   onClick={confirmDialog.onConfirm}
-                  className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+                  className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]"
                 >
                   Yes
                 </button>
