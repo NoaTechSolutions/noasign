@@ -635,6 +635,15 @@ export function LoginForm() {
   ) {
     event.preventDefault();
 
+    // Guard: when the user hits Enter inside an input on steps 1-3, the form
+    // would otherwise fire its onSubmit and skip past the wizard. Treat that
+    // submit as "advance to the next step" instead. Only the final step is
+    // allowed to actually fire the API call.
+    if (createAccountStep !== ACCOUNT_TOTAL_STEPS) {
+      continueCreateAccount();
+      return;
+    }
+
     if (!validateAccountRequestForm()) {
       return;
     }
