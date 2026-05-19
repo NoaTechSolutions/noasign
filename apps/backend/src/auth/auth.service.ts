@@ -13,6 +13,13 @@ import { UserRole, UserStatus } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../email/email.service';
+import { AuthException } from './exceptions/auth.exception';
+
+// Two layers reinforce each other: HTTP middleware blocks per-IP, DB lockout
+// blocks per-account. An attacker rotating IPs through proxies still trips
+// the per-account lockout after N attempts on the same email.
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 @Injectable()
 export class AuthService {
@@ -24,30 +31,6 @@ export class AuthService {
     private configService: ConfigService,
     private emailService: EmailService,
   ) {}
-
-  async validateUser(email: string, password: string) {
-    const normalizedEmail = email.trim().toLowerCase();
-
-    const user = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-
-    if (!isMatch) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    return user;
-  }
 
   async register(data: RegisterDto) {
     const normalizedEmail = data.email.trim().toLowerCase();
@@ -94,7 +77,56 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.validateUser(email, password);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    // Same generic error for "user not found" and "wrong password" prevents
+    // email enumeration via the response shape.
+    if (!user) {
+      throw AuthException.invalidCredentials();
+    }
+
+    // Lockout check BEFORE bcrypt to avoid burning CPU on a known-blocked
+    // account. retryAfter is in seconds for parity with HTTP Retry-After.
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const retryAfter = Math.ceil(
+        (user.lockedUntil.getTime() - Date.now()) / 1000,
+      );
+      throw AuthException.accountLocked(retryAfter);
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw AuthException.accountNotActive();
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isMatch) {
+      const justLocked = await this.recordFailedLogin(
+        user.id,
+        user.failedLoginAttempts,
+      );
+      // If THIS attempt tripped the lockout, surface ACCOUNT_LOCKED now —
+      // otherwise the user sees INVALID_CREDENTIALS and only learns later.
+      if (justLocked) {
+        void this.sendAccountLockedEmail(user.email);
+        throw AuthException.accountLocked(LOCKOUT_DURATION_MS / 1000);
+      }
+      throw AuthException.invalidCredentials();
+    }
+
+    // Success: reset counter, clear any expired lockout, record lastLoginAt.
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastLoginAt: new Date(),
+      },
+    });
 
     const payload = {
       sub: user.id,
@@ -117,6 +149,56 @@ export class AuthService {
         mustChangePassword: user.mustChangePassword,
       },
     };
+  }
+
+  // Returns true if this attempt was the one that activated the lockout.
+  private async recordFailedLogin(
+    userId: string,
+    currentAttempts: number,
+  ): Promise<boolean> {
+    const nextAttempts = currentAttempts + 1;
+    if (nextAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+      // Reset counter on lockout transition — lockedUntil is the actual
+      // block signal, the counter is just the running tally between lockouts.
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
+        },
+      });
+      return true;
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginAttempts: nextAttempts },
+    });
+    return false;
+  }
+
+  private async sendAccountLockedEmail(email: string): Promise<void> {
+    this.logger.log('Sending account-locked email (lockout triggered)');
+    const unlocksAt = new Date(Date.now() + LOCKOUT_DURATION_MS);
+    const unlocksAtText = `at ${unlocksAt.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`;
+
+    const appUrl =
+      this.configService.get<string>('APP_URL')?.trim().replace(/\/$/, '') ||
+      'http://127.0.0.1:3001';
+    const resetLink = `${appUrl}/login?view=forgotPassword`;
+
+    try {
+      await this.emailService.sendAccountLockedEmail({
+        to: email,
+        unlocksAtText,
+        resetLink,
+      });
+    } catch {
+      // EmailService logged it. Lockout is the source of truth — email is
+      // just a heads-up.
+    }
   }
 
   async changePassword(userId: string, password: string) {
@@ -256,6 +338,10 @@ export class AuthService {
         data: {
           passwordHash,
           mustChangePassword: false,
+          // Successful reset is implicit proof the user controls the inbox,
+          // so any lockout from forgotten-password retries is released.
+          failedLoginAttempts: 0,
+          lockedUntil: null,
         },
       }),
       this.prisma.passwordResetToken.update({

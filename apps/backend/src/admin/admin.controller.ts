@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -157,5 +159,21 @@ export class AdminController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.adminService.deleteUserDocumentConfig(req.user.id, id);
+  }
+
+  // ── User lockout endpoints (MASTER-only, enforced in service) ────────────
+
+  @Get('users/locked')
+  async listLockedUsers(@Req() req: any) {
+    return this.adminService.listLockedUsers(req.user.id);
+  }
+
+  @Post('users/:id/unlock')
+  @HttpCode(HttpStatus.OK)
+  async unlockUser(
+    @Req() req: any,
+    @Param('id', ParseUUIDPipe) targetUserId: string,
+  ) {
+    return this.adminService.unlockUser(req.user.id, targetUserId);
   }
 }

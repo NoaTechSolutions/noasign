@@ -41,6 +41,16 @@ export type PasswordResetPayload = {
   firstName?: string;
 };
 
+export type AccountLockedPayload = {
+  to: string;
+  unlocksAtText: string;
+  resetLink: string;
+};
+
+export type AccountUnlockedPayload = {
+  to: string;
+};
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -638,6 +648,229 @@ export class EmailService {
               <p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.6;">
                 This email was sent by <strong>NTSsign</strong> on behalf of ${p.senderCompany}.
                 NTSsign provides electronic signature and document management services.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  }
+
+  async sendAccountLockedEmail(payload: AccountLockedPayload): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(
+        `[EmailService] Skipping account-locked email to ${payload.to} — Resend not configured`,
+      );
+      return;
+    }
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: payload.to,
+      subject: 'Your NTSsign account was locked',
+      html: this.buildAccountLockedHtml(payload),
+    });
+
+    if (error) {
+      this.logger.error(
+        `[EmailService] Failed to send account-locked email to ${payload.to}: ${JSON.stringify(error)}`,
+      );
+      throw new Error(`Email delivery failed: ${error.message}`);
+    }
+
+    this.logger.log(
+      `[EmailService] Account-locked email sent to ${payload.to} (id: ${data?.id})`,
+    );
+  }
+
+  async sendAccountUnlockedEmail(payload: AccountUnlockedPayload): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(
+        `[EmailService] Skipping account-unlocked email to ${payload.to} — Resend not configured`,
+      );
+      return;
+    }
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: payload.to,
+      subject: 'Your NTSsign account was unlocked',
+      html: this.buildAccountUnlockedHtml(),
+    });
+
+    if (error) {
+      this.logger.error(
+        `[EmailService] Failed to send account-unlocked email to ${payload.to}: ${JSON.stringify(error)}`,
+      );
+      throw new Error(`Email delivery failed: ${error.message}`);
+    }
+
+    this.logger.log(
+      `[EmailService] Account-unlocked email sent to ${payload.to} (id: ${data?.id})`,
+    );
+  }
+
+  private buildAccountLockedHtml(p: AccountLockedPayload): string {
+    const appUrl = this.getAppUrl();
+    const logoUrl = `${appUrl}/ntssign-logo-light.svg`;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Account locked</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(2,41,119,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#05a5ff 0%,#022977 60%,#0400f0 100%);padding:32px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;">
+                          <div style="width:56px;height:56px;background:#ffffff;border-radius:14px;overflow:hidden;display:inline-block;box-shadow:0 2px 8px rgba(0,0,0,0.18);">
+                            <img src="${logoUrl}" alt="NTSsign" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:contain;" />
+                          </div>
+                          <div style="color:rgba(255,255,255,0.55);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;margin-top:5px;">by NoaTechSolutions</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right">
+                    <div style="background:rgba(220,38,38,0.18);border:1px solid rgba(220,38,38,0.4);border-radius:8px;padding:6px 12px;color:#ffffff;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Account Locked</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <h1 style="margin:0 0 16px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;letter-spacing:-0.5px;">
+                Your account was temporarily locked
+              </h1>
+              <p style="margin:0 0 16px;color:#4b5563;font-size:15px;line-height:1.6;">
+                We locked your NTSsign account because of too many failed login
+                attempts. It will unlock automatically <strong>${p.unlocksAtText}</strong>.
+              </p>
+              <p style="margin:0 0 28px;color:#4b5563;font-size:15px;line-height:1.6;">
+                If this was you (you forgot the password), you can wait it out —
+                or reset your password now and skip the wait.
+              </p>
+
+              <!-- CTA -->
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:#dc2626;border-radius:12px;">
+                    <a href="${p.resetLink}" target="_blank" style="display:inline-block;padding:16px 36px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;letter-spacing:-0.2px;">
+                      Wasn't me — reset password
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">
+                If you didn't try to sign in, someone else is. Reset your
+                password immediately and consider rotating it elsewhere if you
+                reuse it.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;">
+              <p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.6;">
+                NTSsign — Electronic Signature
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  }
+
+  private buildAccountUnlockedHtml(): string {
+    const appUrl = this.getAppUrl();
+    const logoUrl = `${appUrl}/ntssign-logo-light.svg`;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Account unlocked</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(2,41,119,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#05a5ff 0%,#022977 60%,#0400f0 100%);padding:32px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;">
+                          <div style="width:56px;height:56px;background:#ffffff;border-radius:14px;overflow:hidden;display:inline-block;box-shadow:0 2px 8px rgba(0,0,0,0.18);">
+                            <img src="${logoUrl}" alt="NTSsign" width="56" height="56" style="display:block;width:56px;height:56px;object-fit:contain;" />
+                          </div>
+                          <div style="color:rgba(255,255,255,0.55);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;margin-top:5px;">by NoaTechSolutions</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right">
+                    <div style="background:rgba(34,197,94,0.18);border:1px solid rgba(34,197,94,0.4);border-radius:8px;padding:6px 12px;color:#ffffff;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">✓ Unlocked</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <h1 style="margin:0 0 16px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;letter-spacing:-0.5px;">
+                Your account was unlocked
+              </h1>
+              <p style="margin:0 0 16px;color:#4b5563;font-size:15px;line-height:1.6;">
+                An administrator manually unlocked your NTSsign account. You can
+                sign in again.
+              </p>
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">
+                If you didn't expect this — or you didn't contact support — let
+                us know right away.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;">
+              <p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.6;">
+                NTSsign — Electronic Signature
               </p>
             </td>
           </tr>

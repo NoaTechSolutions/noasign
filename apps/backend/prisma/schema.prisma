@@ -131,6 +131,14 @@ model User {
   zipCode                String?
   avatarUrl              String?
 
+  // Auth security. failedLoginAttempts resets to 0 on successful login OR when
+  // a lockout is triggered (lockedUntil becomes the source of truth for
+  // "blocked"). lockedUntil is forward-only: while > now() the account refuses
+  // login with ACCOUNT_LOCKED. lastLoginAt is set only on successful login.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -160,6 +168,25 @@ model PasswordResetToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("password_reset_tokens")
+}
+
+// Append-only log of MASTER actions. actorId and targetUserId are stored as
+// raw IDs (no FK) so audit history survives if either user is later deleted —
+// retention beats referential cleanliness for this table. `action` is a
+// SCREAMING_SNAKE_CASE verb-object string ("UNLOCK_USER", future verbs added
+// without a migration). `payload` captures pre-action state for review.
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  actorId      String
+  action       String
+  targetUserId String?
+  payload      Json?
+  createdAt    DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetUserId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }
 
 model Customer {
