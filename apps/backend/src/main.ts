@@ -39,7 +39,6 @@ async function bootstrap() {
   expressApp.set('trust proxy', normalizeTrustProxy(process.env.TRUST_PROXY));
 
   app.use(createSecurityHeadersMiddleware());
-  app.use(createAuthRateLimitMiddleware());
 
   app.enableCors({
     origin: buildCorsOriginHandler(),
@@ -47,6 +46,8 @@ async function bootstrap() {
     methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
+
+  app.use(createAuthRateLimitMiddleware());
 
   app.useGlobalPipes(
     new ValidationPipe({
