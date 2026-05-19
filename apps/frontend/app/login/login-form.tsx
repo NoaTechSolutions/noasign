@@ -119,6 +119,8 @@ const requestableDocuments = [
 export function LoginForm() {
   const router = useRouter();
   const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -184,7 +186,7 @@ export function LoginForm() {
   const [isSubmittingResetPassword, setIsSubmittingResetPassword] = useState(false);
   const [accountRequestSuccess, setAccountRequestSuccess] = useState("");
   const [resetToken, setResetToken] = useState("");
-  const isDarkTheme = resolvedTheme === "dark";
+  const isDarkTheme = mounted && resolvedTheme === "dark";
   const loginLogoSrc = isDarkTheme
     ? "/img/NTSSign_blanco_SinFondo.svg"
     : "/img/NTSSign_AzulDark_SinFondo.svg";
