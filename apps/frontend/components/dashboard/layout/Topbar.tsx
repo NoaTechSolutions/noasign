@@ -25,6 +25,8 @@ const PANEL_LABELS: Record<string, string> = {
   billing: "Billing",
   users: "Members",
   locked: "Locked Users",
+  settings: "Settings",
+  support: "Support",
 };
 
 export function Topbar({ user, currentPanel }: TopbarProps) {
@@ -187,7 +189,10 @@ export function Topbar({ user, currentPanel }: TopbarProps) {
                 }}
               />
 
-              {/* Navigation */}
+              {/* Account menu — only personal/account items here. Module
+                  navigation (Overview/Documents/Customers/etc) is being
+                  redesigned as horizontal tabs or sidebar per the upcoming
+                  decision (Phase 2). For now panel navigation is via URL. */}
               <div className="py-1">
                 <p
                   className="text-[10px] font-medium uppercase px-2 py-2 m-0"
@@ -196,56 +201,30 @@ export function Topbar({ user, currentPanel }: TopbarProps) {
                     letterSpacing: "0.06em",
                   }}
                 >
-                  Workspace
+                  Account
                 </p>
 
-                <MenuLink
-                  href="/dashboard?panel=overview"
-                  onClick={() => setAvatarOpen(false)}
-                >
-                  Overview
-                </MenuLink>
-                <MenuLink
-                  href="/dashboard?panel=documents"
-                  onClick={() => setAvatarOpen(false)}
-                >
-                  Documents
-                </MenuLink>
-                <MenuLink
-                  href="/dashboard?panel=customers"
-                  onClick={() => setAvatarOpen(false)}
-                >
-                  Customers
-                </MenuLink>
                 <MenuLink
                   href="/dashboard?panel=profile"
                   onClick={() => setAvatarOpen(false)}
                 >
-                  Profile
+                  <span style={{ marginRight: "4px" }}>👤</span>
+                  <span>Profile</span>
                 </MenuLink>
                 <MenuLink
-                  href="/dashboard?panel=billing"
+                  href="/dashboard?panel=settings"
                   onClick={() => setAvatarOpen(false)}
                 >
-                  Billing
+                  <span style={{ marginRight: "4px" }}>⚙️</span>
+                  <span>Settings</span>
                 </MenuLink>
-
-                {user.role === "MASTER" && (
-                  <>
-                    <MenuLink
-                      href="/dashboard?panel=users"
-                      onClick={() => setAvatarOpen(false)}
-                    >
-                      Members
-                    </MenuLink>
-                    <MenuLink
-                      href="/dashboard?panel=locked"
-                      onClick={() => setAvatarOpen(false)}
-                    >
-                      Locked Users
-                    </MenuLink>
-                  </>
-                )}
+                <MenuLink
+                  href="/dashboard?panel=support"
+                  onClick={() => setAvatarOpen(false)}
+                >
+                  <span style={{ marginRight: "4px" }}>💬</span>
+                  <span>Support</span>
+                </MenuLink>
               </div>
 
               <div
@@ -256,23 +235,24 @@ export function Topbar({ user, currentPanel }: TopbarProps) {
                 }}
               />
 
-              {/* Account Actions */}
+              {/* Sign out */}
               <div className="py-1">
                 <button
                   className="flex items-center gap-2.5 px-2 py-2 rounded-md text-[13px] w-full text-left border-none bg-transparent cursor-pointer font-normal transition-colors duration-150"
-                  style={{ color: "#dc2626" }}
+                  style={{ color: "var(--text-body)" }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(220,38,38,0.06)";
+                    e.currentTarget.style.background = "var(--bg-hover)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
                   }}
                   onClick={() => {
                     // TODO: wire to actual logout (POST /auth/logout + clearSession)
-                    alert("Logout functionality coming soon");
+                    alert("Sign out — TODO: integrate with auth");
                   }}
                 >
-                  Sign out
+                  <span style={{ marginRight: "4px" }}>🚪</span>
+                  <span>Sign out</span>
                 </button>
               </div>
             </div>

@@ -384,9 +384,9 @@ input {
   --text-trust:    rgba(2,41,119,0.40);
   --text-on-brand: #ffffff;
 
-  /* Borders */
-  --border-soft:   rgba(2,41,119,0.10);
-  --border-strong: rgba(2,41,119,0.16);
+  /* Borders — bumped from HTML source (0.10/0.16) for better visibility on white */
+  --border-soft:   rgba(2,41,119,0.15);
+  --border-strong: rgba(2,41,119,0.20);
   --border-divide: rgba(2,41,119,0.06);
 
   /* Shadows */
