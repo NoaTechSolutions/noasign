@@ -457,3 +457,10 @@ input {
   --sky-alias: var(--sky);
   --amber-alias: var(--amber);
 }
+
+/* Dashboard responsive — hide logo text on mobile (≤480px) */
+@media (max-width: 480px) {
+  .topbar-logo-text {
+    display: none;
+  }
+}

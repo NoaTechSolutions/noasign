@@ -1,10 +1,11 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
+import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
 import {
   clearSession,
   getStoredUser,
@@ -376,6 +377,8 @@ const DASHBOARD_SELECTED_DOCUMENT_KEY = "ntssign:dashboard:selected-document-id"
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const newLayoutPanel = searchParams.get("panel");
   const { setTheme } = useTheme();
   const [user, setUser] = useState<StoredUser | null>(null);
   const [dashboardUser, setDashboardUser] = useState<DashboardUser | null>(null);
@@ -1240,6 +1243,59 @@ export default function DashboardPage() {
       );
       throw updateError;
     }
+  }
+
+  // Dual-mode rendering: if `?panel=` is in URL, render the new DashboardShell
+  // layout. Otherwise fall through to the legacy DashboardSidebarDemo below.
+  // This lets the redesign coexist with the live SPA during the rebuild.
+  if (newLayoutPanel) {
+    const fullName =
+      [dashboardUser?.firstName, dashboardUser?.lastName]
+        .filter(Boolean)
+        .join(" ") || "User";
+    const shellUser = {
+      name: fullName,
+      email: dashboardUser?.email ?? user?.email ?? "",
+      role: ((dashboardUser?.role ?? user?.role) as
+        | "MASTER"
+        | "ADMIN"
+        | "USER") || "USER",
+      companyName:
+        companyProfile?.companyName ||
+        companyProfile?.legalName ||
+        "Company",
+    };
+
+    return (
+      <DashboardShell user={shellUser} currentPanel={newLayoutPanel}>
+        <div
+          className="rounded-xl p-8"
+          style={{
+            background: "var(--bg-card)",
+            boxShadow: "var(--shadow-card)",
+          }}
+        >
+          <h1
+            className="text-2xl font-medium mb-2"
+            style={{ color: "var(--text-heading)" }}
+          >
+            {newLayoutPanel.charAt(0).toUpperCase() + newLayoutPanel.slice(1)}{" "}
+            Panel
+          </h1>
+          <p style={{ color: "var(--text-body)" }}>
+            Content for {newLayoutPanel} goes here. Implementation coming in
+            next phases.
+          </p>
+          <p
+            className="mt-4 text-sm"
+            style={{ color: "var(--text-label)" }}
+          >
+            <strong>Note:</strong> This is the new dashboard layout. Remove{" "}
+            <code>?panel=</code> from the URL to see the legacy sidebar.
+          </p>
+        </div>
+      </DashboardShell>
+    );
   }
 
   return (
