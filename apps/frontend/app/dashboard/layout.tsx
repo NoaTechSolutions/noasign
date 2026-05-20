@@ -28,7 +28,13 @@ export default function DashboardLayout({
       attributeFilter: ["class"],
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      // Remove data-theme on unmount so /login and /landing aren't
+      // contaminated with the new dashboard design tokens when the
+      // user navigates away.
+      document.documentElement.removeAttribute("data-theme");
+    };
   }, []);
 
   return (
