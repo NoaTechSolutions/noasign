@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { ThemeProvider } from "../../components/theme-provider";
 import { DashboardThemeProvider } from "../../components/providers/DashboardThemeProvider";
 
 export default function DashboardLayout({
@@ -19,15 +18,8 @@ export default function DashboardLayout({
   }, []);
 
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      enableSystem={false}
-      disableTransitionOnChange
-    >
-      <DashboardThemeProvider>
-        <div className="app-shell">{children}</div>
-      </DashboardThemeProvider>
-    </ThemeProvider>
+    <DashboardThemeProvider>
+      <div className="app-shell">{children}</div>
+    </DashboardThemeProvider>
   );
 }

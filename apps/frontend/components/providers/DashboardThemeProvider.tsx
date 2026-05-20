@@ -32,11 +32,8 @@ export function DashboardThemeProvider({
   children,
 }: DashboardThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-
     const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
     const systemPreference = window.matchMedia(
       "(prefers-color-scheme: dark)",
@@ -59,13 +56,11 @@ export function DashboardThemeProvider({
     setTheme(theme === "light" ? "dark" : "light");
   };
 
-  // Avoid flash of unstyled content on first paint by deferring context
-  // until after the effect runs. children are still rendered (no blank
-  // page) — they just don't get the context value until mounted.
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
+  // Always wrap children in the context provider — even on first render
+  // before useEffect runs. The defaults (`theme: "light"`) are used until
+  // the effect upgrades them with stored/system preference. Skipping the
+  // provider on first render would break any `useDashboardTheme()` call
+  // in the initial paint (e.g. ThemeToggle in Topbar).
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
