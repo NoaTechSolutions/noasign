@@ -2,37 +2,18 @@
 
 import { useEffect } from "react";
 import { ThemeProvider } from "../../components/theme-provider";
+import { DashboardThemeProvider } from "../../components/providers/DashboardThemeProvider";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Sync class="dark" (next-themes legacy) with data-theme attribute (new
-  // design tokens). Lets old components keep using `.dark` selector while
-  // new components consume `:root[data-theme="..."]` tokens.
+  // Remove data-theme on unmount so /login and /landing aren't contaminated
+  // with the new dashboard design tokens when the user navigates away.
+  // DashboardThemeProvider re-sets it on mount of any dashboard route.
   useEffect(() => {
-    const syncTheme = () => {
-      const isDark = document.documentElement.classList.contains("dark");
-      document.documentElement.setAttribute(
-        "data-theme",
-        isDark ? "dark" : "light",
-      );
-    };
-
-    syncTheme();
-
-    const observer = new MutationObserver(syncTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
     return () => {
-      observer.disconnect();
-      // Remove data-theme on unmount so /login and /landing aren't
-      // contaminated with the new dashboard design tokens when the
-      // user navigates away.
       document.documentElement.removeAttribute("data-theme");
     };
   }, []);
@@ -44,7 +25,9 @@ export default function DashboardLayout({
       enableSystem={false}
       disableTransitionOnChange
     >
-      <div className="app-shell">{children}</div>
+      <DashboardThemeProvider>
+        <div className="app-shell">{children}</div>
+      </DashboardThemeProvider>
     </ThemeProvider>
   );
 }
