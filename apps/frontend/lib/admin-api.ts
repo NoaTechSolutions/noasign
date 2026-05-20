@@ -30,6 +30,15 @@ export type CreateFormDefinitionInput = {
 
 export type UpdateFormDefinitionInput = Partial<CreateFormDefinitionInput>;
 
+export type LockedUser = {
+  id: string;
+  email: string;
+  role: "MASTER" | "ADMIN" | "USER";
+  failedLoginAttempts: number;
+  // ISO date string — Prisma's Date becomes string after JSON serialization
+  lockedUntil: string;
+};
+
 export const adminApi = {
   listDocumentTypes: () => apiRequest<DocumentTypeRef[]>("/admin/document-types"),
 
@@ -49,4 +58,12 @@ export const adminApi = {
 
   deleteFormDefinition: (id: string) =>
     apiRequest<{ message: string }>(`/admin/form-definitions/${id}`, { method: "DELETE" }),
+
+  listLockedUsers: () => apiRequest<LockedUser[]>("/admin/users/locked"),
+
+  unlockUser: (id: string) =>
+    apiRequest<{ success: true; userId: string }>(
+      `/admin/users/${id}/unlock`,
+      { method: "POST" },
+    ),
 };

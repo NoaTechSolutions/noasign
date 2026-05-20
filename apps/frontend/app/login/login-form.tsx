@@ -22,6 +22,7 @@ import {
 import { Button, Checkbox, Input, Label } from "@/components/ui";
 import { API_URL, apiRequest } from "../../lib/api";
 import { getStoredUser, persistSession, updateStoredUser } from "../../lib/auth-storage";
+import { useLockoutCountdown, formatMMSS } from "../../lib/use-lockout-countdown";
 
 type LoginResponse = {
   user: {
@@ -164,6 +165,13 @@ export function LoginForm() {
     }, 1000);
     return () => window.clearInterval(id);
   }, [forgotPasswordCooldown]);
+
+  // Lockout / rate-limit countdown. Driven by ACCOUNT_LOCKED.retryAfter (typically
+  // 900s = 15min from backend) or RATE_LIMITED (60s default — middleware doesn't
+  // send retryAfter). Button disables + shows MM:SS while active.
+  const lockoutCountdown = useLockoutCountdown();
+  const [lockoutBanner, setLockoutBanner] = useState("");
+
   const [forcePasswordForm, setForcePasswordForm] = useState<ForcePasswordForm>({
     password: "",
     confirmPassword: "",
@@ -207,9 +215,14 @@ export function LoginForm() {
       return;
     }
 
-    const nextResetToken =
-      new URLSearchParams(window.location.search).get("resetToken")?.trim() ?? "";
+    const params = new URLSearchParams(window.location.search);
+    const nextResetToken = params.get("resetToken")?.trim() ?? "";
     setResetToken(nextResetToken);
+
+    // Deep-link from account-locked email CTA: /login?view=forgotPassword
+    if (params.get("view") === "forgotPassword") {
+      setActiveView("forgotPassword");
+    }
   }, []);
 
   useEffect(() => {
@@ -448,7 +461,32 @@ export function LoginForm() {
       };
 
       if (!response.ok || !data.user) {
+        // Typed lockout / rate-limit branch — must come before the legacy
+        // path so the countdown UI fires instead of a generic credentials
+        // message.
+        const errorCode = (data as Record<string, unknown>).errorCode;
+        const retryAfter = (data as Record<string, unknown>).retryAfter;
+
+        if (errorCode === "ACCOUNT_LOCKED" || response.status === 429) {
+          const seconds =
+            typeof retryAfter === "number"
+              ? retryAfter
+              : response.status === 429
+                ? 60
+                : 900;
+          lockoutCountdown.start(seconds);
+          const minutes = Math.max(1, Math.ceil(seconds / 60));
+          setLockoutBanner(
+            errorCode === "ACCOUNT_LOCKED"
+              ? `Account temporarily locked. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}, or reset your password.`
+              : `Too many attempts. Wait ${minutes} minute${minutes === 1 ? "" : "s"} and try again.`,
+          );
+          setLoginErrors({});
+          return;
+        }
+
         const message = data.message ?? "Unable to sign in";
+        setLockoutBanner("");
         setLoginErrors(mapLoginApiError(message));
         return;
       }
@@ -886,7 +924,14 @@ export function LoginForm() {
             ) : null}
           </div>
 
-          {loginErrors.form ? (
+          {lockoutBanner ? (
+            <div
+              role="alert"
+              className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-800/50 dark:text-red-200 text-sm"
+            >
+              {lockoutBanner}
+            </div>
+          ) : loginErrors.form ? (
             <InputError text={loginErrors.form} />
           ) : null}
 
@@ -910,10 +955,14 @@ export function LoginForm() {
           <Button
             type="submit"
             variant="primary"
-            disabled={isSubmitting || isLoginFormInvalid}
+            disabled={isSubmitting || isLoginFormInvalid || lockoutCountdown.isActive}
             className="h-12 w-full"
           >
-            {isSubmitting ? "Signing in..." : "Login"}
+            {isSubmitting
+              ? "Signing in..."
+              : lockoutCountdown.isActive
+                ? `Login (${formatMMSS(lockoutCountdown.secondsLeft)})`
+                : "Login"}
           </Button>
 
           <p className="text-center text-[13px] font-normal leading-[1.5] text-[color:var(--text-secondary)]">

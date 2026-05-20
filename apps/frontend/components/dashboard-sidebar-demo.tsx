@@ -21,6 +21,7 @@ import {
   FilePlus,
   FileText,
   LayoutDashboard,
+  Lock,
   LogOut,
   Menu,
   Phone,
@@ -41,6 +42,7 @@ import { DashboardOverviewPanel } from "./dashboard/panels/dashboard-overview-pa
 import { ProfilePanel } from "./dashboard/panels/profile-panel";
 import { CustomersPanel } from "./dashboard/panels/customers-panel";
 import { DocumentsPanel } from "./dashboard/panels/documents-panel";
+import { LockedUsersPanel } from "./dashboard/panels/locked-users-panel";
 // FASE 3.5 — helpers centralizados (era circular import via monolito).
 import {
   formatDate,
@@ -387,6 +389,7 @@ type SectionKey =
   | "customers"
   | "users"
   | "accountRequests"
+  | "lockedUsers"
   | "profile"
   | "billing";
 
@@ -416,6 +419,7 @@ function parseSectionKey(value: string | null): SectionKey {
     value === "customers" ||
     value === "users" ||
     value === "accountRequests" ||
+    value === "lockedUsers" ||
     value === "profile" ||
     value === "billing"
   ) {
@@ -642,7 +646,7 @@ export function DashboardSidebarDemo({
   }, [open]);
 
   useEffect(() => {
-    if (activeSection === "users" || activeSection === "accountRequests") {
+    if (activeSection === "users" || activeSection === "accountRequests" || activeSection === "lockedUsers") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsersMenuOpen(true);
     }
@@ -1081,14 +1085,14 @@ export function DashboardSidebarDemo({
                           onClick={() => setUsersMenuOpen((current) => !current)}
                           className={cn(
                             "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]",
-                            (activeSection === "users" || activeSection === "accountRequests") &&
+                            (activeSection === "users" || activeSection === "accountRequests" || activeSection === "lockedUsers") &&
                               "bg-[#bdd4ff] text-[#022977] shadow-[var(--shadow-soft)] dark:bg-[rgba(255,255,255,0.12)] dark:text-[color:var(--menu-text)]",
                           )}
                         >
                           <span
                             className={cn(
                               "flex h-9 w-9 items-center justify-center rounded-xl bg-[#e4efff] text-[#5574a6] transition group-hover:bg-[#bdd4ff] group-hover:text-[#022977] dark:bg-[color:var(--bg-surface)] dark:text-[color:var(--menu-text-muted)] dark:group-hover:bg-[rgba(255,255,255,0.08)] dark:group-hover:text-white",
-                              (activeSection === "users" || activeSection === "accountRequests") &&
+                              (activeSection === "users" || activeSection === "accountRequests" || activeSection === "lockedUsers") &&
                                 "bg-[#9fbeff] text-[#022977] dark:bg-[rgba(255,255,255,0.12)] dark:text-white",
                             )}
                           >
@@ -1150,6 +1154,23 @@ export function DashboardSidebarDemo({
                               <FileJson className="h-4 w-4" />
                               <span>Form Definitions</span>
                             </Link>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateActiveSection("lockedUsers");
+                                if (window.innerWidth < 1280) {
+                                  setOpen(false);
+                                }
+                              }}
+                              className={cn(
+                                "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]",
+                                activeSection === "lockedUsers" &&
+                                  "bg-[#bdd4ff] text-[#022977] shadow-[var(--shadow-soft)] dark:bg-[rgba(255,255,255,0.12)] dark:text-[color:var(--menu-text)]",
+                              )}
+                            >
+                              <Lock className="h-4 w-4" />
+                              <span>Locked Users</span>
+                            </button>
                           </div>
                         ) : null}
                       </div>
@@ -1446,6 +1467,10 @@ export function DashboardSidebarDemo({
               onReactivateUser={onReactivateUser}
               onResetUserPassword={onResetUserPassword}
             />
+          ) : null}
+
+          {activeSection === "lockedUsers" && user?.role === "MASTER" ? (
+            <LockedUsersPanel />
           ) : null}
 
           {activeSection === "billing" ? (
