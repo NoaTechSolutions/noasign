@@ -507,6 +507,25 @@ input {
   background: var(--border-strong);
 }
 
+/* ============================================
+   Z-INDEX LAYERS (explicit hierarchy)
+   ============================================ */
+/* Sidebar: base layer */
+.sidebar-desktop {
+  z-index: 10;
+}
+
+/* Topbar: above sidebar so its hamburger isn't covered */
+.topbar {
+  z-index: 100;
+}
+
+/* MobileMenu hamburger button: above topbar contents */
+.mobile-menu-button {
+  z-index: 150;
+  position: relative;
+}
+
 /* Mobile drawer slide-in animation (consumed by MobileMenu) */
 @keyframes slideInLeft {
   from {

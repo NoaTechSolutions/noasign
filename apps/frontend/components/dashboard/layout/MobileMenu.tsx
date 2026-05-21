@@ -35,6 +35,8 @@ export function MobileMenu({ userRole, currentPanel }: MobileMenuProps) {
           cursor: "pointer",
           padding: "8px",
           color: "var(--text-heading)",
+          position: "relative",
+          zIndex: 150,
         }}
         aria-label="Open menu"
       >

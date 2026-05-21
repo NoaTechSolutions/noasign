@@ -7,6 +7,10 @@ import { NAVIGATION_ITEMS, filterNavigationItems } from "./NavigationItems";
 interface SidebarProps {
   userRole: string;
   currentPanel: string;
+  // Optional signout handler. When passed, the footer Sign-out button calls
+  // this. Without it, a fallback navigates to /login (no real session
+  // clearing — avoid in production).
+  onSignOut?: () => Promise<void> | void;
 }
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -15,7 +19,11 @@ const STORAGE_KEY = "sidebar-collapsed";
 // collapse state to localStorage. On first paint, defaults to expanded —
 // if the user had it collapsed, there's a brief flicker after useEffect
 // reads localStorage. Acceptable tradeoff for simpler SSR.
-export function Sidebar({ userRole, currentPanel }: SidebarProps) {
+export function Sidebar({
+  userRole,
+  currentPanel,
+  onSignOut,
+}: SidebarProps) {
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const items = filterNavigationItems(NAVIGATION_ITEMS, userRole);
@@ -57,6 +65,7 @@ export function Sidebar({ userRole, currentPanel }: SidebarProps) {
         overflowX: "hidden",
         transition: "width 0.25s ease, min-width 0.25s ease",
         boxShadow: "1px 0 3px rgba(0, 0, 0, 0.03)",
+        zIndex: 10,
       }}
     >
       {/* Header: logo + collapse toggle */}
@@ -223,19 +232,103 @@ export function Sidebar({ userRole, currentPanel }: SidebarProps) {
         })}
       </nav>
 
-      {/* Footer (hidden when collapsed) */}
-      {!isCollapsed && (
-        <div
-          style={{
-            padding: "12px 20px",
-            borderTop: "0.5px solid var(--border-soft)",
-            fontSize: "11px",
-            color: "var(--text-label)",
+      {/* Footer: Sign out + (optional) version */}
+      <div
+        style={{
+          padding: isCollapsed ? "12px" : "12px 20px",
+          borderTop: "0.5px solid var(--border-soft)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+        }}
+      >
+        <button
+          onClick={async () => {
+            if (onSignOut) {
+              await onSignOut();
+              return;
+            }
+            // Fallback: no real session clear — flagged in props comment
+            if (window.confirm("Sign out?")) {
+              window.location.href = "/login";
+            }
           }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            width: "100%",
+            padding: "10px 12px",
+            background: "transparent",
+            border: "1px solid var(--border-soft)",
+            borderRadius: "8px",
+            color: "var(--text-body)",
+            fontSize: "14px",
+            fontWeight: 400,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--bg-hover)";
+            e.currentTarget.style.borderColor = "var(--border-strong)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.borderColor = "var(--border-soft)";
+          }}
+          title={isCollapsed ? "Sign out" : undefined}
+          aria-label="Sign out"
         >
-          Dashboard v2.0
-        </div>
-      )}
+          <span
+            style={{
+              minWidth: "20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--text-body)",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </span>
+
+          {!isCollapsed && (
+            <span
+              style={{
+                marginLeft: "10px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Sign out
+            </span>
+          )}
+        </button>
+
+        {!isCollapsed && (
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--text-label)",
+              textAlign: "center",
+            }}
+          >
+            Dashboard v2.0
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

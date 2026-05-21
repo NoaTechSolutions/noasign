@@ -14,6 +14,9 @@ interface DashboardShellProps {
     companyName: string;
   };
   currentPanel: string;
+  // Optional signout handler — forwarded to Sidebar footer's Sign-out
+  // button. Pass the host page's handleSignOut to wire real logout.
+  onSignOut?: () => Promise<void> | void;
 }
 
 // Top-level wrapper for the new dashboard layout. Composes:
@@ -27,6 +30,7 @@ export function DashboardShell({
   children,
   user,
   currentPanel,
+  onSignOut,
 }: DashboardShellProps) {
   return (
     <div
@@ -36,7 +40,11 @@ export function DashboardShell({
         display: "flex",
       }}
     >
-      <Sidebar userRole={user.role} currentPanel={currentPanel} />
+      <Sidebar
+        userRole={user.role}
+        currentPanel={currentPanel}
+        onSignOut={onSignOut}
+      />
 
       {/* Right column: topbar + content */}
       <div

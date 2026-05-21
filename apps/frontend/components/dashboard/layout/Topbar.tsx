@@ -56,12 +56,12 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
 
   return (
     <div
-      className="sticky top-0 flex items-center px-4 gap-3"
+      className="topbar sticky top-0 flex items-center px-4 gap-3"
       style={{
         height: "64px",
         background: "var(--bg-chrome)",
         borderBottom: "0.5px solid var(--border-soft)",
-        zIndex: 40,
+        zIndex: 100,
       }}
     >
       {/* Left: [MobileMenu] + [Logo (mobile only)] + Breadcrumbs */}

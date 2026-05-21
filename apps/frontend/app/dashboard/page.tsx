@@ -1267,7 +1267,11 @@ export default function DashboardPage() {
     };
 
     return (
-      <DashboardShell user={shellUser} currentPanel={newLayoutPanel}>
+      <DashboardShell
+        user={shellUser}
+        currentPanel={newLayoutPanel}
+        onSignOut={handleSignOut}
+      >
         <div
           className="rounded-xl p-8"
           style={{
