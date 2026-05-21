@@ -153,7 +153,14 @@ export function MobileMenu({ userRole, currentPanel }: MobileMenuProps) {
                   >
                     {item.icon && (
                       <span
-                        style={{ marginRight: "12px", fontSize: "18px" }}
+                        style={{
+                          marginRight: "12px",
+                          display: "flex",
+                          alignItems: "center",
+                          color: isActive
+                            ? "var(--brand)"
+                            : "var(--text-body)",
+                        }}
                       >
                         {item.icon}
                       </span>

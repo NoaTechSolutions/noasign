@@ -42,6 +42,7 @@ export function Sidebar({ userRole, currentPanel }: SidebarProps) {
   return (
     <aside
       className="sidebar-desktop"
+      data-collapsed={isCollapsed}
       style={{
         width: isCollapsed ? "72px" : "240px",
         minWidth: isCollapsed ? "72px" : "240px",
@@ -191,12 +192,14 @@ export function Sidebar({ userRole, currentPanel }: SidebarProps) {
               {item.icon && (
                 <span
                   style={{
-                    fontSize: "18px",
-                    opacity: isActive ? 1 : 0.7,
                     minWidth: "20px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    opacity: isActive ? 1 : 0.8,
+                    color: isActive
+                      ? "var(--brand)"
+                      : "var(--text-body)",
                   }}
                 >
                   {item.icon}
