@@ -52,7 +52,7 @@ export function DashboardShell({
         </Topbar>
 
         <main
-          className="px-6 py-6"
+          className="dashboard-content"
           style={{ flex: 1, width: "100%" }}
         >
           <div className="mx-auto" style={{ maxWidth: "1400px" }}>

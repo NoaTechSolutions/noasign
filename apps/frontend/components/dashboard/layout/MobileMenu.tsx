@@ -71,6 +71,7 @@ export function MobileMenu({ userRole, currentPanel }: MobileMenuProps) {
               zIndex: 1000,
               padding: "24px 0",
               overflowY: "auto",
+              animation: "slideInLeft 0.25s ease-out",
             }}
           >
             {/* Close button (top-right of drawer) */}

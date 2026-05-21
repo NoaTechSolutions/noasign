@@ -465,14 +465,19 @@ input {
   }
 }
 
-/* Sidebar — desktop only (hidden on mobile, replaced by MobileMenu drawer) */
+/* ============================================
+   SIDEBAR RESPONSIVE
+   Desktop (>1024px): expanded by default (user toggle persists in LS)
+   Tablet (768-1024px): user-controlled via toggle (no auto-collapse)
+   Mobile (<768px): hidden completely (MobileMenu drawer takes over)
+   ============================================ */
 .sidebar-desktop {
   display: flex;
 }
 
 @media (max-width: 768px) {
   .sidebar-desktop {
-    display: none;
+    display: none !important;
   }
 }
 
@@ -492,6 +497,35 @@ input {
 
 .sidebar-desktop::-webkit-scrollbar-thumb:hover {
   background: var(--border-strong);
+}
+
+/* Mobile drawer slide-in animation (consumed by MobileMenu) */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Dashboard content padding (responsive) */
+.dashboard-content {
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-content {
+    padding: 12px;
+  }
 }
 
 /* Topbar logo container — mobile only (sidebar carries the brand on desktop) */
