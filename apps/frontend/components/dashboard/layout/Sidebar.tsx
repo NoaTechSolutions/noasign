@@ -124,40 +124,91 @@ export function Sidebar({
           )}
         </div>
 
-        <button
-          onClick={toggleCollapse}
-          style={{
-            width: "28px",
-            height: "28px",
-            minWidth: "28px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "transparent",
-            border: "1px solid var(--border-soft)",
-            borderRadius: "6px",
-            cursor: "pointer",
-            color: "var(--text-label)",
-            fontSize: "14px",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--bg-hover)";
-            e.currentTarget.style.borderColor = "var(--border-strong)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.borderColor = "var(--border-soft)";
-          }}
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? "›" : "‹"}
-        </button>
+        {/* Expand button — only when collapsed. When expanded, the
+            equivalent "Collapse" action lives at the top of the nav list
+            below for a cleaner header. */}
+        {isCollapsed && (
+          <button
+            onClick={toggleCollapse}
+            style={{
+              width: "28px",
+              height: "28px",
+              minWidth: "28px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "transparent",
+              border: "1px solid var(--border-soft)",
+              borderRadius: "6px",
+              cursor: "pointer",
+              color: "var(--text-label)",
+              fontSize: "14px",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--bg-hover)";
+              e.currentTarget.style.borderColor = "var(--border-strong)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = "var(--border-soft)";
+            }}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+          >
+            ›
+          </button>
+        )}
       </div>
 
       {/* Navigation items */}
       <nav style={{ flex: 1, padding: "0 12px" }}>
+        {/* Collapse action — only when expanded. The mirror of the "›"
+            expand button in the header (which shows only when collapsed). */}
+        {!isCollapsed && (
+          <button
+            onClick={toggleCollapse}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              width: "100%",
+              padding: "10px 12px",
+              marginBottom: "12px",
+              background: "transparent",
+              border: "none",
+              borderRadius: "8px",
+              color: "var(--text-label)",
+              fontSize: "13px",
+              fontWeight: 400,
+              cursor: "pointer",
+              textAlign: "left",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--bg-card-soft)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+          >
+            <span
+              style={{
+                minWidth: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: "10px",
+                fontSize: "16px",
+              }}
+            >
+              ‹
+            </span>
+            <span>Collapse</span>
+          </button>
+        )}
+
         {items.map((item) => {
           const isActive = currentPanel === item.panel;
           return (

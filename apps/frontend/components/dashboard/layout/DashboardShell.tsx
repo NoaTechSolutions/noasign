@@ -56,7 +56,11 @@ export function DashboardShell({
         }}
       >
         <Topbar user={user} currentPanel={currentPanel}>
-          <MobileMenu userRole={user.role} currentPanel={currentPanel} />
+          <MobileMenu
+            userRole={user.role}
+            currentPanel={currentPanel}
+            onSignOut={onSignOut}
+          />
         </Topbar>
 
         <main

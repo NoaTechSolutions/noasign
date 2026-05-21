@@ -466,21 +466,12 @@ input {
 }
 
 /* ============================================
-   SIDEBAR RESPONSIVE
-   Desktop (>1024px): visible, collapsible via user toggle
-   Tablet (768-1024px): visible when expanded, hidden when collapsed
-     (prevents the sidebar's brand mark from overlapping the topbar
-     hamburger button on narrow viewports)
+   SIDEBAR RESPONSIVE — UNIFIED
+   Desktop + Tablet (>768px): visible and collapsible (same UX)
    Mobile (<768px): hidden completely (MobileMenu drawer takes over)
    ============================================ */
 .sidebar-desktop {
   display: flex;
-}
-
-@media (max-width: 1024px) {
-  .sidebar-desktop[data-collapsed="true"] {
-    display: none;
-  }
 }
 
 @media (max-width: 768px) {
