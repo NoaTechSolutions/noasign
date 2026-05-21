@@ -56,7 +56,7 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 flex items-center px-4 gap-3"
+      className="sticky top-0 flex items-center px-4 gap-3"
       style={{
         height: "64px",
         background: "var(--bg-chrome)",
@@ -64,33 +64,38 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
         zIndex: 40,
       }}
     >
-      {/* Left: [MobileMenu] + Logo + Breadcrumbs */}
+      {/* Left: [MobileMenu] + [Logo (mobile only)] + Breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0">
         {/* Slot for MobileMenu hamburger button on mobile (hidden on desktop
             via .mobile-menu-button CSS). Renders nothing on desktop. */}
         {children}
-        <Link
-          href="/dashboard?panel=overview"
-          className="flex items-center gap-2.5 no-underline"
-        >
-          <div
-            className="w-7 h-7 grid place-items-center text-xs font-medium flex-shrink-0"
-            style={{
-              borderRadius: "7px",
-              background: "var(--brand)",
-              color: "#ffffff",
-              letterSpacing: "0.02em",
-            }}
+        {/* Logo — hidden on desktop via .topbar-logo-container CSS
+            (sidebar carries the brand on desktop). Click navigates to
+            overview, useful on mobile. */}
+        <div className="topbar-logo-container">
+          <Link
+            href="/dashboard?panel=overview"
+            className="flex items-center gap-2.5 no-underline"
           >
-            NS
-          </div>
-          <span
-            className="topbar-logo-text text-[15px] font-medium"
-            style={{ color: "var(--text-heading)" }}
-          >
-            NTSsign
-          </span>
-        </Link>
+            <div
+              className="w-7 h-7 grid place-items-center text-xs font-medium flex-shrink-0"
+              style={{
+                borderRadius: "7px",
+                background: "var(--brand)",
+                color: "#ffffff",
+                letterSpacing: "0.02em",
+              }}
+            >
+              NS
+            </div>
+            <span
+              className="topbar-logo-text text-[15px] font-medium"
+              style={{ color: "var(--text-heading)" }}
+            >
+              NTSsign
+            </span>
+          </Link>
+        </div>
 
         <div
           className="flex items-center gap-2 ml-3 pl-4 text-[13px] min-w-0"

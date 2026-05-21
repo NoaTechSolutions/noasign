@@ -465,20 +465,46 @@ input {
   }
 }
 
-/* TabBar — desktop only (hidden on mobile, replaced by MobileMenu drawer) */
-.tabbar-desktop {
+/* Sidebar — desktop only (hidden on mobile, replaced by MobileMenu drawer) */
+.sidebar-desktop {
   display: flex;
 }
 
 @media (max-width: 768px) {
-  .tabbar-desktop {
+  .sidebar-desktop {
     display: none;
   }
 }
 
-/* Hide scrollbar on TabBar overflow (used on tablets with many items) */
-.tabbar-desktop::-webkit-scrollbar {
+/* Scrollbar styling for sidebar */
+.sidebar-desktop::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-desktop::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-desktop::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: 3px;
+}
+
+.sidebar-desktop::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Topbar logo container — mobile only (sidebar carries the brand on desktop) */
+.topbar-logo-container {
   display: none;
+}
+
+@media (max-width: 768px) {
+  .topbar-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 }
 
 /* MobileMenu hamburger button — only visible on mobile (≤768px) */

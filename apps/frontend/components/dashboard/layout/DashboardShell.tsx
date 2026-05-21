@@ -2,7 +2,7 @@
 
 import { type ReactNode } from "react";
 import { Topbar } from "./Topbar";
-import { TabBar } from "./TabBar";
+import { Sidebar } from "./Sidebar";
 import { MobileMenu } from "./MobileMenu";
 
 interface DashboardShellProps {
@@ -17,30 +17,43 @@ interface DashboardShellProps {
 }
 
 // Top-level wrapper for the new dashboard layout. Composes:
-//   Topbar (fixed at top, with MobileMenu hamburger as children)
-//   TabBar (below topbar, desktop only)
-//   main  (content area)
+//   Sidebar (sticky at left, desktop only, 240px wide)
+//   Right column: Topbar (sticky at top of column) + main content
 //
-// The Topbar is `position: fixed` so the inner wrapper uses paddingTop: 64px
-// to keep content from being hidden behind it.
+// Mobile (<768px): Sidebar is hidden via CSS, MobileMenu hamburger takes
+// over navigation. Topbar shows the logo on mobile (sidebar carries it
+// on desktop).
 export function DashboardShell({
   children,
   user,
   currentPanel,
 }: DashboardShellProps) {
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg-page)" }}>
-      <Topbar user={user} currentPanel={currentPanel}>
-        <MobileMenu userRole={user.role} currentPanel={currentPanel} />
-      </Topbar>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg-page)",
+        display: "flex",
+      }}
+    >
+      <Sidebar userRole={user.role} currentPanel={currentPanel} />
 
-      {/* Inner wrapper offset by fixed-topbar height */}
-      <div style={{ paddingTop: "64px" }}>
-        <TabBar userRole={user.role} currentPanel={currentPanel} />
+      {/* Right column: topbar + content */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0, // critical for flex children with overflow
+        }}
+      >
+        <Topbar user={user} currentPanel={currentPanel}>
+          <MobileMenu userRole={user.role} currentPanel={currentPanel} />
+        </Topbar>
 
         <main
           className="px-6 py-6"
-          style={{ minHeight: "calc(100vh - 64px)" }}
+          style={{ flex: 1, width: "100%" }}
         >
           <div className="mx-auto" style={{ maxWidth: "1400px" }}>
             {children}
