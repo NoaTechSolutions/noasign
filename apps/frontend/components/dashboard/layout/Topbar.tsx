@@ -12,6 +12,9 @@ interface TopbarProps {
     companyName: string;
   };
   currentPanel: string;
+  // Optional slot for elements rendered at the leftmost position (before the
+  // logo). DashboardShell uses this to inject the MobileMenu hamburger button.
+  children?: React.ReactNode;
 }
 
 // Stable display labels for breadcrumb + menu. Falls back to "Overview" when
@@ -24,12 +27,14 @@ const PANEL_LABELS: Record<string, string> = {
   profile: "Profile",
   billing: "Billing",
   users: "Members",
+  members: "Members",
   locked: "Locked Users",
+  lockedUsers: "Locked Users",
   settings: "Settings",
   support: "Support",
 };
 
-export function Topbar({ user, currentPanel }: TopbarProps) {
+export function Topbar({ user, currentPanel, children }: TopbarProps) {
   const [avatarOpen, setAvatarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -59,8 +64,11 @@ export function Topbar({ user, currentPanel }: TopbarProps) {
         zIndex: 40,
       }}
     >
-      {/* Left: Logo + Breadcrumbs */}
+      {/* Left: [MobileMenu] + Logo + Breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0">
+        {/* Slot for MobileMenu hamburger button on mobile (hidden on desktop
+            via .mobile-menu-button CSS). Renders nothing on desktop. */}
+        {children}
         <Link
           href="/dashboard?panel=overview"
           className="flex items-center gap-2.5 no-underline"
