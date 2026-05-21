@@ -546,6 +546,17 @@ input {
   }
 }
 
+/* Topbar breadcrumbs — hidden on mobile to reclaim space */
+.topbar-breadcrumbs {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .topbar-breadcrumbs {
+    display: none;
+  }
+}
+
 /* Topbar logo container — mobile only (sidebar carries the brand on desktop) */
 .topbar-logo-container {
   display: none;

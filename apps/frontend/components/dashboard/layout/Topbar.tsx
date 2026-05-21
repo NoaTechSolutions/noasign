@@ -98,7 +98,7 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
         </div>
 
         <div
-          className="flex items-center gap-2 ml-3 pl-4 text-[13px] min-w-0"
+          className="topbar-breadcrumbs flex items-center gap-2 ml-3 pl-4 text-[13px] min-w-0"
           style={{
             borderLeft: "0.5px solid var(--border-soft)",
             color: "var(--text-label)",

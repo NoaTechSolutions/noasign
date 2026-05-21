@@ -51,6 +51,11 @@ export function Sidebar({
     <aside
       className="sidebar-desktop"
       data-collapsed={isCollapsed}
+      onClick={() => {
+        // Click-to-expand when collapsed. Children (nav buttons, sign-out)
+        // call stopPropagation so this only fires on empty-space clicks.
+        if (isCollapsed) toggleCollapse();
+      }}
       style={{
         width: isCollapsed ? "72px" : "240px",
         minWidth: isCollapsed ? "72px" : "240px",
@@ -66,6 +71,7 @@ export function Sidebar({
         transition: "width 0.25s ease, min-width 0.25s ease",
         boxShadow: "1px 0 3px rgba(0, 0, 0, 0.03)",
         zIndex: 10,
+        cursor: isCollapsed ? "pointer" : "default",
       }}
     >
       {/* Header: logo + collapse toggle */}
@@ -124,12 +130,15 @@ export function Sidebar({
           )}
         </div>
 
-        {/* Expand button — only when collapsed. When expanded, the
-            equivalent "Collapse" action lives at the top of the nav list
-            below for a cleaner header. */}
-        {isCollapsed && (
+        {/* Collapse button — only when expanded. When collapsed, the whole
+            sidebar is clickable (see aside onClick) to expand, and the
+            header shows just the logo mark with no toggle. */}
+        {!isCollapsed && (
           <button
-            onClick={toggleCollapse}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCollapse();
+            }}
             style={{
               width: "28px",
               height: "28px",
@@ -142,7 +151,7 @@ export function Sidebar({
               borderRadius: "6px",
               cursor: "pointer",
               color: "var(--text-label)",
-              fontSize: "14px",
+              fontSize: "16px",
               transition: "all 0.15s",
             }}
             onMouseEnter={(e) => {
@@ -153,68 +162,28 @@ export function Sidebar({
               e.currentTarget.style.background = "transparent";
               e.currentTarget.style.borderColor = "var(--border-soft)";
             }}
-            title="Expand sidebar"
-            aria-label="Expand sidebar"
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
           >
-            ›
+            ‹
           </button>
         )}
       </div>
 
       {/* Navigation items */}
       <nav style={{ flex: 1, padding: "0 12px" }}>
-        {/* Collapse action — only when expanded. The mirror of the "›"
-            expand button in the header (which shows only when collapsed). */}
-        {!isCollapsed && (
-          <button
-            onClick={toggleCollapse}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              width: "100%",
-              padding: "10px 12px",
-              marginBottom: "12px",
-              background: "transparent",
-              border: "none",
-              borderRadius: "8px",
-              color: "var(--text-label)",
-              fontSize: "13px",
-              fontWeight: 400,
-              cursor: "pointer",
-              textAlign: "left",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--bg-card-soft)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
-            title="Collapse sidebar"
-            aria-label="Collapse sidebar"
-          >
-            <span
-              style={{
-                minWidth: "20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: "10px",
-                fontSize: "16px",
-              }}
-            >
-              ‹
-            </span>
-            <span>Collapse</span>
-          </button>
-        )}
-
         {items.map((item) => {
           const isActive = currentPanel === item.panel;
           return (
             <button
               key={item.panel}
-              onClick={() => handleNavigate(item.panel)}
+              onClick={(e) => {
+                // Prevent aside's click-to-expand from firing when the user
+                // clicks a nav item icon while collapsed — they want to
+                // navigate, not just expand.
+                e.stopPropagation();
+                handleNavigate(item.panel);
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -294,7 +263,9 @@ export function Sidebar({
         }}
       >
         <button
-          onClick={async () => {
+          onClick={async (e) => {
+            // Prevent aside's click-to-expand when collapsed.
+            e.stopPropagation();
             if (onSignOut) {
               await onSignOut();
               return;
