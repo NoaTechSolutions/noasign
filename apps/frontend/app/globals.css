@@ -480,3 +480,14 @@ input {
 .tabbar-desktop::-webkit-scrollbar {
   display: none;
 }
+
+/* MobileMenu hamburger button — only visible on mobile (≤768px) */
+.mobile-menu-button {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-button {
+    display: block !important;
+  }
+}
