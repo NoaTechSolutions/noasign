@@ -464,3 +464,19 @@ input {
     display: none;
   }
 }
+
+/* TabBar — desktop only (hidden on mobile, replaced by MobileMenu drawer) */
+.tabbar-desktop {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .tabbar-desktop {
+    display: none;
+  }
+}
+
+/* Hide scrollbar on TabBar overflow (used on tablets with many items) */
+.tabbar-desktop::-webkit-scrollbar {
+  display: none;
+}
