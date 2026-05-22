@@ -376,6 +376,9 @@ input {
   --brand-soft:    rgba(2,41,119,0.12);
   --sky:           #05a5ff;
   --amber:         #ff9900;
+  --amber-soft:    rgba(255,153,0,0.12);
+  --danger-soft:   rgba(194,65,12,0.10);
+  --current-highlight: rgba(2,41,119,0.04);
 
   /* Text */
   --text-heading:  #022977;
@@ -421,6 +424,9 @@ input {
   --brand-soft:    rgba(5,165,255,0.18);
   --sky:           #05a5ff;
   --amber:         #ff9900;
+  --amber-soft:    rgba(255,153,0,0.18);
+  --danger-soft:   rgba(239,68,68,0.16);
+  --current-highlight: rgba(5,165,255,0.08);
 
   /* Text */
   --text-heading:  #f0f4ff;

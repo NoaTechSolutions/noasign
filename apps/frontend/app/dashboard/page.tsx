@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
+import { OverviewPanel, ProfilePanel, BillingPanel } from "../../components/dashboard/panels/v2";
 import {
   clearSession,
   getStoredUser,
@@ -50,6 +51,7 @@ type CompanyProfile = {
   insuranceName: string | null;
   insurancePhone: string | null;
   insurancePolicyNumber: string | null;
+  insuranceExpiryDate: string | null;
   contactEmail: string | null;
   contactFirstName: string | null;
   contactLastName: string | null;
@@ -328,6 +330,7 @@ type UpdateCompanyProfilePayload = Partial<
     | "insuranceName"
     | "insurancePhone"
     | "insurancePolicyNumber"
+    | "insuranceExpiryDate"
     | "website"
     | "industry"
     | "licenseNumber"
@@ -1266,12 +1269,225 @@ export default function DashboardPage() {
         "Company",
     };
 
-    return (
-      <DashboardShell
-        user={shellUser}
-        currentPanel={newLayoutPanel}
-        onSignOut={handleSignOut}
-      >
+    // Adapters: backend NoaSign shapes → v2 panel interfaces.
+    // billingAmount uses estimatedOverageCost — backend doesn't track plan
+    // base price, so "Current Billing" reflects overage cost only.
+    const adaptUserForPanel = (backendUser: DashboardUser | null) => {
+      if (!backendUser) return null;
+      return {
+        id: backendUser.id,
+        name:
+          [backendUser.firstName, backendUser.lastName]
+            .filter(Boolean)
+            .join(" ") || backendUser.email,
+        email: backendUser.email,
+        role: backendUser.role,
+      };
+    };
+
+    const adaptCompanyForPanel = (backendCompany: CompanyProfile | null) => {
+      if (!backendCompany) return null;
+      return {
+        id: backendCompany.id,
+        name: backendCompany.companyName,
+        plan: backendCompany.planName,
+      };
+    };
+
+    const adaptUsageForPanel = (backendUsage: CurrentUsage | null) => {
+      if (!backendUsage) return null;
+      return {
+        documentsUsed: backendUsage.documentsUsed,
+        documentsLimit: backendUsage.monthlyDocLimit,
+        overageCount: backendUsage.overageDocuments,
+      };
+    };
+
+    const adaptMonthlySummaryForPanel = (
+      backendSummary: MonthlySummary | null,
+    ) => {
+      if (!backendSummary) return null;
+      return {
+        billingAmount: backendSummary.estimatedOverageCost || 0,
+        overage: backendSummary.estimatedOverageCost || 0,
+        periodStart: "",
+        periodEnd: "",
+      };
+    };
+
+    const adaptDocumentsForPanel = (
+      backendDocs: DashboardDocument[] | null,
+    ) => {
+      if (!backendDocs) return null;
+      return backendDocs.map((doc) => ({
+        id: doc.id,
+        documentNumber: doc.documentNumber,
+        status: doc.status,
+        recipientEmail: doc.lastSentRecipientEmail || "N/A",
+        createdAt: doc.createdAt,
+      }));
+    };
+
+    // ProfilePanel adapters (bidirectional). Renames: backend zipCode → panel
+    // zip, backend insuranceName → panel insuranceCompany. Nulls coerced to
+    // "" so HTML inputs render empty (not "null"). Date trimmed to YYYY-MM-DD
+    // for <input type="date">.
+    const adaptCompanyForProfilePanel = (backend: CompanyProfile | null) => {
+      if (!backend) return null;
+      const dateString = backend.insuranceExpiryDate
+        ? String(backend.insuranceExpiryDate).slice(0, 10)
+        : "";
+      return {
+        id: backend.id,
+        companyName: backend.companyName,
+        plan: backend.planName,
+        legalName: backend.legalName ?? "",
+        industry: backend.industry ?? "",
+        email: backend.email ?? "",
+        phone: backend.phone ?? "",
+        website: backend.website ?? "",
+        addressLine1: backend.addressLine1 ?? "",
+        addressLine2: backend.addressLine2 ?? "",
+        city: backend.city ?? "",
+        state: backend.state ?? "",
+        zip: backend.zipCode ?? "",
+        country: backend.country ?? "",
+        logoUrl: backend.logoUrl ?? "",
+        insuranceCompany: backend.insuranceName ?? "",
+        insurancePolicyNumber: backend.insurancePolicyNumber ?? "",
+        insuranceExpiryDate: dateString,
+        insurancePhone: backend.insurancePhone ?? "",
+        contactTitle: backend.contactTitle ?? "",
+        contactPhone: backend.contactPhone ?? "",
+        contactAddressLine1: backend.contactAddressLine1 ?? "",
+        contactAddressLine2: backend.contactAddressLine2 ?? "",
+        contactCity: backend.contactCity ?? "",
+        contactState: backend.contactState ?? "",
+        contactZip: backend.contactZipCode ?? "",
+      };
+    };
+
+    const adaptUserForProfilePanel = (backend: DashboardUser | null) => {
+      if (!backend) return null;
+      return {
+        id: backend.id,
+        firstName: backend.firstName ?? "",
+        lastName: backend.lastName ?? "",
+        email: backend.email,
+        role: backend.role,
+      };
+    };
+
+    // Reverse adapter on save: panel field names → backend field names. The
+    // existing handleUpdateCompanyProfile + handleUpdateMe already pega to
+    // /company-profile/me and /users/me via apiRequest(), so we reuse them.
+    const handleProfileSave = async (
+      companyChanges: Record<string, unknown>,
+      userChanges: Record<string, unknown>,
+    ) => {
+      if (Object.keys(companyChanges).length > 0) {
+        const payload: Record<string, unknown> = { ...companyChanges };
+        if ("zip" in payload) {
+          payload.zipCode = payload.zip;
+          delete payload.zip;
+        }
+        if ("insuranceCompany" in payload) {
+          payload.insuranceName = payload.insuranceCompany;
+          delete payload.insuranceCompany;
+        }
+        if ("contactZip" in payload) {
+          payload.contactZipCode = payload.contactZip;
+          delete payload.contactZip;
+        }
+        if ("id" in payload) {
+          delete payload.id;
+        }
+        Object.keys(payload).forEach((key) => {
+          if (payload[key] === "") {
+            payload[key] = null;
+          }
+        });
+        await handleUpdateCompanyProfile(payload as UpdateCompanyProfilePayload);
+      }
+
+      if (Object.keys(userChanges).length > 0) {
+        const payload: { firstName?: string; lastName?: string } = {};
+        if (typeof userChanges.firstName === "string") {
+          payload.firstName = userChanges.firstName;
+        }
+        if (typeof userChanges.lastName === "string") {
+          payload.lastName = userChanges.lastName;
+        }
+        if (Object.keys(payload).length > 0) {
+          await handleUpdateMe(payload);
+        }
+      }
+    };
+
+    // BillingPanel V3 data shape. Plan price + features + non-doc limits come
+    // from frontend BILLING_PLAN_CONFIG (backend has no plan-price / max-users
+    // / max-templates columns). Doc limit is the live backend value. Users
+    // count = managedUsers length; templates count = documentTypes length as
+    // a proxy until backend tracks "templates in use".
+    const billingPlanCfg = getBillingPlanConfig(companyProfile?.planName);
+    const billingPlanKey = (companyProfile?.planName ?? "LAUNCH").toUpperCase();
+    const billingV3 = {
+      currentPlan: {
+        name: billingPlanCfg.name,
+        plan: billingPlanKey,
+        price: billingPlanCfg.price,
+        documentsLimit:
+          usage?.monthlyDocLimit ??
+          companyProfile?.monthlyDocLimit ??
+          billingPlanCfg.docsLimit,
+        usersLimit: billingPlanCfg.usersLimit,
+        templatesLimit: billingPlanCfg.templatesLimit,
+        overageRate: billingPlanCfg.overageRate,
+        features: billingPlanCfg.features,
+      },
+      cycle: {
+        month: formatBillingMonth(monthlySummary?.month),
+        nextBilling: formatNextBillingDate(monthlySummary?.month),
+        periodStart: deriveBillingPeriodStart(monthlySummary?.month),
+        periodEnd: deriveBillingPeriodEnd(monthlySummary?.month),
+      },
+      usage: {
+        documents: usage?.documentsUsed ?? 0,
+        users: managedUsers?.length ?? 1,
+        templates: documentTypes?.length ?? 0,
+        overageCount: usage?.overageDocuments ?? 0,
+      },
+      role: ((dashboardUser?.role ?? "USER").toLowerCase() as
+        | "master"
+        | "admin"
+        | "user"),
+    };
+
+    const panelContent =
+      newLayoutPanel === "overview" ? (
+        <OverviewPanel
+          user={adaptUserForPanel(dashboardUser)}
+          companyProfile={adaptCompanyForPanel(companyProfile)}
+          usage={adaptUsageForPanel(usage)}
+          monthlySummary={adaptMonthlySummaryForPanel(monthlySummary)}
+          documents={adaptDocumentsForPanel(documents)}
+          isLoading={isLoading}
+        />
+      ) : newLayoutPanel === "profile" ? (
+        <ProfilePanel
+          user={adaptUserForProfilePanel(dashboardUser)}
+          companyProfile={adaptCompanyForProfilePanel(companyProfile)}
+          isLoading={isLoading}
+          onSave={handleProfileSave}
+        />
+      ) : newLayoutPanel === "billing" ? (
+        <BillingPanel
+          currentPlan={billingV3.currentPlan}
+          cycle={billingV3.cycle}
+          usage={billingV3.usage}
+          role={billingV3.role}
+        />
+      ) : (
         <div
           className="rounded-xl p-8"
           style={{
@@ -1290,14 +1506,16 @@ export default function DashboardPage() {
             Content for {newLayoutPanel} goes here. Implementation coming in
             next phases.
           </p>
-          <p
-            className="mt-4 text-sm"
-            style={{ color: "var(--text-label)" }}
-          >
-            <strong>Note:</strong> This is the new dashboard layout. Remove{" "}
-            <code>?panel=</code> from the URL to see the legacy sidebar.
-          </p>
         </div>
+      );
+
+    return (
+      <DashboardShell
+        user={shellUser}
+        currentPanel={newLayoutPanel}
+        onSignOut={handleSignOut}
+      >
+        {panelContent}
       </DashboardShell>
     );
   }
@@ -1357,6 +1575,141 @@ export default function DashboardPage() {
       </Suspense>
     </main>
   );
+}
+
+// BillingPanel V3 plan config. Mirrors ComparisonSection's PLANS table so the
+// current-plan limits + features stay consistent with the comparison view.
+// SCALE.usersLimit = 9999 is a sentinel: BillingPanel's interface types it as
+// `number` (non-nullable) but ComparisonSection's row renders "Unlimited" for
+// users via its own table — so the UX wart only shows up in the Plan Features
+// header line for actual Scale tenants. Acceptable for MVP.
+type BillingPlanConfig = {
+  name: string;
+  price: number;
+  docsLimit: number;
+  usersLimit: number;
+  templatesLimit: number | null;
+  overageRate: number;
+  features: {
+    userManagement: boolean;
+    multiSigner: boolean;
+    branding: boolean;
+    bulkSend: boolean;
+    analytics: boolean;
+    prioritySupport: boolean;
+    retention: string;
+  };
+};
+
+const BILLING_PLAN_CONFIG: Record<string, BillingPlanConfig> = {
+  STARTER: {
+    name: "Starter",
+    price: 19,
+    docsLimit: 10,
+    usersLimit: 2,
+    templatesLimit: 5,
+    overageRate: 5.0,
+    features: {
+      userManagement: false,
+      multiSigner: false,
+      branding: false,
+      bulkSend: false,
+      analytics: false,
+      prioritySupport: false,
+      retention: "1 year",
+    },
+  },
+  LAUNCH: {
+    name: "Launch",
+    price: 39,
+    docsLimit: 15,
+    usersLimit: 3,
+    templatesLimit: 8,
+    overageRate: 3.5,
+    features: {
+      userManagement: true,
+      multiSigner: true,
+      branding: false,
+      bulkSend: false,
+      analytics: false,
+      prioritySupport: false,
+      retention: "2 years",
+    },
+  },
+  PRO: {
+    name: "Pro",
+    price: 89,
+    docsLimit: 50,
+    usersLimit: 5,
+    templatesLimit: null,
+    overageRate: 2.5,
+    features: {
+      userManagement: true,
+      multiSigner: true,
+      branding: true,
+      bulkSend: true,
+      analytics: true,
+      prioritySupport: false,
+      retention: "5 years",
+    },
+  },
+  SCALE: {
+    name: "Scale",
+    price: 229,
+    docsLimit: 9999,
+    usersLimit: 9999,
+    templatesLimit: null,
+    overageRate: 0,
+    features: {
+      userManagement: true,
+      multiSigner: true,
+      branding: true,
+      bulkSend: true,
+      analytics: true,
+      prioritySupport: true,
+      retention: "Unlimited",
+    },
+  },
+};
+
+function getBillingPlanConfig(planName: string | null | undefined): BillingPlanConfig {
+  const key = (planName ?? "LAUNCH").toUpperCase();
+  return BILLING_PLAN_CONFIG[key] ?? BILLING_PLAN_CONFIG.LAUNCH;
+}
+
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
+function formatBillingMonth(monthString: string | null | undefined): string {
+  if (!monthString) return "";
+  const [year, month] = monthString.split("-");
+  const idx = parseInt(month, 10) - 1;
+  if (idx < 0 || idx > 11) return "";
+  return `${SHORT_MONTHS[idx]} ${year}`;
+}
+
+function formatNextBillingDate(monthString: string | null | undefined): string {
+  if (!monthString) return "";
+  const [yearStr, monthStr] = monthString.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  if (!year || !month) return "";
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  return `${SHORT_MONTHS[nextMonth - 1]} 1, ${nextYear}`;
+}
+
+function deriveBillingPeriodStart(monthString: string | null | undefined): string {
+  if (!monthString) return "";
+  const [y, m] = monthString.split("-").map(Number);
+  if (!y || !m) return "";
+  return new Date(Date.UTC(y, m - 1, 1)).toISOString();
+}
+
+function deriveBillingPeriodEnd(monthString: string | null | undefined): string {
+  if (!monthString) return "";
+  const [y, m] = monthString.split("-").map(Number);
+  if (!y || !m) return "";
+  return new Date(Date.UTC(y, m, 0, 23, 59, 59)).toISOString();
 }
 
 const BUSINESS_OPTIONAL_FIELDS = [
