@@ -16,6 +16,7 @@ const PLANS = {
     users: 2,
     templates: 5,
     overage: 5.00,
+    star: false,
     features: {
       userManagement: false,
       multiSigner: false,
@@ -35,6 +36,7 @@ const PLANS = {
     users: 3,
     templates: 8,
     overage: 3.50,
+    star: false,
     features: {
       userManagement: true,
       multiSigner: true,

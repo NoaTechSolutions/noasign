@@ -42,8 +42,10 @@ export function StatusBreakdown({ documents, isLoading }: StatusBreakdownProps) 
       statusMap[status] = (statusMap[status] || 0) + 1;
     });
 
-    // Build status counts with percentages
-    const statuses: StatusCount[] = [
+    // Build status counts with percentages. Count and percentage are added
+    // by the .map() below — declaring the literal without the StatusCount
+    // type lets TS infer the partial shape.
+    const statuses = [
       { status: 'DRAFT', label: 'Draft', color: 'status-draft', icon: '📝' },
       { status: 'SENT', label: 'Sent', color: 'status-sent', icon: '📤' },
       { status: 'VIEWED', label: 'Viewed', color: 'status-viewed', icon: '👁️' },

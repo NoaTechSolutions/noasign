@@ -374,6 +374,7 @@ input {
   --brand:         #022977;
   --brand-hover:   #0400f0;
   --brand-soft:    rgba(2,41,119,0.12);
+  --brand-rgb:     2,41,119;
   --sky:           #05a5ff;
   --amber:         #ff9900;
   --amber-soft:    rgba(255,153,0,0.12);
@@ -395,6 +396,7 @@ input {
   /* Shadows */
   --shadow-card:   0 1px 2px rgba(2,41,119,0.04), 0 4px 12px rgba(2,41,119,0.04);
   --shadow-elev:   0 4px 16px rgba(2,41,119,0.10);
+  --shadow-elev-1: 0 2px 6px rgba(2,41,119,0.06);
 
   /* Status badges */
   --status-completed: #34c759;
@@ -422,6 +424,7 @@ input {
   --brand:         #05a5ff;
   --brand-hover:   #33b8ff;
   --brand-soft:    rgba(5,165,255,0.18);
+  --brand-rgb:     5,165,255;
   --sky:           #05a5ff;
   --amber:         #ff9900;
   --amber-soft:    rgba(255,153,0,0.18);
@@ -443,6 +446,7 @@ input {
   /* Shadows */
   --shadow-card:   0 1px 2px rgba(0,0,0,0.30), 0 4px 12px rgba(0,0,0,0.30);
   --shadow-elev:   0 4px 16px rgba(0,0,0,0.40);
+  --shadow-elev-1: 0 2px 6px rgba(0,0,0,0.32);
 
   /* Status badges */
   --status-completed: #30d158;

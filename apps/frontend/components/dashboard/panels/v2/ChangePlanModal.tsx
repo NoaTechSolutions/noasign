@@ -9,8 +9,8 @@ interface ChangePlanModalProps {
 }
 
 const PLANS = {
-  STARTER: { id: 'STARTER', name: 'Starter', price: 19, docs: 10, users: 2, templates: 5, overage: 5.00 },
-  LAUNCH: { id: 'LAUNCH', name: 'Launch', price: 39, docs: 15, users: 3, templates: 8, overage: 3.50 },
+  STARTER: { id: 'STARTER', name: 'Starter', price: 19, docs: 10, users: 2, templates: 5, overage: 5.00, star: false },
+  LAUNCH: { id: 'LAUNCH', name: 'Launch', price: 39, docs: 15, users: 3, templates: 8, overage: 3.50, star: false },
   PRO: { id: 'PRO', name: 'Pro', price: 89, docs: 50, users: 5, templates: null, overage: 2.50, star: true },
   SCALE: { id: 'SCALE', name: 'Scale', price: 229, docs: null, users: null, templates: null, overage: 0, star: true }
 };
