@@ -74,6 +74,7 @@ model CompanyProfile {
   insuranceName         String?
   insurancePhone        String?
   insurancePolicyNumber String?
+  insuranceExpiryDate   DateTime? @db.Date
   addressLine1          String?
   addressLine2          String?
   city                  String?
