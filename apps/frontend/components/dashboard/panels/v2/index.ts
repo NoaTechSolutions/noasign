@@ -17,6 +17,18 @@ export { PrimaryContactSection } from './PrimaryContactSection';
 export { InsuranceInformationSection } from './InsuranceInformationSection';
 export { SaveChangesBar } from './SaveChangesBar';
 
+// Customers panel V2 (responsive table/cards + wizard + modals) — subfolder.
+export { CustomersPanel } from './customers';
+export type { CustomersPanelProps } from './customers';
+
+// Members panel V2 (Users + Account Requests, master-only) — subfolder.
+export { MembersPanel } from './members';
+export type { MembersPanelProps } from './members';
+
+// Locked Users panel V2 (security/lockouts monitor, master-only) — subfolder.
+export { LockedUsersPanel } from './locked-users';
+export type { LockedUsersPanelProps } from './locked-users';
+
 // Billing panel V3 (full redesign — top cards + overage alert + comparison + plan-change modals)
 export { BillingPanel } from './BillingPanel';
 export { TopCardsSection } from './TopCardsSection';

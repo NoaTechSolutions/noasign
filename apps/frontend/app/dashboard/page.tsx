@@ -6,7 +6,16 @@ import { useTheme } from "next-themes";
 import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
-import { OverviewPanel, ProfilePanel, BillingPanel } from "../../components/dashboard/panels/v2";
+import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel } from "../../components/dashboard/panels/v2";
+import type {
+  CustomerFormData as V2CustomerFormData,
+  CustomerOwnerUser as V2CustomerOwnerUser,
+} from "../../components/dashboard/panels/v2/customers";
+import type {
+  ManagedUser as V2ManagedUser,
+  AccountRequest as V2AccountRequest,
+} from "../../components/dashboard/panels/v2/members";
+import type { LockedUser as V2LockedUser } from "../../components/dashboard/panels/v2/locked-users";
 import {
   clearSession,
   getStoredUser,
@@ -144,6 +153,8 @@ type ManagedUser = {
   email: string;
   role: string;
   status: string;
+  firstName?: string | null;
+  lastName?: string | null;
   createdAt: string;
   updatedAt: string;
   companyProfile?: {
@@ -1463,6 +1474,121 @@ export default function DashboardPage() {
         | "user"),
     };
 
+    // CustomersPanel V2 handlers — wrap apiRequest() (auth-aware) and adapt
+    // shapes. Refactored from the orchestrator's raw fetch() calls which
+    // would have bypassed JwtAuthGuard and returned 401.
+    const customersV2Role = ((dashboardUser?.role ?? "USER").toLowerCase() as
+      | "master"
+      | "admin"
+      | "user");
+    const customersV2Handlers = {
+      onFetchCustomers: async () => {
+        const response = await apiRequest<CustomerListResponse>(
+          "/customers?limit=500&orderBy=createdAt&orderDir=desc",
+        );
+        return response.customers;
+      },
+      onCreateCustomer: async (data: V2CustomerFormData) => {
+        return apiRequest<Customer>("/customers", { method: "POST", body: data });
+      },
+      onUpdateCustomer: async (id: string, data: V2CustomerFormData) => {
+        return apiRequest<Customer>(`/customers/${id}`, {
+          method: "PATCH",
+          body: data,
+        });
+      },
+      onDeleteCustomer: async (id: string) => {
+        await apiRequest(`/customers/${id}`, { method: "DELETE" });
+      },
+      onAssignCustomer: async (id: string, newUserId: string) => {
+        return apiRequest<Customer>(`/customers/${id}`, {
+          method: "PATCH",
+          body: { userId: newUserId },
+        });
+      },
+      onFetchUsersForAssign: async (): Promise<V2CustomerOwnerUser[]> => {
+        const list = await apiRequest<ManagedUser[]>("/users");
+        return list
+          .filter((u) => u.status === "ACTIVE")
+          .map((u) => ({
+            id: u.id,
+            email: u.email,
+            firstName: u.firstName ?? "",
+            lastName: u.lastName ?? "",
+          }));
+      },
+    };
+
+    // MembersPanel V2 handlers. Reuses existing page.tsx handlers (no duplication
+    // of mutations — handleCreateUser/UpdateUser/DeactivateUser/ReactivateUser/
+    // ResetUserPassword/UpdateAccountRequestStatus already wrap apiRequest()).
+    // Only 2 new handlers are needed: fetch users and fetch account-requests
+    // (page.tsx loads these via loadWorkspace, no standalone fetch existed).
+    const membersV2Role = ((dashboardUser?.role ?? "USER").toLowerCase() as
+      | "master"
+      | "admin"
+      | "user");
+    const membersV2 = {
+      role: membersV2Role,
+      currentUserId: dashboardUser?.id ?? "",
+      onFetchUsers: () => apiRequest<V2ManagedUser[]>("/users"),
+      onFetchAccountRequests: () =>
+        apiRequest<V2AccountRequest[]>("/users/account-requests"),
+      onCreateUser: async (data: {
+        email: string;
+        password: string;
+        role?: "MASTER" | "USER";
+        accountType?: "INDIVIDUAL" | "BUSINESS";
+        firstName?: string;
+        lastName?: string;
+        phone?: string;
+      }) => {
+        await handleCreateUser({ ...data, role: data.role ?? "USER" });
+      },
+      onUpdateUser: handleUpdateUser,
+      onDeactivateUser: handleDeactivateUser,
+      onReactivateUser: handleReactivateUser,
+      onResetPassword: handleResetUserPassword,
+      onUpdateAccountRequestStatus: handleUpdateAccountRequestStatus,
+    };
+
+    // LockedUsersPanel V2 handlers. Reuses backend admin endpoints
+    // (/admin/users/locked + /admin/users/:id/unlock — same that
+    // dashboard-sidebar-demo's legacy locked-users-panel hits). Adapter
+    // renames backend field names (id→userId, lockedUntil→unlockAt,
+    // failedLoginAttempts→failedAttempts) and derives lockedAt from
+    // (lockedUntil - 15min) since backend tracks only the expiry time.
+    type BackendLockedUser = {
+      id: string;
+      email: string;
+      role: "MASTER" | "ADMIN" | "USER";
+      failedLoginAttempts: number;
+      lockedUntil: string;
+    };
+    const lockedUsersV2 = {
+      onFetchLockedUsers: async (): Promise<V2LockedUser[]> => {
+        const backend = await apiRequest<BackendLockedUser[]>("/admin/users/locked");
+        return backend.map((u) => {
+          const unlockAtMs = new Date(u.lockedUntil).getTime();
+          // Phase A cooldown is 15 min — drifts if backend changes.
+          const lockedAtMs = unlockAtMs - 15 * 60 * 1000;
+          return {
+            userId: u.id,
+            email: u.email,
+            lockedAt: new Date(lockedAtMs).toISOString(),
+            unlockAt: u.lockedUntil,
+            failedAttempts: u.failedLoginAttempts,
+            // Backend doesn't track per-attempt timestamps; lockedUntil is
+            // always equal to the most recent failed-attempt time + cooldown.
+            lastAttemptAt: u.lockedUntil,
+          };
+        });
+      },
+      onUnlockUser: async (userId: string) => {
+        await apiRequest(`/admin/users/${userId}/unlock`, { method: "POST" });
+      },
+    };
+
     const panelContent =
       newLayoutPanel === "overview" ? (
         <OverviewPanel
@@ -1486,6 +1612,35 @@ export default function DashboardPage() {
           cycle={billingV3.cycle}
           usage={billingV3.usage}
           role={billingV3.role}
+        />
+      ) : newLayoutPanel === "customers" ? (
+        <CustomersPanel
+          role={customersV2Role}
+          currentUserId={dashboardUser?.id ?? ""}
+          onFetchCustomers={customersV2Handlers.onFetchCustomers}
+          onCreateCustomer={customersV2Handlers.onCreateCustomer}
+          onUpdateCustomer={customersV2Handlers.onUpdateCustomer}
+          onDeleteCustomer={customersV2Handlers.onDeleteCustomer}
+          onAssignCustomer={customersV2Handlers.onAssignCustomer}
+          onFetchUsersForAssign={customersV2Handlers.onFetchUsersForAssign}
+        />
+      ) : newLayoutPanel === "members" ? (
+        <MembersPanel
+          role={membersV2.role}
+          currentUserId={membersV2.currentUserId}
+          onFetchUsers={membersV2.onFetchUsers}
+          onFetchAccountRequests={membersV2.onFetchAccountRequests}
+          onCreateUser={membersV2.onCreateUser}
+          onUpdateUser={membersV2.onUpdateUser}
+          onDeactivateUser={membersV2.onDeactivateUser}
+          onReactivateUser={membersV2.onReactivateUser}
+          onResetPassword={membersV2.onResetPassword}
+          onUpdateAccountRequestStatus={membersV2.onUpdateAccountRequestStatus}
+        />
+      ) : newLayoutPanel === "lockedUsers" ? (
+        <LockedUsersPanel
+          onFetchLockedUsers={lockedUsersV2.onFetchLockedUsers}
+          onUnlockUser={lockedUsersV2.onUnlockUser}
         />
       ) : (
         <div

@@ -376,6 +376,10 @@ input {
   --brand-soft:    rgba(2,41,119,0.12);
   --brand-rgb:     2,41,119;
   --sky:           #05a5ff;
+  --sky-soft:      rgba(5,165,255,0.16);
+  --purple:        #9333ea;
+  --purple-soft:   rgba(147,51,234,0.14);
+  --slate-soft:    rgba(2,41,119,0.08);
   --amber:         #ff9900;
   --amber-soft:    rgba(255,153,0,0.12);
   --danger-soft:   rgba(194,65,12,0.10);
@@ -426,6 +430,10 @@ input {
   --brand-soft:    rgba(5,165,255,0.18);
   --brand-rgb:     5,165,255;
   --sky:           #05a5ff;
+  --sky-soft:      rgba(5,165,255,0.22);
+  --purple:        #c084fc;
+  --purple-soft:   rgba(192,132,252,0.18);
+  --slate-soft:    rgba(255,255,255,0.06);
   --amber:         #ff9900;
   --amber-soft:    rgba(255,153,0,0.18);
   --danger-soft:   rgba(239,68,68,0.16);
@@ -466,6 +474,72 @@ input {
   --brand-alias: var(--brand);
   --sky-alias: var(--sky);
   --amber-alias: var(--amber);
+
+  /* CustomersPanel V2 token aliases — map to NoaSign design system.
+     These resolve correctly under both light and dark themes because
+     var() is evaluated at use-site, not declaration site. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 28px;
+  --sp-8: 32px;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 14px;
+  --text-lg:   16px;
+  --text-xl:   20px;
+
+  --tx:   var(--text-heading);
+  --tx-2: var(--text-body);
+  --tx-3: var(--text-label);
+
+  --br: var(--border-soft);
+
+  --surface:        var(--bg-card);
+  --surface-raised: var(--bg-card-soft);
+  --surface-hover:  var(--bg-hover);
+
+  --primary:      var(--brand);
+  --primary-soft: var(--brand-soft);
+
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-full: 9999px;
+
+  --shadow-lg: var(--shadow-elev);
+  --shadow-xl: var(--shadow-modal);
+
+  --warning-soft: var(--amber-soft);
+
+  /* MembersPanel V2 token aliases — semantic names mapped to NoaSign tokens.
+     Same theme-resolution semantics as the Customers V2 aliases above. */
+  --text-primary:   var(--text-heading);
+  --text-secondary: var(--text-body);
+  --text-muted:     var(--text-label);
+
+  --tx-border:      var(--border-soft);
+  --tx-hover:       var(--bg-hover);
+
+  --blue:           var(--sky);
+  --blue-soft:      var(--sky-soft);
+
+  --slate:          var(--text-label);
+  /* --slate-soft is defined per-theme below (rgba differs) */
+
+  --green:          var(--success);
+  --green-soft:     var(--success-bg);
+
+  --rose:           var(--danger);
+  --rose-soft:      var(--danger-soft);
+
+  /* LockedUsersPanel V2 aliases — same as rose/rose-soft, different name. */
+  --red:            var(--danger);
+  --red-soft:       var(--danger-soft);
 }
 
 /* Dashboard responsive — hide logo text on mobile (≤480px) */
