@@ -1,11 +1,11 @@
 "use client";
 
 import { AlertCircle, Eye, FileQuestion } from "lucide-react";
-import {
-  RendererField,
-  type DocumentSchema,
-  type SchemaField,
-} from "../document-form-renderer";
+import { FieldRenderer } from "../dashboard/panels/v2/documents/wizard/fields";
+import type {
+  DocumentSchema,
+  SchemaField,
+} from "../dashboard/panels/v2/documents/wizard";
 
 type SchemaPreviewProps = {
   schema: DocumentSchema | null;
@@ -119,7 +119,7 @@ export function SchemaPreview({ schema, errors }: SchemaPreviewProps) {
                   if (group.length === 1) {
                     const field = group[0]!;
                     return (
-                      <RendererField
+                      <FieldRenderer
                         key={field.key}
                         field={field}
                         value={previewValue(field)}
@@ -137,7 +137,7 @@ export function SchemaPreview({ schema, errors }: SchemaPreviewProps) {
                       className={`grid gap-3 ${colsClass}`}
                     >
                       {group.map((field) => (
-                        <RendererField
+                        <FieldRenderer
                           key={field.key}
                           field={field}
                           value={previewValue(field)}

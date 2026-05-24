@@ -36,7 +36,7 @@ import {
 import { Sidebar, SidebarBody, SidebarLink } from "./ui/sidebar";
 import { cn } from "@/lib/utils";
 import { MasterUsersPanel } from "./master-users-panel";
-import { DocumentFormRenderer, type DocumentSchema } from "./document-form-renderer";
+import { DocumentWizard, type DocumentSchema } from "./dashboard/panels/v2/documents/wizard";
 import { BillingPanel } from "./dashboard/panels/billing-panel";
 import { DashboardOverviewPanel } from "./dashboard/panels/dashboard-overview-panel";
 import { ProfilePanel } from "./dashboard/panels/profile-panel";
@@ -3147,7 +3147,7 @@ function CreateDraftDrawer({
           // The drawer's own confirm via requestClose still applies to its
           // X button + backdrop click (paths that bypass the renderer).
           return (
-            <DocumentFormRenderer
+            <DocumentWizard
               schema={schema}
               onSubmit={handleRendererSubmit}
               onCancel={onClose}
@@ -3705,7 +3705,7 @@ function DocumentViewer({
             <EmptyBlock text="Select a document to inspect its detail." />
           ) : schemaForDoc && schemaSectionKeys.includes(activeTab as string) ? (
             // NOA-280 — schema-driven render of the active section. Build a
-            // single-section sub-schema and hand it to DocumentFormRenderer
+            // single-section sub-schema and hand it to DocumentWizard
             // in readOnly mode. Hydrated from the saved dataJson:
             // - flat scalar fields → initialValues
             // - dynamic_array flat keys → deserialized into nested arrays
@@ -3718,7 +3718,7 @@ function DocumentViewer({
               }
               const subSchema: DocumentSchema = { sections: [sectionDef] };
               return (
-                <DocumentFormRenderer
+                <DocumentWizard
                   // Force remount per (doc, section) — the renderer's useState
                   // lazy init reads initialArrays once on mount; without a key,
                   // React reuses the instance across tab switches and the array

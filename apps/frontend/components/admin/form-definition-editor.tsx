@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Save, Trash2, X, Loader2 } from "lucide-react";
 import { adminApi, type DocumentTypeRef } from "../../lib/admin-api";
 import { validateDocumentSchema } from "../../lib/schema-validator";
-import type { DocumentSchema } from "../document-form-renderer";
+import type { DocumentSchema } from "../dashboard/panels/v2/documents/wizard";
 import {
   FormDefinitionMetaFields,
   type FormDefinitionMeta,
