@@ -2,7 +2,9 @@
 
 The frontend renders document creation forms from a JSON schema stored on the
 backend (`FormDefinition.schemaJson`). The renderer lives in
-`components/document-form-renderer.tsx` and exposes `DocumentFormRenderer`.
+`components/dashboard/panels/v2/documents/wizard/` and exposes `DocumentWizard`
+(modular V2 — refactored from the legacy 1,495-LOC monolith
+`document-form-renderer.tsx`, kept on disk pending smoke-test before deletion).
 
 This document describes the schema contract, the rendering pipeline, and the
 features added to support auto-calculated fields and seeded defaults.
@@ -185,7 +187,23 @@ auto-calc work):
 
 ## Files
 
-- `components/document-form-renderer.tsx` — schema types, computed-value
-  pipeline, validation, and renderer.
-- `components/dashboard-sidebar-demo.tsx` — consumer; reads the schema from
-  the selected `FormDefinition` and feeds it to `DocumentFormRenderer`.
+- `components/dashboard/panels/v2/documents/wizard/types.ts` — schema types
+  + helpers (applyTransform, todayIso, groupFields, hardcoded letters/digits
+  key sets).
+- `components/dashboard/panels/v2/documents/wizard/form-engine/` — 6 hooks
+  for fields, dynamic arrays, toggles, validation, 3-pass compute, dirty
+  tracking.
+- `components/dashboard/panels/v2/documents/wizard/fields/` — 9 field
+  components (BaseField + 7 type-specific + DynamicArrayField + dispatcher).
+- `components/dashboard/panels/v2/documents/wizard/shell/` — 5 wizard UI
+  components (TabBar, Section, BottomBar, CancelDialog, ToggleRow).
+- `components/dashboard/panels/v2/documents/wizard/DocumentWizard.tsx` —
+  orchestrator that wires the hooks to the shell and field renderers.
+- `components/dashboard-sidebar-demo.tsx` — legacy panel consumer; reads
+  the schema from the selected `FormDefinition` and feeds it to
+  `DocumentWizard`.
+- `components/dashboard/panels/v2/documents/DocumentCreationModal.tsx` —
+  V2 panel consumer; pairs `DocumentSetupCard` (type/template/customer
+  pickers) with `DocumentWizard` inside a centered modal.
+- `components/document-form-renderer.tsx` — legacy renderer, deprecated,
+  scheduled for deletion after smoke-test.
