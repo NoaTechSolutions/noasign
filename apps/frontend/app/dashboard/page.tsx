@@ -7,6 +7,16 @@ import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel } from "../../components/dashboard/panels/v2";
+import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
+import type {
+  V2DocumentItem,
+  DocumentVersion as V2DocumentVersion,
+  BackendDocumentAction as V2BackendDocumentAction,
+} from "../../components/dashboard/panels/v2/documents";
+import type {
+  CustomerOption as V2CustomerOption,
+  DocumentTypeOption as V2DocumentTypeOption,
+} from "../../components/dashboard/panels/v2/documents/DocumentSetupCard";
 import type {
   CustomerFormData as V2CustomerFormData,
   CustomerOwnerUser as V2CustomerOwnerUser,
@@ -1589,6 +1599,142 @@ export default function DashboardPage() {
       },
     };
 
+    // DocumentsPanel V2 adapter.
+    // - Enriches each document with `customer` (looked up by customerId in
+    //   the customers cache) and `user` (already present at runtime via
+    //   backend `include: { user: true }` but not declared on
+    //   DashboardDocument; cast through here).
+    // - Handler order matches each V2 dispatch: backend-bound actions use
+    //   the legacy handleDocumentAction(docId, action) signature.
+    // - "New Document" in V2 routes back to legacy until Phase 2 ships the
+    //   modular wizard (the form-renderer lives inside the legacy panel).
+    const documentsV2Items: V2DocumentItem[] = (() => {
+      if (!documents) return [];
+      const customerById = new Map(
+        (customers ?? []).map((c) => [c.id, c]),
+      );
+      return documents.map((doc) => {
+        const raw = doc as DashboardDocument & {
+          customerId?: string | null;
+          userId?: string;
+          user?: {
+            id: string;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+          };
+        };
+        const customer = raw.customerId
+          ? customerById.get(raw.customerId) ?? null
+          : null;
+        const ownerUser = raw.user
+          ? {
+              id: raw.user.id,
+              email: raw.user.email,
+              name:
+                [raw.user.firstName, raw.user.lastName]
+                  .filter(Boolean)
+                  .join(" ") || raw.user.email,
+            }
+          : null;
+        return {
+          ...doc,
+          customer: customer
+            ? {
+                id: customer.id,
+                name: customer.fullName,
+                email: customer.email,
+              }
+            : null,
+          user: ownerUser,
+        };
+      });
+    })();
+
+    // V2 DocumentTypes adapter — runtime payload includes schemaJson on each
+    // formDefinition even though DocumentTypeCatalogItem doesn't declare it.
+    // Casting through preserves the shape the wizard needs.
+    const documentsV2Types: V2DocumentTypeOption[] = documentTypes.map((dt) => ({
+      id: dt.id,
+      name: dt.name,
+      code: dt.code,
+      formDefinitions: dt.formDefinitions.map((fd) => ({
+        id: fd.id,
+        name: fd.name,
+        key: fd.key,
+        schemaJson: (fd as { schemaJson?: unknown }).schemaJson,
+      })),
+      signatureTemplates: dt.signatureTemplates.map((tpl) => ({
+        id: tpl.id,
+        name: tpl.name,
+        templateKey: tpl.templateKey,
+      })),
+    }));
+
+    const documentsV2Customers: V2CustomerOption[] = (customers ?? []).map((c) => ({
+      id: c.id,
+      fullName: c.fullName,
+      email: c.email,
+      customerType: c.customerType,
+    }));
+
+    const documentsV2 = {
+      items: documentsV2Items,
+      types: documentsV2Types,
+      customers: documentsV2Customers,
+      onCreateDraft: async (payload: {
+        documentTypeId: string;
+        formDefinitionId: string;
+        signatureTemplateId: string;
+        contractDate: string;
+        dataJson: Record<string, unknown>;
+        customerId?: string;
+      }) => {
+        await handleCreateDraft(payload);
+      },
+      onEditDocument: (docId: string) => {
+        // Edit flow still routes to legacy: the V2 modal currently supports
+        // create-only. Wiring edit requires loading the existing document's
+        // schema + dataJson + customer + locking type/template — separate
+        // scope from this fix.
+        void handleSelectDocument(docId);
+        router.replace("/dashboard");
+      },
+      onDocumentAction: async (
+        docId: string,
+        action: V2BackendDocumentAction,
+      ) => {
+        await handleDocumentAction(docId, action);
+      },
+      onSyncStatus: async (docId: string) => {
+        await handleSyncDocumentStatus(docId);
+      },
+      onPreviewPdf: (docId: string) => {
+        void handlePreviewFinalPdf(docId);
+      },
+      onDownloadPdf: (docId: string) => {
+        void handleDownloadFinalPdf(docId);
+      },
+      onFetchVersions: async (
+        docId: string,
+      ): Promise<V2DocumentVersion[]> => {
+        const detail = await apiRequest<{
+          versions?: Array<{
+            id: string;
+            versionNumber: number;
+            createdAt: string;
+            changedByUserId?: string | null;
+          }>;
+        }>(`/documents/${docId}`);
+        return (detail.versions ?? []).map((v) => ({
+          id: v.id,
+          versionNumber: v.versionNumber,
+          createdAt: v.createdAt,
+          changedBy: null,
+        }));
+      },
+    };
+
     const panelContent =
       newLayoutPanel === "overview" ? (
         <OverviewPanel
@@ -1641,6 +1787,19 @@ export default function DashboardPage() {
         <LockedUsersPanel
           onFetchLockedUsers={lockedUsersV2.onFetchLockedUsers}
           onUnlockUser={lockedUsersV2.onUnlockUser}
+        />
+      ) : newLayoutPanel === "documents" ? (
+        <DocumentsPanel
+          documents={documentsV2.items}
+          documentTypes={documentsV2.types}
+          customers={documentsV2.customers}
+          onCreateDraft={documentsV2.onCreateDraft}
+          onEditDocument={documentsV2.onEditDocument}
+          onDocumentAction={documentsV2.onDocumentAction}
+          onSyncStatus={documentsV2.onSyncStatus}
+          onPreviewPdf={documentsV2.onPreviewPdf}
+          onDownloadPdf={documentsV2.onDownloadPdf}
+          onFetchVersions={documentsV2.onFetchVersions}
         />
       ) : (
         <div
