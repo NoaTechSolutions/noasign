@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { AccountRequest } from './types';
 
 interface AccountRequestDetailModalProps {
@@ -16,6 +17,7 @@ export function AccountRequestDetailModal({
   onReject,
   onClose,
 }: AccountRequestDetailModalProps) {
+  useBlockScroll();
   const isProcessed = request.status !== 'PENDING';
 
   return (

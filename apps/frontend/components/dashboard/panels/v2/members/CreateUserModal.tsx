@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { CreateUserData } from './types';
 
 interface CreateUserModalProps {
@@ -9,6 +10,7 @@ interface CreateUserModalProps {
 }
 
 export function CreateUserModal({ onSubmit, onClose }: CreateUserModalProps) {
+  useBlockScroll();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'MASTER' | 'USER'>('USER');

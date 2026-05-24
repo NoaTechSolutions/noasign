@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { ManagedUser, ResetPasswordData } from './types';
 import { generateRandomPassword } from './types';
 
@@ -11,6 +12,7 @@ interface ResetPasswordModalProps {
 }
 
 export function ResetPasswordModal({ user, onSubmit, onClose }: ResetPasswordModalProps) {
+  useBlockScroll();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [temporary, setTemporary] = useState(true);

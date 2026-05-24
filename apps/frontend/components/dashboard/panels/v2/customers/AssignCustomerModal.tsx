@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { Customer, CustomerOwnerUser } from './types';
 
 interface AssignCustomerModalProps {
@@ -11,6 +12,7 @@ interface AssignCustomerModalProps {
 }
 
 export function AssignCustomerModal({ customer, onFetchUsers, onConfirm, onClose }: AssignCustomerModalProps) {
+  useBlockScroll();
   const [users, setUsers] = useState<CustomerOwnerUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState(customer.userId);
   const [loading, setLoading] = useState(true);

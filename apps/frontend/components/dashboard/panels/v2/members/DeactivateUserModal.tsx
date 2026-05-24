@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { ManagedUser } from './types';
 import { getDisplayName } from './types';
 
@@ -11,6 +12,7 @@ interface DeactivateUserModalProps {
 }
 
 export function DeactivateUserModal({ user, onConfirm, onClose }: DeactivateUserModalProps) {
+  useBlockScroll();
   const [submitting, setSubmitting] = useState(false);
 
   const handleConfirm = async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 
 interface ChangePlanModalProps {
   currentPlan: string;
@@ -18,6 +19,7 @@ const PLANS = {
 const PLAN_ORDER = ['STARTER', 'LAUNCH', 'PRO', 'SCALE'] as const;
 
 export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePlanModalProps) {
+  useBlockScroll();
   const gridRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 

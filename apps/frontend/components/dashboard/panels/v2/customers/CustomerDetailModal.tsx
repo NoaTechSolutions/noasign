@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { Customer } from './types';
 
 interface CustomerDetailModalProps {
@@ -22,6 +23,7 @@ export function CustomerDetailModal({
   onAssign,
   onClose
 }: CustomerDetailModalProps) {
+  useBlockScroll();
   const displayName = customer.customerType === 'BUSINESS'
     ? (customer.business?.businessName || customer.fullName)
     : customer.fullName;

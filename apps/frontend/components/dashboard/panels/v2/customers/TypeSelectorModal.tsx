@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 
 interface TypeSelectorModalProps {
   onSelect: (type: 'PERSONAL' | 'BUSINESS') => void;
@@ -8,6 +9,7 @@ interface TypeSelectorModalProps {
 }
 
 export function TypeSelectorModal({ onSelect, onClose }: TypeSelectorModalProps) {
+  useBlockScroll();
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-content--sm" onClick={(e) => e.stopPropagation()}>

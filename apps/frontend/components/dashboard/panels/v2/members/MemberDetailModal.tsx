@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { ManagedUser } from './types';
 import { getDisplayName, getInitials } from './types';
 
@@ -23,6 +24,7 @@ export function MemberDetailModal({
   onReactivate,
   onClose,
 }: MemberDetailModalProps) {
+  useBlockScroll();
   const isSelf = user.id === currentUserId;
   const displayName = getDisplayName(user);
   const initials = getInitials(user);

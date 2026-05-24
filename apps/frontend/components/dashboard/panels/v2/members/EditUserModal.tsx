@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { ManagedUser, UpdateUserData } from './types';
 
 interface EditUserModalProps {
@@ -10,6 +11,7 @@ interface EditUserModalProps {
 }
 
 export function EditUserModal({ user, onSubmit, onClose }: EditUserModalProps) {
+  useBlockScroll();
   const [email, setEmail] = useState(user.email);
   const [role, setRole] = useState<'MASTER' | 'USER'>(
     user.role === 'ADMIN' ? 'USER' : (user.role as 'MASTER' | 'USER')

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { Customer, CustomerFormData } from './types';
 import { splitFullName as split, combineFullName as combine } from './types';
 
@@ -13,6 +14,7 @@ interface CustomerFormDrawerProps {
 }
 
 export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose }: CustomerFormDrawerProps) {
+  useBlockScroll();
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -360,10 +362,7 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose }: 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-content--lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div>
-            <h2>{mode === 'create' ? 'New' : 'Edit'} {type === 'PERSONAL' ? 'Personal' : 'Business'} Customer</h2>
-            <p className="modal-subtitle">Step {currentStep} of {totalSteps}</p>
-          </div>
+          <h2>{mode === 'create' ? 'New' : 'Edit'} {type === 'PERSONAL' ? 'Personal' : 'Business'} Customer</h2>
           <button type="button" className="modal-close" onClick={onClose}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/>

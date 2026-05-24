@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 import type { Customer } from './types';
 
 interface DeleteCustomerModalProps {
@@ -10,6 +11,7 @@ interface DeleteCustomerModalProps {
 }
 
 export function DeleteCustomerModal({ customer, onConfirm, onClose }: DeleteCustomerModalProps) {
+  useBlockScroll();
   const [deleting, setDeleting] = useState(false);
 
   const displayName = customer.customerType === 'BUSINESS'

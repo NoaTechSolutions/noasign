@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 
 interface DowngradeWarningModalProps {
   currentPlan: {
@@ -63,6 +64,7 @@ export function DowngradeWarningModal({
   onConfirm,
   onClose
 }: DowngradeWarningModalProps) {
+  useBlockScroll();
   const nextPlanInfo = PLAN_INFO[nextPlan] || PLAN_INFO['LAUNCH'];
   const currentPlanInfo = PLAN_INFO[currentPlan.plan] || PLAN_INFO['PRO'];
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useBlockScroll } from '@/lib/use-block-scroll';
 
 interface ConfirmChangeModalProps {
   currentPlan: {
@@ -21,6 +22,7 @@ const PLAN_PRICES: Record<string, { name: string; price: number }> = {
 };
 
 export function ConfirmChangeModal({ currentPlan, nextPlan, nextBilling, onConfirm, onClose }: ConfirmChangeModalProps) {
+  useBlockScroll();
   const nextPlanInfo = PLAN_PRICES[nextPlan] || PLAN_PRICES['PRO'];
   
   // Mock prorated calculation (in real app this would come from backend)
