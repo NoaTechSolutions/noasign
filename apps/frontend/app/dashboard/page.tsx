@@ -118,7 +118,7 @@ type MonthlySummary = {
   estimatedOverageCost: number;
 };
 
-type DashboardDocument = {
+export type DashboardDocument = {
   id: string;
   documentNumber: string;
   status: string;
