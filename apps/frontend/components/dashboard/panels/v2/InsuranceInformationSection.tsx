@@ -1,5 +1,6 @@
 import React from 'react';
 import { CollapsibleSection } from './CollapsibleSection';
+import { formatUsPhone } from '@/lib/format-phone';
 
 interface InsuranceInfo {
   company?: string;
@@ -67,7 +68,7 @@ export function InsuranceInformationSection({
             type="tel"
             className="form-input"
             value={insurance.phone || ''}
-            onChange={(e) => onChange('insurancePhone', e.target.value)}
+            onChange={(e) => onChange('insurancePhone', formatUsPhone(e.target.value))}
             placeholder="(555) 000-0000"
           />
         </div>

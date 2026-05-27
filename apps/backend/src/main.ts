@@ -182,6 +182,7 @@ function createAuthRateLimitMiddleware() {
       res.status(429).json({
         message: 'Too many requests. Please try again later.',
         statusCode: 429,
+        retryAfter: retryAfterSeconds,
       });
       return;
     }

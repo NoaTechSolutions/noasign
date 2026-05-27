@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { formatUsPhone } from '@/lib/format-phone';
 import type { CreateUserData } from './types';
 
 interface CreateUserModalProps {
@@ -125,7 +126,7 @@ export function CreateUserModal({ onSubmit, onClose }: CreateUserModalProps) {
 
             <div className="form-group">
               <label htmlFor="phone">Phone</label>
-              <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="form-input" />
+              <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(formatUsPhone(e.target.value))} className="form-input" />
             </div>
           </div>
 

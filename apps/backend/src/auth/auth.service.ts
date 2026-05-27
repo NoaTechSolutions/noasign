@@ -15,11 +15,10 @@ import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../email/email.service';
 import { AuthException } from './exceptions/auth.exception';
 
-// Two layers reinforce each other: HTTP middleware blocks per-IP, DB lockout
-// blocks per-account. An attacker rotating IPs through proxies still trips
-// the per-account lockout after N attempts on the same email.
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const LEVEL_1_DURATION_MS = 1 * 60 * 1000;   // 1 minute
+const LEVEL_2_DURATION_MS = 5 * 60 * 1000;   // 5 minutes
+const PERMANENT_LOCK_DATE = new Date('9999-12-31T23:59:59.999Z');
 
 @Injectable()
 export class AuthService {
@@ -89,9 +88,10 @@ export class AuthService {
       throw AuthException.invalidCredentials();
     }
 
-    // Lockout check BEFORE bcrypt to avoid burning CPU on a known-blocked
-    // account. retryAfter is in seconds for parity with HTTP Retry-After.
     if (user.lockedUntil && user.lockedUntil > new Date()) {
+      if (user.lockLevel >= 3) {
+        throw AuthException.accountPermanentlyLocked();
+      }
       const retryAfter = Math.ceil(
         (user.lockedUntil.getTime() - Date.now()) / 1000,
       );
@@ -105,24 +105,26 @@ export class AuthService {
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
-      const justLocked = await this.recordFailedLogin(
+      const result = await this.recordFailedLogin(
         user.id,
         user.failedLoginAttempts,
+        user.lockLevel,
       );
-      // If THIS attempt tripped the lockout, surface ACCOUNT_LOCKED now —
-      // otherwise the user sees INVALID_CREDENTIALS and only learns later.
-      if (justLocked) {
-        void this.sendAccountLockedEmail(user.email);
-        throw AuthException.accountLocked(LOCKOUT_DURATION_MS / 1000);
+      if (result.justLocked) {
+        void this.sendAccountLockedEmail(user.email, result.lockLevel);
+        if (result.lockLevel >= 3) {
+          throw AuthException.accountPermanentlyLocked();
+        }
+        throw AuthException.accountLocked(result.durationMs / 1000);
       }
       throw AuthException.invalidCredentials();
     }
 
-    // Success: reset counter, clear any expired lockout, record lastLoginAt.
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         failedLoginAttempts: 0,
+        lockLevel: 0,
         lockedUntil: null,
         lastLoginAt: new Date(),
       },
@@ -151,38 +153,77 @@ export class AuthService {
     };
   }
 
-  // Returns true if this attempt was the one that activated the lockout.
   private async recordFailedLogin(
     userId: string,
     currentAttempts: number,
-  ): Promise<boolean> {
-    const nextAttempts = currentAttempts + 1;
-    if (nextAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
-      // Reset counter on lockout transition — lockedUntil is the actual
-      // block signal, the counter is just the running tally between lockouts.
+    currentLockLevel: number,
+  ): Promise<{ justLocked: boolean; lockLevel: number; durationMs: number }> {
+    if (currentLockLevel === 0) {
+      const nextAttempts = currentAttempts + 1;
+      if (nextAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: {
+            failedLoginAttempts: 0,
+            lockLevel: 1,
+            lockedUntil: new Date(Date.now() + LEVEL_1_DURATION_MS),
+          },
+        });
+        return { justLocked: true, lockLevel: 1, durationMs: LEVEL_1_DURATION_MS };
+      }
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { failedLoginAttempts: nextAttempts },
+      });
+      return { justLocked: false, lockLevel: 0, durationMs: 0 };
+    }
+
+    if (currentLockLevel === 1) {
       await this.prisma.user.update({
         where: { id: userId },
         data: {
           failedLoginAttempts: 0,
-          lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS),
+          lockLevel: 2,
+          lockedUntil: new Date(Date.now() + LEVEL_2_DURATION_MS),
         },
       });
-      return true;
+      return { justLocked: true, lockLevel: 2, durationMs: LEVEL_2_DURATION_MS };
     }
+
+    // Level 2 expired, one more failure → permanent lock
     await this.prisma.user.update({
       where: { id: userId },
-      data: { failedLoginAttempts: nextAttempts },
+      data: {
+        failedLoginAttempts: 0,
+        lockLevel: 3,
+        lockedUntil: PERMANENT_LOCK_DATE,
+      },
     });
-    return false;
+    return { justLocked: true, lockLevel: 3, durationMs: 0 };
   }
 
-  private async sendAccountLockedEmail(email: string): Promise<void> {
-    this.logger.log('Sending account-locked email (lockout triggered)');
-    const unlocksAt = new Date(Date.now() + LOCKOUT_DURATION_MS);
-    const unlocksAtText = `at ${unlocksAt.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`;
+  private async sendAccountLockedEmail(
+    email: string,
+    lockLevel: number,
+  ): Promise<void> {
+    this.logger.log(
+      `Sending account-locked email (level ${lockLevel} triggered)`,
+    );
+
+    const durationMs =
+      lockLevel === 1
+        ? LEVEL_1_DURATION_MS
+        : lockLevel === 2
+          ? LEVEL_2_DURATION_MS
+          : 0;
+
+    const unlocksAtText =
+      lockLevel >= 3
+        ? 'permanently (password reset required)'
+        : `at ${new Date(Date.now() + durationMs).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}`;
 
     const appUrl =
       this.configService.get<string>('APP_URL')?.trim().replace(/\/$/, '') ||
@@ -196,8 +237,7 @@ export class AuthService {
         resetLink,
       });
     } catch {
-      // EmailService logged it. Lockout is the source of truth — email is
-      // just a heads-up.
+      // EmailService logged it.
     }
   }
 
@@ -283,21 +323,15 @@ export class AuthService {
         );
       }
 
-      const baseResponse: { message: string; resetLink?: string } = {
-        message:
-          'If the email exists, recovery instructions will be sent to your inbox.',
+      return {
+        message: 'We sent a reset link to your email. It expires in 15 minutes.',
+        userFound: true,
       };
-
-      if (process.env.NODE_ENV !== 'production') {
-        baseResponse.resetLink = resetLink;
-      }
-
-      return baseResponse;
     }
 
     return {
-      message:
-        'If the email exists, recovery instructions will be sent to your inbox.',
+      message: "We couldn't find an account with that email.",
+      userFound: false,
     };
   }
 
@@ -338,9 +372,8 @@ export class AuthService {
         data: {
           passwordHash,
           mustChangePassword: false,
-          // Successful reset is implicit proof the user controls the inbox,
-          // so any lockout from forgotten-password retries is released.
           failedLoginAttempts: 0,
+          lockLevel: 0,
           lockedUntil: null,
         },
       }),

@@ -59,6 +59,14 @@ export class AuthException extends HttpException {
     );
   }
 
+  static accountPermanentlyLocked(): AuthException {
+    return new AuthException(
+      AuthErrorCode.ACCOUNT_PERMANENTLY_LOCKED,
+      'Your account has been locked. Please reset your password or contact support.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+
   // Used for "no such token", "already used", and "expired" — the generic
   // message avoids telling an attacker WHICH failure mode hit.
   static resetTokenInvalid(): AuthException {

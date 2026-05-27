@@ -350,25 +350,33 @@ export class AdminService {
 
     const now = new Date();
     const users = await this.prisma.user.findMany({
-      where: { lockedUntil: { gt: now } },
+      where: {
+        OR: [
+          { lockedUntil: { gt: now } },
+          { lockLevel: { gte: 3 } },
+        ],
+      },
       select: {
         id: true,
         email: true,
         role: true,
         failedLoginAttempts: true,
+        lockLevel: true,
         lockedUntil: true,
       },
       orderBy: { lockedUntil: 'asc' },
     });
 
-    // lockedUntil non-null guaranteed by WHERE clause; cast trims nullable.
-    return users.map((u) => ({
-      id: u.id,
-      email: u.email,
-      role: u.role,
-      failedLoginAttempts: u.failedLoginAttempts,
-      lockedUntil: u.lockedUntil!,
-    }));
+    return users
+      .filter((u) => u.lockedUntil !== null)
+      .map((u) => ({
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        failedLoginAttempts: u.failedLoginAttempts,
+        lockLevel: u.lockLevel,
+        lockedUntil: u.lockedUntil!,
+      }));
   }
 
   async unlockUser(
@@ -383,6 +391,7 @@ export class AdminService {
         id: true,
         email: true,
         lockedUntil: true,
+        lockLevel: true,
         failedLoginAttempts: true,
       },
     });
@@ -390,14 +399,12 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    // Both writes in the same tx so we never end up with the user unlocked
-    // but no audit trail (or vice versa). Payload captures the state BEFORE
-    // unlock so a future reviewer can see what was reset.
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: targetUserId },
         data: {
           lockedUntil: null,
+          lockLevel: 0,
           failedLoginAttempts: 0,
         },
       }),
@@ -408,6 +415,7 @@ export class AdminService {
           targetUserId,
           payload: {
             previousLockedUntil: target.lockedUntil?.toISOString() ?? null,
+            previousLockLevel: target.lockLevel,
             previousFailedAttempts: target.failedLoginAttempts,
           },
         },

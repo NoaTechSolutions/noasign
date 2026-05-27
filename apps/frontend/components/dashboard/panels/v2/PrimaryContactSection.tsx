@@ -1,5 +1,6 @@
 import React from 'react';
 import { CollapsibleSection } from './CollapsibleSection';
+import { formatUsPhone } from '@/lib/format-phone';
 
 interface User {
   firstName: string;
@@ -94,7 +95,7 @@ export function PrimaryContactSection({
             type="tel"
             className="form-input"
             value={companyProfile?.contactPhone || ''}
-            onChange={(e) => onCompanyChange('contactPhone', e.target.value)}
+            onChange={(e) => onCompanyChange('contactPhone', formatUsPhone(e.target.value))}
             placeholder="(555) 000-0000"
           />
         </div>

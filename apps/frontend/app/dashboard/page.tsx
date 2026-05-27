@@ -1573,23 +1573,24 @@ export default function DashboardPage() {
       email: string;
       role: "MASTER" | "ADMIN" | "USER";
       failedLoginAttempts: number;
+      lockLevel: number;
       lockedUntil: string;
     };
+    const LEVEL_DURATIONS_MS: Record<number, number> = { 1: 60_000, 2: 300_000 };
     const lockedUsersV2 = {
       onFetchLockedUsers: async (): Promise<V2LockedUser[]> => {
         const backend = await apiRequest<BackendLockedUser[]>("/admin/users/locked");
         return backend.map((u) => {
           const unlockAtMs = new Date(u.lockedUntil).getTime();
-          // Phase A cooldown is 15 min — drifts if backend changes.
-          const lockedAtMs = unlockAtMs - 15 * 60 * 1000;
+          const durationMs = LEVEL_DURATIONS_MS[u.lockLevel] ?? 60_000;
+          const lockedAtMs = u.lockLevel >= 3 ? unlockAtMs : unlockAtMs - durationMs;
           return {
             userId: u.id,
             email: u.email,
             lockedAt: new Date(lockedAtMs).toISOString(),
             unlockAt: u.lockedUntil,
             failedAttempts: u.failedLoginAttempts,
-            // Backend doesn't track per-attempt timestamps; lockedUntil is
-            // always equal to the most recent failed-attempt time + cooldown.
+            lockLevel: u.lockLevel,
             lastAttemptAt: u.lockedUntil,
           };
         });

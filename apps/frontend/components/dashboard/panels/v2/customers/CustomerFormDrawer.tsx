@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { formatUsPhone } from '@/lib/format-phone';
 import type { Customer, CustomerFormData } from './types';
 import { splitFullName as split, combineFullName as combine } from './types';
 
@@ -197,7 +198,7 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose }: 
             </div>
             <div className="form-group">
               <label htmlFor="phone">Phone</label>
-              <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="form-input" />
+              <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(formatUsPhone(e.target.value))} className="form-input" />
             </div>
           </div>
         );
@@ -269,7 +270,7 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose }: 
               </div>
               <div className="form-group">
                 <label htmlFor="businessPhone">Business phone</label>
-                <input id="businessPhone" type="tel" value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)} className="form-input" />
+                <input id="businessPhone" type="tel" value={businessPhone} onChange={(e) => setBusinessPhone(formatUsPhone(e.target.value))} className="form-input" />
               </div>
             </div>
           </div>
@@ -317,7 +318,7 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose }: 
               </div>
               <div className="form-group">
                 <label htmlFor="primaryContactPhone">Contact phone</label>
-                <input id="primaryContactPhone" type="tel" value={primaryContactPhone} onChange={(e) => setPrimaryContactPhone(e.target.value)} className="form-input" />
+                <input id="primaryContactPhone" type="tel" value={primaryContactPhone} onChange={(e) => setPrimaryContactPhone(formatUsPhone(e.target.value))} className="form-input" />
               </div>
             </div>
             <div className="form-group">

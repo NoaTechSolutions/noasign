@@ -23,6 +23,7 @@ import { Button, Checkbox, Input, Label } from "@/components/ui";
 import { API_URL, apiRequest } from "../../lib/api";
 import { getStoredUser, persistSession, updateStoredUser } from "../../lib/auth-storage";
 import { useLockoutCountdown, formatMMSS } from "../../lib/use-lockout-countdown";
+import { formatUsPhone } from "../../lib/format-phone";
 
 type LoginResponse = {
   user: {
@@ -42,7 +43,7 @@ type AccountRequestResponse = {
 
 type ForgotPasswordResponse = {
   message: string;
-  resetLink?: string;
+  userFound: boolean;
 };
 
 type ForgotPasswordErrors = {
@@ -155,7 +156,6 @@ export function LoginForm() {
   const [forgotPasswordErrors, setForgotPasswordErrors] =
     useState<ForgotPasswordErrors>({});
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState("");
-  const [forgotPasswordResetLink, setForgotPasswordResetLink] = useState("");
   const [forgotPasswordCooldown, setForgotPasswordCooldown] = useState(0);
 
   useEffect(() => {
@@ -426,7 +426,7 @@ export function LoginForm() {
   }
 
   function validateAccountRequestForm() {
-    // Used by handleAccountRequestSubmit (final submit) — validate all step bundles.
+    // Used by submitAccountRequest (final submit) — validate all step bundles.
     for (const step of [1, 2, 3] as const) {
       if (!validateAccountRequestStep(step)) return false;
     }
@@ -467,6 +467,13 @@ export function LoginForm() {
         const errorCode = (data as Record<string, unknown>).errorCode;
         const retryAfter = (data as Record<string, unknown>).retryAfter;
 
+        if (errorCode === "ACCOUNT_PERMANENTLY_LOCKED") {
+          lockoutCountdown.clear();
+          setLockoutBanner("__permanent__");
+          setLoginErrors({});
+          return;
+        }
+
         if (errorCode === "ACCOUNT_LOCKED" || response.status === 429) {
           const seconds =
             typeof retryAfter === "number"
@@ -478,7 +485,7 @@ export function LoginForm() {
           const minutes = Math.max(1, Math.ceil(seconds / 60));
           setLockoutBanner(
             errorCode === "ACCOUNT_LOCKED"
-              ? `Account temporarily locked. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}, or reset your password.`
+              ? `Too many attempts. Account locked for ${minutes} minute${minutes === 1 ? "" : "s"}.`
               : `Too many attempts. Wait ${minutes} minute${minutes === 1 ? "" : "s"} and try again.`,
           );
           setLoginErrors({});
@@ -529,7 +536,6 @@ export function LoginForm() {
     setIsSubmittingForgotPassword(true);
     setForgotPasswordErrors({});
     setForgotPasswordSuccess("");
-    setForgotPasswordResetLink("");
 
     try {
       const data = await apiRequest<ForgotPasswordResponse>("/auth/forgot-password", {
@@ -538,10 +544,10 @@ export function LoginForm() {
           email: forgotPasswordForm.email.trim().toLowerCase(),
         },
       });
-      setForgotPasswordSuccess(data.message);
-      setForgotPasswordResetLink(data.resetLink ?? "");
-      // Designer's `sent` state: 60s resend cooldown.
-      setForgotPasswordCooldown(60);
+      setForgotPasswordSuccess(data.userFound ? "__found__" : "__not_found__");
+      if (data.userFound) {
+        setForgotPasswordCooldown(60);
+      }
     } catch (submitError) {
       setForgotPasswordErrors({
         form:
@@ -562,8 +568,7 @@ export function LoginForm() {
         method: "POST",
         body: { email: forgotPasswordForm.email.trim().toLowerCase() },
       });
-      setForgotPasswordSuccess(data.message);
-      setForgotPasswordResetLink(data.resetLink ?? "");
+      setForgotPasswordSuccess("__found__");
       setForgotPasswordCooldown(60);
     } catch (submitError) {
       setForgotPasswordErrors({
@@ -670,33 +675,21 @@ export function LoginForm() {
     }
   }
 
-  async function handleAccountRequestSubmit(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  function blockFormSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+  }
 
-    // Guard: when the user hits Enter inside an input on steps 1-3, the form
-    // would otherwise fire its onSubmit and skip past the wizard. Treat that
-    // submit as "advance to the next step" instead. Only the final step is
-    // allowed to actually fire the API call.
-    if (createAccountStep !== ACCOUNT_TOTAL_STEPS) {
-      continueCreateAccount();
-      return;
-    }
+  async function submitAccountRequest() {
+    setAccountRequestErrors({});
+    setAccountRequestSuccess("");
 
     if (!validateAccountRequestForm()) {
       return;
     }
 
     setIsSubmittingRequest(true);
-    setAccountRequestErrors({});
-    setAccountRequestSuccess("");
 
     try {
-      // Map the wizard form (designer's 4-step shape) to the backend DTO
-      // (fullName + email + requestedDocumentTypes). Business accounts encode
-      // company + contact into fullName; "Others" docType embeds the inline
-      // text. Phone, referral and notes are designer-only for now.
       const composedFullName =
         accountRequestForm.accountType === "business"
           ? `${accountRequestForm.companyName.trim()} (Contact: ${accountRequestForm.contactName.trim()})`
@@ -725,16 +718,16 @@ export function LoginForm() {
       };
 
       if (!response.ok) {
-        setAccountRequestErrors(
-          mapAccountRequestApiError(
-            data.message ?? "Unable to submit account request",
-          ),
+        const mapped = mapAccountRequestApiError(
+          data.message ?? "Unable to submit account request",
         );
+        if (!mapped.form) {
+          mapped.form = data.message ?? "Unable to submit account request";
+        }
+        setAccountRequestErrors(mapped);
         return;
       }
 
-      // Keep email in state so the success view can echo it. The form itself is
-      // wiped except for the echo; createAccountStep reset to 1 for next time.
       setAccountRequestSuccess(
         `Request submitted successfully for ${accountRequestForm.email.trim()}.`,
       );
@@ -775,7 +768,6 @@ export function LoginForm() {
   }
 
   function continueCreateAccount() {
-    // Validate the CURRENT step before advancing. Steps run 1 -> 4.
     if (!validateAccountRequestStep(createAccountStep)) {
       return;
     }
@@ -792,52 +784,25 @@ export function LoginForm() {
   }
 
   return (
-      <div className="mx-auto flex w-full max-w-[420px] flex-col items-center">
-        {/* Phone: vertical brand block (logo + wordmark stacked) */}
-        <header className="mb-7 flex flex-col items-center gap-3 md:hidden">
-          <div className="relative h-12 w-12 overflow-hidden">
+      <div className="mx-auto flex w-full max-w-[520px] flex-col items-center">
+        <header className="mb-7 flex items-center justify-center md:mb-6">
+          <div
+            className={
+              activeView === "login"
+                ? "relative h-[60px] w-[120px] md:h-[70px] md:w-[140px] lg:h-[80px] lg:w-[160px] overflow-hidden transition-all duration-200"
+                : "relative h-[45px] w-[90px] md:h-[55px] md:w-[110px] lg:h-[60px] lg:w-[120px] overflow-hidden transition-all duration-200"
+            }
+          >
             <NextImage
               src={loginLogoSrc}
               alt="NTSsign"
               fill
               className="object-contain"
-              sizes="48px"
+              sizes="160px"
               priority
             />
           </div>
-          <div className="text-[18px] font-medium leading-[1.25] tracking-[-0.01em] text-[color:var(--text-primary)]">
-            NTSsign
-          </div>
         </header>
-
-        {/* Tablet+ (when no side panel): brand horizontal row above form header */}
-        <header className="mb-6 hidden items-center gap-3 self-start md:flex lg:hidden">
-          <div className="relative h-11 w-11 overflow-hidden">
-            <NextImage
-              src={loginLogoSrc}
-              alt="NTSsign"
-              fill
-              className="object-contain"
-              sizes="44px"
-              priority
-            />
-          </div>
-          <div className="text-[17px] font-medium text-[color:var(--text-primary)]">
-            NTSsign
-          </div>
-        </header>
-
-        {/* Tablet+: form header (title + subtitle). Hidden on phone. */}
-        {activeView === "login" ? (
-          <header className="mb-6 hidden w-full max-w-[420px] flex-col gap-1.5 md:flex">
-            <h2 className="m-0 text-[24px] font-medium leading-[1.2] tracking-[-0.015em] text-[color:var(--text-primary)] lg:text-[28px]">
-              Welcome back
-            </h2>
-            <p className="m-0 text-sm font-normal leading-[1.5] text-[color:var(--text-secondary)] lg:text-[15px]">
-              Sign in to continue managing your documents.
-            </p>
-          </header>
-        ) : null}
 
         <AnimatePresence mode="wait" initial={false}>
         {activeView === "login" ? (
@@ -866,7 +831,7 @@ export function LoginForm() {
               value={email}
               error={Boolean(loginErrors.email)}
               onChange={(event) => {
-                setEmail(event.target.value);
+                setEmail(event.target.value.trim());
                 setLoginErrors((current) => ({ ...current, email: undefined, form: undefined }));
               }}
               className="h-12"
@@ -892,7 +857,7 @@ export function LoginForm() {
                 value={password}
                 error={Boolean(loginErrors.password)}
                 onChange={(event) => {
-                  setPassword(event.target.value);
+                  setPassword(event.target.value.trim());
                   setLoginErrors((current) => ({
                     ...current,
                     password: undefined,
@@ -917,14 +882,30 @@ export function LoginForm() {
             </div>
             {loginErrors.password ? (
               <InputError text={loginErrors.password} />
-            ) : password !== password.trim() ? (
-              <p className="mt-1 text-[11px] font-medium leading-[1.25] text-[color:var(--brand-highlight)]">
-                Your password has leading or trailing spaces — make sure that&apos;s intentional.
-              </p>
             ) : null}
           </div>
 
-          {lockoutBanner ? (
+          {lockoutBanner === "__permanent__" ? (
+            <div
+              role="alert"
+              className="mb-4 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800/50 dark:bg-red-950/30 dark:text-red-200"
+            >
+              <div className="flex items-start gap-2">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>Your account has been locked. Please reset your password or contact support.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLockoutBanner("");
+                  setActiveView("forgotPassword");
+                }}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-red-600 px-4 text-sm font-medium text-white transition hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+              >
+                Reset Password
+              </button>
+            </div>
+          ) : lockoutBanner ? (
             <div
               role="alert"
               className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-800/50 dark:text-red-200 text-sm"
@@ -955,7 +936,7 @@ export function LoginForm() {
           <Button
             type="submit"
             variant="primary"
-            disabled={isSubmitting || isLoginFormInvalid || lockoutCountdown.isActive}
+            disabled={isSubmitting || isLoginFormInvalid || lockoutCountdown.isActive || lockoutBanner === "__permanent__"}
             className="h-12 w-full"
           >
             {isSubmitting
@@ -1037,7 +1018,7 @@ export function LoginForm() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            onSubmit={handleAccountRequestSubmit}
+            onSubmit={blockFormSubmit}
             className={authCardClassName + " max-w-[520px]"}
             noValidate
           >
@@ -1209,7 +1190,7 @@ export function LoginForm() {
                     type="tel"
                     value={accountRequestForm.phone}
                     onChange={(event) => {
-                      setAccountRequestForm((current) => ({ ...current, phone: event.target.value }));
+                      setAccountRequestForm((current) => ({ ...current, phone: formatUsPhone(event.target.value) }));
                     }}
                     placeholder="(555) 123-4567"
                     className="h-12"
@@ -1366,8 +1347,9 @@ export function LoginForm() {
                 </Button>
               ) : (
                 <Button
-                  type="submit"
+                  type="button"
                   variant="primary"
+                  onClick={submitAccountRequest}
                   disabled={isSubmittingRequest}
                   className="h-12 flex-1"
                 >
@@ -1389,8 +1371,7 @@ export function LoginForm() {
           </motion.form>
           )
         ) : activeView === "forgotPassword" ? (
-          forgotPasswordSuccess ? (
-            // ===== State: sent (designer's "sent" block) =====
+          forgotPasswordSuccess === "__found__" ? (
             <motion.div
               key="forgot-password-sent"
               initial={{ opacity: 0, x: 24 }}
@@ -1401,28 +1382,13 @@ export function LoginForm() {
             >
               <CardHead
                 title="Check your inbox"
-                sub="We sent a reset link to:"
+                sub="We sent a reset link to your email. It expires in 15 minutes."
                 icon="envelope"
               />
 
-              {/* Email echo */}
-              <div className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 py-3 text-[14px] font-medium text-[color:var(--text-primary)]">
-                <Mail className="h-4 w-4 text-[color:var(--brand-secondary)] dark:text-[color:var(--brand-accent)]" />
-                <span>{forgotPasswordForm.email}</span>
-              </div>
-
               <p className="m-0 text-center text-[13px] font-normal leading-[1.5] text-[color:var(--text-secondary)]">
-                The link expires in <strong className="font-medium text-[color:var(--text-primary)]">15 minutes</strong> and can only be used once. If you don&apos;t see the email, check spam or try resending.
+                The link can only be used once. If you don&apos;t see the email, check your spam folder or try resending.
               </p>
-
-              {forgotPasswordResetLink ? (
-                <a
-                  href={forgotPasswordResetLink}
-                  className="inline-flex h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[color:var(--bg-surface-strong)]"
-                >
-                  Open reset link
-                </a>
-              ) : null}
 
               <Button
                 type="button"
@@ -1443,8 +1409,46 @@ export function LoginForm() {
               <BackLink
                 onClick={() => {
                   setForgotPasswordSuccess("");
-                  setForgotPasswordResetLink("");
                   setForgotPasswordCooldown(0);
+                  setActiveView("login");
+                }}
+                label="Back to login"
+              />
+            </motion.div>
+          ) : forgotPasswordSuccess === "__not_found__" ? (
+            <motion.div
+              key="forgot-password-not-found"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className={authCardClassName}
+            >
+              <CardHead
+                title="Account not found"
+                sub="We couldn't find an account with that email."
+                icon="envelope"
+              />
+
+              <p className="m-0 text-center text-[13px] font-normal leading-[1.5] text-[color:var(--text-secondary)]">
+                Don&apos;t have an account?
+              </p>
+
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  setForgotPasswordSuccess("");
+                  openCreateAccount();
+                }}
+                className="h-12 w-full"
+              >
+                Request access
+              </Button>
+
+              <BackLink
+                onClick={() => {
+                  setForgotPasswordSuccess("");
                   setActiveView("login");
                 }}
                 label="Back to login"

@@ -3,9 +3,10 @@
 export interface LockedUser {
   userId: string;
   email: string;
-  lockedAt: string;       // ISO datetime — derived from lockedUntil - 15min
+  lockedAt: string;       // ISO datetime — derived from lockedUntil - duration
   unlockAt: string;       // ISO datetime — mapped from backend lockedUntil
   failedAttempts: number; // mapped from failedLoginAttempts
+  lockLevel: number;      // 1=1min, 2=5min, 3=permanent
   lastAttemptAt: string;  // ISO datetime — backend doesn't track this; adapter uses lockedUntil as approx
 }
 
@@ -20,10 +21,13 @@ export interface LockedUserWithStatus extends LockedUser {
 export function computeStatus(user: LockedUser): LockedUserWithStatus {
   const now = new Date();
   const unlockDate = new Date(user.unlockAt);
-  const isLocked = unlockDate > now;
-  const minutesUntilUnlock = isLocked
-    ? Math.max(0, Math.floor((unlockDate.getTime() - now.getTime()) / 60000))
-    : 0;
+  const isPermanent = user.lockLevel >= 3;
+  const isLocked = isPermanent || unlockDate > now;
+  const minutesUntilUnlock = isPermanent
+    ? Infinity
+    : isLocked
+      ? Math.max(0, Math.floor((unlockDate.getTime() - now.getTime()) / 60000))
+      : 0;
 
   return {
     ...user,
@@ -50,6 +54,7 @@ export function formatTimeAgo(dateString: string): string {
 
 // Format countdown (e.g., "in 28m", "in 1h 15m", "unlocked")
 export function formatCountdown(minutes: number): string {
+  if (!isFinite(minutes)) return 'permanent';
   if (minutes <= 0) return 'unlocked';
   if (minutes < 60) return `in ${minutes}m`;
 

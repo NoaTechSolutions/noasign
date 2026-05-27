@@ -5,5 +5,6 @@ export class LockedUserDto {
   email: string;
   role: UserRole;
   failedLoginAttempts: number;
+  lockLevel: number;
   lockedUntil: Date;
 }

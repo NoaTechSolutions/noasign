@@ -1,5 +1,6 @@
 import React from 'react';
 import { CollapsibleSection } from './CollapsibleSection';
+import { formatUsPhone } from '@/lib/format-phone';
 
 interface CompanyProfile {
   companyName: string;
@@ -100,7 +101,7 @@ export function CompanyInformationSection({
             type="tel"
             className="form-input"
             value={company.phone || ''}
-            onChange={(e) => onChange('phone', e.target.value)}
+            onChange={(e) => onChange('phone', formatUsPhone(e.target.value))}
             placeholder="(555) 000-0000"
           />
         </div>

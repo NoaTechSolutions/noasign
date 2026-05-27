@@ -132,11 +132,8 @@ model User {
   zipCode                String?
   avatarUrl              String?
 
-  // Auth security. failedLoginAttempts resets to 0 on successful login OR when
-  // a lockout is triggered (lockedUntil becomes the source of truth for
-  // "blocked"). lockedUntil is forward-only: while > now() the account refuses
-  // login with ACCOUNT_LOCKED. lastLoginAt is set only on successful login.
   failedLoginAttempts Int       @default(0)
+  lockLevel           Int       @default(0)
   lockedUntil         DateTime?
   lastLoginAt         DateTime?
 
