@@ -400,6 +400,14 @@ const DOCUMENT_REFRESH_INTERVAL_MS = 10_000;
 const DASHBOARD_SELECTED_DOCUMENT_KEY = "ntssign:dashboard:selected-document-id";
 
 export default function DashboardPage() {
+  return (
+    <Suspense>
+      <DashboardPageInner />
+    </Suspense>
+  );
+}
+
+function DashboardPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const newLayoutPanel = searchParams.get("panel");
