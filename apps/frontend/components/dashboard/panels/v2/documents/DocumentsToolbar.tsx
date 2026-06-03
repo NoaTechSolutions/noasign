@@ -13,6 +13,11 @@ interface DocumentsToolbarProps {
   onCreateNew: () => void;
 }
 
+// Short tab labels (All / Draft / Sent / …) derived from the shared options.
+const STATUS_TABS: Array<{ value: StatusFilter; label: string }> = STATUS_FILTER_OPTIONS.map(
+  (o) => ({ value: o.value, label: o.value === 'all' ? 'All' : o.label }),
+);
+
 export function DocumentsToolbar({
   search,
   onSearchChange,
@@ -27,7 +32,7 @@ export function DocumentsToolbar({
         <input
           type="text"
           className="documents-v2-toolbar__search-input"
-          placeholder="Search by number, customer, or type..."
+          placeholder="Search by number, client, or type..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -43,9 +48,29 @@ export function DocumentsToolbar({
         ) : null}
       </div>
 
+      {/* Desktop (≥1024px): single-select status tabs. */}
+      <div className="documents-filter-tabs" role="group" aria-label="Status filter">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            className={
+              `documents-filter-tab` +
+              (tab.value === 'all' ? ' documents-filter-tab--all' : '') +
+              (statusFilter === tab.value ? ' documents-filter-tab--active' : '')
+            }
+            onClick={() => onStatusFilterChange(tab.value)}
+            aria-pressed={statusFilter === tab.value}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="documents-v2-toolbar__filters">
+        {/* Mobile (<1024px): keep the existing Filters dropdown. */}
         <select
-          className="documents-v2-toolbar__filter"
+          className="documents-v2-toolbar__filter documents-filters-mobile"
           value={statusFilter}
           onChange={(e) => onStatusFilterChange(e.target.value as StatusFilter)}
           aria-label="Filter by status"

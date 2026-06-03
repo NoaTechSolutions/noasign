@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
 import {
   clearPersistedArrays,
   useDynamicArrays,
@@ -20,9 +21,21 @@ import {
 import type { DocumentWizardProps } from './types';
 import './document-wizard.css';
 
+const CLIENT_FIELDS = [
+  'customer_name',
+  'customer_email',
+  'customer_phone',
+  'customer_address',
+  'city',
+  'state',
+  'zip',
+];
+
 export function DocumentWizard({
   schema,
   initialValues,
+  clientPrefill,
+  onDirtyChange,
   initialToggles,
   initialArrays,
   staticFields,
@@ -33,7 +46,7 @@ export function DocumentWizard({
   isSubmitting = false,
   canSubmit = true,
 }: DocumentWizardProps) {
-  const { fields, updateField } = useFormFields(schema, initialValues);
+  const { fields, setFields, updateField } = useFormFields(schema, initialValues);
   const {
     arrays,
     addItem,
@@ -52,10 +65,56 @@ export function DocumentWizard({
   );
   const isDirty = useFormDirty(schema, fields, arrays, initialValues, seededBaseline);
 
+  // Report dirty state up so the host modal can gate backdrop/Escape/X + reload.
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+  // On unmount (e.g. document type change), clear the host's dirty flag so it
+  // doesn't stay stuck on a stale `true`.
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+
   const [activeSection, setActiveSection] = useState(schema.sections[0]?.key ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tabError, setTabError] = useState('');
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  // ── Client-tab auto-fill (from selecting a client in the setup card) ────────
+  const [overwriteOpen, setOverwriteOpen] = useState(false);
+  const [pendingPrefill, setPendingPrefill] = useState<Record<string, string> | null>(null);
+  const prefillKeyRef = useRef<string | undefined>(undefined);
+
+  // Apply only keys that exist in the current schema (so e.g. a form without
+  // city/state/zip isn't polluted). Overwrites all matched Client fields (Opción A).
+  const applyClientPrefill = useCallback(
+    (values: Record<string, string>) => {
+      setFields((prev) => {
+        const next = { ...prev };
+        for (const [key, value] of Object.entries(values)) {
+          if (key in prev) next[key] = value;
+        }
+        return next;
+      });
+    },
+    [setFields],
+  );
+
+  useEffect(() => {
+    if (!clientPrefill) return;
+    if (clientPrefill.key === prefillKeyRef.current) return;
+    prefillKeyRef.current = clientPrefill.key;
+
+    const hasExisting = CLIENT_FIELDS.some(
+      (key) => key in fields && (fields[key] ?? '').trim() !== '',
+    );
+    if (hasExisting) {
+      setPendingPrefill(clientPrefill.values);
+      setOverwriteOpen(true);
+    } else {
+      applyClientPrefill(clientPrefill.values);
+    }
+    // Intentionally only react to a new prefill (key), not to `fields` edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientPrefill]);
 
   useEffect(() => {
     if (!canAccessSection(activeSection)) {
@@ -246,6 +305,24 @@ export function DocumentWizard({
           onClose={() => setCancelConfirmOpen(false)}
         />
       ) : null}
+
+      <ConfirmActionModal
+        isOpen={overwriteOpen}
+        title="Overwrite client data?"
+        message="The Client section already has data. Selecting this client will replace it."
+        confirmLabel="Overwrite"
+        cancelLabel="Keep current"
+        variant="amber"
+        onConfirm={() => {
+          if (pendingPrefill) applyClientPrefill(pendingPrefill);
+          setPendingPrefill(null);
+          setOverwriteOpen(false);
+        }}
+        onCancel={() => {
+          setPendingPrefill(null);
+          setOverwriteOpen(false);
+        }}
+      />
 
       {!readOnly ? (
         <WizardTabBar

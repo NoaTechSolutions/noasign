@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
+import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
+import { useDropdownPosition } from '@/components/dashboard/shared/use-dropdown-position';
 import type { V2DocumentItem, V2DocumentAction } from './types';
 import {
   formatDate,
@@ -25,80 +27,68 @@ export function DocumentTableRow({
   onSelect,
   onAction,
 }: DocumentTableRowProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const { open: menuOpen, toggle, close, style: menuStyle, triggerRef, menuRef } = useDropdownPosition();
   const actions = getAvailableActions(document);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDocClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuOpen(false);
-    }
-    window.addEventListener('mousedown', onDocClick);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('mousedown', onDocClick);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
 
   return (
     <tr
       className={`documents-v2-row${selected ? ' documents-v2-row--selected' : ''}`}
       onClick={() => onSelect(document.id)}
     >
-      <td className="documents-v2-row__number">{document.documentNumber}</td>
-      <td>{getCustomerDisplayName(document)}</td>
+      {/* 1. Document = number (primary) + client (secondary), two-line + truncate */}
+      <td className="documents-v2-row__doc">
+        <div className="doc-cell">
+          <span className="doc-number">{document.documentNumber}</span>
+          <span className="doc-client">{getCustomerDisplayName(document)}</span>
+        </div>
+      </td>
+      {/* 2. Type */}
       <td>{getDocumentTypeDisplayName(document)}</td>
+      {/* 3. Date (created) */}
+      <td className="documents-v2-row__time">{formatDate(document.createdAt)}</td>
+      {/* 4. Status */}
       <td>
-        <span className={`docs-v2-status-badge ${getStatusBadgeClass(document.status)}`}>
+        <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
           {document.status}
         </span>
       </td>
-      <td className="documents-v2-row__time">
-        {formatDate(document.createdAt)}
-      </td>
-      <td className="documents-v2-row__time">
-        {formatDate(document.sentAt)}
-      </td>
+      {/* 5. Actions */}
       <td
         className="documents-v2-row__actions"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="documents-v2-row__menu-wrapper" ref={menuRef}>
+        <div className="documents-v2-row__menu-wrapper">
           <button
+            ref={triggerRef}
             type="button"
             className="documents-v2-row__menu-trigger"
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={toggle}
             aria-label="Actions"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
             <MoreVertical size={18} />
           </button>
-          {menuOpen ? (
-            <div className="documents-v2-row__menu" role="menu">
-              {actions.map((action) => (
-                <button
-                  key={action}
-                  type="button"
-                  role="menuitem"
-                  className="documents-v2-row__menu-item"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    void onAction(action, document.id);
-                  }}
-                >
-                  {getActionLabel(action)}
-                </button>
-              ))}
-            </div>
-          ) : null}
+          {menuOpen && typeof window !== 'undefined'
+            ? createPortal(
+                <div className="documents-v2-row__menu" role="menu" ref={menuRef} style={menuStyle} onClick={close}>
+                  {actions.map((action) => (
+                    <button
+                      key={action}
+                      type="button"
+                      role="menuitem"
+                      className="documents-v2-row__menu-item"
+                      onClick={() => void onAction(action, document.id)}
+                    >
+                      {getActionLabel(action)}
+                    </button>
+                  ))}
+                </div>,
+                // `document` is shadowed by the row prop here — reach the real DOM
+                // via window.document.
+                window.document.body,
+              )
+            : null}
         </div>
       </td>
     </tr>

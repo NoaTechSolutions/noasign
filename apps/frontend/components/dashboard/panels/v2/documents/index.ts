@@ -6,5 +6,6 @@ export type {
   BackendDocumentAction,
   DocumentStatus,
   DocumentVersion,
+  DocumentDetail,
   StatusFilter,
 } from './types';

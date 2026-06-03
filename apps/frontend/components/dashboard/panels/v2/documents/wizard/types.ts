@@ -66,6 +66,14 @@ export interface DocumentSchema {
 export interface DocumentWizardProps {
   schema: DocumentSchema;
   initialValues?: Record<string, string>;
+  /** Client-tab prefill pushed from outside (selecting a client in setup).
+   *  `key` is the selected client id; the wizard re-applies whenever it changes
+   *  and owns the "overwrite existing data?" decision. Deriving the trigger from
+   *  the id (not a post-render nonce) guarantees a single apply per selection. */
+  clientPrefill?: { values: Record<string, string>; key: string };
+  /** Reports the wizard's unsaved-changes state up so the host modal can gate its
+   *  own close triggers (backdrop / Escape / X) and the native reload prompt. */
+  onDirtyChange?: (dirty: boolean) => void;
   initialToggles?: Record<string, boolean>;
   initialArrays?: Record<string, Array<Record<string, string>>>;
   staticFields?: Record<string, string>;

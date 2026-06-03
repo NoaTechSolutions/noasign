@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { useBeforeUnload } from '@/lib/use-before-unload';
+import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
 import { DocumentSetupCard } from './DocumentSetupCard';
 import { DocumentWizard } from './wizard';
 import type { DocumentSchema } from './wizard';
@@ -25,6 +27,7 @@ interface DocumentCreationModalProps {
   documentTypes: DocumentTypeOption[];
   customers: CustomerOption[];
   sessionId?: string;
+  isMaster?: boolean;
   onClose: () => void;
   onCreate: (payload: CreateDraftPayload) => Promise<void>;
 }
@@ -34,10 +37,38 @@ function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Maps a selected client to the Client-tab field values. Business uses the
+// primary contact, falling back per-field to the business record for address.
+// customer_age / customer_fax are intentionally not filled.
+function mapClientToClientTab(c: CustomerOption): Record<string, string> {
+  if (c.customerType === 'BUSINESS' && c.business) {
+    const b = c.business;
+    return {
+      customer_name: b.primaryContactName ?? '',
+      customer_email: b.primaryContactEmail ?? '',
+      customer_phone: b.primaryContactPhone ?? '',
+      customer_address: b.primaryContactAddressLine1 || b.businessAddressLine1 || '',
+      city: b.primaryContactCity || b.businessCity || '',
+      state: b.primaryContactState || b.businessState || '',
+      zip: b.primaryContactZipCode || b.businessZipCode || '',
+    };
+  }
+  return {
+    customer_name: c.fullName ?? '',
+    customer_email: c.email ?? '',
+    customer_phone: c.phone ?? '',
+    customer_address: c.addressLine1 ?? '',
+    city: c.city ?? '',
+    state: c.state ?? '',
+    zip: c.zipCode ?? '',
+  };
+}
+
 export function DocumentCreationModal({
   documentTypes,
   customers,
   sessionId,
+  isMaster = false,
   onClose,
   onCreate,
 }: DocumentCreationModalProps) {
@@ -50,16 +81,30 @@ export function DocumentCreationModal({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Wizard's unsaved-changes state, lifted up so backdrop/Escape/X can gate close.
+  const [wizardDirty, setWizardDirty] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
 
   useBlockScroll();
+  useBeforeUnload(wizardDirty);
+
+  // Any close intent (backdrop / Escape / X): warn first if there are changes.
+  const handleRequestClose = useCallback(() => {
+    if (wizardDirty) {
+      setShowDiscard(true);
+      return;
+    }
+    onClose();
+  }, [wizardDirty, onClose]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      // While the discard prompt is up, let it own Escape.
+      if (e.key === 'Escape' && !showDiscard) handleRequestClose();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [handleRequestClose, showDiscard]);
 
   const selectedDocType = documentTypes.find((d) => d.id === setup.documentTypeId);
   const selectedFormDef = selectedDocType?.formDefinitions.find(
@@ -69,6 +114,19 @@ export function DocumentCreationModal({
   const hasValidSchema = !!schema?.sections?.length;
 
   const selectedCustomer = customers.find((c) => c.id === setup.customerId) ?? null;
+
+  // The prefill trigger is derived directly from the selected client (key = its
+  // id), synchronously in render — NO post-render nonce bump. That way the wizard
+  // sees exactly ONE prefill per selection (the earlier nonce approach emitted two
+  // — nonce 0 then 1 — which made the second pass detect the first's fill as
+  // "existing data" and pop a spurious overwrite warning on an empty form).
+  const clientPrefill = useMemo(
+    () =>
+      selectedCustomer
+        ? { values: mapClientToClientTab(selectedCustomer), key: selectedCustomer.id }
+        : undefined,
+    [selectedCustomer],
+  );
 
   // NOA-270 — when a BUSINESS customer is selected, flip any schema toggle
   // whose key === "isBusiness" so business-specific fields surface.
@@ -124,7 +182,7 @@ export function DocumentCreationModal({
     <div className="docs-v2-creation-modal">
       <div
         className="docs-v2-creation-modal__overlay"
-        onClick={onClose}
+        onClick={handleRequestClose}
         aria-hidden="true"
       />
       <div
@@ -142,7 +200,7 @@ export function DocumentCreationModal({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleRequestClose}
             className="docs-v2-creation-modal__close"
             aria-label="Close"
           >
@@ -157,6 +215,7 @@ export function DocumentCreationModal({
             value={setup}
             onChange={setSetup}
             disabled={isSubmitting}
+            isMaster={isMaster}
           />
 
           {submitError ? (
@@ -169,6 +228,8 @@ export function DocumentCreationModal({
             <DocumentWizard
               key={`${setup.documentTypeId}-${setup.formDefinitionId}`}
               schema={schema!}
+              clientPrefill={clientPrefill}
+              onDirtyChange={setWizardDirty}
               initialToggles={initialToggles}
               persistKey={persistKey}
               canSubmit={canSubmit}
@@ -185,6 +246,15 @@ export function DocumentCreationModal({
           )}
         </div>
       </div>
+
+      <DiscardChangesModal
+        isOpen={showDiscard}
+        onConfirm={() => {
+          setShowDiscard(false);
+          onClose();
+        }}
+        onCancel={() => setShowDiscard(false)}
+      />
     </div>
   );
 }

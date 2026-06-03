@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, FileText, Activity } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { FieldRow } from '@/components/dashboard/shared/ui';
 import { DocumentVersionTimeline } from './DocumentVersionTimeline';
 import type { V2DocumentItem, V2DocumentAction, DocumentVersion } from './types';
 import {
@@ -85,6 +86,7 @@ export function DocumentDetailSidebar({
         role="dialog"
         aria-modal="true"
         aria-label={`Document ${document.documentNumber}`}
+        style={{ '--card-legend-bg': 'var(--surface)' } as React.CSSProperties}
       >
         <button
           type="button"
@@ -100,70 +102,58 @@ export function DocumentDetailSidebar({
             <h2 className="documents-v2-detail__number">{document.documentNumber}</h2>
             <div className="documents-v2-detail__header-badges">
               <span
-                className={`docs-v2-status-badge ${getStatusBadgeClass(document.status)}`}
+                className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}
               >
                 {document.status}
               </span>
             </div>
           </div>
 
-          <div className="documents-v2-detail__section">
-            <div className="documents-v2-detail__field">
-              <div className="documents-v2-detail__label">Customer</div>
-              <div className="documents-v2-detail__value">
-                {getCustomerDisplayName(document)}
-              </div>
-              {customerEmail ? (
-                <div className="documents-v2-detail__hint">{customerEmail}</div>
-              ) : null}
-            </div>
-
-            <div className="documents-v2-detail__field">
-              <div className="documents-v2-detail__label">Document Type</div>
-              <div className="documents-v2-detail__value">
-                {document.documentType?.name ?? 'Unknown'}
-              </div>
-            </div>
-
-            {document.contractDate ? (
+          <div className="documents-v2-detail__section card-legend">
+            <span className="card-legend__label">
+              <span className="card-legend__icon"><FileText size={14} /></span>
+              <span className="card-legend__title">Document Info</span>
+            </span>
+            <div className="field-rows">
               <div className="documents-v2-detail__field">
-                <div className="documents-v2-detail__label">Contract Date</div>
+                <div className="documents-v2-detail__label">Client</div>
                 <div className="documents-v2-detail__value">
-                  {new Date(document.contractDate).toLocaleDateString()}
+                  {getCustomerDisplayName(document)}
                 </div>
-              </div>
-            ) : null}
-
-            <div className="documents-v2-detail__field">
-              <div className="documents-v2-detail__label">Created</div>
-              <div className="documents-v2-detail__value">
-                {formatRelativeTime(document.createdAt)}
-                {document.user ? ` by ${getCreatorDisplayName(document)}` : ''}
-              </div>
-            </div>
-
-            {document.sentAt ? (
-              <div className="documents-v2-detail__field">
-                <div className="documents-v2-detail__label">Sent</div>
-                <div className="documents-v2-detail__value">
-                  {formatRelativeTime(document.sentAt)}
-                </div>
-                {document.lastSentRecipientEmail ? (
-                  <div className="documents-v2-detail__hint">
-                    to {document.lastSentRecipientEmail}
-                  </div>
+                {customerEmail ? (
+                  <div className="documents-v2-detail__hint">{customerEmail}</div>
                 ) : null}
               </div>
-            ) : null}
 
-            {document.completedAt ? (
-              <div className="documents-v2-detail__field">
-                <div className="documents-v2-detail__label">Completed</div>
-                <div className="documents-v2-detail__value">
-                  {formatRelativeTime(document.completedAt)}
+              <FieldRow label="Document Type" value={document.documentType?.name ?? 'Unknown'} />
+
+              {document.contractDate ? (
+                <FieldRow label="Contract Date" value={new Date(document.contractDate).toLocaleDateString()} />
+              ) : null}
+
+              <FieldRow
+                label="Created"
+                value={`${formatRelativeTime(document.createdAt)}${document.user ? ` by ${getCreatorDisplayName(document)}` : ''}`}
+              />
+
+              {document.sentAt ? (
+                <div className="documents-v2-detail__field">
+                  <div className="documents-v2-detail__label">Sent</div>
+                  <div className="documents-v2-detail__value">
+                    {formatRelativeTime(document.sentAt)}
+                  </div>
+                  {document.lastSentRecipientEmail ? (
+                    <div className="documents-v2-detail__hint">
+                      to {document.lastSentRecipientEmail}
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+
+              {document.completedAt ? (
+                <FieldRow label="Completed" value={formatRelativeTime(document.completedAt)} />
+              ) : null}
+            </div>
           </div>
 
           {actionButtons.length > 0 ? (
@@ -185,8 +175,11 @@ export function DocumentDetailSidebar({
           ) : null}
 
           {onFetchVersions ? (
-            <div className="documents-v2-detail__section">
-              <div className="documents-v2-detail__label">Version History</div>
+            <div className="documents-v2-detail__section card-legend">
+              <span className="card-legend__label">
+                <span className="card-legend__icon"><Activity size={14} /></span>
+                <span className="card-legend__title">Version History</span>
+              </span>
               {versionsLoading ? (
                 <div className="documents-v2-detail__hint">Loading...</div>
               ) : versionsError ? (

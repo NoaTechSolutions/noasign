@@ -53,6 +53,42 @@ export interface V2DocumentItem extends DashboardDocument {
   } | null;
 }
 
+/** Schema-driven form definition (subset of FormDefinition.schemaJson). */
+export interface SchemaField {
+  key: string;
+  type: string;
+  label: string;
+  transform?: string;
+  options?: Array<{ value: string; label: string }>;
+}
+export interface SchemaSection {
+  key: string;
+  label: string;
+  fields: SchemaField[];
+}
+
+/** Full document detail from GET /documents/:id (schema + data + timestamps). */
+export interface DocumentDetail {
+  id: string;
+  documentNumber: string;
+  status: DocumentStatus;
+  documentType?: { name?: string | null; code?: string | null } | null;
+  formDefinition?: { schemaJson?: { sections?: SchemaSection[] } | null } | null;
+  data?: { dataJson?: Record<string, unknown> | null } | null;
+  customer?: { fullName?: string | null; email?: string | null; phone?: string | null } | null;
+  companyProfile?: { companyName?: string | null } | null;
+  user?: { firstName?: string | null; lastName?: string | null; email?: string } | null;
+  contractDate?: string | null;
+  createdAt: string;
+  sentAt?: string | null;
+  viewedAt?: string | null;
+  signedAt?: string | null;
+  completedAt?: string | null;
+  cancelledAt?: string | null;
+  lastSentRecipientEmail?: string | null;
+  providerDocumentId?: string | null;
+}
+
 /** Version timeline entry. Fetched on-demand when the sidebar opens
  *  (DashboardDocument doesn't include versions on the list endpoint). */
 export interface DocumentVersion {
@@ -116,14 +152,15 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
   const actions: V2DocumentAction[] = ['view'];
   switch (doc.status as DocumentStatus) {
     case 'DRAFT':
-      actions.push('edit', 'send', 'cancel');
+      // Edit is per-card now (✏️ inside the detail modal), not a kebab action.
+      actions.push('send', 'cancel');
       break;
     case 'SENT':
     case 'VIEWED':
-      actions.push('resend', 'sync', 'cancel');
+      // 'sync' removed from the kebab — the 10s polling syncs status on its own.
+      actions.push('resend', 'cancel');
       break;
     case 'SIGNED':
-      actions.push('sync');
       break;
     case 'COMPLETED':
       actions.push('preview', 'download');
@@ -153,14 +190,14 @@ export function getActionLabel(action: V2DocumentAction): string {
 export function getStatusBadgeClass(status: string): string {
   const normalized = status.toUpperCase() as DocumentStatus;
   const classes: Record<DocumentStatus, string> = {
-    DRAFT: 'docs-v2-status-badge--draft',
-    SENT: 'docs-v2-status-badge--sent',
-    VIEWED: 'docs-v2-status-badge--viewed',
-    SIGNED: 'docs-v2-status-badge--signed',
-    COMPLETED: 'docs-v2-status-badge--completed',
-    CANCELLED: 'docs-v2-status-badge--cancelled',
+    DRAFT: 'doc-status-badge--draft',
+    SENT: 'doc-status-badge--sent',
+    VIEWED: 'doc-status-badge--viewed',
+    SIGNED: 'doc-status-badge--signed',
+    COMPLETED: 'doc-status-badge--completed',
+    CANCELLED: 'doc-status-badge--cancelled',
   };
-  return classes[normalized] ?? 'docs-v2-status-badge--draft';
+  return classes[normalized] ?? 'doc-status-badge--draft';
 }
 
 export const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [

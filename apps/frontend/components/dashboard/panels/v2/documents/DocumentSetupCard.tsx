@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Search, User, Building2, X } from 'lucide-react';
+import { ClientSelectPopup } from './ClientSelectPopup';
 
 export interface DocumentTypeOption {
   id: string;
@@ -24,6 +26,26 @@ export interface CustomerOption {
   fullName: string;
   email: string | null;
   customerType: 'PERSONAL' | 'BUSINESS';
+  status?: 'ACTIVE' | 'INACTIVE';
+  // Extra fields for Client-tab auto-fill (prefill on selection).
+  phone?: string | null;
+  addressLine1?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
+  business?: {
+    primaryContactName?: string | null;
+    primaryContactEmail?: string | null;
+    primaryContactPhone?: string | null;
+    primaryContactAddressLine1?: string | null;
+    primaryContactCity?: string | null;
+    primaryContactState?: string | null;
+    primaryContactZipCode?: string | null;
+    businessAddressLine1?: string | null;
+    businessCity?: string | null;
+    businessState?: string | null;
+    businessZipCode?: string | null;
+  } | null;
 }
 
 export interface DocumentSetupValue {
@@ -40,6 +62,9 @@ interface DocumentSetupCardProps {
   value: DocumentSetupValue;
   onChange: (next: DocumentSetupValue) => void;
   disabled?: boolean;
+  /** MASTER sees the Form Version + Signature Template dropdowns. Others get the
+   *  simplified setup (type + date + client); form/template auto-load by type. */
+  isMaster?: boolean;
 }
 
 export function DocumentSetupCard({
@@ -48,11 +73,16 @@ export function DocumentSetupCard({
   value,
   onChange,
   disabled = false,
+  isMaster = false,
 }: DocumentSetupCardProps) {
+  const [clientPopupOpen, setClientPopupOpen] = useState(false);
+
   const selectedDocType = documentTypes.find((d) => d.id === value.documentTypeId);
   const formDefinitions = selectedDocType?.formDefinitions ?? [];
   const signatureTemplates = selectedDocType?.signatureTemplates ?? [];
+  const selectedCustomer = customers.find((c) => c.id === value.customerId) ?? null;
 
+  // TASK 4 — selecting a type auto-loads its form + template (hidden for non-master).
   function handleDocTypeChange(docTypeId: string) {
     const docType = documentTypes.find((d) => d.id === docTypeId);
     const firstFormDef = docType?.formDefinitions[0];
@@ -69,7 +99,7 @@ export function DocumentSetupCard({
     <div className="docs-v2-setup-card">
       <div className="docs-v2-setup-card__row">
         <label className="docs-v2-setup-card__field">
-          <span className="docs-v2-setup-card__label">Document Type</span>
+          <span className="docs-v2-setup-card__label">Document Type *</span>
           <select
             value={value.documentTypeId}
             disabled={disabled}
@@ -85,49 +115,8 @@ export function DocumentSetupCard({
           </select>
         </label>
 
-        {formDefinitions.length > 1 ? (
-          <label className="docs-v2-setup-card__field">
-            <span className="docs-v2-setup-card__label">Form Version</span>
-            <select
-              value={value.formDefinitionId}
-              disabled={disabled}
-              onChange={(e) =>
-                onChange({ ...value, formDefinitionId: e.target.value })
-              }
-              className="docs-v2-setup-card__input"
-            >
-              {formDefinitions.map((fd) => (
-                <option key={fd.id} value={fd.id}>
-                  {fd.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-      </div>
-
-      <div className="docs-v2-setup-card__row">
         <label className="docs-v2-setup-card__field">
-          <span className="docs-v2-setup-card__label">Signature Template</span>
-          <select
-            value={value.signatureTemplateId}
-            disabled={disabled || signatureTemplates.length === 0}
-            onChange={(e) =>
-              onChange({ ...value, signatureTemplateId: e.target.value })
-            }
-            className="docs-v2-setup-card__input"
-          >
-            <option value="">Select a template...</option>
-            {signatureTemplates.map((tpl) => (
-              <option key={tpl.id} value={tpl.id}>
-                {tpl.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="docs-v2-setup-card__field">
-          <span className="docs-v2-setup-card__label">Contract Date</span>
+          <span className="docs-v2-setup-card__label">Contract Date *</span>
           <input
             type="date"
             value={value.contractDate}
@@ -138,25 +127,95 @@ export function DocumentSetupCard({
         </label>
       </div>
 
-      <label className="docs-v2-setup-card__field docs-v2-setup-card__field--full">
+      {/* MASTER-only: explicit Form Version + Signature Template. For everyone
+          else these are auto-loaded from the selected type (TASK 4). */}
+      {isMaster ? (
+        <div className="docs-v2-setup-card__row">
+          <label className="docs-v2-setup-card__field">
+            <span className="docs-v2-setup-card__label">Form Version</span>
+            <select
+              value={value.formDefinitionId}
+              disabled={disabled || formDefinitions.length === 0}
+              onChange={(e) => onChange({ ...value, formDefinitionId: e.target.value })}
+              className="docs-v2-setup-card__input"
+            >
+              <option value="">Select a form...</option>
+              {formDefinitions.map((fd) => (
+                <option key={fd.id} value={fd.id}>
+                  {fd.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="docs-v2-setup-card__field">
+            <span className="docs-v2-setup-card__label">Signature Template</span>
+            <select
+              value={value.signatureTemplateId}
+              disabled={disabled || signatureTemplates.length === 0}
+              onChange={(e) => onChange({ ...value, signatureTemplateId: e.target.value })}
+              className="docs-v2-setup-card__input"
+            >
+              <option value="">Select a template...</option>
+              {signatureTemplates.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tpl.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      {/* Client (optional) — button that opens the select popup, or a chip. */}
+      <div className="docs-v2-setup-card__field docs-v2-setup-card__field--full">
         <span className="docs-v2-setup-card__label">
-          Customer <span className="docs-v2-setup-card__optional">(optional)</span>
+          Client <span className="docs-v2-setup-card__optional">(optional)</span>
         </span>
-        <select
-          value={value.customerId}
-          disabled={disabled}
-          onChange={(e) => onChange({ ...value, customerId: e.target.value })}
-          className="docs-v2-setup-card__input"
-        >
-          <option value="">No customer</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.fullName}
-              {c.email ? ` (${c.email})` : ''}
-            </option>
-          ))}
-        </select>
-      </label>
+        {selectedCustomer ? (
+          <div className="docs-v2-client-chip">
+            <span className="docs-v2-client-chip__icon">
+              {selectedCustomer.customerType === 'BUSINESS' ? (
+                <Building2 size={15} />
+              ) : (
+                <User size={15} />
+              )}
+            </span>
+            <span className="docs-v2-client-chip__text">
+              {selectedCustomer.fullName}
+              {selectedCustomer.email ? ` · ${selectedCustomer.email}` : ''}
+            </span>
+            <button
+              type="button"
+              className="docs-v2-client-chip__clear"
+              disabled={disabled}
+              onClick={() => onChange({ ...value, customerId: '' })}
+              aria-label="Remove client"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="docs-v2-client-search-btn"
+            disabled={disabled}
+            onClick={() => setClientPopupOpen(true)}
+          >
+            <Search size={15} />
+            <span>Search client...</span>
+          </button>
+        )}
+      </div>
+
+      {clientPopupOpen ? (
+        <ClientSelectPopup
+          customers={customers}
+          selectedId={value.customerId}
+          onSelect={(id) => onChange({ ...value, customerId: id })}
+          onClose={() => setClientPopupOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
