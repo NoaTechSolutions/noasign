@@ -1,4 +1,4 @@
-import { CustomerType } from '@prisma/client';
+import { CustomerStatus, CustomerType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
@@ -16,6 +16,10 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsEnum(CustomerType)
   customerType?: CustomerType;
+
+  @IsOptional()
+  @IsEnum(CustomerStatus)
+  status?: CustomerStatus;
 
   // Master may reassign ownership; non-master attempts are rejected by the
   // service layer.

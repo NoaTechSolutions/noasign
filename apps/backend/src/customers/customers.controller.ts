@@ -41,6 +41,15 @@ export class CustomersController {
     return this.customersService.list(req.user, query);
   }
 
+  // MUST come BEFORE @Get(':id') so the matcher doesn't treat "deleted" as a UUID param.
+  @Get('deleted')
+  async listDeleted(
+    @Req() req: AuthedRequest,
+    @Query() query: ListCustomersQueryDto,
+  ) {
+    return this.customersService.listDeleted(req.user, query);
+  }
+
   @Get(':id')
   async findOne(
     @Req() req: AuthedRequest,
@@ -65,5 +74,13 @@ export class CustomersController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     await this.customersService.delete(req.user, id);
+  }
+
+  @Post(':id/restore')
+  async restore(
+    @Req() req: AuthedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.customersService.restore(req.user, id);
   }
 }

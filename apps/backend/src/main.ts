@@ -3,6 +3,7 @@ import './instrument';
 
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 
@@ -30,9 +31,11 @@ function validateRequiredEnv() {
 async function bootstrap() {
   validateRequiredEnv();
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+  app.useBodyParser('json', { limit: '2mb' });
+  app.useBodyParser('urlencoded', { limit: '2mb', extended: true });
   const expressApp = app.getHttpAdapter().getInstance();
 
   expressApp.disable('x-powered-by');

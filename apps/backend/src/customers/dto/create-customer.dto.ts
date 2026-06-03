@@ -1,4 +1,4 @@
-import { CustomerType } from '@prisma/client';
+import { CustomerStatus, CustomerType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
@@ -16,6 +16,10 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsEnum(CustomerType)
   customerType?: CustomerType;
+
+  @IsOptional()
+  @IsEnum(CustomerStatus)
+  status?: CustomerStatus;
 
   // Master may assign ownership at create time. Non-master users have this
   // field overwritten by the service to their own id; the DTO accepts the

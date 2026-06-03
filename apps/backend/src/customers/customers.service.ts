@@ -131,6 +131,10 @@ export class CustomersService {
 
     const where: Prisma.CustomerWhereInput = {
       companyProfileId,
+      // `status` is the source of truth for the delete state. Non-master users
+      // never receive DELETED clients; master receives every status and the
+      // frontend filters client-side (hiding DELETED unless explicitly filtered).
+      ...(user.role === 'MASTER' ? {} : { status: { not: 'DELETED' } }),
       ...buildOwnershipFilter(user, query.userId),
     };
 
@@ -172,6 +176,7 @@ export class CustomersService {
       where: {
         id,
         companyProfileId,
+        deletedAt: null,
         ...buildOwnershipFilter(user),
       },
       include: {
@@ -204,6 +209,12 @@ export class CustomersService {
       throw new NotFoundException('Customer not found');
     }
 
+    // Non-master users can neither see nor touch DELETED clients — editing one
+    // (or restoring it out of DELETED via a status change) is master-only.
+    if (existing.status === 'DELETED' && user.role !== 'MASTER') {
+      throw new NotFoundException('Customer not found');
+    }
+
     // Reassignment: master only. Non-master attempts to change userId are
     // ignored silently (the field stays as-is) — the DTO is permissive on
     // shape, the service is the gate.
@@ -229,6 +240,13 @@ export class CustomersService {
     }
     if (nextOwnerUserId !== undefined) {
       customerData.user = { connect: { id: nextOwnerUserId } };
+    }
+
+    // Status is the source of truth for the delete state; keep deletedAt (audit)
+    // in sync on an actual transition. → DELETED stamps it; → ACTIVE/INACTIVE
+    // (i.e. a restore) clears it.
+    if (dto.status !== undefined && dto.status !== existing.status) {
+      customerData.deletedAt = dto.status === 'DELETED' ? new Date() : null;
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -283,6 +301,7 @@ export class CustomersService {
       where: {
         id,
         companyProfileId,
+        status: { not: 'DELETED' },
         ...buildOwnershipFilter(user),
       },
     });
@@ -291,8 +310,84 @@ export class CustomersService {
       throw new NotFoundException('Customer not found');
     }
 
-    // customer_businesses row cascades via Prisma onDelete: Cascade.
-    await this.prisma.customer.delete({ where: { id } });
+    // Soft delete via status. `deletedAt` is kept as an audit trail (when it was
+    // deleted) but `status` is what the queries filter on. MASTER can restore
+    // later via POST /customers/:id/restore. Hard delete is no longer exposed.
+    await this.prisma.customer.update({
+      where: { id },
+      data: { status: 'DELETED', deletedAt: new Date() },
+    });
+  }
+
+  async restore(user: AuthUser, id: string) {
+    if (user.role !== 'MASTER') {
+      throw new ForbiddenException('Only master users can restore customers');
+    }
+    const companyProfileId = requireTenant(user);
+
+    const existing = await this.prisma.customer.findFirst({
+      where: { id, companyProfileId, status: 'DELETED' },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Deleted customer not found');
+    }
+
+    await this.prisma.customer.update({
+      where: { id },
+      data: { status: 'ACTIVE', deletedAt: null },
+    });
+
+    return this.prisma.customer.findUniqueOrThrow({
+      where: { id },
+      include: {
+        _count: { select: { documents: true } },
+        business: true,
+        ...ownerInclude,
+      },
+    });
+  }
+
+  async listDeleted(
+    user: AuthUser,
+    query: ListCustomersQueryDto,
+  ): Promise<CustomerListResult> {
+    if (user.role !== 'MASTER') {
+      throw new ForbiddenException('Only master users can list deleted customers');
+    }
+    const companyProfileId = requireTenant(user);
+
+    const limit = query.limit ?? 25;
+    const offset = query.offset ?? 0;
+    const orderByField = query.orderBy ?? 'createdAt';
+    const orderDir = query.orderDir ?? 'desc';
+
+    const where: Prisma.CustomerWhereInput = {
+      companyProfileId,
+      status: 'DELETED',
+    };
+
+    const orderBy: Prisma.CustomerOrderByWithRelationInput =
+      orderByField === 'name'
+        ? { fullName: orderDir }
+        : { createdAt: orderDir };
+
+    const [customers, total] = await this.prisma.$transaction([
+      this.prisma.customer.findMany({
+        where,
+        orderBy,
+        skip: offset,
+        take: limit,
+        include: {
+          _count: { select: { documents: true } },
+          business: true,
+          ...ownerInclude,
+        },
+      }),
+      this.prisma.customer.count({ where }),
+    ]);
+
+    return { customers, total, limit, offset };
   }
 
   private async resolveOwnerForCreate(

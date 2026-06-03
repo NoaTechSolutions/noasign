@@ -68,6 +68,10 @@ const documentDetailInclude = {
   formDefinition: true,
   signatureTemplate: true,
   data: true,
+  customer: true,
+  companyProfile: true,
+  // select (not `true`) so the password hash never reaches the serialized detail.
+  user: { select: { id: true, email: true, firstName: true, lastName: true } },
 } satisfies Prisma.DocumentInclude;
 
 const publicDocumentInclude = {
@@ -508,16 +512,25 @@ export class DocumentsService {
       throw new NotFoundException('Document type not found');
     }
 
-    const latestDocument = await this.prisma.document.findFirst({
-      where: { documentTypeId },
+    // documentNumber is GLOBALLY @unique, so numbering stays global per type
+    // (NOT scoped per tenant — scoping the max to one tenant would generate
+    // numbers that collide with other tenants on the global constraint).
+    // Fetch only same-prefix rows and take the NUMERIC max: a plain string-sort
+    // "latest" breaks when dev/seed data mixes other formats (e.g.
+    // "SEED-LOCAL-PERSONAL-…-3"), which would be picked as latest and then
+    // collide on the unique constraint.
+    const prefix = `${documentType.code}-`;
+    const existing = await this.prisma.document.findMany({
+      where: { documentTypeId, documentNumber: { startsWith: prefix } },
       select: { documentNumber: true },
-      orderBy: { documentNumber: 'desc' },
     });
+    const maxNumber = existing.reduce((max, doc) => {
+      const suffix = doc.documentNumber.slice(prefix.length);
+      if (!/^\d+$/.test(suffix)) return max;
+      return Math.max(max, Number(suffix));
+    }, 0);
 
-    const latestMatch = latestDocument?.documentNumber.match(/-(\d+)$/);
-    const currentNumber = latestMatch ? Number(latestMatch[1]) : 0;
-    const nextNumber = currentNumber + 1;
-    return `${documentType.code}-${String(nextNumber).padStart(6, '0')}`;
+    return `${documentType.code}-${String(maxNumber + 1).padStart(6, '0')}`;
   }
 
   async createDraftDocument(userId: string, body: CreateDraftDocumentDto) {
@@ -1310,6 +1323,31 @@ export class DocumentsService {
       throw new BadRequestException(
         'Document is not linked to a signature provider',
       );
+    }
+
+    // Dev/test bypass: documents seeded with a 'test-pdf*' provider id have no
+    // real BoldSign document. Stream a self-generated sample PDF (no external
+    // dependency) so the preview/download UI can be exercised end-to-end. Never
+    // fires for real documents — their provider ids are BoldSign UUIDs.
+    if (document.providerDocumentId.startsWith('test-pdf')) {
+      const customerName =
+        document.customer?.fullName ?? document.customer?.email ?? 'N/A';
+      const buffer = buildSampleSignedPdf([
+        'SAMPLE SIGNED DOCUMENT',
+        '',
+        `Document: ${document.documentNumber}`,
+        `Customer: ${customerName}`,
+        `Status:   ${document.status}`,
+        '',
+        'This is a generated test PDF (no real BoldSign document).',
+      ]);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${document.documentNumber}.pdf"`,
+      );
+      res.send(buffer);
+      return;
     }
 
     const remoteStatus = await this.signatureProviderService.getDocumentStatus(
@@ -2217,6 +2255,8 @@ export class DocumentsService {
         zipCode: document.companyProfile?.zipCode ?? '',
         country: document.companyProfile?.country ?? '',
         licenseNumber: document.companyProfile?.licenseNumber ?? '',
+        insuranceName: document.companyProfile?.insuranceName ?? '',
+        insurancePhone: document.companyProfile?.insurancePhone ?? '',
       },
       contact: {
         firstName: document.companyProfile?.contactFirstName ?? '',
@@ -2270,6 +2310,14 @@ export class DocumentsService {
       this.readScalarString(context.data.state),
       this.readScalarString(context.data.zip),
     );
+    // Project address combined — the BoldSign template exposes a single
+    // `project_city_state_zip` field (the form keeps city/state/zip separate),
+    // mirroring the customer_city_state_zip derivation above.
+    const projectCityStateZip = this.formatCityStateZip(
+      this.readScalarString(context.data.project_city),
+      this.readScalarString(context.data.project_state),
+      this.readScalarString(context.data.project_zip),
+    );
 
     this.assignScalarValue(
       fallback,
@@ -2307,6 +2355,17 @@ export class DocumentsService {
       fallback,
       'company_city_state_zip',
       companyCityStateZip,
+    );
+    // Insurance (from CompanyProfile) — matches the template's insurance fields.
+    this.assignScalarValue(
+      fallback,
+      'insurance_name',
+      context.company.insuranceName,
+    );
+    this.assignScalarValue(
+      fallback,
+      'insurance_phone',
+      context.company.insurancePhone,
     );
     this.assignScalarValue(
       fallback,
@@ -2365,6 +2424,11 @@ export class DocumentsService {
       fallback,
       'customer_city_state_zip',
       customerCityStateZip,
+    );
+    this.assignScalarValue(
+      fallback,
+      'project_city_state_zip',
+      projectCityStateZip,
     );
 
     for (const [key, value] of Object.entries(context.data)) {
@@ -2550,4 +2614,47 @@ export class DocumentsService {
     }
     return null;
   }
+}
+
+/**
+ * Builds a minimal, valid single-page PDF with the given text lines. Offsets in
+ * the xref table are computed from the actual byte positions (not hardcoded), so
+ * the file is well-formed. Used only by the 'test-pdf*' dev bypass — no external
+ * dependency, no PDF library needed.
+ */
+function buildSampleSignedPdf(lines: string[]): Buffer {
+  const esc = (s: string) =>
+    s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+  const content =
+    lines
+      .map(
+        (line, i) =>
+          `BT /F1 ${i === 0 ? 18 : 12} Tf 72 ${720 - i * 22} Td (${esc(line)}) Tj ET`,
+      )
+      .join('\n') + '\n';
+
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+
+  let body = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((obj, idx) => {
+    offsets[idx] = Buffer.byteLength(body);
+    body += `${idx + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+
+  const xrefOffset = Buffer.byteLength(body);
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) {
+    xref += `${off.toString().padStart(10, '0')} 00000 n \n`;
+  }
+  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return Buffer.from(body + xref + trailer, 'latin1');
 }
