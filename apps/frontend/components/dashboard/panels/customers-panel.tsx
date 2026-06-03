@@ -227,8 +227,8 @@ export function CustomersPanel(props: {
 
   return (
     <ModuleLayout
-      title="Customers"
-      description="Manage your customer book"
+      title="Clients"
+      description="Manage your client book"
       icon={<UserRound className="h-5 w-5" />}
     >
       <section className="grid gap-4">
@@ -236,7 +236,7 @@ export function CustomersPanel(props: {
       <div className="rounded-[1.9rem] border border-[color:var(--border)] bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">Customers workspace</h2>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">Clients workspace</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               Manage the people you send documents to. Reuse their contact data on future drafts.
             </p>
@@ -257,7 +257,7 @@ export function CustomersPanel(props: {
             onClick={() => setTypeSelectorOpen(true)}
             className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[color:var(--button-primary)] px-4 text-sm font-medium text-white transition hover:bg-[color:var(--button-primary-hover)] md:w-auto"
           >
-            New customer
+            New client
           </button>
         </div>
       </div>
@@ -268,7 +268,7 @@ export function CustomersPanel(props: {
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Results</div>
             <div className="mt-1 text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
-              {props.isLoading ? "Loading..." : `${total} ${total === 1 ? "customer" : "customers"}`}
+              {props.isLoading ? "Loading..." : `${total} ${total === 1 ? "client" : "clients"}`}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -305,9 +305,9 @@ export function CustomersPanel(props: {
         </div>
 
         {props.isLoading ? (
-          <div className="p-5"><EmptyBlock text="Loading customers..." /></div>
+          <div className="p-5"><EmptyBlock text="Loading clients..." /></div>
         ) : total === 0 ? (
-          <div className="p-5"><EmptyBlock text={props.searchQuery ? `No customers matching "${props.searchQuery}".` : "No customers yet. Click 'New customer' to start."} /></div>
+          <div className="p-5"><EmptyBlock text={props.searchQuery ? `No clients matching "${props.searchQuery}".` : "No clients yet. Click 'New client' to start."} /></div>
         ) : (
           <>
             {/* Desktop header. Master view drops Phone (signal-light column
@@ -357,7 +357,7 @@ export function CustomersPanel(props: {
                             : "text-[color:var(--text-secondary)] hover:bg-white/80 dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                         )}
                       >
-                        <span>All customers</span>
+                        <span>All clients</span>
                         {ownerFilter === "" ? (
                           <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span>
                         ) : null}
@@ -377,7 +377,7 @@ export function CustomersPanel(props: {
                               : "text-[color:var(--text-secondary)] hover:bg-white/80 dark:text-[color:var(--text-primary)] dark:hover:bg-white/8",
                           )}
                         >
-                          <span>My customers</span>
+                          <span>My clients</span>
                           {ownerFilter === props.currentUserId ? (
                             <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span>
                           ) : null}
@@ -590,7 +590,7 @@ export function CustomersPanel(props: {
           onClose={() => setCreateOpen(false)}
           onSubmit={async (values) => {
             await props.onCreateCustomer(values);
-            setSuccessMessage("Customer saved successfully");
+            setSuccessMessage("Client saved successfully");
           }}
         />
       ) : null}
@@ -605,7 +605,7 @@ export function CustomersPanel(props: {
           onClose={() => setEditingCustomer(null)}
           onSubmit={async (values) => {
             await props.onUpdateCustomer(editingCustomer.id, values);
-            setSuccessMessage("Customer saved successfully");
+            setSuccessMessage("Client saved successfully");
           }}
         />
       ) : null}
@@ -703,7 +703,7 @@ function CustomerListActions({
         }}
         disabled={deleting}
         className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)] hover:text-[color:var(--text-primary)] disabled:opacity-50"
-        aria-label="Customer actions"
+        aria-label="Client actions"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
@@ -758,10 +758,10 @@ function CustomerDeleteDialog({ customer, isDeleting, onCancel, onConfirm }: {
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-start justify-center md:items-center bg-black/60 backdrop-blur p-4 pt-20 md:pt-0">
       <div className="w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-dropdown)]">
-        <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Delete customer?</h2>
+        <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">Delete client?</h2>
         <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
           This will permanently remove <strong>{customer.fullName}</strong>. Any existing documents
-          linked to this customer keep their snapshot — only the relation is cleared.
+          linked to this client keep their snapshot — only the relation is cleared.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
@@ -915,10 +915,10 @@ function CustomerTypeSelectorDialog({
     >
       <div className="w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
         <h2 className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
-          New customer
+          New client
         </h2>
         <p className="mt-2 text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">
-          What kind of customer would you like to add?
+          What kind of client would you like to add?
         </p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
@@ -1061,7 +1061,7 @@ function CustomerViewDrawer({
       ];
     }
     return [
-      { key: "info", label: "Customer Info" },
+      { key: "info", label: "Client Info" },
       { key: "documents", label: "Documents" },
     ];
   }, [isBusiness]);
@@ -1160,7 +1160,7 @@ function CustomerViewDrawer({
         <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5">
           <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-              Customer
+              Client
             </div>
             <div className="mt-1 flex items-center gap-2">
               <h2 className="min-w-0 truncate text-xl font-semibold text-[color:var(--text-primary)]">
@@ -1213,16 +1213,16 @@ function CustomerViewDrawer({
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {isLoading ? (
-            <EmptyBlock text="Loading customer..." />
+            <EmptyBlock text="Loading client..." />
           ) : !customer ? (
-            <EmptyBlock text="Customer not found." />
+            <EmptyBlock text="Client not found." />
           ) : activeTab === "documents" ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-[color:var(--text-muted)]">
                   {customerDocuments.length}{" "}
                   {customerDocuments.length === 1 ? "document" : "documents"}{" "}
-                  linked to this customer
+                  linked to this client
                 </p>
                 <button
                   type="button"
@@ -1235,7 +1235,7 @@ function CustomerViewDrawer({
                 </button>
               </div>
               {customerDocuments.length === 0 ? (
-                <EmptyBlock text="No documents linked to this customer yet." />
+                <EmptyBlock text="No documents linked to this client yet." />
               ) : (
                 <>
                   {/* Mobile + Tablet: card layout (<1024px) */}
@@ -1806,7 +1806,7 @@ function CustomerFormDrawer({
       await onSubmit(submitValues);
       onClose();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Unable to save customer");
+      setSubmitError(err instanceof Error ? err.message : "Unable to save client");
     } finally {
       setIsSubmitting(false);
     }
@@ -1843,10 +1843,10 @@ function CustomerFormDrawer({
         <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5">
           <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
-              {mode === "create" ? "New customer" : "Edit customer"}
+              {mode === "create" ? "New client" : "Edit client"}
             </div>
             <h2 className="mt-1 truncate text-xl font-semibold text-[color:var(--text-primary)]">
-              {mode === "create" ? "Add a customer" : customer?.fullName ?? "Customer"}
+              {mode === "create" ? "Add a client" : customer?.fullName ?? "Client"}
             </h2>
           </div>
           <button
@@ -1982,7 +1982,7 @@ function CustomerFormDrawer({
                 type="textarea"
                 value={values.notes}
                 onChange={(v) => update("notes", v.slice(0, 2000))}
-                placeholder="Anything worth remembering about this customer..."
+                placeholder="Anything worth remembering about this client..."
               />
             </div>
           ) : activeTab === "company" ? (
@@ -2220,7 +2220,7 @@ function CustomerFormDrawer({
                 type="textarea"
                 value={values.notes}
                 onChange={(v) => update("notes", v.slice(0, 2000))}
-                placeholder="Anything worth remembering about this customer..."
+                placeholder="Anything worth remembering about this client..."
               />
             </div>
           )}
@@ -2266,7 +2266,7 @@ function CustomerFormDrawer({
                     activeTab === "company"
                   ? "Next"
                   : mode === "create"
-                    ? "Create customer"
+                    ? "Create client"
                     : "Save changes"}
             </button>
           </div>

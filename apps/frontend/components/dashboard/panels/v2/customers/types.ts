@@ -15,6 +15,11 @@ export interface Customer {
   zipCode: string | null;
   country: string | null;
   notes: string | null;
+  status?: 'ACTIVE' | 'INACTIVE' | 'DELETED';
+  // ISO timestamp kept as an audit trail of when the client was deleted. The
+  // delete STATE is now driven by status === 'DELETED' (deletedAt is metadata).
+  // Optional because page.tsx's own Customer type (off-limits) doesn't include it.
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   business?: CustomerBusiness | null;
@@ -71,6 +76,7 @@ export interface CustomerFormData {
   zipCode?: string;
   country?: string;
   notes?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
   business?: CustomerBusinessFormData;
 }
 

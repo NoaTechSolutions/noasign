@@ -34,7 +34,7 @@ export function DeleteCustomerModal({ customer, onConfirm, onClose }: DeleteCust
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-content--sm" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Delete customer</h2>
+          <h2>Delete client</h2>
           <button type="button" className="modal-close" onClick={onClose}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/>
@@ -55,7 +55,7 @@ export function DeleteCustomerModal({ customer, onConfirm, onClose }: DeleteCust
                 <line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
               <div>
-                <strong>Warning:</strong> This customer has {documentCount} associated document{documentCount !== 1 ? 's' : ''}.
+                <strong>Warning:</strong> This client has {documentCount} associated document{documentCount !== 1 ? 's' : ''}.
               </div>
             </div>
           )}
@@ -72,7 +72,7 @@ export function DeleteCustomerModal({ customer, onConfirm, onClose }: DeleteCust
             onClick={handleConfirm}
             disabled={deleting}
           >
-            {deleting ? 'Deleting...' : 'Delete customer'}
+            {deleting ? 'Deleting...' : 'Delete client'}
           </button>
         </div>
       </div>
