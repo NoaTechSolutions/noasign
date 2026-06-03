@@ -1,6 +1,10 @@
 import React from 'react';
+import { Shield, Pencil } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
+import { FieldRow, ProfileSectionSkeleton } from '@/components/dashboard/shared/ui';
+import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { formatUsPhone } from '@/lib/format-phone';
+import { formatTitleCase } from '@/lib/format-text';
 
 interface InsuranceInfo {
   company?: string;
@@ -9,85 +13,71 @@ interface InsuranceInfo {
   phone?: string;
 }
 
-interface InsuranceInformationSectionProps {
+interface Props {
   insurance: InsuranceInfo;
   isLoading: boolean;
-  onChange: (field: string, value: string) => void;
+  editingGroup: string | null;
+  onOpenGroup: (group: string) => void;
+  onCloseGroup: () => void;
+  onSaveGroup: () => void;
+  isDirty: boolean;
+  onInsuranceChange: (field: string, value: string) => void;
+}
+
+function GroupHeader({ icon, title, groupKey, onEdit }: { icon: React.ReactNode; title: string; groupKey: string; onEdit: (g: string) => void }) {
+  return (
+    <>
+      <span className="card-legend__label">
+        <span className="card-legend__icon">{icon}</span>
+        <span className="card-legend__title">{title}</span>
+      </span>
+      <button type="button" className="card-legend__edit gep-edit-btn" onClick={() => onEdit(groupKey)} aria-label={`Edit ${title}`}>
+        <Pencil size={13} />
+      </button>
+    </>
+  );
 }
 
 export function InsuranceInformationSection({
   insurance,
   isLoading,
-  onChange,
-}: InsuranceInformationSectionProps) {
+  editingGroup,
+  onOpenGroup,
+  onCloseGroup,
+  onSaveGroup,
+  isDirty,
+  onInsuranceChange,
+}: Props) {
   if (isLoading) {
     return (
       <CollapsibleSection title="Insurance Information" subtitle="Optional" isLoading={true}>
-        <div className="profile-form-grid">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="form-field">
-              <div className="skeleton-pulse skeleton-line" style={{ width: '80px', height: '14px', marginBottom: '8px' }}></div>
-              <div className="skeleton-pulse skeleton-line" style={{ width: '100%', height: '40px' }}></div>
-            </div>
-          ))}
-        </div>
+        <ProfileSectionSkeleton rows={2} />
       </CollapsibleSection>
     );
   }
 
   return (
     <CollapsibleSection title="Insurance Information" subtitle="Optional" defaultExpanded={false}>
-      <div className="profile-form-grid">
-        {/* Row 1: Insurance Company (full width) */}
-        <div className="form-field form-field-full">
-          <label className="form-label">Insurance Company</label>
-          <input
-            type="text"
-            className="form-input"
-            value={insurance.company || ''}
-            onChange={(e) => onChange('insuranceCompany', e.target.value)}
-            placeholder="e.g., State Farm, Allstate"
-          />
-        </div>
-
-        {/* Row 2: Policy Number, Phone */}
-        <div className="form-field">
-          <label className="form-label">Policy Number</label>
-          <input
-            type="text"
-            className="form-input"
-            value={insurance.policyNumber || ''}
-            onChange={(e) => onChange('insurancePolicyNumber', e.target.value)}
-            placeholder="ABC123456789"
-          />
-        </div>
-
-        <div className="form-field">
-          <label className="form-label">Insurance Phone</label>
-          <input
-            type="tel"
-            className="form-input"
-            value={insurance.phone || ''}
-            onChange={(e) => onChange('insurancePhone', formatUsPhone(e.target.value))}
-            placeholder="(555) 000-0000"
-          />
-        </div>
-
-        {/* Row 3: Expiry Date */}
-        <div className="form-field">
-          <label className="form-label">Expiry Date</label>
-          <input
-            type="date"
-            className="form-input"
-            value={insurance.expiryDate || ''}
-            onChange={(e) => onChange('insuranceExpiryDate', e.target.value)}
-          />
+      <div className="form-group card-legend">
+        <GroupHeader icon={<Shield className="group-pair-header__icon" size={14} />} title="Policy" groupKey="ins-policy" onEdit={onOpenGroup} />
+        <div className="group-pair" style={{ border: 'none', padding: 0 }}>
+          <div className="field-rows">
+            <FieldRow label="Company" value={insurance.company} />
+            <FieldRow label="Policy #" value={insurance.policyNumber} />
+          </div>
+          <div className="field-rows">
+            <FieldRow label="Phone" value={insurance.phone} />
+            <FieldRow label="Expiry Date" value={insurance.expiryDate} />
+          </div>
         </div>
       </div>
 
-      <p className="form-hint-section">
-        Insurance information is optional and will be included in generated documents when provided.
-      </p>
+      <GroupEditPopup title="Policy" isOpen={editingGroup === 'ins-policy'} onClose={onCloseGroup} onSave={onSaveGroup} isDirty={isDirty}>
+        <div className="form-field"><label className="form-label">Insurance Company</label><input type="text" className="form-input" value={insurance.company || ''} onChange={(e) => onInsuranceChange('insuranceCompany', formatTitleCase(e.target.value))} placeholder="e.g., State Farm" /></div>
+        <div className="form-field"><label className="form-label">Policy Number</label><input type="text" className="form-input" value={insurance.policyNumber || ''} onChange={(e) => onInsuranceChange('insurancePolicyNumber', e.target.value)} /></div>
+        <div className="form-field"><label className="form-label">Phone</label><input type="tel" className="form-input" value={insurance.phone || ''} onChange={(e) => onInsuranceChange('insurancePhone', formatUsPhone(e.target.value))} placeholder="(555) 000-0000" /></div>
+        <div className="form-field"><label className="form-label">Expiry Date</label><input type="date" className="form-input" value={insurance.expiryDate || ''} onChange={(e) => onInsuranceChange('insuranceExpiryDate', e.target.value)} /></div>
+      </GroupEditPopup>
     </CollapsibleSection>
   );
 }

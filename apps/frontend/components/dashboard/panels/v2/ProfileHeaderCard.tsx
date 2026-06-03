@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
+import { Pencil } from 'lucide-react';
+import { compressImage } from '@/lib/compress-image';
 
 interface User {
   firstName: string;
   lastName: string;
+  email: string;
   role: string;
+  accountType?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface CompanyProfile {
@@ -12,117 +17,185 @@ interface CompanyProfile {
   plan?: string;
 }
 
+interface ProfileStats {
+  totalDocuments: number;
+  completedDocuments: number;
+  memberSince: string | null;
+  planName: string;
+}
+
 interface ProfileHeaderCardProps {
   user: User | null;
   companyProfile: CompanyProfile | null;
   isLoading: boolean;
   onLogoChange?: (logoUrl: string) => void;
+  onAvatarChange?: (avatarUrl: string) => void;
+  stats?: ProfileStats;
+  onNavigate?: (panel: string) => void;
 }
 
-export function ProfileHeaderCard({ 
-  user, 
-  companyProfile, 
-  isLoading,
-  onLogoChange 
-}: ProfileHeaderCardProps) {
-  const [logoPreview, setLogoPreview] = useState<string | null>(companyProfile?.logoUrl || null);
+const MAX_PLANS = ['SCALE', 'ENTERPRISE'];
 
-  const getRoleBadgeClass = (role: string) => {
-    const roleLower = role.toLowerCase();
-    if (roleLower === 'master') return 'role-badge-master';
-    if (roleLower === 'admin') return 'role-badge-admin';
-    return 'role-badge-user';
-  };
+function formatMemberSince(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+export function ProfileHeaderCard({
+  user,
+  companyProfile,
+  isLoading,
+  onAvatarChange,
+  stats,
+  onNavigate,
+}: ProfileHeaderCardProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const getAccountBadgeClass = (type: string) =>
+    type.toUpperCase() === 'INDIVIDUAL' ? 'account-badge-individual' : 'account-badge-business';
 
   const getPlanBadgeClass = (plan: string) => {
-    const planUpper = plan.toUpperCase();
-    if (planUpper === 'LAUNCH') return 'plan-badge-launch';
-    if (planUpper === 'PRO') return 'plan-badge-pro';
-    if (planUpper === 'SCALE') return 'plan-badge-scale';
+    const p = plan.toUpperCase();
+    if (p === 'LAUNCH') return 'plan-badge-launch';
+    if (p === 'PRO') return 'plan-badge-pro';
+    if (p === 'SCALE') return 'plan-badge-scale';
     return 'plan-badge-starter';
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      setLogoPreview(base64);
-      onLogoChange?.(base64);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 400, 0.8);
+      onAvatarChange?.(compressed);
+    } catch {
+      console.error('Failed to compress avatar image');
+    }
   };
 
   if (isLoading) {
     return (
       <div className="profile-header-card">
         <div className="profile-header-content">
-          <div className="profile-header-logo">
-            <div className="skeleton-pulse" style={{ width: '80px', height: '80px', borderRadius: '12px' }}></div>
-          </div>
+          <div className="skeleton-pulse" style={{ width: '56px', height: '56px', borderRadius: '50%', flexShrink: 0 }}></div>
           <div className="profile-header-info">
-            <div className="skeleton-pulse skeleton-line" style={{ width: '200px', height: '24px', marginBottom: '8px' }}></div>
-            <div className="skeleton-pulse skeleton-line" style={{ width: '150px', height: '18px', marginBottom: '12px' }}></div>
+            <div className="skeleton-pulse skeleton-line" style={{ width: '180px', height: '20px', marginBottom: '6px' }}></div>
+            <div className="skeleton-pulse skeleton-line" style={{ width: '140px', height: '14px', marginBottom: '10px' }}></div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <div className="skeleton-pulse skeleton-line" style={{ width: '60px', height: '24px' }}></div>
-              <div className="skeleton-pulse skeleton-line" style={{ width: '80px', height: '24px' }}></div>
+              <div className="skeleton-pulse skeleton-line" style={{ width: '80px', height: '22px' }}></div>
+              <div className="skeleton-pulse skeleton-line" style={{ width: '60px', height: '22px' }}></div>
             </div>
           </div>
+        </div>
+        <div className="profile-stats-row">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="profile-stat">
+              <div className="skeleton-pulse skeleton-line" style={{ width: '60px', height: '12px', marginBottom: '6px' }}></div>
+              <div className="skeleton-pulse skeleton-line" style={{ width: '40px', height: '22px' }}></div>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : '';
-  const companyName = companyProfile?.companyName || 'Your Company';
-  const plan = companyProfile?.plan || 'STARTER';
+  const plan = companyProfile?.plan || stats?.planName || 'STARTER';
+  const isIndividual = user?.accountType?.toUpperCase() === 'INDIVIDUAL';
+  const accountType = user?.accountType;
+  const memberSince = formatMemberSince(stats?.memberSince);
+  const showUpgrade = !MAX_PLANS.includes(plan.toUpperCase());
+
+  const initials = (() => {
+    if (user?.firstName && user?.lastName) return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    if (user?.firstName) return user.firstName.slice(0, 2).toUpperCase();
+    if (user?.email) return user.email.slice(0, 2).toUpperCase();
+    return '?';
+  })();
 
   return (
-    <div className="profile-header-card">
+    <div className={`profile-header-card ${isIndividual ? '' : 'profile-header-card--business'}`}>
       <div className="profile-header-content">
-        {/* Logo with edit icon */}
-        <div className="profile-header-logo-wrapper">
-          <div className="profile-header-logo">
-            {logoPreview ? (
-              <img src={logoPreview} alt={companyName} />
+        {/* Avatar */}
+        <div className={`profile-header-avatar-wrapper ${isIndividual ? '' : 'profile-header-avatar-wrapper--lg'}`}>
+          <div className={`profile-header-avatar ${isIndividual ? '' : 'profile-header-avatar--lg'}`}>
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={fullName} />
             ) : (
-              <div className="profile-header-logo-placeholder">
-                <span>🏢</span>
-              </div>
+              <span>{initials}</span>
             )}
           </div>
-          <label htmlFor="header-logo-upload" className="profile-header-logo-edit">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M11.333 2.00004C11.5081 1.82494 11.716 1.68605 11.9447 1.59129C12.1735 1.49653 12.4187 1.44775 12.6663 1.44775C12.914 1.44775 13.1592 1.49653 13.3879 1.59129C13.6167 1.68605 13.8246 1.82494 13.9997 2.00004C14.1748 2.17513 14.3137 2.383 14.4084 2.61178C14.5032 2.84055 14.552 3.08575 14.552 3.33337C14.552 3.58099 14.5032 3.82619 14.4084 4.05497C14.3137 4.28374 14.1748 4.49161 13.9997 4.66671L5.33301 13.3334L1.66634 14.3334L2.66634 10.6667L11.333 2.00004Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </label>
+          <button
+            type="button"
+            className="profile-header-avatar-upload"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Upload profile photo"
+            title="Upload photo"
+          >
+            <Pencil size={12} />
+          </button>
           <input
+            ref={fileInputRef}
             type="file"
-            id="header-logo-upload"
-            accept="image/*"
-            onChange={handleLogoUpload}
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleAvatarUpload}
             style={{ display: 'none' }}
           />
         </div>
 
-        {/* Info */}
+        {/* Center: name, email, badges */}
         <div className="profile-header-info">
-          <h1 className="profile-header-company">{companyName}</h1>
-          {fullName && (
-            <p className="profile-header-user">{fullName}</p>
+          {isIndividual ? (
+            <h1 className="profile-header-company">{fullName || 'Your Profile'}</h1>
+          ) : (
+            <>
+              <h1 className="profile-header-company">{companyProfile?.companyName || 'Your Company'}</h1>
+              {fullName && <p className="profile-header-user">{fullName}</p>}
+            </>
           )}
+          {user?.email && <p className="profile-header-email">{user.email}</p>}
           <div className="profile-header-badges">
-            {user && (
-              <span className={`role-badge ${getRoleBadgeClass(user.role)}`}>
-                {user.role}
+            {accountType && (
+              <span className={`account-badge ${getAccountBadgeClass(accountType)}`}>
+                {accountType}
               </span>
             )}
             <span className={`plan-badge ${getPlanBadgeClass(plan)}`}>
               {plan}
             </span>
           </div>
+        </div>
+
+        {/* Right: member since + upgrade */}
+        <div className="profile-header-right">
+          <span className="profile-header-member-since">Member since {memberSince}</span>
+          {showUpgrade && (
+            <button
+              type="button"
+              className="profile-header-upgrade"
+              onClick={() => onNavigate?.('billing')}
+            >
+              Upgrade plan
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="profile-stats-row">
+        <div className="profile-stat">
+          <span className="profile-stat__label">Documents</span>
+          <span className="profile-stat__value">{stats?.totalDocuments ?? '—'}</span>
+        </div>
+        <div className="profile-stat">
+          <span className="profile-stat__label">Completed</span>
+          <span className="profile-stat__value">{stats?.completedDocuments ?? '—'}</span>
+        </div>
+        <div className="profile-stat">
+          <span className="profile-stat__label">Member since</span>
+          <span className="profile-stat__value">{memberSince}</span>
         </div>
       </div>
     </div>

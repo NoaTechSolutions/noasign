@@ -300,6 +300,24 @@ function loadImageElement(source: string) {
   });
 }
 
+const NICHE_OPTIONS = [
+  "Music / Entertainment",
+  "Cooking / Gastronomy",
+  "Sales / Retail",
+  "Photography / Video",
+  "Design / Creative",
+  "Content Creator",
+  "Consulting",
+  "Education / Tutoring",
+  "Fitness / Personal Training",
+  "Beauty / Styling",
+  "Crafts / Handmade",
+  "Real Estate",
+  "Technology / Development",
+  "Health / Wellness",
+  "Construction / Trades",
+];
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ProfilePanel({
@@ -382,6 +400,9 @@ export function ProfilePanel({
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [showCustomNiche, setShowCustomNiche] = useState(
+    () => user?.title != null && user.title !== "" && !NICHE_OPTIONS.includes(user.title),
+  );
 
   useEffect(() => {
     setUserProfileForm({
@@ -875,7 +896,41 @@ export function ProfilePanel({
                 <div className="mt-4 grid gap-3">
                   <div className="grid gap-3 md:grid-cols-2">
                     <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={userProfileForm.fullName} onChange={(value) => setUserProfileForm((c) => ({ ...c, fullName: toTitleCase(value.replace(/\d/g, "")) }))} />
-                    <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={userProfileForm.title} onChange={(value) => setUserProfileForm((c) => ({ ...c, title: toTitleCase(value) }))} />
+                    <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
+                        <span className="text-[color:var(--text-muted)]"><Briefcase className="h-4 w-4" /></span>
+                        Niche
+                      </div>
+                      <select
+                        value={showCustomNiche ? "__other__" : userProfileForm.title}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "__other__") {
+                            setShowCustomNiche(true);
+                            setUserProfileForm((c) => ({ ...c, title: "" }));
+                          } else {
+                            setShowCustomNiche(false);
+                            setUserProfileForm((c) => ({ ...c, title: val }));
+                          }
+                        }}
+                        className="mt-3 h-11 w-full appearance-none rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]"
+                      >
+                        <option value="">Select your niche…</option>
+                        {NICHE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                        <option value="__other__">Other</option>
+                      </select>
+                      {showCustomNiche ? (
+                        <input
+                          type="text"
+                          placeholder="Describe your niche…"
+                          value={userProfileForm.title}
+                          onChange={(e) => setUserProfileForm((c) => ({ ...c, title: e.target.value }))}
+                          className="mt-2 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]"
+                        />
+                      ) : null}
+                    </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} onChange={() => {}} disabled={true} />
@@ -892,7 +947,7 @@ export function ProfilePanel({
                 <div className="mt-4 grid gap-3">
                   <div className="grid gap-3 md:grid-cols-2">
                     <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={[user.firstName, user.lastName].filter(Boolean).join(" ")} />
-                    <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={user.title} />
+                    <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Niche" value={user.title} />
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} />

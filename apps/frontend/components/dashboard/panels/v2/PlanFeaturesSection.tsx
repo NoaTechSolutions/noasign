@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Sparkles, Check, X, ArrowLeftRight } from 'lucide-react';
 
 interface PlanFeaturesSectionProps {
   planName: string;
@@ -19,69 +20,113 @@ interface PlanFeaturesSectionProps {
     prioritySupport: boolean;
     retention: string;
   };
+  overageRate: number;
+  onCompare: () => void;
 }
 
-export function PlanFeaturesSection({ planName, planPrice, limits, features }: PlanFeaturesSectionProps) {
-  const CheckIcon = () => (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12"/>
-    </svg>
-  );
+export function PlanFeaturesSection({
+  planName,
+  planPrice,
+  limits,
+  features,
+  overageRate,
+  onCompare,
+}: PlanFeaturesSectionProps) {
+  const metrics: { label: string; value: string }[] = [
+    {
+      label: 'Documents/mo',
+      value: String(limits.documents),
+    },
+    {
+      label: 'Users',
+      value: String(limits.users),
+    },
+    {
+      label: 'Templates',
+      value: limits.templates == null ? 'Unlimited' : String(limits.templates),
+    },
+    {
+      label: 'History',
+      value: features.retention,
+    },
+    {
+      label: 'Overage',
+      value: `$${overageRate.toFixed(2)}/doc`,
+    },
+  ];
 
-  const XIcon = () => (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18"/>
-      <line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-  );
-
-  const included = [
-    { text: <><strong>{limits.documents}</strong> documents per month</>, ok: true },
-    { text: <><strong>{limits.users}</strong> team users</>, ok: true },
-    { text: <><strong>{limits.templates === null ? 'Unlimited' : limits.templates}</strong> active templates</>, ok: true },
-    { text: 'User management', ok: features.userManagement },
-    { text: 'Multi-signer / sequential signing', ok: features.multiSigner },
-    { text: 'Automatic reminders', ok: true },
-    { text: 'Document expiration', ok: true },
-    { text: `${features.retention} document retention`, ok: true }
-  ].filter(f => f.ok);
-
-  const notIncluded = [
-    { text: 'Custom branding', ok: features.branding, hint: 'available in Pro' },
-    { text: 'Bulk send', ok: features.bulkSend, hint: 'available in Pro' },
-    { text: 'Analytics & reporting', ok: features.analytics, hint: 'available in Pro' }
+  const featureRows: { label: string; enabled: boolean }[] = [
+    { label: 'Team management', enabled: features.userManagement },
+    { label: 'Multi-signer', enabled: features.multiSigner },
+    { label: 'Auto reminders', enabled: true },
+    { label: 'Custom branding', enabled: features.branding },
+    { label: 'Analytics', enabled: features.analytics },
   ];
 
   return (
-    <div className="bill-section">
-      <div className="bill-section__head">
-        <h2 className="bill-section__title">Plan Features</h2>
-        <span style={{ fontSize: '11.5px', color: 'var(--text-label)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-          {planName} · ${planPrice}/mo
+    <div className="billing-features-card">
+      {/* Header */}
+      <div className="billing-features-card__head">
+        <span className="billing-features-card__head-left">
+          <span className="billing-features-card__icon">
+            <Sparkles size={15} />
+          </span>
+          <h2 className="billing-features-card__title">
+            {planName} plan features
+          </h2>
+        </span>
+        <span className="billing-features-card__subtitle">
+          Everything in Starter +
         </span>
       </div>
-      <div className="bill-section__body">
-        <ul className="features-list">
-          {included.map((item, index) => (
-            <li key={index} className="features-list__item features-list__item--ok">
-              <span className="features-list__icon" aria-hidden="true">
-                <CheckIcon />
-              </span>
-              <span>{item.text}</span>
-            </li>
+
+      {/* Two-column body */}
+      <div className="billing-features-card__body">
+        {/* Left — metrics */}
+        <div className="billing-features-card__col">
+          {metrics.map((m) => (
+            <div key={m.label} className="billing-feat-metric">
+              <span className="billing-feat-metric__label">{m.label}</span>
+              <span className="billing-feat-metric__value">{m.value}</span>
+            </div>
           ))}
-          {notIncluded.map((item, index) => (
-            <li key={`not-${index}`} className={`features-list__item ${item.ok ? 'features-list__item--ok' : 'features-list__item--miss'}`}>
-              <span className="features-list__icon" aria-hidden="true">
-                {item.ok ? <CheckIcon /> : <XIcon />}
-              </span>
-              <span>
-                {item.text}
-                {!item.ok && <span className="features-list__hint">{item.hint}</span>}
-              </span>
-            </li>
+        </div>
+
+        {/* Vertical separator */}
+        <div className="billing-features-card__divider" aria-hidden="true" />
+
+        {/* Right — feature toggles */}
+        <div className="billing-features-card__col">
+          {featureRows.map((f) => (
+            <div key={f.label} className="billing-feat-row">
+              {f.enabled ? (
+                <span className="billing-feat-row__icon--ok">
+                  <Check size={14} />
+                </span>
+              ) : (
+                <span className="billing-feat-row__icon--no">
+                  <X size={14} />
+                </span>
+              )}
+              <span className="billing-feat-row__label">{f.label}</span>
+            </div>
           ))}
-        </ul>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="billing-features-card__foot">
+        <span className="billing-features-card__foot-label">
+          Want more features?
+        </span>
+        <button
+          type="button"
+          className="btn-compare-plans"
+          onClick={onCompare}
+        >
+          <ArrowLeftRight size={13} />
+          Compare all plans
+        </button>
       </div>
     </div>
   );

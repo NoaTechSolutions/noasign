@@ -1,5 +1,5 @@
-/* ───────────── BILLING PANEL V3 — Design Tokens ───────────── */
-/* Using existing design tokens from DashboardThemeProvider */
+/* ───────────── BILLING PANEL V4 — Redesign ─────────────────────────────── */
+/* Tokens: sky = var(--brand-accent) | amber = var(--brand-highlight)        */
 
 /* ───────────── PANEL HEADER ───────────── */
 .panel-head {
@@ -25,29 +25,8 @@
   letter-spacing: -0.01em;
 }
 
-.panel-head__sub {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-body);
-  margin: 0;
-  line-height: 1.55;
-}
-
-/* ───────────── 2-COLUMN SECTIONS GRID ───────────── */
-.billing-sections-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-bottom: 18px;
-}
-
-@media (max-width: 968px) {
-  .billing-sections-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ───────────── BILLING — TOP CARDS ───────────── */
+/* ───────────── 2-COLUMN TOP GRID ───────────── */
+/* Desktop ≥1024: 2 equal columns side-by-side                               */
 .billing-top-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -55,7 +34,8 @@
   margin-bottom: 24px;
 }
 
-.bill-card {
+/* ───────────── CARD BASE ───────────── */
+.bill-card2 {
   background: var(--bg-card);
   border: 0.5px solid var(--border-soft);
   border-radius: 12px;
@@ -63,60 +43,296 @@
   padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 168px;
+  gap: 0;
 }
 
-.bill-card__eyebrow {
-  font-size: 10.5px;
-  font-weight: 500;
-  color: var(--text-label);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin: 0 0 12px;
-}
-
-.bill-card__title {
-  font-size: 24px;
-  font-weight: 500;
-  color: var(--text-heading);
-  line-height: 1.2;
-  margin: 0 0 6px;
-  display: inline-flex;
+/* ───────────── CARD HEADER ROW ───────────── */
+.bill-card2__head {
+  display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 14px;
+}
+
+.bill-card2__head-icon {
+  color: var(--brand-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bill-card2__head-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-label);
+  letter-spacing: 0.02em;
+  flex: 1;
+}
+
+/* ── Active badge ── */
+.billing-badge-active {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(5, 165, 255, 0.12);
+  color: var(--brand-accent);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.6;
+}
+
+/* ───────────── PLAN NAME + PRICE ───────────── */
+.bill-card2__name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.bill-card2__plan-name {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--brand-accent);
+  line-height: 1.15;
   letter-spacing: -0.01em;
 }
 
-.bill-card__title-star {
-  color: var(--amber);
-  font-size: 18px;
-  line-height: 1;
-}
-
-.bill-card__price {
-  font-size: 15px;
+.bill-card2__plan-price {
+  font-size: 17px;
   font-weight: 500;
   color: var(--text-heading);
-  margin: 0 0 2px;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
-.bill-card__sub {
-  font-size: 12.5px;
+.bill-card2__plan-per {
+  font-size: 13px;
   font-weight: 400;
   color: var(--text-body);
-  margin: 0 0 14px;
+}
+
+.bill-card2__annual-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-body);
+  margin: 0 0 16px;
   line-height: 1.5;
 }
 
-.bill-card__foot {
-  margin-top: auto;
-  display: flex;
-  justify-content: flex-end;
+/* ───────────── STAT BOXES (Card 1) ───────────── */
+.billing-stat-boxes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
-/* ───────────── BUTTONS ───────────── */
+.billing-stat-box {
+  background: rgba(5, 165, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.billing-stat-box__label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-transform: none;
+}
+
+.billing-stat-box__value {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--brand-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.billing-stat-box__sub {
+  font-size: 10.5px;
+  color: var(--text-body);
+  line-height: 1.4;
+}
+
+/* ───────────── PROGRESS BAR ───────────── */
+.billing-progress-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-active);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.billing-progress-track--sm {
+  height: 4px;
+  margin-top: 6px;
+}
+
+.billing-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--brand-accent);
+  transition: width 0.32s ease-out;
+}
+
+/* ───────────── MINI PLAN CARDS (Card 1, desktop only) ───────────── */
+.billing-mini-plans {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.billing-mini-plan {
+  flex: 1;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg-card-soft);
+}
+
+.billing-mini-plan--current {
+  border: 1.5px solid #05a5ff;
+  background: rgba(5, 165, 255, 0.06);
+}
+
+.billing-mini-plan__name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-heading);
+  line-height: 1.3;
+}
+
+.billing-mini-plan__price {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-body);
+}
+
+/* ───────────── UPGRADE BUTTON ───────────── */
+.btn-upgrade-plan {
+  width: 100%;
+  padding: 0 18px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--brand-highlight);
+  color: #fff;
+  border: 0;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  margin-top: auto;
+}
+
+.btn-upgrade-plan:hover {
+  opacity: 0.88;
+}
+
+/* ───────────── BILLING CYCLE — 2×2 GRID (desktop/tablet) ───────────── */
+.billing-cycle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  flex: 1;
+}
+
+.billing-cycle-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 0;
+}
+
+.billing-cycle-cell:nth-child(odd) {
+  padding-right: 16px;
+  border-right: 0.5px solid var(--border-divide);
+}
+
+.billing-cycle-cell:nth-child(even) {
+  padding-left: 16px;
+}
+
+.billing-cycle-cell--border-top {
+  border-top: 0.5px solid var(--border-divide);
+}
+
+.billing-cycle-cell__label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-transform: none;
+}
+
+.billing-cycle-cell__value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.billing-cycle-cell__value--sky {
+  color: var(--brand-accent);
+}
+
+/* ───────────── BILLING CYCLE — field-row (mobile only) ───────────── */
+/* Hidden on desktop/tablet, shown on mobile (<768px)                        */
+.billing-cycle-rows {
+  display: none;
+  flex-direction: column;
+  gap: 0;
+}
+
+.billing-cycle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 0.5px solid var(--border-divide);
+}
+
+.billing-cycle-row:last-child {
+  border-bottom: 0;
+}
+
+.billing-cycle-row--total {
+  border-top: 1px solid var(--border-soft);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.billing-cycle-row__label {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-body);
+}
+
+.billing-cycle-row__value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.billing-cycle-row__value--sky {
+  color: var(--brand-accent);
+}
+
+/* ───────────── BUTTONS (shared) ───────────── */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -183,6 +399,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-bottom: 18px;
 }
 
 .overage-alert__title {
@@ -237,380 +454,13 @@
   margin-top: 4px;
 }
 
-/* ───────────── SECTIONS ───────────── */
-.bill-section {
-  background: var(--bg-card);
-  border: 0.5px solid var(--border-soft);
-  border-radius: 12px;
-  box-shadow: var(--shadow-card);
-  margin-bottom: 18px;
-  overflow: hidden;
-}
-
-.bill-section__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 22px;
-  border-bottom: 0.5px solid var(--border-soft);
-  background: var(--bg-card);
-}
-
-.bill-section__title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-heading);
-  margin: 0;
-  letter-spacing: 0.01em;
-}
-
-.bill-section__body {
-  padding: 18px 22px;
-}
-
-/* ───────────── USAGE ROWS ───────────── */
-.usage-row {
-  display: flex;
-  flex-direction: column;
-  padding: 12px 0;
-  border-bottom: 0.5px solid var(--border-divide);
-}
-
-.usage-row:first-child {
-  padding-top: 4px;
-}
-
-.usage-row:last-child {
-  border-bottom: 0;
-  padding-bottom: 4px;
-}
-
-.usage-row__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.usage-row__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--text-heading);
-}
-
-.usage-row__label svg {
-  width: 14px;
-  height: 14px;
-  color: var(--text-label);
-}
-
-.usage-row__right {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.usage-row__count {
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--text-heading);
-  font-variant-numeric: tabular-nums;
-}
-
-.usage-row__count--over {
-  color: var(--danger);
-}
-
-.usage-row__limit-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 4px;
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-
-.usage-row__bar {
-  width: 100%;
-  height: 8px;
-  border-radius: 99px;
-  background: var(--bg-active);
-  overflow: hidden;
-  position: relative;
-}
-
-.usage-row__fill {
-  height: 100%;
-  border-radius: 99px;
-  width: 0;
-  transition: width 0.32s ease-out;
-}
-
-.usage-row__fill[data-tone="green"] {
-  background: var(--success);
-}
-
-.usage-row__fill[data-tone="yellow"] {
-  background: var(--warning);
-}
-
-.usage-row__fill[data-tone="red"] {
-  background: var(--danger);
-}
-
-.usage-row__pct {
-  margin-top: 6px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-label);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ───────────── FEATURES LIST ───────────── */
-.features-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 22px;
-}
-
-.features-list__item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-body);
-  line-height: 1.5;
-}
-
-.features-list__icon {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  display: inline-grid;
-  place-items: center;
-}
-
-.features-list__icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.features-list__item--ok .features-list__icon {
-  color: var(--success);
-}
-
-.features-list__item--ok {
-  color: var(--text-body);
-}
-
-.features-list__item--ok strong {
-  color: var(--text-heading);
-  font-weight: 500;
-}
-
-.features-list__item--miss .features-list__icon {
-  color: var(--danger);
-}
-
-.features-list__item--miss {
-  color: var(--text-label);
-}
-
-.features-list__hint {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-trust);
-  letter-spacing: 0.04em;
-  margin-inline-start: 4px;
-  text-transform: uppercase;
-}
-
-/* ───────────── COMPARISON TABLE ───────────── */
-.compare-toggle-wrap {
-  display: flex;
-  justify-content: center;
-  margin: 8px 0 18px;
-}
-
-.compare-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 18px;
-  height: 38px;
-  border-radius: 8px;
-  background: transparent;
-  border: 0.5px solid var(--border-strong);
-  color: var(--text-body);
-  font-size: 13px;
-  font-weight: 500;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-  cursor: pointer;
-}
-
-.compare-toggle:hover {
-  background: var(--bg-hover);
-  color: var(--text-heading);
-  border-color: var(--brand);
-}
-
-.compare-toggle svg {
-  width: 14px;
-  height: 14px;
-}
-
-.compare-wrap {
-  display: none;
-  margin-bottom: 24px;
-  background: var(--bg-card);
-  border: 0.5px solid var(--border-soft);
-  border-radius: 12px;
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-
-.compare-wrap[data-open="true"] {
-  display: block;
-}
-
-.compare-scroll {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.compare-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  min-width: 720px;
-}
-
-.compare-table th,
-.compare-table td {
-  padding: 12px 14px;
-  text-align: start;
-  vertical-align: middle;
-  border-bottom: 0.5px solid var(--border-divide);
-}
-
-.compare-table thead th {
-  background: var(--bg-card-soft);
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-label);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border-bottom: 0.5px solid var(--border-soft);
-  white-space: nowrap;
-}
-
-.compare-table thead th.compare-plan {
-  text-align: center;
-  color: var(--text-heading);
-  font-size: 12.5px;
-}
-
-.compare-table thead th.compare-plan .compare-plan__name {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-heading);
-  font-size: 13.5px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  line-height: 1.2;
-}
-
-.compare-table thead th.compare-plan .compare-plan__star {
-  color: var(--amber);
-  font-size: 13px;
-  line-height: 1;
-}
-
-.compare-table thead th.compare-plan .compare-plan__price {
-  display: block;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--text-body);
-  margin-top: 4px;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.compare-table td.compare-feat {
-  color: var(--text-body);
-  font-weight: 400;
-}
-
-.compare-table td.compare-feat strong {
-  color: var(--text-heading);
-  font-weight: 500;
-}
-
-.compare-table td.compare-cell {
-  text-align: center;
-  color: var(--text-body);
-  font-variant-numeric: tabular-nums;
-}
-
-.compare-table td.compare-cell--current {
-  background: var(--current-highlight);
-}
-
-.compare-table th.compare-plan--current {
-  background: var(--current-highlight);
-}
-
-.compare-check {
-  color: var(--success);
-  display: inline-grid;
-  place-items: center;
-}
-
-.compare-check svg {
-  width: 16px;
-  height: 16px;
-}
-
-.compare-x {
-  color: var(--text-trust);
-  display: inline-grid;
-  place-items: center;
-}
-
-.compare-x svg {
-  width: 14px;
-  height: 14px;
-}
-
-.compare-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
 /* ───────────── MODALS ───────────── */
 .modal-layer {
   position: fixed;
   inset: 0;
   background: var(--bg-overlay);
-  z-index: 80;
+  /* Above the topbar (z-index 100) so the backdrop blur covers it too. */
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -639,8 +489,10 @@
   }
 }
 
+/* Change-plan modal: wider */
 .modal--change-plan {
-  width: 940px;
+  width: 680px;
+  max-width: 92%;
 }
 
 .modal__head {
@@ -740,204 +592,418 @@
   height: 16px;
 }
 
-/* ───────────── PLAN CAROUSEL ───────────── */
-.plan-carousel {
+/* ───────────── CHANGE PLAN GRID (4 cards inside modal) ───────────── */
+.change-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.change-plan-card {
   position: relative;
-  margin-inline: -22px;
-  padding-inline: 4px;
-}
-
-.plan-grid {
-  display: flex;
-  gap: 14px;
-  overflow-x: auto;
-  overflow-y: visible;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
-  scroll-padding-inline: 22px;
-  padding: 4px 22px 12px;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.plan-grid::-webkit-scrollbar {
-  display: none;
-}
-
-.plan-card {
+  overflow: visible;
   background: var(--bg-card-soft);
   border: 1px solid var(--border-soft);
   border-radius: 12px;
-  padding: 18px 16px;
+  padding: 18px 14px 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-  position: relative;
-  flex: 0 0 auto;
-  width: calc((100% - 88px) / 4);
-  min-width: 200px;
-  scroll-snap-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.plan-card:hover {
-  border-color: var(--brand);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+.change-plan-card:hover:not(.change-plan-card--current) {
+  border-color: var(--brand-accent);
+  box-shadow: 0 4px 12px rgba(5, 165, 255, 0.12);
 }
 
-.plan-card--current {
-  border: 2px solid var(--brand);
+.change-plan-card--current {
+  border: 2px solid #05a5ff;
   background: var(--bg-card);
 }
 
-.plan-card__badge {
+/* Current badge — centered above card */
+.change-plan-card__current-badge {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--brand-soft);
-  color: var(--brand);
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border-radius: 99px;
+  /* Opaque sky tint (not rgba) so the card's 2px sky border doesn't show
+     through the badge. Same visual tint, theme-aware. */
+  background: color-mix(in srgb, var(--brand-accent) 12%, var(--bg-card));
+  color: var(--brand-accent);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.change-plan-card__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+  margin: 0 0 4px;
+}
+
+.change-plan-card__price {
+  font-size: 12px;
+  color: var(--text-body);
+  margin: 0 0 10px;
+}
+
+.change-plan-card__price strong {
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--text-heading);
+}
+
+.change-plan-card__features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.change-plan-card__features li {
+  font-size: 11.5px;
+  color: var(--text-body);
+  line-height: 1.4;
+}
+
+.change-plan-card__features strong {
+  color: var(--text-heading);
+  font-weight: 500;
+}
+
+/* Buttons */
+.change-plan-card__btn {
+  width: 100%;
+  padding: 7px 10px;
+  margin-top: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+  border: 0;
+}
+
+.change-plan-card__btn--current {
+  background: var(--bg-active);
+  color: var(--text-label);
+  cursor: default;
+  opacity: 0.7;
+}
+
+.change-plan-card__btn--downgrade {
+  background: transparent;
+  color: var(--text-body);
+  border: 1px solid var(--border-strong);
+}
+
+.change-plan-card__btn--downgrade:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+}
+
+.change-plan-card__btn--upgrade {
+  background: var(--brand-highlight);
+  color: #fff;
+}
+
+.change-plan-card__btn--upgrade:hover {
+  opacity: 0.88;
+}
+
+/* Footer note */
+.change-plan-footer-note {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-body);
+  text-align: center;
+  padding: 10px 22px 16px;
+  line-height: 1.5;
+}
+
+/* ───────────── CHANGE PLAN — MOBILE BOTTOM SHEET ─────────────
+   Carousel UI used only <768px. On desktop/tablet the 4-card grid
+   above is shown and .plan-carousel-wrapper stays display:none, so
+   every rule here is inert at ≥768px. */
+
+@keyframes sheetIn {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Drag handle + mobile subtitle: hidden until mobile */
+.sheet-handle {
+  display: none;
+}
+
+.modal__head-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.modal__subtitle--mobile {
+  display: none;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-body);
+}
+
+/* Carousel wrapper: hidden on desktop/tablet (grid is used instead) */
+.plan-carousel-wrapper {
+  display: none;
+  padding: 16px 16px 4px;
+}
+
+/* Dots */
+.plan-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.plan-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 99px;
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+.plan-dot--active {
+  width: 18px;
+  background: #05a5ff;
+}
+
+/* Carousel track */
+.plan-carousel {
+  overflow: hidden;
+}
+
+.plan-carousel__track {
+  display: flex;
+  transition: transform 0.3s ease;
+}
+
+.plan-carousel__slide {
+  min-width: 100%;
+  box-sizing: border-box;
+  padding: 10px 2px 4px;
+}
+
+/* Slide card */
+.plan-slide {
+  position: relative;
+  background: var(--bg-card-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 18px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.plan-slide--current {
+  border: 2px solid #05a5ff;
+  background: var(--bg-card);
+}
+
+.plan-slide__current-badge {
+  align-self: center;
+  padding: 3px 12px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--brand-accent) 12%, var(--bg-card));
+  color: var(--brand-accent);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.plan-card__name {
+.plan-slide__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plan-slide__name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--brand-accent);
+}
+
+.plan-slide__price {
   font-size: 15px;
   font-weight: 500;
   color: var(--text-heading);
-  margin: 0 0 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
 }
 
-.plan-card__star {
-  color: var(--amber);
-  font-size: 14px;
-  line-height: 1;
-}
-
-.plan-card__price {
-  font-size: 13px;
-  color: var(--text-body);
-  margin: 0 0 12px;
-}
-
-.plan-card__price strong {
-  font-size: 20px;
-  color: var(--text-heading);
-  font-weight: 500;
-}
-
-.plan-card__features {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* Usage bars */
+.plan-slide__bars {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  flex: 1;
+  gap: 10px;
 }
 
-.plan-card__features li {
+.plan-slide__bar-labels {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.plan-slide__bar-label {
   font-size: 12px;
   color: var(--text-body);
-  line-height: 1.5;
 }
 
-.plan-card__features strong {
-  color: var(--text-heading);
-  font-weight: 500;
-}
-
-.plan-card__overage {
-  font-size: 11px !important;
-  color: var(--text-label) !important;
-  margin-top: 4px;
-}
-
-.plan-card__btn {
-  width: 100%;
-  padding: 8px 12px;
-  margin-top: 12px;
-  border-radius: 6px;
-  background: var(--brand);
-  color: var(--text-on-brand);
-  border: 0;
+.plan-slide__bar-value {
   font-size: 12px;
   font-weight: 500;
-  transition: background-color 0.15s ease;
-  cursor: pointer;
+  color: var(--text-heading);
 }
 
-.plan-card__btn:hover {
-  background: var(--brand-hover);
+.plan-slide__bar-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--bg-active);
+  overflow: hidden;
 }
 
-/* ───────────── CAROUSEL CONTROLS ───────────── */
-.plan-carousel-controls {
+.plan-slide__bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: #05a5ff;
+}
+
+/* Features box */
+.plan-slide__features {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+
+.plan-slide__feature-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 14px;
-  padding: 0 22px;
+  gap: 8px;
 }
 
-.plan-carousel-dots {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
+.plan-slide__feat-icon {
+  flex-shrink: 0;
 }
 
-.plan-carousel-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 99px;
-  background: var(--border-strong);
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  transition: width 0.2s ease, background 0.2s ease;
+.plan-slide__feat-icon--ok {
+  color: var(--brand-accent);
 }
 
-.plan-carousel-dot--active {
-  width: 18px;
-  background: var(--brand);
+.plan-slide__feat-icon--no {
+  color: var(--text-label);
+  opacity: 0.45;
 }
 
-.plan-carousel-arrow {
-  width: 32px;
-  height: 32px;
+.plan-slide__feature-label {
+  font-size: 12.5px;
+  color: var(--text-body);
+}
+
+/* Action button */
+.plan-slide__btn {
+  width: 100%;
+  padding: 11px 12px;
   border-radius: 8px;
-  border: 0.5px solid var(--border-strong);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.plan-slide__btn--current {
+  background: var(--bg-active);
+  color: var(--text-label);
+  cursor: default;
+  opacity: 0.7;
+}
+
+.plan-slide__btn--downgrade {
   background: transparent;
   color: var(--text-body);
-  display: inline-flex;
+  border: 1px solid var(--border-strong);
+}
+
+.plan-slide__btn--upgrade {
+  background: var(--brand-highlight);
+  color: #fff;
+}
+
+.plan-slide__btn--upgrade:hover {
+  opacity: 0.88;
+}
+
+/* Nav row */
+.plan-nav {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.plan-nav__btn {
+  flex: 1;
+  max-width: 42%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
-.plan-carousel-arrow:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-heading);
-  border-color: var(--brand);
+.plan-nav__btn--next {
+  background: var(--brand-highlight);
+  color: #fff;
+  border-color: transparent;
 }
 
-.plan-carousel-arrow:disabled {
+.plan-nav__btn:disabled {
   opacity: 0.3;
-  cursor: not-allowed;
+  cursor: default;
 }
 
-.plan-carousel-arrow svg {
-  width: 14px;
-  height: 14px;
+.plan-nav__counter {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-label);
+  flex-shrink: 0;
 }
 
 /* ───────────── CONFIRM MODALS ───────────── */
@@ -1017,26 +1083,115 @@
 }
 
 /* ───────────── RESPONSIVE ───────────── */
-@media (max-width: 768px) {
+
+/* Tablet: 768–1023 — 2 compact columns, mini plan cards hidden */
+@media (max-width: 1023px) {
+  .billing-top-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .bill-card2 {
+    padding: 16px 18px;
+  }
+
+  .bill-card2__plan-name {
+    font-size: 20px;
+  }
+
+  .bill-card2__plan-price {
+    font-size: 15px;
+  }
+
+  /* Hide mini plan cards on tablet */
+  .billing-mini-plans {
+    display: none;
+  }
+
+  /* Change plan modal: 2-col grid on tablet */
+  .change-plan-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+/* Mobile: <768 — single column stacked */
+@media (max-width: 767px) {
   .billing-top-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
-  .features-list {
-    grid-template-columns: 1fr;
+  /* Current Plan card: simplified mobile layout */
+  .bill-card2__name-row {
+    justify-content: space-between;
   }
 
-  .plan-card {
-    width: calc((100% - 60px) / 2);
-    min-width: 180px;
+  /* Hide mini plan cards on mobile */
+  .billing-mini-plans {
+    display: none;
+  }
+
+  /* Billing Cycle card: hide 2x2 grid, show rows */
+  .billing-cycle-grid {
+    display: none;
+  }
+
+  .billing-cycle-rows {
+    display: flex;
+  }
+
+  /* Upgrade button full width (already is) */
+  .btn-upgrade-plan {
+    width: 100%;
+  }
+
+  /* Change plan → bottom-sheet carousel on mobile.
+     Scoped to data-modal="change-plan" so other billing modals
+     (confirm/downgrade) keep their centered layout. */
+  .modal-layer[data-modal="change-plan"] {
+    align-items: flex-end;
+    padding: 0;
   }
 
   .modal--change-plan {
     width: 100%;
+    max-width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0;
+    transform: translateY(100%);
+    animation: sheetIn 0.28s ease-out forwards;
+    padding-bottom: env(safe-area-inset-bottom);
   }
-}
 
-@media (max-width: 480px) {
+  /* Hide the desktop grid, show carousel + sheet chrome */
+  .change-plan-grid-wrapper {
+    display: none;
+  }
+
+  .plan-carousel-wrapper {
+    display: block;
+  }
+
+  .sheet-handle {
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-strong);
+    margin: 12px auto 0;
+  }
+
+  .modal__subtitle--mobile {
+    display: block;
+  }
+
+  /* Footer note redundant with the mobile subtitle */
+  .change-plan-footer-note {
+    display: none;
+  }
+
   .overage-alert__actions {
     flex-direction: column;
   }
@@ -1044,9 +1199,384 @@
   .overage-alert__actions button {
     width: 100%;
   }
+}
 
-  .plan-card {
-    width: calc(100% - 44px);
-    min-width: 160px;
+@media (max-width: 480px) {
+  .change-plan-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ───────────── LEGACY SECTION STYLES (kept for OverageAlert compatibility) ─ */
+.bill-section {
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.bill-section.card-legend {
+  overflow: visible;
+  border-radius: 10px;
+  border: none;
+  margin-top: 14px;
+}
+
+.bill-section.card-legend .bill-section__head {
+  padding-top: 20px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.bill-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 22px;
+  border-bottom: 0.5px solid var(--border-soft);
+  background: var(--bg-card);
+}
+
+.bill-section__title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+.bill-section__body {
+  padding: 18px 22px;
+}
+
+/* ───────────── MONTHLY USAGE CARD ───────────── */
+.billing-usage-card {
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.billing-usage-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 0.5px solid var(--border-soft);
+}
+
+.billing-usage-card__head-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.billing-usage-card__icon {
+  color: var(--brand-accent);
+  display: inline-flex;
+  align-items: center;
+}
+
+.billing-usage-card__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.billing-usage-card__month-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: rgba(5, 165, 255, 0.12);
+  color: var(--brand-accent);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.billing-usage-card__body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Usage item */
+.billing-usage-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.billing-usage-item__top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.billing-usage-item__icon {
+  color: var(--text-label);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.billing-usage-item__label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.billing-usage-item__value {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--brand-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.billing-usage-item__limit {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.billing-usage-item__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: rgba(5, 165, 255, 0.12);
+  color: var(--brand-accent);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.billing-usage-item__mid {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.billing-usage-item__bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-active);
+  overflow: hidden;
+}
+
+.billing-usage-item__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--brand-accent);
+  transition: width 0.32s ease-out;
+}
+
+.billing-usage-item__overage-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ───────────── PLAN FEATURES CARD ───────────── */
+.billing-features-card {
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.billing-features-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 0.5px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+
+.billing-features-card__head-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.billing-features-card__icon {
+  color: var(--brand-accent);
+  display: inline-flex;
+  align-items: center;
+}
+
+.billing-features-card__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.billing-features-card__subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Two-column body */
+.billing-features-card__body {
+  display: grid;
+  grid-template-columns: 1fr 0.5px 1fr;
+  gap: 0;
+}
+
+.billing-features-card__col {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.billing-features-card__divider {
+  background: var(--border-soft);
+  width: 0.5px;
+}
+
+/* Metric row (left column) */
+.billing-feat-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.billing-feat-metric__label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.billing-feat-metric__value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--brand-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Feature row (right column) */
+.billing-feat-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.billing-feat-row__icon--ok {
+  color: var(--brand-accent);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.billing-feat-row__icon--no {
+  color: var(--text-label);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.billing-feat-row__label {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* Footer */
+.billing-features-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 0.5px solid var(--border-soft);
+  background: var(--bg-card-soft);
+  flex-wrap: wrap;
+}
+
+.billing-features-card__foot-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.btn-compare-plans {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1.5px solid var(--brand-highlight);
+  color: var(--brand-highlight);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-compare-plans:hover {
+  background: rgba(255, 153, 0, 0.08);
+}
+
+.btn-compare-plans svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ───────────── RESPONSIVE — Monthly Usage & Plan Features ───────────── */
+@media (max-width: 767px) {
+  /* Plan Features: single column on mobile */
+  .billing-features-card__body {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-features-card__divider {
+    display: none;
+  }
+
+  .billing-features-card__col {
+    padding: 12px 16px;
+  }
+
+  .billing-features-card__col:first-child {
+    padding-bottom: 0;
+  }
+
+  .billing-features-card__foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-compare-plans {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .billing-usage-card__body {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .billing-usage-card__head {
+    padding: 10px 16px;
   }
 }

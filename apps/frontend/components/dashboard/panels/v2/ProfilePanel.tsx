@@ -1,18 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './profile-panel-v2.css';
 import { ProfileHeaderCard } from './ProfileHeaderCard';
 import { CompanyInformationSection } from './CompanyInformationSection';
 import { PrimaryContactSection } from './PrimaryContactSection';
 import { InsuranceInformationSection } from './InsuranceInformationSection';
-import { SaveChangesBar } from './SaveChangesBar';
+import { PersonalInformationSection } from './PersonalInformationSection';
 
-// Types matching backend
 interface User {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
   role: string;
+  accountType?: string | null;
+  title?: string;
+  phone?: string;
+  avatarUrl?: string | null;
+  addressLine1?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
 }
 
 interface CompanyProfile {
@@ -31,7 +38,6 @@ interface CompanyProfile {
   country?: string;
   logoUrl?: string;
   plan?: string;
-  // Primary Contact fields
   contactTitle?: string;
   contactPhone?: string;
   contactAddressLine1?: string;
@@ -39,11 +45,17 @@ interface CompanyProfile {
   contactCity?: string;
   contactState?: string;
   contactZip?: string;
-  // Insurance
   insuranceCompany?: string;
   insurancePolicyNumber?: string;
   insuranceExpiryDate?: string;
   insurancePhone?: string;
+}
+
+export interface ProfileStats {
+  totalDocuments: number;
+  completedDocuments: number;
+  memberSince: string | null;
+  planName: string;
 }
 
 export interface ProfilePanelProps {
@@ -51,6 +63,8 @@ export interface ProfilePanelProps {
   companyProfile: CompanyProfile | null;
   isLoading: boolean;
   onSave: (companyData: Partial<CompanyProfile>, userData: Partial<User>) => Promise<void>;
+  stats?: ProfileStats;
+  onNavigate?: (panel: string) => void;
 }
 
 export function ProfilePanel({
@@ -58,133 +72,142 @@ export function ProfilePanel({
   companyProfile,
   isLoading,
   onSave,
+  stats,
+  onNavigate,
 }: ProfilePanelProps) {
-  // Local state for editing
-  const [editedCompany, setEditedCompany] = useState<CompanyProfile | null>(null);
-  const [editedUser, setEditedUser] = useState<User | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [draftUser, setDraftUser] = useState<User | null>(null);
+  const [draftCompany, setDraftCompany] = useState<CompanyProfile | null>(null);
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
 
-  // Initialize edited state when data loads
-  useEffect(() => {
-    if (companyProfile) {
-      setEditedCompany(companyProfile);
-    }
-  }, [companyProfile]);
+  useEffect(() => { if (user) setDraftUser({ ...user }); }, [user]);
+  useEffect(() => { if (companyProfile) setDraftCompany({ ...companyProfile }); }, [companyProfile]);
 
-  useEffect(() => {
-    if (user) {
-      setEditedUser(user);
-    }
-  }, [user]);
+  const openGroup = useCallback((group: string) => {
+    if (user) setDraftUser({ ...user });
+    if (companyProfile) setDraftCompany({ ...companyProfile });
+    setEditingGroup(group);
+  }, [user, companyProfile]);
 
-  // Detect changes
-  useEffect(() => {
-    const companyChanged = JSON.stringify(companyProfile) !== JSON.stringify(editedCompany);
-    const userChanged = JSON.stringify(user) !== JSON.stringify(editedUser);
-    setHasChanges(companyChanged || userChanged);
-  }, [companyProfile, editedCompany, user, editedUser]);
+  const closeGroup = useCallback(() => {
+    if (user) setDraftUser({ ...user });
+    if (companyProfile) setDraftCompany({ ...companyProfile });
+    setEditingGroup(null);
+  }, [user, companyProfile]);
 
-  const handleCompanyChange = (field: keyof CompanyProfile, value: any) => {
-    if (!editedCompany) return;
-    setEditedCompany({ ...editedCompany, [field]: value });
-  };
+  const handleUserDraft = useCallback((field: string, value: string) => {
+    setDraftUser((prev) => prev ? { ...prev, [field]: value } : prev);
+  }, []);
 
-  const handleUserChange = (field: keyof User, value: any) => {
-    if (!editedUser) return;
-    setEditedUser({ ...editedUser, [field]: value });
-  };
+  const handleCompanyDraft = useCallback((field: string, value: string) => {
+    setDraftCompany((prev) => prev ? { ...prev, [field]: value } : prev);
+  }, []);
 
-  const handleLogoChange = (logoUrl: string) => {
-    handleCompanyChange('logoUrl', logoUrl);
-  };
+  const isUserDirty = useCallback(() => {
+    if (!draftUser || !user) return false;
+    return (Object.keys(draftUser) as (keyof User)[]).some((k) => draftUser[k] !== user[k]);
+  }, [draftUser, user]);
 
-  const handleSave = async () => {
-    if (!hasChanges || !editedCompany || !editedUser) return;
+  const isCompanyDirty = useCallback(() => {
+    if (!draftCompany || !companyProfile) return false;
+    return (Object.keys(draftCompany) as (keyof CompanyProfile)[]).some((k) => draftCompany[k] !== companyProfile[k]);
+  }, [draftCompany, companyProfile]);
 
-    setIsSaving(true);
-    try {
-      // Extract only changed fields
-      const companyChanges: Partial<CompanyProfile> = {};
-      const userChanges: Partial<User> = {};
+  const isDirty = isUserDirty() || isCompanyDirty();
 
-      // Compare and extract company changes
-      Object.keys(editedCompany).forEach((key) => {
-        const k = key as keyof CompanyProfile;
-        if (editedCompany[k] !== companyProfile?.[k]) {
-          companyChanges[k] = editedCompany[k] as any;
-        }
+  const handleGroupSave = useCallback(async () => {
+    const companyChanges: Partial<CompanyProfile> = {};
+    const userChanges: Partial<User> = {};
+
+    if (draftCompany && companyProfile) {
+      (Object.keys(draftCompany) as (keyof CompanyProfile)[]).forEach((k) => {
+        if (draftCompany[k] !== companyProfile[k]) companyChanges[k] = draftCompany[k] as any;
       });
-
-      // Compare and extract user changes
-      Object.keys(editedUser).forEach((key) => {
-        const k = key as keyof User;
-        if (editedUser[k] !== user?.[k]) {
-          userChanges[k] = editedUser[k] as any;
-        }
+    }
+    if (draftUser && user) {
+      (Object.keys(draftUser) as (keyof User)[]).forEach((k) => {
+        if (draftUser[k] !== user[k]) userChanges[k] = draftUser[k] as any;
       });
-
+    }
+    if (Object.keys(companyChanges).length > 0 || Object.keys(userChanges).length > 0) {
       await onSave(companyChanges, userChanges);
-      setHasChanges(false);
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      // TODO: Show error toast
-    } finally {
-      setIsSaving(false);
     }
-  };
+    setEditingGroup(null);
+  }, [draftCompany, draftUser, companyProfile, user, onSave]);
 
-  const handleCancel = () => {
-    setEditedCompany(companyProfile);
-    setEditedUser(user);
-    setHasChanges(false);
-  };
+  const handleAvatarChange = useCallback((avatarUrl: string) => {
+    setDraftUser((prev) => prev ? { ...prev, avatarUrl } : prev);
+    void onSave({}, { avatarUrl } as Partial<User>);
+  }, [onSave]);
+
+  const handleLogoChange = useCallback((logoUrl: string) => {
+    handleCompanyDraft('logoUrl', logoUrl);
+  }, [handleCompanyDraft]);
+
+  const isIndividual = user?.accountType === 'INDIVIDUAL';
 
   return (
     <div className="profile-panel-v2">
-      {/* Header Card - Logo with edit icon, Company Name, User Name, Badges */}
       <ProfileHeaderCard
-        user={editedUser}
-        companyProfile={editedCompany}
+        user={draftUser}
+        companyProfile={draftCompany}
         isLoading={isLoading}
         onLogoChange={handleLogoChange}
+        stats={stats}
+        onNavigate={onNavigate}
+        onAvatarChange={handleAvatarChange}
       />
 
-      {/* Company Information - Collapsible (no logo section) */}
-      <CompanyInformationSection
-        company={editedCompany}
-        isLoading={isLoading}
-        onChange={handleCompanyChange}
-      />
-
-      {/* Primary Contact - Collapsible (expanded fields) */}
-      <PrimaryContactSection
-        user={editedUser}
-        companyProfile={editedCompany}
-        isLoading={isLoading}
-        onUserChange={handleUserChange}
-        onCompanyChange={handleCompanyChange}
-      />
-
-      {/* Insurance Information - Collapsible (with phone) */}
-      <InsuranceInformationSection
-        insurance={{
-          company: editedCompany?.insuranceCompany,
-          policyNumber: editedCompany?.insurancePolicyNumber,
-          expiryDate: editedCompany?.insuranceExpiryDate,
-          phone: editedCompany?.insurancePhone,
-        }}
-        isLoading={isLoading}
-        onChange={(field, value) => handleCompanyChange(field as keyof CompanyProfile, value)}
-      />
-
-      {/* Save changes bar (sticky, appears when hasChanges) */}
-      {hasChanges && (
-        <SaveChangesBar
-          onSave={handleSave}
-          onCancel={handleCancel}
-          isSaving={isSaving}
+      {isIndividual ? (
+        <PersonalInformationSection
+          user={draftUser}
+          isLoading={isLoading}
+          editingGroup={editingGroup}
+          onOpenGroup={openGroup}
+          onCloseGroup={closeGroup}
+          onSaveGroup={handleGroupSave}
+          isDirty={isDirty}
+          onUserChange={handleUserDraft}
         />
+      ) : (
+        <>
+          <CompanyInformationSection
+            company={draftCompany}
+            isLoading={isLoading}
+            editingGroup={editingGroup}
+            onOpenGroup={openGroup}
+            onCloseGroup={closeGroup}
+            onSaveGroup={handleGroupSave}
+            isDirty={isDirty}
+            onCompanyChange={handleCompanyDraft}
+          />
+          <PrimaryContactSection
+            user={draftUser}
+            companyProfile={draftCompany}
+            isLoading={isLoading}
+            editingGroup={editingGroup}
+            onOpenGroup={openGroup}
+            onCloseGroup={closeGroup}
+            onSaveGroup={handleGroupSave}
+            isDirty={isDirty}
+            onUserChange={handleUserDraft}
+            onCompanyChange={handleCompanyDraft}
+          />
+          <InsuranceInformationSection
+            insurance={{
+              company: draftCompany?.insuranceCompany,
+              policyNumber: draftCompany?.insurancePolicyNumber,
+              expiryDate: draftCompany?.insuranceExpiryDate,
+              phone: draftCompany?.insurancePhone,
+            }}
+            isLoading={isLoading}
+            editingGroup={editingGroup}
+            onOpenGroup={openGroup}
+            onCloseGroup={closeGroup}
+            onSaveGroup={handleGroupSave}
+            isDirty={isDirty}
+            onInsuranceChange={handleCompanyDraft}
+          />
+        </>
       )}
     </div>
   );
