@@ -710,7 +710,7 @@ export function DashboardSidebarDemo({
     { key: "documents" as const, label: "Documents", icon: <FileText className="h-5 w-5 shrink-0" /> },
     { key: "profile" as const, label: "Profile", icon: <UserRound className="h-5 w-5 shrink-0" /> },
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
-    { key: "customers" as const, label: "Customers", icon: <Contact className="h-5 w-5 shrink-0" /> },
+    { key: "customers" as const, label: "Clients", icon: <Contact className="h-5 w-5 shrink-0" /> },
   ];
 
   function closeDocumentViewer() {
@@ -1142,18 +1142,6 @@ export function DashboardSidebarDemo({
                               <ClipboardList className="h-4 w-4" />
                               <span>Access requests</span>
                             </button>
-                            <Link
-                              href="/dashboard/admin/form-definitions"
-                              onClick={() => {
-                                if (window.innerWidth < 1280) {
-                                  setOpen(false);
-                                }
-                              }}
-                              className="flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]"
-                            >
-                              <FileJson className="h-4 w-4" />
-                              <span>Form Definitions</span>
-                            </Link>
                             <button
                               type="button"
                               onClick={() => {
@@ -1571,7 +1559,7 @@ export function DashboardSidebarDemo({
           })()}
           emptyHint={
             pendingDraftTargetUserId
-              ? "This user has no saved customers yet."
+              ? "This user has no saved clients yet."
               : undefined
           }
           onCancel={cancelCustomerSelector}
@@ -1716,7 +1704,7 @@ function UserSelectorDialog({
             <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               {view === "options"
                 ? "Create blank, create for yourself, or pick another user to draft on behalf of."
-                : "Select the user this document will belong to. The next steps use that user's templates and customers."}
+                : "Select the user this document will belong to. The next steps use that user's templates and clients."}
             </p>
           </div>
           <button
@@ -1768,7 +1756,7 @@ function UserSelectorDialog({
                     Create for me
                   </div>
                   <div className="mt-0.5 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
-                    Use my own templates and customers. The document is owned
+                    Use my own templates and clients. The document is owned
                     by me.
                   </div>
                 </div>
@@ -1785,7 +1773,7 @@ function UserSelectorDialog({
                   </div>
                   <div className="mt-0.5 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                     Draft on behalf of a teammate. Their templates and
-                    customers will be used.
+                    clients will be used.
                   </div>
                 </div>
               </button>
@@ -1921,10 +1909,10 @@ function CustomerDataOptionDialog({
           New document
         </div>
         <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
-          Use a customer or start blank?
+          Use a client or start blank?
         </h2>
         <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
-          Linking a customer pre-fills the form fields. You can also start
+          Linking a client pre-fills the form fields. You can also start
           blank and fill the data manually.
         </p>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -1935,10 +1923,10 @@ function CustomerDataOptionDialog({
           >
             <Contact className="h-5 w-5 text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]" />
             <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
-              Use a customer
+              Use a client
             </div>
             <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
-              Pre-fill from one of your saved customers.
+              Pre-fill from one of your saved clients.
             </div>
           </button>
           <button
@@ -2052,10 +2040,10 @@ function CustomerSelectDialog({
               New document
             </div>
             <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
-              Choose a customer
+              Choose a client
             </h2>
             <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
-              Search by name, email or phone, or filter by customer type.
+              Search by name, email or phone, or filter by client type.
             </p>
           </div>
           <button
@@ -2100,8 +2088,8 @@ function CustomerSelectDialog({
             <EmptyBlock
               text={
                 customers.length === 0
-                  ? emptyHint ?? "No customers saved yet."
-                  : `No customers matching "${query}".`
+                  ? emptyHint ?? "No clients saved yet."
+                  : `No clients matching "${query}".`
               }
             />
           ) : (
@@ -3750,7 +3738,7 @@ function DocumentViewer({
                   {editingTab === "client" ? (
                     <EditableField
                       icon={<UserRound className="h-4 w-4" />}
-                      label="Customer name"
+                      label="Client name"
                       value={clientProfile.nameKey ? draftFields[clientProfile.nameKey] ?? clientProfile.name : clientProfile.name}
                       onChange={(nextValue) => {
                         if (!clientProfile.nameKey) return;
@@ -3758,7 +3746,7 @@ function DocumentViewer({
                       }}
                     />
                   ) : (
-                    <DetailRow icon={<UserRound className="h-4 w-4" />} label="Customer name" value={clientProfile.name || "Not provided"} />
+                    <DetailRow icon={<UserRound className="h-4 w-4" />} label="Client name" value={clientProfile.name || "Not provided"} />
                   )}
 
                   <div className="grid gap-3 md:grid-cols-2">
@@ -4782,7 +4770,7 @@ function breadcrumbItems(section: SectionKey) {
   }
 
   if (section === "customers") {
-    return ["Workspace", "Customers"];
+    return ["Workspace", "Clients"];
   }
 
   if (section === "profile") {

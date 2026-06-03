@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { NAVIGATION_ITEMS, filterNavigationItems } from "./NavigationItems";
+import {
+  NAVIGATION_ITEMS,
+  filterNavigationItems,
+  isNavGroup,
+  type NavigationItem,
+} from "./NavigationItems";
 
 interface MobileMenuProps {
   userRole: string;
@@ -22,12 +27,61 @@ export function MobileMenu({
   onSignOut,
 }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const router = useRouter();
   const items = filterNavigationItems(NAVIGATION_ITEMS, userRole);
 
   const handleNavigate = (panel: string) => {
     router.push(`/dashboard?panel=${panel}`);
     setIsOpen(false);
+  };
+
+  // Single nav item button (also used for group children, with `indented`).
+  const renderItem = (item: NavigationItem, indented: boolean) => {
+    const isActive = currentPanel === item.panel;
+    return (
+      <button
+        key={item.panel}
+        onClick={() => handleNavigate(item.panel)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          padding: indented ? "12px 24px 12px 44px" : "12px 24px",
+          background: isActive ? "var(--bg-hover)" : "transparent",
+          border: "none",
+          borderLeft: isActive
+            ? "3px solid var(--brand)"
+            : "3px solid transparent",
+          color: isActive ? "var(--brand)" : "var(--text-body)",
+          fontSize: "15px",
+          fontWeight: isActive ? 500 : 400,
+          cursor: "pointer",
+          textAlign: "left",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive) e.currentTarget.style.background = "var(--bg-hover)";
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) e.currentTarget.style.background = "transparent";
+        }}
+      >
+        {item.icon && (
+          <span
+            style={{
+              marginRight: "12px",
+              display: "flex",
+              alignItems: "center",
+              color: isActive ? "var(--brand)" : "var(--text-body)",
+            }}
+          >
+            {item.icon}
+          </span>
+        )}
+        {item.label}
+      </button>
+    );
   };
 
   return (
@@ -123,60 +177,69 @@ export function MobileMenu({
 
             {/* Navigation items */}
             <nav>
-              {items.map((item) => {
-                const isActive = currentPanel === item.panel;
+              {items.map((entry) => {
+                if (!isNavGroup(entry)) return renderItem(entry, false);
+                const open =
+                  openGroups[entry.key] ??
+                  entry.children.some((c) => c.panel === currentPanel);
                 return (
-                  <button
-                    key={item.panel}
-                    onClick={() => handleNavigate(item.panel)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      width: "100%",
-                      padding: "12px 24px",
-                      background: isActive
-                        ? "var(--bg-hover)"
-                        : "transparent",
-                      border: "none",
-                      borderLeft: isActive
-                        ? "3px solid var(--brand)"
-                        : "3px solid transparent",
-                      color: isActive
-                        ? "var(--brand)"
-                        : "var(--text-body)",
-                      fontSize: "15px",
-                      fontWeight: isActive ? 500 : 400,
-                      cursor: "pointer",
-                      textAlign: "left",
-                      transition: "all 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = "var(--bg-hover)";
+                  <div key={entry.key}>
+                    <button
+                      onClick={() =>
+                        setOpenGroups((cur) => ({ ...cur, [entry.key]: !open }))
                       }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = "transparent";
-                      }
-                    }}
-                  >
-                    {item.icon && (
-                      <span
+                      aria-expanded={open}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        width: "100%",
+                        padding: "12px 24px",
+                        background: "transparent",
+                        border: "none",
+                        borderLeft: "3px solid transparent",
+                        color: "var(--text-body)",
+                        fontSize: "15px",
+                        fontWeight: 400,
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      {entry.icon && (
+                        <span
+                          style={{
+                            marginRight: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            color: "var(--text-body)",
+                          }}
+                        >
+                          {entry.icon}
+                        </span>
+                      )}
+                      <span style={{ flex: 1 }}>{entry.label}</span>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
                         style={{
-                          marginRight: "12px",
-                          display: "flex",
-                          alignItems: "center",
-                          color: isActive
-                            ? "var(--brand)"
-                            : "var(--text-body)",
+                          transition: "transform 0.2s ease",
+                          transform: open ? "rotate(180deg)" : "rotate(0deg)",
+                          opacity: 0.7,
                         }}
                       >
-                        {item.icon}
-                      </span>
-                    )}
-                    {item.label}
-                  </button>
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </button>
+                    {open
+                      ? entry.children.map((c) => renderItem(c, true))
+                      : null}
+                  </div>
                 );
               })}
             </nav>
