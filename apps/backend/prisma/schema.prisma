@@ -35,6 +35,12 @@ enum CustomerType {
   BUSINESS
 }
 
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  DELETED
+}
+
 enum DocumentStatus {
   DRAFT
   SENT
@@ -195,7 +201,10 @@ model Customer {
   // an immutable audit field.
   userId           String
   createdByUserId  String?
-  customerType     CustomerType @default(PERSONAL)
+  customerType     CustomerType   @default(PERSONAL)
+  status           CustomerStatus @default(ACTIVE)
+  // Soft delete — null = active, timestamp = deleted (restorable by MASTER).
+  deletedAt        DateTime?
 
   fullName String
   email    String?
@@ -223,6 +232,8 @@ model Customer {
   @@index([companyProfileId, fullName])
   @@index([companyProfileId, email])
   @@index([companyProfileId, customerType])
+  @@index([companyProfileId, status])
+  @@index([companyProfileId, deletedAt])
   @@index([companyProfileId, userId])
   @@index([userId])
   @@map("customers")
