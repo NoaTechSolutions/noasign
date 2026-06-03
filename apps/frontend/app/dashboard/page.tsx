@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { API_URL, apiRequest } from "../../lib/api";
@@ -11,6 +11,7 @@ import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
 import type {
   V2DocumentItem,
   DocumentVersion as V2DocumentVersion,
+  DocumentDetail as V2DocumentDetail,
   BackendDocumentAction as V2BackendDocumentAction,
 } from "../../components/dashboard/panels/v2/documents";
 import type {
@@ -51,6 +52,7 @@ type DashboardUser = {
   state?: string | null;
   zipCode?: string | null;
   avatarUrl?: string | null;
+  createdAt?: string | null;
   companyProfile?: {
     id: string;
     companyName: string;
@@ -262,6 +264,7 @@ type CustomerBusiness = {
 type Customer = {
   id: string;
   customerType: "PERSONAL" | "BUSINESS";
+  status?: "ACTIVE" | "INACTIVE" | "DELETED";
   fullName: string;
   email: string | null;
   phone: string | null;
@@ -540,6 +543,23 @@ function DashboardPageInner() {
     };
   }, []);
 
+  // Route guard: privileged panels (members / lockedUsers) are hidden from the
+  // sidebar for non-MASTER, but a direct ?panel= URL would still render them.
+  // Redirect non-MASTER away once the role is known (the backend already gates
+  // the data — this just stops the privileged UI from rendering at all).
+  useEffect(() => {
+    const MASTER_ONLY_PANELS = ["members", "lockedUsers"];
+    const role = dashboardUser?.role ?? user?.role;
+    if (!role) return; // role not loaded yet — don't redirect a MASTER prematurely
+    if (
+      newLayoutPanel &&
+      MASTER_ONLY_PANELS.includes(newLayoutPanel) &&
+      role !== "MASTER"
+    ) {
+      router.replace("/dashboard?panel=overview");
+    }
+  }, [newLayoutPanel, dashboardUser?.role, user?.role, router]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -729,7 +749,7 @@ function DashboardPageInner() {
       setError(
         detailError instanceof Error
           ? detailError.message
-          : "Unable to load customer detail",
+          : "Unable to load client detail",
       );
     } finally {
       setIsCustomerDetailLoading(false);
@@ -756,7 +776,7 @@ function DashboardPageInner() {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Unable to delete customer",
+          : "Unable to delete client",
       );
     } finally {
       setCustomerActionId(null);
@@ -1277,10 +1297,97 @@ function DashboardPageInner() {
     }
   }
 
+  // CustomersPanel V2 handlers — wrap apiRequest() (auth-aware) and adapt
+  // shapes. Refactored from the orchestrator's raw fetch() calls which
+  // would have bypassed JwtAuthGuard and returned 401.
+  //
+  // Memoized at component top level (NOT inside the `if (newLayoutPanel)`
+  // block — that would be a conditional hook). Stable identity is REQUIRED:
+  // CustomersPanel.reloadCustomers is a useCallback keyed on these handlers,
+  // and its effect re-fetches whenever their identity changes. Recreating the
+  // object every render caused a periodic skeleton flash (the 10s live-document
+  // poll re-renders this page → new handlers → spurious re-fetch). apiRequest
+  // is a stable module import, so the empty dep array is correct.
+  const customersV2Handlers = useMemo(
+    () => ({
+      onFetchCustomers: async () => {
+        const response = await apiRequest<CustomerListResponse>(
+          "/customers?limit=500&orderBy=createdAt&orderDir=desc",
+        );
+        return response.customers;
+      },
+      onCreateCustomer: async (data: V2CustomerFormData) => {
+        return apiRequest<Customer>("/customers", { method: "POST", body: data });
+      },
+      onUpdateCustomer: async (id: string, data: V2CustomerFormData) => {
+        return apiRequest<Customer>(`/customers/${id}`, {
+          method: "PATCH",
+          body: data,
+        });
+      },
+      onDeleteCustomer: async (id: string) => {
+        await apiRequest(`/customers/${id}`, { method: "DELETE" });
+      },
+      onAssignCustomer: async (id: string, newUserId: string) => {
+        return apiRequest<Customer>(`/customers/${id}`, {
+          method: "PATCH",
+          body: { userId: newUserId },
+        });
+      },
+      onChangeStatus: async (
+        id: string,
+        status: "ACTIVE" | "INACTIVE" | "DELETED",
+      ) => {
+        // Backend update() syncs deletedAt and gates restores to MASTER, so a
+        // single PATCH covers every status transition (including delete/restore).
+        return apiRequest<Customer>(`/customers/${id}`, {
+          method: "PATCH",
+          body: { status },
+        });
+      },
+      onFetchUsersForAssign: async (): Promise<V2CustomerOwnerUser[]> => {
+        const list = await apiRequest<ManagedUser[]>("/users");
+        return list
+          .filter((u) => u.status === "ACTIVE")
+          .map((u) => ({
+            id: u.id,
+            email: u.email,
+            firstName: u.firstName ?? "",
+            lastName: u.lastName ?? "",
+          }));
+      },
+      onFetchDeletedCustomers: async () => {
+        const response = await apiRequest<CustomerListResponse>(
+          "/customers/deleted?limit=500&orderBy=createdAt&orderDir=desc",
+        );
+        return response.customers;
+      },
+      onRestoreCustomer: async (id: string) => {
+        return apiRequest<Customer>(`/customers/${id}/restore`, { method: "POST" });
+      },
+    }),
+    [],
+  );
+
+  // Stable identity (apiRequest is a module-level import) so DocumentDetailModal's
+  // fetch effect doesn't re-run on every parent render — e.g. the 10s live-document
+  // poll — which previously re-fetched + flashed the modal. Memoized at top level
+  // (NOT inside the `if (newLayoutPanel)` block — that would be a conditional hook).
+  const handleFetchDocumentDetail = useCallback(
+    (docId: string): Promise<V2DocumentDetail> =>
+      apiRequest<V2DocumentDetail>(`/documents/${docId}`),
+    [],
+  );
+
   // Dual-mode rendering: if `?panel=` is in URL, render the new DashboardShell
   // layout. Otherwise fall through to the legacy DashboardSidebarDemo below.
   // This lets the redesign coexist with the live SPA during the rebuild.
   if (newLayoutPanel) {
+    // Defensive render gate (pairs with the redirect effect above): never render
+    // the privileged panels for a non-MASTER, even for the frame before the
+    // redirect fires. Role unknown (still loading) also counts as not-master.
+    const isMaster = (dashboardUser?.role ?? user?.role) === "MASTER";
+
     const fullName =
       [dashboardUser?.firstName, dashboardUser?.lastName]
         .filter(Boolean)
@@ -1296,6 +1403,11 @@ function DashboardPageInner() {
         companyProfile?.companyName ||
         companyProfile?.legalName ||
         "Company",
+      avatarUrl: dashboardUser?.avatarUrl ?? null,
+      // Topbar shows name/company + plan beside the avatar. accountType
+      // drives which name to show (INDIVIDUAL → person, else → company).
+      accountType: dashboardUser?.accountType ?? null,
+      plan: companyProfile?.planName ?? null,
     };
 
     // Adapters: backend NoaSign shapes → v2 panel interfaces.
@@ -1354,6 +1466,10 @@ function DashboardPageInner() {
         status: doc.status,
         recipientEmail: doc.lastSentRecipientEmail || "N/A",
         createdAt: doc.createdAt,
+        sentAt: doc.sentAt ?? null,
+        viewedAt: doc.viewedAt ?? null,
+        completedAt: doc.completedAt ?? null,
+        customerId: (doc as DashboardDocument & { customerId?: string | null }).customerId ?? null,
       }));
     };
 
@@ -1404,6 +1520,14 @@ function DashboardPageInner() {
         lastName: backend.lastName ?? "",
         email: backend.email,
         role: backend.role,
+        accountType: backend.accountType ?? null,
+        title: backend.title ?? "",
+        phone: backend.phone ?? "",
+        avatarUrl: backend.avatarUrl ?? null,
+        addressLine1: backend.addressLine1 ?? "",
+        city: backend.city ?? "",
+        state: backend.state ?? "",
+        zipCode: backend.zipCode ?? "",
       };
     };
 
@@ -1440,15 +1564,18 @@ function DashboardPageInner() {
       }
 
       if (Object.keys(userChanges).length > 0) {
-        const payload: { firstName?: string; lastName?: string } = {};
-        if (typeof userChanges.firstName === "string") {
-          payload.firstName = userChanges.firstName;
-        }
-        if (typeof userChanges.lastName === "string") {
-          payload.lastName = userChanges.lastName;
-        }
+        const payload: Record<string, unknown> = { ...userChanges };
+        delete payload.id;
+        delete payload.email;
+        delete payload.role;
+        delete payload.accountType;
+        Object.keys(payload).forEach((key) => {
+          if (payload[key] === "") {
+            payload[key] = null;
+          }
+        });
         if (Object.keys(payload).length > 0) {
-          await handleUpdateMe(payload);
+          await handleUpdateMe(payload as Parameters<typeof handleUpdateMe>[0]);
         }
       }
     };
@@ -1492,50 +1619,13 @@ function DashboardPageInner() {
         | "user"),
     };
 
-    // CustomersPanel V2 handlers — wrap apiRequest() (auth-aware) and adapt
-    // shapes. Refactored from the orchestrator's raw fetch() calls which
-    // would have bypassed JwtAuthGuard and returned 401.
+    // customersV2Handlers is defined+memoized at the component top level (see
+    // above the `if (newLayoutPanel)` guard). Only the role string — a
+    // primitive, safe to recompute — is derived here.
     const customersV2Role = ((dashboardUser?.role ?? "USER").toLowerCase() as
       | "master"
       | "admin"
       | "user");
-    const customersV2Handlers = {
-      onFetchCustomers: async () => {
-        const response = await apiRequest<CustomerListResponse>(
-          "/customers?limit=500&orderBy=createdAt&orderDir=desc",
-        );
-        return response.customers;
-      },
-      onCreateCustomer: async (data: V2CustomerFormData) => {
-        return apiRequest<Customer>("/customers", { method: "POST", body: data });
-      },
-      onUpdateCustomer: async (id: string, data: V2CustomerFormData) => {
-        return apiRequest<Customer>(`/customers/${id}`, {
-          method: "PATCH",
-          body: data,
-        });
-      },
-      onDeleteCustomer: async (id: string) => {
-        await apiRequest(`/customers/${id}`, { method: "DELETE" });
-      },
-      onAssignCustomer: async (id: string, newUserId: string) => {
-        return apiRequest<Customer>(`/customers/${id}`, {
-          method: "PATCH",
-          body: { userId: newUserId },
-        });
-      },
-      onFetchUsersForAssign: async (): Promise<V2CustomerOwnerUser[]> => {
-        const list = await apiRequest<ManagedUser[]>("/users");
-        return list
-          .filter((u) => u.status === "ACTIVE")
-          .map((u) => ({
-            id: u.id,
-            email: u.email,
-            firstName: u.firstName ?? "",
-            lastName: u.lastName ?? "",
-          }));
-      },
-    };
 
     // MembersPanel V2 handlers. Reuses existing page.tsx handlers (no duplication
     // of mutations — handleCreateUser/UpdateUser/DeactivateUser/ReactivateUser/
@@ -1685,6 +1775,27 @@ function DashboardPageInner() {
       fullName: c.fullName,
       email: c.email,
       customerType: c.customerType,
+      status: c.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+      phone: c.phone,
+      addressLine1: c.addressLine1,
+      city: c.city,
+      state: c.state,
+      zipCode: c.zipCode,
+      business: c.business
+        ? {
+            primaryContactName: c.business.primaryContactName,
+            primaryContactEmail: c.business.primaryContactEmail,
+            primaryContactPhone: c.business.primaryContactPhone,
+            primaryContactAddressLine1: c.business.primaryContactAddressLine1,
+            primaryContactCity: c.business.primaryContactCity,
+            primaryContactState: c.business.primaryContactState,
+            primaryContactZipCode: c.business.primaryContactZipCode,
+            businessAddressLine1: c.business.businessAddressLine1,
+            businessCity: c.business.businessCity,
+            businessState: c.business.businessState,
+            businessZipCode: c.business.businessZipCode,
+          }
+        : null,
     }));
 
     const documentsV2 = {
@@ -1742,6 +1853,20 @@ function DashboardPageInner() {
           changedBy: null,
         }));
       },
+      onFetchDocument: handleFetchDocumentDetail,
+      onFetchPdfUrl: (docId: string): Promise<string> =>
+        handlePreviewFinalPdf(docId),
+      onUpdateDraft: async (
+        docId: string,
+        payload: { contractDate: string; dataJson: Record<string, unknown> },
+      ) => {
+        // Lean PATCH — the modal updates its local dataJson in place (no legacy
+        // loadWorkspace/loadDocumentDetail, which would re-render + flash).
+        await apiRequest(`/documents/${docId}/draft`, {
+          method: "PATCH",
+          body: payload,
+        });
+      },
     };
 
     const panelContent =
@@ -1752,7 +1877,11 @@ function DashboardPageInner() {
           usage={adaptUsageForPanel(usage)}
           monthlySummary={adaptMonthlySummaryForPanel(monthlySummary)}
           documents={adaptDocumentsForPanel(documents)}
+          customers={(customers ?? []).map((c) => ({ id: c.id, fullName: c.fullName }))}
           isLoading={isLoading}
+          onNewDocument={() => router.push("/dashboard?panel=documents&new=1")}
+          onOpenDocument={(docId) => router.push(`/dashboard?panel=documents&doc=${docId}`)}
+          onViewAllAttention={() => router.push("/dashboard?panel=documents&status=SENT")}
         />
       ) : newLayoutPanel === "profile" ? (
         <ProfilePanel
@@ -1760,6 +1889,18 @@ function DashboardPageInner() {
           companyProfile={adaptCompanyForProfilePanel(companyProfile)}
           isLoading={isLoading}
           onSave={handleProfileSave}
+          stats={{
+            totalDocuments: documents?.length ?? 0,
+            completedDocuments: documents?.filter((d) => d.status === "COMPLETED").length ?? 0,
+            memberSince: dashboardUser?.createdAt ?? null,
+            planName: companyProfile?.planName ?? "STARTER",
+          }}
+          onNavigate={(panel: string) => {
+            const url = new URL(window.location.href);
+            url.searchParams.set("panel", panel);
+            window.history.pushState({}, "", url.toString());
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          }}
         />
       ) : newLayoutPanel === "billing" ? (
         <BillingPanel
@@ -1767,6 +1908,7 @@ function DashboardPageInner() {
           cycle={billingV3.cycle}
           usage={billingV3.usage}
           role={billingV3.role}
+          isLoading={isLoading}
         />
       ) : newLayoutPanel === "customers" ? (
         <CustomersPanel
@@ -1777,9 +1919,12 @@ function DashboardPageInner() {
           onUpdateCustomer={customersV2Handlers.onUpdateCustomer}
           onDeleteCustomer={customersV2Handlers.onDeleteCustomer}
           onAssignCustomer={customersV2Handlers.onAssignCustomer}
+          onChangeStatus={customersV2Handlers.onChangeStatus}
           onFetchUsersForAssign={customersV2Handlers.onFetchUsersForAssign}
+          onFetchDeletedCustomers={customersV2Handlers.onFetchDeletedCustomers}
+          onRestoreCustomer={customersV2Handlers.onRestoreCustomer}
         />
-      ) : newLayoutPanel === "members" ? (
+      ) : newLayoutPanel === "members" && isMaster ? (
         <MembersPanel
           role={membersV2.role}
           currentUserId={membersV2.currentUserId}
@@ -1792,13 +1937,14 @@ function DashboardPageInner() {
           onResetPassword={membersV2.onResetPassword}
           onUpdateAccountRequestStatus={membersV2.onUpdateAccountRequestStatus}
         />
-      ) : newLayoutPanel === "lockedUsers" ? (
+      ) : newLayoutPanel === "lockedUsers" && isMaster ? (
         <LockedUsersPanel
           onFetchLockedUsers={lockedUsersV2.onFetchLockedUsers}
           onUnlockUser={lockedUsersV2.onUnlockUser}
         />
       ) : newLayoutPanel === "documents" ? (
         <DocumentsPanel
+          isLoading={isLoading}
           documents={documentsV2.items}
           documentTypes={documentsV2.types}
           customers={documentsV2.customers}
@@ -1809,6 +1955,10 @@ function DashboardPageInner() {
           onPreviewPdf={documentsV2.onPreviewPdf}
           onDownloadPdf={documentsV2.onDownloadPdf}
           onFetchVersions={documentsV2.onFetchVersions}
+          onFetchDocument={documentsV2.onFetchDocument}
+          onFetchPdfUrl={documentsV2.onFetchPdfUrl}
+          onUpdateDraft={documentsV2.onUpdateDraft}
+          isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
         />
       ) : (
         <div
@@ -1837,6 +1987,7 @@ function DashboardPageInner() {
         user={shellUser}
         currentPanel={newLayoutPanel}
         onSignOut={handleSignOut}
+        isLoading={isLoading}
       >
         {panelContent}
       </DashboardShell>
