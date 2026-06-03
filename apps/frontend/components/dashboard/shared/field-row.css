@@ -1,0 +1,105 @@
+/* ========================================
+   FIELD ROW — Notion/Linear style
+   Label | Value with separator
+   ======================================== */
+
+.field-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  padding: 8px 14px;
+  border-bottom: 0.5px solid var(--border-soft);
+  align-items: center;
+  min-height: 36px;
+}
+
+.field-row:last-child {
+  border-bottom: none;
+}
+
+.field-row__label {
+  font-size: 12px;
+  color: var(--text-label);
+  line-height: 1.4;
+}
+
+.field-row__value {
+  font-size: 13px;
+  color: var(--text-body);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.field-row__value--empty {
+  color: var(--text-label);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* ========================================
+   SEMANTIC GROUP PAIR — 2 columns desktop
+   ======================================== */
+
+.group-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Wrapper for multiple group-pair rows inside a collapsible section */
+.collapsible-content > .group-pair + .group-pair,
+.collapsible-content > .form-group + .group-pair,
+.collapsible-content > .group-pair + .form-group {
+  margin-top: 0;
+}
+
+.group-pair-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 6px;
+}
+
+.group-pair-header__icon {
+  color: var(--brand);
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.group-pair-header__title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-label);
+  margin: 0;
+}
+
+/* Tablet: stacked */
+@media (max-width: 1023px) {
+  .group-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+  .field-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    padding: 8px 12px;
+  }
+
+  .field-row__label {
+    font-size: 11px;
+  }
+
+  .field-row__value {
+    font-size: 13px;
+  }
+}

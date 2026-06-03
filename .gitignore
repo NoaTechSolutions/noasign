@@ -112,3 +112,5 @@ apps/backend/prisma/seed_test_users.js
 
 # Cygwin / Git Bash crash dumps
 *.stackdump
+*.backup
+*.backup

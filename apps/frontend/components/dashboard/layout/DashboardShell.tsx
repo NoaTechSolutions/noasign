@@ -12,11 +12,17 @@ interface DashboardShellProps {
     email: string;
     role: "MASTER" | "ADMIN" | "USER";
     companyName: string;
+    avatarUrl?: string | null;
+    accountType?: string | null;
+    plan?: string | null;
   };
   currentPanel: string;
   // Optional signout handler — forwarded to Sidebar footer's Sign-out
   // button. Pass the host page's handleSignOut to wire real logout.
   onSignOut?: () => Promise<void> | void;
+  // While true, the Topbar shows skeletons for the avatar + name/plan
+  // instead of fallback values ("User"/"Company") flashing on reload.
+  isLoading?: boolean;
 }
 
 // Top-level wrapper for the new dashboard layout. Composes:
@@ -31,6 +37,7 @@ export function DashboardShell({
   user,
   currentPanel,
   onSignOut,
+  isLoading,
 }: DashboardShellProps) {
   return (
     <div
@@ -44,6 +51,7 @@ export function DashboardShell({
         userRole={user.role}
         currentPanel={currentPanel}
         onSignOut={onSignOut}
+        isLoading={isLoading}
       />
 
       {/* Right column: topbar + content */}
@@ -55,7 +63,7 @@ export function DashboardShell({
           minWidth: 0, // critical for flex children with overflow
         }}
       >
-        <Topbar user={user} currentPanel={currentPanel}>
+        <Topbar user={user} currentPanel={currentPanel} isLoading={isLoading}>
           <MobileMenu
             userRole={user.role}
             currentPanel={currentPanel}

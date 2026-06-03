@@ -4,6 +4,56 @@ import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCompanyInitials } from "@/lib/format";
+import "./field-row.css";
+
+export function FieldRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="field-row">
+      <span className="field-row__label">{label}</span>
+      <span className={cn("field-row__value", !value && "field-row__value--empty")}>
+        {value || "—"}
+      </span>
+    </div>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <div className="field-row">
+      <span className="skeleton-pulse skeleton-line" style={{ width: '70px', height: '12px' }} />
+      <span className="skeleton-pulse skeleton-line" style={{ width: '60%', height: '12px' }} />
+    </div>
+  );
+}
+
+function SkeletonGroup({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="form-group">
+      <div className="group-pair-header">
+        <span className="skeleton-pulse" style={{ width: '14px', height: '14px', borderRadius: '4px' }} />
+        <span className="skeleton-pulse skeleton-line" style={{ width: '80px', height: '11px' }} />
+      </div>
+      <div className="field-rows">
+        {Array.from({ length: rows }).map((_, i) => <SkeletonRow key={i} />)}
+      </div>
+    </div>
+  );
+}
+
+export function ProfileSectionSkeleton({ rows = 2 }: { rows?: number }) {
+  return (
+    <>
+      <div className="group-pair">
+        <SkeletonGroup rows={rows + 1} />
+        <SkeletonGroup rows={rows + 1} />
+      </div>
+      <div className="group-pair">
+        <SkeletonGroup rows={rows} />
+        <SkeletonGroup rows={rows} />
+      </div>
+    </>
+  );
+}
 
 /**
  * Shared UI components for dashboard panels.

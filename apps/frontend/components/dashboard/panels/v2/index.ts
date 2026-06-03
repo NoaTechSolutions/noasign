@@ -15,6 +15,7 @@ export { CollapsibleSection } from './CollapsibleSection';
 export { CompanyInformationSection } from './CompanyInformationSection';
 export { PrimaryContactSection } from './PrimaryContactSection';
 export { InsuranceInformationSection } from './InsuranceInformationSection';
+export { PersonalInformationSection } from './PersonalInformationSection';
 export { SaveChangesBar } from './SaveChangesBar';
 
 // Customers panel V2 (responsive table/cards + wizard + modals) — subfolder.

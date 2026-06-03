@@ -1,0 +1,1256 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NTSsign — Dashboard</title>
+<style>
+  :root[data-theme="light"] {
+    --bg-page:       #f0f4ff;
+    --bg-chrome:     #ffffff;
+    --bg-card:       #ffffff;
+    --bg-card-soft:  #f7f8fa;
+    --bg-hover:      rgba(2,41,119,0.04);
+    --bg-active:     rgba(2,41,119,0.08);
+    --bg-overlay:    rgba(2,41,119,0.5);
+    --brand:         #022977;
+    --brand-hover:   #0400f0;
+    --brand-soft:    rgba(2,41,119,0.12);
+    --sky:           #05a5ff;
+    --amber:         #ff9900;
+    --text-heading:  #022977;
+    --text-body:     rgba(2,41,119,0.70);
+    --text-label:    rgba(2,41,119,0.50);
+    --text-trust:    rgba(2,41,119,0.40);
+    --text-on-brand: #ffffff;
+    --border-soft:   rgba(2,41,119,0.10);
+    --border-strong: rgba(2,41,119,0.16);
+    --border-divide: rgba(2,41,119,0.06);
+    --shadow-card:   0 1px 2px rgba(2,41,119,0.04), 0 4px 12px rgba(2,41,119,0.04);
+    --shadow-elev:   0 4px 16px rgba(2,41,119,0.10);
+    --status-completed: #34c759;
+    --status-sent:      #ffcc00;
+    --status-viewed:    #007aff;
+    --status-draft:     #8e8e93;
+    --status-cancelled: #ff3b30;
+    --status-signed:    #5856d6;
+    --gradient-welcome: linear-gradient(135deg, #022977 0%, #0400f0 100%);
+  }
+  :root[data-theme="dark"] {
+    --bg-page:       #0b0f1a;
+    --bg-chrome:     #0f1628;
+    --bg-card:       #161d30;
+    --bg-card-soft:  #161d30;
+    --bg-hover:      rgba(5,165,255,0.08);
+    --bg-active:     rgba(5,165,255,0.14);
+    --bg-overlay:    rgba(0,0,0,0.65);
+    --brand:         #05a5ff;
+    --brand-hover:   #33b8ff;
+    --brand-soft:    rgba(5,165,255,0.18);
+    --sky:           #05a5ff;
+    --amber:         #ff9900;
+    --text-heading:  #f0f4ff;
+    --text-body:     #c8d8f0;
+    --text-label:    rgba(200,216,240,0.60);
+    --text-trust:    rgba(200,216,240,0.40);
+    --text-on-brand: #00183a;
+    --border-soft:   rgba(255,255,255,0.06);
+    --border-strong: rgba(255,255,255,0.12);
+    --border-divide: rgba(255,255,255,0.04);
+    --shadow-card:   0 1px 2px rgba(0,0,0,0.30), 0 4px 12px rgba(0,0,0,0.30);
+    --shadow-elev:   0 4px 16px rgba(0,0,0,0.40);
+    --status-completed: #30d158;
+    --status-sent:      #ffd60a;
+    --status-viewed:    #0a84ff;
+    --status-draft:     #98989d;
+    --status-cancelled: #ff453a;
+    --status-signed:    #5e5ce6;
+    --gradient-welcome: linear-gradient(135deg, #05a5ff 0%, #0291dd 100%);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--bg-page);
+    color: var(--text-body);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+    transition: background-color 0.2s ease;
+  }
+  button { font: inherit; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  code { font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace; font-size: 0.92em; }
+
+  /* ───────────── TOP BAR ───────────── */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 64px;
+    background: var(--bg-chrome);
+    border-bottom: 0.5px solid var(--border-soft);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .topbar__left  { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .topbar__right { display: flex; align-items: center; gap: 8px; margin-inline-start: auto; }
+  .icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 0.5px solid var(--border-soft);
+    background: transparent;
+    color: var(--text-heading);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+  .icon-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .icon-btn svg  { width: 18px; height: 18px; }
+
+  .topbar-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .topbar-logo__mark { width: 28px; height: 28px; border-radius: 7px; background: var(--brand); color: #ffffff; display: grid; place-items: center; font-size: 12px; font-weight: 500; letter-spacing: 0.02em; flex-shrink: 0; }
+  .topbar-logo__name { font-size: 15px; font-weight: 500; color: var(--text-heading); }
+  @media (max-width: 480px) { .topbar-logo__name { display: none; } }
+
+  .breadcrumbs {
+    display: flex; align-items: center; gap: 8px;
+    margin-inline-start: 12px;
+    padding-inline-start: 16px;
+    border-inline-start: 0.5px solid var(--border-soft);
+    font-size: 13px;
+    color: var(--text-label);
+    min-width: 0;
+  }
+  .breadcrumbs__sep { color: var(--text-trust); opacity: 0.6; }
+  .breadcrumbs__current {
+    color: var(--text-heading);
+    font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .topbar__right .icon-btn.theme-toggle .icon-moon { display: block; }
+  .topbar__right .icon-btn.theme-toggle .icon-sun  { display: none; }
+  :root[data-theme="dark"] .topbar__right .icon-btn.theme-toggle .icon-moon { display: none; }
+  :root[data-theme="dark"] .topbar__right .icon-btn.theme-toggle .icon-sun  { display: block; }
+
+  /* ───────────── TOPBAR AVATAR ───────────── */
+  .topbar-avatar { position: relative; }
+  .topbar-avatar-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; padding: 0; cursor: pointer; display: grid; place-items: center; }
+  .topbar-avatar-btn:hover .topbar-avatar-circle { transform: scale(1.05); }
+  .topbar-avatar-circle { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color: #ffffff; display: grid; place-items: center; font-size: 12px; font-weight: 500; letter-spacing: 0.02em; transition: transform 0.15s ease; }
+  .topbar-avatar-dropdown { position: absolute; right: 0; top: calc(100% + 8px); width: 288px; background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 8px; opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s; z-index: 100; }
+  .topbar-avatar-dropdown[data-open="true"] { opacity: 1; visibility: visible; transform: translateY(0); }
+  .topbar-avatar-header { display: flex; align-items: flex-start; gap: 12px; padding: 12px 8px; }
+  .topbar-avatar-header__big { width: 42px; height: 42px; border-radius: 50%; background: var(--brand); color: #ffffff; display: grid; place-items: center; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+  .topbar-avatar-header__info { flex: 1; min-width: 0; }
+  .topbar-avatar-header__name { font-size: 13px; font-weight: 500; color: var(--text-heading); margin: 0; line-height: 1.4; }
+  .topbar-avatar-header__role { font-size: 11px; font-weight: 500; color: var(--text-label); margin: 2px 0 0; line-height: 1.4; }
+  .topbar-avatar-header__email { font-size: 11px; font-weight: 400; color: var(--text-label); margin: 2px 0 0; line-height: 1.4; word-break: break-word; }
+  .topbar-avatar-divider { height: 1px; background: var(--border-soft); margin: 4px -8px; }
+  .topbar-avatar-section { padding: 4px 0; }
+  .topbar-avatar-section__label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-label); padding: 8px 8px 4px; margin: 0; }
+  .topbar-avatar-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; font-size: 13px; font-weight: 400; color: var(--text-body); text-decoration: none; cursor: pointer; background: transparent; border: none; width: 100%; text-align: left; transition: background 0.15s ease; }
+  .topbar-avatar-item:hover { background: var(--bg-page); }
+  .topbar-avatar-item--danger { color: #dc2626; }
+  .topbar-avatar-item--danger:hover { background: rgba(220,38,38,0.06); }
+  .role-radio { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.15s ease; min-height: 56px; }
+  .role-radio:hover { background: var(--bg-page); }
+  .role-radio__avatar { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border-soft); display: grid; place-items: center; flex-shrink: 0; transition: border 0.15s ease, background 0.15s ease; }
+  .role-radio__initial { font-size: 11px; font-weight: 500; color: var(--text-label); transition: color 0.15s ease; }
+  .role-radio[aria-checked="true"] .role-radio__avatar { border-color: var(--brand); border-width: 2px; }
+  .role-radio[aria-checked="true"] .role-radio__initial { color: var(--brand); }
+  .role-radio__text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .role-radio__label { font-size: 13px; font-weight: 500; color: var(--text-heading); line-height: 1.4; }
+  .role-radio__desc { font-size: 11px; font-weight: 400; color: var(--text-label); line-height: 1.4; }
+
+  /* ───────────── CONTENT ───────────── */
+  .content {
+    margin-top: 64px;
+    margin-inline-start: 0;
+    padding: 24px;
+    min-height: calc(100vh - 64px);
+  }
+  .content__inner { max-width: 1400px; margin: 0 auto; }
+
+  .panel { display: none; }
+  .panel.is-active { display: block; }
+
+  .panel-head { margin-bottom: 24px; }
+  .panel-head__title {
+    font-size: 22px; font-weight: 500;
+    color: var(--text-heading);
+    line-height: 1.25;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .panel-head__sub {
+    font-size: 13px; font-weight: 400;
+    color: var(--text-body);
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  /* ─── Welcome card ─── */
+  .welcome {
+    padding: 22px 26px;
+    background: var(--gradient-welcome);
+    border-radius: 14px;
+    color: #ffffff;
+    display: flex; align-items: center; gap: 18px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-card);
+  }
+  .welcome__emoji {
+    font-size: 28px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .welcome__title {
+    font-size: 17px; font-weight: 500;
+    margin: 0 0 4px;
+    line-height: 1.3;
+  }
+  .welcome__sub {
+    font-size: 13px; font-weight: 400;
+    margin: 0;
+    opacity: 0.85;
+    line-height: 1.5;
+  }
+
+  /* ─── Stats grid ─── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-card);
+  }
+  .stat-card__icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    display: grid; place-items: center;
+    margin-bottom: 14px;
+  }
+  .stat-card__icon svg { width: 18px; height: 18px; }
+  .stat-card__value {
+    font-size: 26px; font-weight: 500;
+    color: var(--text-heading);
+    line-height: 1.1;
+    margin: 0 0 4px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.015em;
+  }
+  .stat-card__label {
+    font-size: 12px; font-weight: 400;
+    color: var(--text-label);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── Card (generic surface for sections) ─── */
+  .card {
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .card__head {
+    padding: 18px 22px;
+    border-bottom: 0.5px solid var(--border-soft);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap;
+  }
+  .card__title {
+    font-size: 15px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0;
+  }
+  .card__sub {
+    font-size: 12px; font-weight: 400;
+    color: var(--text-label);
+    margin: 0;
+  }
+  .card__body { padding: 8px 22px 16px; }
+  .card__foot { padding: 14px 22px; border-top: 0.5px solid var(--border-soft); }
+
+  /* ─── Status breakdown rows ─── */
+  .status-row {
+    display: grid;
+    grid-template-columns: 16px 1fr 40px 140px 50px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 0.5px solid var(--border-divide);
+  }
+  .status-row:last-child { border-bottom: 0; }
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .status-row__label {
+    font-size: 13px; font-weight: 400;
+    color: var(--text-body);
+  }
+  .status-row__count {
+    font-size: 13px; font-weight: 500;
+    color: var(--text-heading);
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+  .status-row__bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-active);
+    overflow: hidden;
+  }
+  .status-row__bar-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+  .status-row__pct {
+    font-size: 12px; font-weight: 400;
+    color: var(--text-label);
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─── Recent docs ─── */
+  .doc-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 0;
+    border-bottom: 0.5px solid var(--border-divide);
+  }
+  .doc-row:last-child { border-bottom: 0; }
+  .doc-row__icon {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .doc-row__icon svg { width: 16px; height: 16px; }
+  .doc-row__meta { flex: 1; min-width: 0; }
+  .doc-row__title {
+    font-size: 13.5px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0 0 2px;
+    line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .doc-row__sub {
+    font-size: 12px; font-weight: 400;
+    color: var(--text-label);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  /* ─── Status badge ─── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 11px; font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    flex-shrink: 0;
+  }
+  .badge__dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  /* ─── Outline button ─── */
+  .btn-outline {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 16px;
+    height: 40px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid var(--brand);
+    color: var(--brand);
+    font-size: 13px; font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    width: 100%;
+  }
+  .btn-outline:hover {
+    background: var(--brand);
+    color: var(--text-on-brand);
+  }
+  .btn-outline svg { width: 14px; height: 14px; }
+  .btn-primary {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 18px;
+    height: 40px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: var(--text-on-brand);
+    border: 0;
+    font-size: 13px; font-weight: 500;
+    transition: background-color 0.15s ease;
+  }
+  .btn-primary:hover { background: var(--brand-hover); }
+
+  /* ─── Documents panel: filters + table ─── */
+  .filters {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    border-radius: 99px;
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-soft);
+    color: var(--text-body);
+    font-size: 12.5px; font-weight: 500;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .filter-chip:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .filter-chip.is-active {
+    background: var(--brand);
+    color: var(--text-on-brand);
+    border-color: var(--brand);
+  }
+  .filter-chip__count {
+    font-size: 11px;
+    background: rgba(255,255,255,0.18);
+    color: inherit;
+    padding: 1px 7px;
+    border-radius: 99px;
+    font-weight: 500;
+  }
+  .filter-chip:not(.is-active) .filter-chip__count {
+    background: var(--bg-active);
+    color: var(--text-label);
+  }
+  .filters__spacer { flex: 1; }
+  .filters__action {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: var(--text-on-brand);
+    border: 0;
+    font-size: 12.5px; font-weight: 500;
+  }
+  .filters__action svg { width: 14px; height: 14px; }
+  .filters__action:hover { background: var(--brand-hover); }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .table thead th {
+    text-align: start;
+    font-size: 11px; font-weight: 500;
+    color: var(--text-label);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 12px 18px;
+    border-bottom: 0.5px solid var(--border-soft);
+    background: var(--bg-card-soft);
+    white-space: nowrap;
+  }
+  .table tbody td {
+    padding: 14px 18px;
+    color: var(--text-body);
+    border-bottom: 0.5px solid var(--border-divide);
+    vertical-align: middle;
+  }
+  .table tbody tr:last-child td { border-bottom: 0; }
+  .table tbody tr:hover td { background: var(--bg-hover); }
+  .table__doc {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .table__doc-title {
+    font-size: 13px; font-weight: 500;
+    color: var(--text-heading);
+    line-height: 1.3;
+  }
+  .table__doc-sub {
+    font-size: 11.5px; color: var(--text-label);
+    margin-top: 2px;
+  }
+  .table__num { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--text-heading); }
+  .table__actions {
+    display: inline-flex; gap: 4px;
+  }
+  .action-btn {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 0;
+    background: transparent;
+    color: var(--text-label);
+    display: inline-grid; place-items: center;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .action-btn:hover { background: var(--bg-active); color: var(--brand); }
+  .action-btn svg { width: 14px; height: 14px; }
+
+  /* ─── Locked state ─── */
+  .locked {
+    max-width: 460px;
+    margin: 80px auto;
+    padding: 56px 36px;
+    background: var(--bg-card);
+    border: 1.5px dashed var(--border-strong);
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: var(--shadow-card);
+  }
+  .locked__icon {
+    width: 72px; height: 72px;
+    margin: 0 auto 20px;
+    border-radius: 16px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    display: grid; place-items: center;
+  }
+  .locked__icon svg { width: 36px; height: 36px; }
+  .locked__phase {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 99px;
+    background: var(--bg-active);
+    color: var(--brand);
+    font-size: 11px; font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 16px;
+  }
+  .locked__title {
+    font-size: 22px; font-weight: 500;
+    color: var(--text-heading);
+    line-height: 1.25;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .locked__desc {
+    font-size: 14px; font-weight: 400;
+    color: var(--text-body);
+    margin: 0 0 28px;
+    line-height: 1.6;
+  }
+  .locked__btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 22px;
+    height: 42px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid var(--brand);
+    color: var(--brand);
+    font-size: 13px; font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .locked__btn:hover {
+    background: var(--brand);
+    color: var(--text-on-brand);
+  }
+  .locked__btn svg { width: 14px; height: 14px; }
+
+  /* ─── Placeholder ─── */
+  .placeholder {
+    max-width: 520px;
+    margin: 60px auto;
+    padding: 48px 36px;
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-soft);
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: var(--shadow-card);
+  }
+  .placeholder__icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 18px;
+    border-radius: 14px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    display: grid; place-items: center;
+  }
+  .placeholder__icon svg { width: 26px; height: 26px; }
+  .placeholder__chip {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 99px;
+    background: var(--bg-active);
+    color: var(--brand);
+    font-size: 11px; font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 14px;
+  }
+  .placeholder__title {
+    font-size: 20px; font-weight: 500;
+    color: var(--text-heading);
+    line-height: 1.25;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+  .placeholder__desc {
+    font-size: 14px; font-weight: 400;
+    color: var(--text-body);
+    margin: 0;
+    line-height: 1.65;
+  }
+  .placeholder__desc strong { color: var(--text-heading); font-weight: 500; }
+
+  /* ───────────── RESPONSIVE ───────────── */
+  @media (max-width: 1023px) {
+    .breadcrumbs { padding-inline-start: 12px; margin-inline-start: 8px; font-size: 12.5px; }
+    .breadcrumbs__home { display: none; }
+    .breadcrumbs__sep { display: none; }
+    .status-row { grid-template-columns: 14px 1fr 32px 80px 44px; gap: 10px; }
+  }
+  @media (max-width: 640px) {
+    .topbar { padding: 0 12px; gap: 8px; }
+    .breadcrumbs { display: none; }
+    .stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .stat-card { padding: 14px; }
+    .stat-card__value { font-size: 22px; }
+    .stat-card__label { font-size: 11px; }
+    .content { padding: 16px; }
+    .welcome { flex-direction: column; align-items: flex-start; padding: 18px 20px; gap: 8px; }
+    .welcome__emoji { font-size: 24px; }
+    .card__head { padding: 16px 18px; }
+    .card__body { padding: 6px 18px 14px; }
+    .doc-row__title { font-size: 13px; }
+    .filter-chip__count { display: none; }
+    .table thead th, .table tbody td { padding: 12px 14px; }
+    .table__doc-sub { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar" role="banner">
+  <div class="topbar__left">
+    <a class="topbar-logo" href="#" aria-label="NTSsign home">
+      <div class="topbar-logo__mark">NT</div>
+      <div class="topbar-logo__name">NTSsign</div>
+    </a>
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <span class="breadcrumbs__home">Dashboard</span>
+      <span class="breadcrumbs__sep">/</span>
+      <span class="breadcrumbs__current" data-crumb>Overview</span>
+    </nav>
+  </div>
+  <div class="topbar__right">
+    <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme" onclick="toggleTheme()">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <div class="topbar-avatar">
+      <button class="topbar-avatar-btn" type="button" aria-label="Open user menu" aria-expanded="false" aria-haspopup="menu" onclick="toggleTopbarUser(event)">
+        <span class="topbar-avatar-circle" aria-hidden="true">JD</span>
+      </button>
+      <div class="topbar-avatar-dropdown" id="topbar-avatar-dropdown" role="menu" data-open="false" aria-hidden="true">
+        <div class="topbar-avatar-header">
+          <div class="topbar-avatar-header__big" aria-hidden="true">JD</div>
+          <div class="topbar-avatar-header__info">
+            <p class="topbar-avatar-header__name">John Doe</p>
+            <p class="topbar-avatar-header__role" data-role-label>Workspace owner</p>
+            <p class="topbar-avatar-header__email">john@example.com</p>
+          </div>
+        </div>
+        <div class="topbar-avatar-divider"></div>
+        <div class="topbar-avatar-section">
+          <a class="topbar-avatar-item" href="#" role="menuitem">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profile
+          </a>
+          <a class="topbar-avatar-item" href="#" role="menuitem">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
+          </a>
+          <a class="topbar-avatar-item" href="#" role="menuitem">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Help & support
+          </a>
+        </div>
+        <div class="topbar-avatar-divider"></div>
+        <div class="topbar-avatar-section">
+          <p class="topbar-avatar-section__label">Preview mode</p>
+          <div class="role-radio" data-role="user" role="menuitemradio" aria-checked="false" tabindex="0" onclick="setRole('user')">
+            <span class="role-radio__avatar" aria-hidden="true"><span class="role-radio__initial">R</span></span>
+            <div class="role-radio__text">
+              <span class="role-radio__label">Regular user</span>
+              <span class="role-radio__desc">View own data only</span>
+            </div>
+          </div>
+          <div class="role-radio" data-role="admin" role="menuitemradio" aria-checked="false" tabindex="0" onclick="setRole('admin')">
+            <span class="role-radio__avatar" aria-hidden="true"><span class="role-radio__initial">T</span></span>
+            <div class="role-radio__text">
+              <span class="role-radio__label">Team admin</span>
+              <span class="role-radio__desc">Manage everything</span>
+            </div>
+          </div>
+          <div class="role-radio" data-role="master" role="menuitemradio" aria-checked="true" tabindex="0" onclick="setRole('master')">
+            <span class="role-radio__avatar" aria-hidden="true"><span class="role-radio__initial">W</span></span>
+            <div class="role-radio__text">
+              <span class="role-radio__label">Workspace owner</span>
+              <span class="role-radio__desc">Full access</span>
+            </div>
+          </div>
+        </div>
+        <div class="topbar-avatar-divider"></div>
+        <button class="topbar-avatar-item topbar-avatar-item--danger" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign out
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="content">
+  <div class="content__inner">
+
+    <!-- ───── PANEL: OVERVIEW ───── -->
+    <section class="panel" data-panel="overview" aria-labelledby="ovTitle">
+      <header class="panel-head">
+        <h1 class="panel-head__title" id="ovTitle">Dashboard overview</h1>
+        <p class="panel-head__sub">Your monthly summary and recent document activity.</p>
+      </header>
+
+      <div class="welcome" role="status">
+        <span class="welcome__emoji" aria-hidden="true">👋</span>
+        <div>
+          <h2 class="welcome__title">Welcome back, John</h2>
+          <p class="welcome__sub">Here's what's happening with your documents this month — 15 sent, 18 completed.</p>
+        </div>
+      </div>
+
+      <div class="stats" role="list">
+        <div class="stat-card" role="listitem">
+          <div class="stat-card__icon" data-icon="file-text"></div>
+          <p class="stat-card__value">42</p>
+          <p class="stat-card__label">Total documents</p>
+        </div>
+        <div class="stat-card" role="listitem">
+          <div class="stat-card__icon" data-icon="send"></div>
+          <p class="stat-card__value">15</p>
+          <p class="stat-card__label">Sent this month</p>
+        </div>
+        <div class="stat-card" role="listitem">
+          <div class="stat-card__icon" data-icon="dollar-sign"></div>
+          <p class="stat-card__value">$1,260</p>
+          <p class="stat-card__label">Billed</p>
+        </div>
+        <div class="stat-card" role="listitem">
+          <div class="stat-card__icon" data-icon="alert-circle"></div>
+          <p class="stat-card__value">0</p>
+          <p class="stat-card__label">Overage</p>
+        </div>
+      </div>
+
+      <section class="card" aria-labelledby="brTitle">
+        <header class="card__head">
+          <div>
+            <h2 class="card__title" id="brTitle">Status breakdown</h2>
+            <p class="card__sub">42 documents across all states</p>
+          </div>
+        </header>
+        <div class="card__body" id="statusRows"></div>
+      </section>
+
+      <section class="card" aria-labelledby="rdTitle">
+        <header class="card__head">
+          <div>
+            <h2 class="card__title" id="rdTitle">Recent documents</h2>
+            <p class="card__sub">Last 5 — May 8 to May 12, 2026</p>
+          </div>
+        </header>
+        <div class="card__body" id="recentDocs"></div>
+        <div class="card__foot">
+          <a class="btn-outline" href="?panel=documents">
+            View all documents
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
+      </section>
+    </section>
+
+    <!-- ───── PANEL: DOCUMENTS ───── -->
+    <section class="panel" data-panel="documents" aria-labelledby="docTitle">
+      <header class="panel-head">
+        <h1 class="panel-head__title" id="docTitle">Documents</h1>
+        <p class="panel-head__sub">Manage and track every document sent for signature.</p>
+      </header>
+
+      <div class="filters" role="toolbar" aria-label="Filter documents">
+        <button class="filter-chip is-active" type="button">All <span class="filter-chip__count">42</span></button>
+        <button class="filter-chip" type="button">Completed <span class="filter-chip__count">18</span></button>
+        <button class="filter-chip" type="button">Sent <span class="filter-chip__count">8</span></button>
+        <button class="filter-chip" type="button">Viewed <span class="filter-chip__count">6</span></button>
+        <button class="filter-chip" type="button">Draft <span class="filter-chip__count">5</span></button>
+        <button class="filter-chip" type="button">Cancelled <span class="filter-chip__count">3</span></button>
+        <span class="filters__spacer"></span>
+        <button class="filters__action" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New document
+        </button>
+      </div>
+
+      <section class="card" style="overflow-x: auto;">
+        <table class="table" id="docsTable">
+          <thead>
+            <tr>
+              <th scope="col">Document</th>
+              <th scope="col">Customer</th>
+              <th scope="col">Sent</th>
+              <th scope="col">Status</th>
+              <th scope="col" style="text-align: end;">Amount</th>
+              <th scope="col" style="width: 80px;"></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </section>
+
+    <!-- ───── PANEL: CUSTOMERS / PROFILE / BILLING placeholders ───── -->
+    <section class="panel" data-panel="customers">
+      <header class="panel-head">
+        <h1 class="panel-head__title">Customers</h1>
+        <p class="panel-head__sub">Manage your customer directory and contact details.</p>
+      </header>
+      <div class="placeholder">
+        <div class="placeholder__icon" data-icon="users"></div>
+        <span class="placeholder__chip">Designed separately</span>
+        <h2 class="placeholder__title">This panel is being designed separately</h2>
+        <p class="placeholder__desc">The full interactive prototype for <strong>Customers</strong> ships in the next iteration. The shell, navigation, and theming you see here are final.</p>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="profile">
+      <header class="panel-head">
+        <h1 class="panel-head__title">Profile</h1>
+        <p class="panel-head__sub">Your company information and personal preferences.</p>
+      </header>
+      <div class="placeholder">
+        <div class="placeholder__icon" data-icon="user"></div>
+        <span class="placeholder__chip">Designed separately</span>
+        <h2 class="placeholder__title">This panel is being designed separately</h2>
+        <p class="placeholder__desc">The full interactive prototype for <strong>Profile</strong> ships in the next iteration. The shell, navigation, and theming you see here are final.</p>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="billing">
+      <header class="panel-head">
+        <h1 class="panel-head__title">Billing</h1>
+        <p class="panel-head__sub">Your plan, usage and invoices.</p>
+      </header>
+      <div class="placeholder">
+        <div class="placeholder__icon" data-icon="credit-card"></div>
+        <span class="placeholder__chip">Designed separately</span>
+        <h2 class="placeholder__title">This panel is being designed separately</h2>
+        <p class="placeholder__desc">The full interactive prototype for <strong>Billing</strong> ships in the next iteration. The shell, navigation, and theming you see here are final.</p>
+      </div>
+    </section>
+
+    <!-- ───── PANEL: LOCKED (dynamic — used by all 14 future modules) ───── -->
+    <section class="panel" data-panel="locked">
+      <header class="panel-head">
+        <h1 class="panel-head__title" id="lockedTitle">Templates</h1>
+        <p class="panel-head__sub" id="lockedSub">Manage reusable document templates.</p>
+      </header>
+      <div class="locked">
+        <div class="locked__icon" data-icon="lock"></div>
+        <span class="locked__phase" id="lockedPhase">Phase 1</span>
+        <h2 class="locked__title">Coming soon</h2>
+        <p class="locked__desc" id="lockedDesc">This feature is planned for the next phase of NTSsign. We'll notify you the moment it goes live.</p>
+        <button class="locked__btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Notify me
+        </button>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+  /* ─────────── ICON LIBRARY (Feather-style) ─────────── */
+  const ICONS = {
+    'home':        '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+    'file-text':   '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+    'users':       '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    'user':        '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    'credit-card': '<rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+    'layout':      '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>',
+    'bell':        '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    'clock':       '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    'x-circle':    '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+    'bar-chart':   '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+    'clipboard':   '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
+    'smartphone':  '<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
+    'activity':    '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    'gift':        '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+    'link':        '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    'zap':         '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    'dollar-sign': '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    'edit':        '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+    'menu':        '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
+    'lock':        '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    'send':        '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+    'alert-circle':'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+    'eye':         '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+    'download':    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+    'more':        '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
+    'settings':    '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    'log-out':     '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+    'help-circle': '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    'chevron-up':  '<polyline points="18 15 12 9 6 15"/>'
+  };
+  function svg(name, sw){
+    if (!ICONS[name]) return '';
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+  }
+  document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = svg(el.dataset.icon); });
+
+  /* ─────────── NAV CONFIG ─────────── */
+  const NAV = [
+    {
+      type: 'group',
+      items: [
+        {id: 'overview',  icon: 'home',        label: 'Dashboard'},
+        {id: 'documents', icon: 'file-text',   label: 'Documents'},
+        {id: 'customers', icon: 'users',       label: 'Customers'},
+        {id: 'profile',   icon: 'user',        label: 'Profile'},
+        {id: 'billing',   icon: 'credit-card', label: 'Billing'}
+      ]
+    },
+    {
+      type: 'group',
+      label: 'Phase 1',
+      items: [
+        {id: 'templates',  icon: 'layout',   label: 'Templates',  locked: 'Phase 1'},
+        {id: 'reminders',  icon: 'bell',     label: 'Reminders',  locked: 'Phase 1'},
+        {id: 'expiration', icon: 'clock',    label: 'Expiration', locked: 'Phase 1'},
+        {id: 'decline',    icon: 'x-circle', label: 'Decline',    locked: 'Phase 1'}
+      ]
+    },
+    {
+      type: 'group',
+      label: 'Phase 2',
+      items: [
+        {id: 'reports',     icon: 'bar-chart',  label: 'Reports',      locked: 'Phase 2'},
+        {id: 'audit',       icon: 'clipboard',  label: 'Audit trail',  locked: 'Phase 2'},
+        {id: 'sms',         icon: 'smartphone', label: 'SMS verify',   locked: 'Phase 2'},
+        {id: 'team-roles',  icon: 'users',      label: 'Team roles',   locked: 'Phase 2'},
+        {id: 'activity',    icon: 'activity',   label: 'Activity log', locked: 'Phase 2'},
+        {id: 'referrals',   icon: 'gift',       label: 'Referrals',    locked: 'Phase 2'}
+      ]
+    },
+    {
+      type: 'group',
+      label: 'Phase 3',
+      items: [
+        {id: 'integrations', icon: 'link',        label: 'Integrations',   locked: 'Phase 3'},
+        {id: 'api',          icon: 'zap',         label: 'API & webhooks', locked: 'Phase 3'},
+        {id: 'payment',      icon: 'dollar-sign', label: 'Payment link',   locked: 'Phase 3'},
+        {id: 'in-person',    icon: 'edit',        label: 'In-person sign', locked: 'Phase 3'}
+      ]
+    }
+  ];
+  const LOCKED_COPY = {
+    'templates':   {desc: 'Save reusable document templates with placeholders so you can send a contract in seconds.'},
+    'reminders':   {desc: 'Schedule automatic follow-ups for unsigned documents — daily, weekly, or once.'},
+    'expiration':  {desc: 'Set a deadline on each document. Auto-expire after the date if no signature.'},
+    'decline':     {desc: 'Let signers formally decline a document with a reason — recorded in the audit trail.'},
+    'reports':     {desc: 'Custom reports on volume, completion rate, time-to-sign, and customer behavior.'},
+    'audit':       {desc: 'Tamper-evident PDF audit trail with IP, timestamp, and signer identity for each event.'},
+    'sms':         {desc: 'Two-factor signing: send a one-time code by SMS before the signer can sign.'},
+    'team-roles':  {desc: 'Granular roles beyond MASTER / USER — viewer, sender, billing-only, custom.'},
+    'activity':    {desc: 'Real-time activity feed of everything your team does — sent, opened, signed.'},
+    'referrals':   {desc: 'Invite peers — they get $50 in credit, you get $50 in credit when they sign up.'},
+    'integrations':{desc: 'Zapier, Google Drive, Dropbox, Salesforce, HubSpot — one-click connections.'},
+    'api':         {desc: 'REST API + webhooks for embedding signing into your own product.'},
+    'payment':     {desc: 'Collect payment at signing — Stripe-powered, attached to any document.'},
+    'in-person':   {desc: 'In-person signing on a tablet — no email round-trip, fully audited.'}
+  };
+
+  /* ─────────── DATA (Overview + Documents) ─────────── */
+  const STATUS = [
+    {key: 'completed', label: 'Completed', count: 18, color: 'var(--status-completed)'},
+    {key: 'sent',      label: 'Sent',      count:  8, color: 'var(--status-sent)'},
+    {key: 'viewed',    label: 'Viewed',    count:  6, color: 'var(--status-viewed)'},
+    {key: 'draft',     label: 'Draft',     count:  5, color: 'var(--status-draft)'},
+    {key: 'cancelled', label: 'Cancelled', count:  3, color: 'var(--status-cancelled)'},
+    {key: 'signed',    label: 'Signed',    count:  2, color: 'var(--status-signed)'}
+  ];
+  const TOTAL = STATUS.reduce((s, r) => s + r.count, 0);
+
+  const RECENT = [
+    {title: 'Service Agreement — Acme Construction',  date: 'May 12, 2026', status: 'sent'},
+    {title: 'NDA — Smith & Associates',                date: 'May 11, 2026', status: 'completed'},
+    {title: 'Construction Contract — Riverside Project', date: 'May 10, 2026', status: 'viewed'},
+    {title: 'Consulting Agreement — Tech Innovations', date: 'May 9, 2026',  status: 'draft'},
+    {title: 'Proposal — Downtown Renovation',          date: 'May 8, 2026',  status: 'signed'}
+  ];
+
+  const DOCS = [
+    {title: 'Service Agreement',      customer: 'Acme Construction LLC',  sent: 'May 12, 2026', status: 'sent',      amount: 84,  ref: '#SA-2026-042'},
+    {title: 'NDA',                    customer: 'Smith & Associates',     sent: 'May 11, 2026', status: 'completed', amount: 0,   ref: '#ND-2026-018'},
+    {title: 'Construction Contract',  customer: 'Riverside Project',      sent: 'May 10, 2026', status: 'viewed',    amount: 120, ref: '#CC-2026-007'},
+    {title: 'Consulting Agreement',   customer: 'Tech Innovations LLC',   sent: 'May 9, 2026',  status: 'draft',     amount: 0,   ref: '#CA-2026-031'},
+    {title: 'Proposal',               customer: 'Downtown Properties Inc',sent: 'May 8, 2026',  status: 'signed',    amount: 64,  ref: '#PR-2026-066'},
+    {title: 'Work Order #142',        customer: 'Highland Estates HOA',   sent: 'May 7, 2026',  status: 'completed', amount: 48,  ref: '#WO-2026-142'},
+    {title: 'Change Order #3',        customer: 'Bay Area Builders',      sent: 'May 6, 2026',  status: 'sent',      amount: 84,  ref: '#CO-2026-103'},
+    {title: 'Insurance Waiver',       customer: 'Rodriguez Family',       sent: 'May 5, 2026',  status: 'completed', amount: 24,  ref: '#IW-2026-088'},
+    {title: 'Lease Agreement',        customer: 'Downtown Properties Inc',sent: 'May 4, 2026',  status: 'viewed',    amount: 144, ref: '#LA-2026-009'},
+    {title: 'Equipment Rental',       customer: 'Bay Area Builders',      sent: 'May 3, 2026',  status: 'cancelled', amount: 0,   ref: '#ER-2026-051'},
+    {title: 'Statement of Work',      customer: 'Tech Innovations LLC',   sent: 'May 2, 2026',  status: 'completed', amount: 96,  ref: '#SW-2026-077'},
+    {title: 'Subcontractor Agreement',customer: 'Riverside Project',      sent: 'May 1, 2026',  status: 'completed', amount: 120, ref: '#SC-2026-014'}
+  ];
+
+  const STATUS_LABEL = {
+    completed: 'Completed', sent: 'Sent', viewed: 'Viewed',
+    draft: 'Draft', cancelled: 'Cancelled', signed: 'Signed'
+  };
+
+  /* ─────────── RENDER ─────────── */
+  function renderSidebar() {
+    const sb = document.getElementById('sidebar-nav');
+    if (!sb) return;
+    const panel = currentPanel();
+    let html = '';
+    NAV.forEach((group, gi) => {
+      if (gi > 0) html += '<hr class="sidebar__divider">';
+      html += '<div class="sidebar__section">';
+      if (group.label) html += `<div class="sidebar__label">${group.label}</div>`;
+      group.items.forEach(item => {
+        const isActive = !item.locked && item.id === panel;
+        const lockedClass = item.locked ? ' is-locked' : '';
+        const activeClass = isActive ? ' is-active' : '';
+        const href = item.locked ? `?panel=${item.id}` : `?panel=${item.id}`;
+        html += `<a class="nav-item${activeClass}${lockedClass}" href="${href}">
+          <span class="nav-item__icon">${svg(item.icon)}</span>
+          <span class="nav-item__label">${item.label}</span>
+          ${item.locked ? `<span class="nav-item__lock">${svg('lock', 2)}</span>` : ''}
+        </a>`;
+      });
+      html += '</div>';
+    });
+    sb.innerHTML = html;
+  }
+
+  function renderStatusRows() {
+    const el = document.getElementById('statusRows');
+    if (!el) return;
+    el.innerHTML = STATUS.map(s => {
+      const pct = (s.count / TOTAL * 100).toFixed(1);
+      return `<div class="status-row">
+        <span class="status-dot" style="background:${s.color}"></span>
+        <span class="status-row__label">${s.label}</span>
+        <span class="status-row__count">${s.count}</span>
+        <span class="status-row__bar"><span class="status-row__bar-fill" style="width:${pct}%;background:${s.color}"></span></span>
+        <span class="status-row__pct">${pct}%</span>
+      </div>`;
+    }).join('');
+  }
+
+  function statusBadge(key) {
+    const color = `var(--status-${key})`;
+    return `<span class="badge" style="color:${color};background:color-mix(in srgb, ${color} 14%, transparent)">
+      <span class="badge__dot" style="background:${color}"></span>
+      ${STATUS_LABEL[key]}
+    </span>`;
+  }
+
+  function renderRecentDocs() {
+    const el = document.getElementById('recentDocs');
+    if (!el) return;
+    el.innerHTML = RECENT.map(d => `
+      <div class="doc-row">
+        <span class="doc-row__icon">${svg('file-text')}</span>
+        <div class="doc-row__meta">
+          <p class="doc-row__title">${d.title}</p>
+          <p class="doc-row__sub">${d.date}</p>
+        </div>
+        ${statusBadge(d.status)}
+      </div>
+    `).join('');
+  }
+
+  function renderDocsTable() {
+    const tb = document.querySelector('#docsTable tbody');
+    if (!tb) return;
+    tb.innerHTML = DOCS.map(d => `
+      <tr>
+        <td>
+          <div class="table__doc">
+            <span class="doc-row__icon">${svg('file-text')}</span>
+            <div>
+              <div class="table__doc-title">${d.title}</div>
+              <div class="table__doc-sub">${d.ref}</div>
+            </div>
+          </div>
+        </td>
+        <td>${d.customer}</td>
+        <td>${d.sent}</td>
+        <td>${statusBadge(d.status)}</td>
+        <td class="table__num" style="text-align: end;">${d.amount ? '$' + d.amount.toLocaleString() : '—'}</td>
+        <td>
+          <div class="table__actions">
+            <button class="action-btn" type="button" aria-label="View">${svg('eye')}</button>
+            <button class="action-btn" type="button" aria-label="Download">${svg('download')}</button>
+            <button class="action-btn" type="button" aria-label="More">${svg('more')}</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  /* ─────────── ROUTING ─────────── */
+  function params() { return new URLSearchParams(window.location.search); }
+
+  function currentPanel() {
+    return params().get('panel') || 'overview';
+  }
+  function lockedItem(id) {
+    for (const g of NAV) {
+      const it = g.items.find(i => i.id === id && i.locked);
+      if (it) return it;
+    }
+    return null;
+  }
+  function knownPanel(id) {
+    if (['overview','documents','customers','profile','billing'].includes(id)) return id;
+    if (lockedItem(id)) return 'locked';
+    return 'overview';
+  }
+  function switchPanel() {
+    const wanted = currentPanel();
+    const target = knownPanel(wanted);
+    document.querySelectorAll('[data-panel]').forEach(p => {
+      p.classList.toggle('is-active', p.dataset.panel === target);
+    });
+    const crumb = document.querySelector('[data-crumb]');
+    if (target === 'locked') {
+      const it = lockedItem(wanted);
+      document.getElementById('lockedTitle').textContent = it.label;
+      document.getElementById('lockedPhase').textContent = it.locked;
+      const copy = LOCKED_COPY[wanted];
+      if (copy) document.getElementById('lockedDesc').textContent = copy.desc;
+      document.querySelector('.panel[data-panel="locked"] .panel-head__sub').textContent =
+        (copy && copy.desc) ? copy.desc.split('.')[0] + '.' : 'Coming soon.';
+      if (crumb) crumb.textContent = it.label;
+    } else {
+      const labels = {overview:'Overview', documents:'Documents', customers:'Customers', profile:'Profile', billing:'Billing'};
+      if (crumb) crumb.textContent = labels[target] || 'Overview';
+    }
+    document.title = `NTSsign — ${crumb ? crumb.textContent : 'Dashboard'}`;
+  }
+
+  /* ─────────── TOPBAR AVATAR DROPDOWN ─────────── */
+  function toggleTopbarUser(e) {
+    if (e) e.stopPropagation();
+    const dd = document.getElementById('topbar-avatar-dropdown');
+    const btn = document.querySelector('.topbar-avatar-btn');
+    if (!dd || !btn) return;
+    const isOpen = dd.getAttribute('data-open') === 'true';
+    dd.setAttribute('data-open', !isOpen);
+    dd.setAttribute('aria-hidden', isOpen);
+    btn.setAttribute('aria-expanded', !isOpen);
+  }
+
+  function closeTopbarUser() {
+    const dd = document.getElementById('topbar-avatar-dropdown');
+    const btn = document.querySelector('.topbar-avatar-btn');
+    if (!dd || !btn) return;
+    dd.setAttribute('data-open', 'false');
+    dd.setAttribute('aria-hidden', 'true');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+
+  document.addEventListener('click', function(e) {
+    const dd = document.getElementById('topbar-avatar-dropdown');
+    const btn = document.querySelector('.topbar-avatar-btn');
+    if (dd && btn && !dd.contains(e.target) && !btn.contains(e.target)) {
+      closeTopbarUser();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const dd = document.getElementById('topbar-avatar-dropdown');
+      if (dd && dd.getAttribute('data-open') === 'true') {
+        closeTopbarUser();
+      }
+    }
+  });
+
+  /* ─────────── ROLE ─────────── */
+  const ROLE_LABELS = { user: 'Regular user', admin: 'Team admin', master: 'Workspace owner' };
+  function setRole(role) {
+    if (!['user','admin','master'].includes(role)) role = 'master';
+    document.body.setAttribute('data-role', role);
+    document.querySelectorAll('.role-radio').forEach(r => {
+      r.setAttribute('aria-checked', r.dataset.role === role ? 'true' : 'false');
+    });
+    const label = document.querySelector('[data-role-label]');
+    if (label) label.textContent = ROLE_LABELS[role];
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('role', role);
+      window.history.replaceState({}, '', url);
+    } catch(e){}
+  }
+
+  /* ─────────── THEME ─────────── */
+  function applyInitial() {
+    const p = params();
+    const theme = p.get('theme');
+    if (theme === 'light' || theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', theme);
+    } else {
+      let stored = null;
+      try { stored = localStorage.getItem('ntssign-theme'); } catch(e){}
+      if (stored === 'light' || stored === 'dark') {
+        document.documentElement.setAttribute('data-theme', stored);
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+    const roleParam = p.get('role');
+    const role = ['user','admin','master'].includes(roleParam) ? roleParam : 'master';
+    setRole(role);
+  }
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('ntssign-theme', next); } catch(e){}
+  }
+
+  /* ─────────── BOOT ─────────── */
+  applyInitial();
+  renderSidebar();
+  renderStatusRows();
+  renderRecentDocs();
+  renderDocsTable();
+  switchPanel();
+</script>
+</body>
+</html>

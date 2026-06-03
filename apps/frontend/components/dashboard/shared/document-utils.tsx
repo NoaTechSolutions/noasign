@@ -40,7 +40,7 @@ export function getFinalCustomerName(document: Doc) {
     }
   }
 
-  return "Final customer not provided";
+  return "Final client not provided";
 }
 
 export function getFinalCustomerEmail(document: Doc) {

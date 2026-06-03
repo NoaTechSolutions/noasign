@@ -10,8 +10,14 @@ interface TopbarProps {
     email: string;
     role: "MASTER" | "ADMIN" | "USER";
     companyName: string;
+    avatarUrl?: string | null;
+    accountType?: string | null;
+    plan?: string | null;
   };
   currentPanel: string;
+  // While true, show skeletons for avatar + name/plan instead of fallback
+  // values flashing on reload ("User"/"Company" before data lands).
+  isLoading?: boolean;
   // Optional slot for elements rendered at the leftmost position (before the
   // logo). DashboardShell uses this to inject the MobileMenu hamburger button.
   children?: React.ReactNode;
@@ -23,7 +29,7 @@ interface TopbarProps {
 const PANEL_LABELS: Record<string, string> = {
   overview: "Overview",
   documents: "Documents",
-  customers: "Customers",
+  customers: "Clients",
   profile: "Profile",
   billing: "Billing",
   users: "Members",
@@ -34,7 +40,7 @@ const PANEL_LABELS: Record<string, string> = {
   support: "Support",
 };
 
-export function Topbar({ user, currentPanel, children }: TopbarProps) {
+export function Topbar({ user, currentPanel, isLoading, children }: TopbarProps) {
   const [avatarOpen, setAvatarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -54,11 +60,19 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
 
   const initial = user.name.charAt(0).toUpperCase();
 
+  // Beside the avatar: INDIVIDUAL accounts show the person's name; everyone
+  // else (BUSINESS / MASTER) shows the company name. Plan sits underneath.
+  const isIndividual = user.accountType === "INDIVIDUAL";
+  const primaryLabel = isIndividual ? user.name : user.companyName;
+  const planLabel = user.plan
+    ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1).toLowerCase()
+    : null;
+
   return (
     <div
       className="topbar sticky top-0 flex items-center px-4 gap-3"
       style={{
-        height: "64px",
+        height: "56px",
         background: "var(--bg-chrome)",
         borderBottom: "0.5px solid var(--border-soft)",
         zIndex: 100,
@@ -117,17 +131,43 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
 
       {/* Right: Theme Toggle + Avatar */}
       <div className="flex items-center gap-2 ml-auto">
-        <ThemeToggle />
+        {isLoading ? (
+          <div
+            className="skeleton-pulse w-9 h-9 rounded-lg"
+            aria-hidden="true"
+          />
+        ) : (
+          <ThemeToggle />
+        )}
 
         {/* User Avatar + Dropdown */}
         <div className="relative" ref={dropdownRef}>
+          {isLoading ? (
+            <div className="flex items-center gap-2.5 pl-1">
+              <div
+                className="skeleton-pulse skeleton-circle w-8 h-8 flex-shrink-0"
+                aria-hidden="true"
+              />
+              <div className="topbar-user-meta">
+                <div
+                  className="skeleton-pulse skeleton-line"
+                  style={{ width: "100px", height: "12px" }}
+                />
+                <div
+                  className="skeleton-pulse skeleton-line"
+                  style={{ width: "60px", height: "10px", marginTop: "4px" }}
+                />
+              </div>
+            </div>
+          ) : (
+          <>
           <button
             onClick={() => setAvatarOpen(!avatarOpen)}
-            className="w-9 h-9 rounded-full border-none bg-transparent p-0 cursor-pointer grid place-items-center"
+            className="flex items-center gap-2.5 border-none bg-transparent p-0 pl-1 cursor-pointer"
             aria-expanded={avatarOpen}
           >
             <div
-              className="w-8 h-8 rounded-full grid place-items-center text-xs font-medium flex-shrink-0 transition-transform duration-150"
+              className="w-8 h-8 rounded-full grid place-items-center text-xs font-medium flex-shrink-0 transition-transform duration-150 overflow-hidden"
               style={{
                 background: "var(--brand)",
                 color: "#ffffff",
@@ -135,7 +175,33 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
                 transform: avatarOpen ? "scale(1.05)" : "scale(1)",
               }}
             >
-              {initial}
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                initial
+              )}
+            </div>
+
+            {/* Name + plan — hidden on mobile (avatar only) via CSS */}
+            <div className="topbar-user-meta min-w-0">
+              <p
+                className="text-[13px] font-medium m-0 truncate"
+                style={{
+                  color: "var(--text-heading)",
+                  lineHeight: 1.3,
+                  maxWidth: "160px",
+                }}
+              >
+                {primaryLabel}
+              </p>
+              {planLabel && (
+                <p
+                  className="text-[11px] m-0 truncate"
+                  style={{ color: "var(--text-label)", lineHeight: 1.3 }}
+                >
+                  {planLabel}
+                </p>
+              )}
             </div>
           </button>
 
@@ -155,13 +221,17 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
               {/* Header */}
               <div className="flex items-start gap-3 p-3">
                 <div
-                  className="w-[42px] h-[42px] rounded-full grid place-items-center text-sm font-medium flex-shrink-0"
+                  className="w-[42px] h-[42px] rounded-full grid place-items-center text-sm font-medium flex-shrink-0 overflow-hidden"
                   style={{
                     background: "var(--brand)",
                     color: "#ffffff",
                   }}
                 >
-                  {initial}
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                  ) : (
+                    initial
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p
@@ -172,15 +242,6 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
                     }}
                   >
                     {user.name}
-                  </p>
-                  <p
-                    className="text-[11px] font-medium m-0 mt-0.5"
-                    style={{
-                      color: "var(--text-label)",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {user.role}
                   </p>
                   <p
                     className="text-[11px] font-normal m-0 mt-0.5 break-words"
@@ -221,21 +282,30 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
                   href="/dashboard?panel=profile"
                   onClick={() => setAvatarOpen(false)}
                 >
-                  <span style={{ marginRight: "4px" }}>👤</span>
+                  <DropdownIcon>
+                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </DropdownIcon>
                   <span>Profile</span>
                 </MenuLink>
                 <MenuLink
                   href="/dashboard?panel=settings"
                   onClick={() => setAvatarOpen(false)}
                 >
-                  <span style={{ marginRight: "4px" }}>⚙️</span>
+                  <DropdownIcon>
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+                  </DropdownIcon>
                   <span>Settings</span>
                 </MenuLink>
                 <MenuLink
                   href="/dashboard?panel=support"
                   onClick={() => setAvatarOpen(false)}
                 >
-                  <span style={{ marginRight: "4px" }}>💬</span>
+                  <DropdownIcon>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </DropdownIcon>
                   <span>Support</span>
                 </MenuLink>
               </div>
@@ -264,11 +334,17 @@ export function Topbar({ user, currentPanel, children }: TopbarProps) {
                     alert("Sign out — TODO: integrate with auth");
                   }}
                 >
-                  <span style={{ marginRight: "4px" }}>🚪</span>
+                  <DropdownIcon>
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </DropdownIcon>
                   <span>Sign out</span>
                 </button>
               </div>
             </div>
+          )}
+          </>
           )}
         </div>
       </div>
@@ -303,5 +379,36 @@ function MenuLink({
     >
       {children}
     </Link>
+  );
+}
+
+// Dropdown menu icon — matches the sidebar icon language: outline SVG,
+// stroke="currentColor" (inherits the row's text color), no fill, no
+// background. `children` are the inner SVG elements (path/circle/line).
+function DropdownIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        minWidth: "20px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: 0.8,
+      }}
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {children}
+      </svg>
+    </span>
   );
 }

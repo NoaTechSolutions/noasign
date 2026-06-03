@@ -1,0 +1,2189 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NTSsign — Billing</title>
+<style>
+  :root[data-theme="light"] {
+    --bg-page:       #f0f4ff;
+    --bg-chrome:     #ffffff;
+    --bg-card:       #ffffff;
+    --bg-card-soft:  #f7f8fa;
+    --bg-hover:      rgba(2,41,119,0.04);
+    --bg-active:     rgba(2,41,119,0.08);
+    --bg-overlay:    rgba(2,41,119,0.5);
+    --brand:         #022977;
+    --brand-hover:   #0400f0;
+    --brand-soft:    rgba(2,41,119,0.12);
+    --sky:           #05a5ff;
+    --sky-soft:      rgba(5,165,255,0.16);
+    --purple:        #9333ea;
+    --purple-soft:   rgba(147,51,234,0.14);
+    --amber:         #ff9900;
+    --amber-soft:    rgba(255,153,0,0.10);
+    --text-heading:  #022977;
+    --text-body:     rgba(2,41,119,0.70);
+    --text-label:    rgba(2,41,119,0.50);
+    --text-trust:    rgba(2,41,119,0.40);
+    --text-on-brand: #ffffff;
+    --border-soft:   rgba(2,41,119,0.10);
+    --border-strong: rgba(2,41,119,0.16);
+    --border-divide: rgba(2,41,119,0.06);
+    --shadow-card:   0 1px 2px rgba(2,41,119,0.04), 0 4px 12px rgba(2,41,119,0.04);
+    --shadow-elev:   0 4px 16px rgba(2,41,119,0.10);
+    --shadow-drawer: -8px 0 32px rgba(2,41,119,0.12);
+    --shadow-modal:  0 12px 40px rgba(2,41,119,0.18);
+    --danger:        #ef4444;
+    --danger-soft:   rgba(239,68,68,0.12);
+    --success:       #22c55e;
+    --success-soft:  rgba(34,197,94,0.14);
+    --warning:       #f59e0b;
+    --warning-soft:  rgba(245,158,11,0.14);
+    --current-highlight: rgba(2,41,119,0.04);
+  }
+  :root[data-theme="dark"] {
+    --bg-page:       #0b0f1a;
+    --bg-chrome:     #0f1628;
+    --bg-card:       #161d30;
+    --bg-card-soft:  #161d30;
+    --bg-hover:      rgba(5,165,255,0.08);
+    --bg-active:     rgba(5,165,255,0.14);
+    --bg-overlay:    rgba(0,0,0,0.65);
+    --brand:         #05a5ff;
+    --brand-hover:   #33b8ff;
+    --brand-soft:    rgba(5,165,255,0.18);
+    --sky:           #05a5ff;
+    --sky-soft:      rgba(5,165,255,0.22);
+    --purple:        #c084fc;
+    --purple-soft:   rgba(192,132,252,0.18);
+    --amber:         #ff9900;
+    --amber-soft:    rgba(255,153,0,0.14);
+    --text-heading:  #f0f4ff;
+    --text-body:     #c8d8f0;
+    --text-label:    rgba(200,216,240,0.60);
+    --text-trust:    rgba(200,216,240,0.40);
+    --text-on-brand: #00183a;
+    --border-soft:   rgba(255,255,255,0.06);
+    --border-strong: rgba(255,255,255,0.12);
+    --border-divide: rgba(255,255,255,0.04);
+    --shadow-card:   0 1px 2px rgba(0,0,0,0.30), 0 4px 12px rgba(0,0,0,0.30);
+    --shadow-elev:   0 4px 16px rgba(0,0,0,0.40);
+    --shadow-drawer: -8px 0 32px rgba(0,0,0,0.55);
+    --shadow-modal:  0 12px 40px rgba(0,0,0,0.55);
+    --danger:        #ff453a;
+    --danger-soft:   rgba(255,69,58,0.18);
+    --success:       #30d158;
+    --success-soft:  rgba(48,209,88,0.18);
+    --warning:       #ffb84d;
+    --warning-soft:  rgba(245,158,11,0.18);
+    --current-highlight: rgba(255,255,255,0.04);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--bg-page);
+    color: var(--text-body);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+    transition: background-color 0.2s ease;
+  }
+  button { font: inherit; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  input, select, textarea { font: inherit; color: inherit; }
+  code { font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace; font-size: 0.92em; }
+
+  /* ───────────── TOP BAR ───────────── */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 64px;
+    background: var(--bg-chrome);
+    border-bottom: 0.5px solid var(--border-soft);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .topbar__left  { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .topbar__right { display: flex; align-items: center; gap: 8px; margin-inline-start: auto; }
+  .icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 0.5px solid var(--border-soft);
+    background: transparent;
+    color: var(--text-heading);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+  .icon-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+  .icon-btn svg  { width: 18px; height: 18px; }
+
+  .topbar-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .topbar-logo__mark { width: 28px; height: 28px; border-radius: 7px; background: var(--brand); color: #ffffff; display: grid; place-items: center; font-size: 12px; font-weight: 500; letter-spacing: 0.02em; flex-shrink: 0; }
+  .topbar-logo__name { font-size: 15px; font-weight: 500; color: var(--text-heading); }
+  @media (max-width: 480px) { .topbar-logo__name { display: none; } }
+
+  .breadcrumbs {
+    display: flex; align-items: center; gap: 8px;
+    margin-inline-start: 12px;
+    padding-inline-start: 16px;
+    border-inline-start: 0.5px solid var(--border-soft);
+    font-size: 13px;
+    color: var(--text-label);
+    min-width: 0;
+  }
+  .breadcrumbs__sep { color: var(--text-trust); opacity: 0.6; }
+  .breadcrumbs__current {
+    color: var(--text-heading);
+    font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .topbar__right .icon-btn.theme-toggle .icon-moon { display: block; }
+  .topbar__right .icon-btn.theme-toggle .icon-sun  { display: none; }
+  :root[data-theme="dark"] .topbar__right .icon-btn.theme-toggle .icon-moon { display: none; }
+  :root[data-theme="dark"] .topbar__right .icon-btn.theme-toggle .icon-sun  { display: block; }
+
+  /* ───────────── TOPBAR AVATAR ───────────── */
+  .topbar-avatar { position: relative; }
+  .topbar-avatar-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; padding: 0; cursor: pointer; display: grid; place-items: center; }
+  .topbar-avatar-btn:hover .topbar-avatar-circle { transform: scale(1.05); }
+  .topbar-avatar-circle { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color: #ffffff; display: grid; place-items: center; font-size: 12px; font-weight: 500; letter-spacing: 0.02em; transition: transform 0.15s ease; }
+  .topbar-avatar-dropdown { position: absolute; right: 0; top: calc(100% + 8px); width: 288px; background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 8px; opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s; z-index: 100; }
+  .topbar-avatar-dropdown[data-open="true"] { opacity: 1; visibility: visible; transform: translateY(0); }
+  .topbar-avatar-header { display: flex; align-items: flex-start; gap: 12px; padding: 12px 8px; }
+  .topbar-avatar-header__big { width: 42px; height: 42px; border-radius: 50%; background: var(--brand); color: #ffffff; display: grid; place-items: center; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+  .topbar-avatar-header__info { flex: 1; min-width: 0; }
+  .topbar-avatar-header__name { font-size: 13px; font-weight: 500; color: var(--text-heading); margin: 0; line-height: 1.4; }
+  .topbar-avatar-header__role { font-size: 11px; font-weight: 500; color: var(--text-label); margin: 2px 0 0; line-height: 1.4; }
+  .topbar-avatar-header__email { font-size: 11px; font-weight: 400; color: var(--text-label); margin: 2px 0 0; line-height: 1.4; word-break: break-word; }
+  .topbar-avatar-divider { height: 1px; background: var(--border-soft); margin: 4px -8px; }
+  .topbar-avatar-section { padding: 4px 0; }
+  .topbar-avatar-section__label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-label); padding: 8px 8px 4px; margin: 0; }
+  .topbar-avatar-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; font-size: 13px; font-weight: 400; color: var(--text-body); text-decoration: none; cursor: pointer; background: transparent; border: none; width: 100%; text-align: left; transition: background 0.15s ease; }
+  .topbar-avatar-item:hover { background: var(--bg-page); }
+  .topbar-avatar-item--danger { color: #dc2626; }
+  .topbar-avatar-item--danger:hover { background: rgba(220,38,38,0.06); }
+  .role-radio { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.15s ease; min-height: 56px; }
+  .role-radio:hover { background: var(--bg-page); }
+  .role-radio__avatar { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border-soft); display: grid; place-items: center; flex-shrink: 0; transition: border 0.15s ease, background 0.15s ease; }
+  .role-radio__initial { font-size: 11px; font-weight: 500; color: var(--text-label); transition: color 0.15s ease; }
+  .role-radio[aria-checked="true"] .role-radio__avatar { border-color: var(--brand); border-width: 2px; }
+  .role-radio[aria-checked="true"] .role-radio__initial { color: var(--brand); }
+  .role-radio__text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .role-radio__label { font-size: 13px; font-weight: 500; color: var(--text-heading); line-height: 1.4; }
+  .role-radio__desc { font-size: 11px; font-weight: 400; color: var(--text-label); line-height: 1.4; }
+
+  /* ───────────── CONTENT ───────────── */
+  .content {
+    margin-top: 64px;
+    margin-inline-start: 0;
+    padding: 24px;
+    min-height: calc(100vh - 64px);
+  }
+  .content__inner { max-width: 1180px; margin: 0 auto; }
+
+  .panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .panel-head__main { flex: 1; min-width: 220px; }
+  .panel-head__title {
+    font-size: 22px; font-weight: 500;
+    color: var(--text-heading);
+    line-height: 1.25;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .panel-head__sub {
+    font-size: 13px; font-weight: 400;
+    color: var(--text-body);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .panel-head__role-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 8px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    background: var(--bg-active);
+    color: var(--brand);
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .panel-head__role-chip[data-role="user"] {
+    background: rgba(2,41,119,0.06);
+    color: var(--text-body);
+  }
+  :root[data-theme="dark"] .panel-head__role-chip[data-role="user"] {
+    background: rgba(200,216,240,0.08);
+    color: var(--text-body);
+  }
+  .panel-head__role-chip svg { width: 12px; height: 12px; }
+
+  /* ─── Buttons ─── */
+  .btn-primary {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 18px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: var(--text-on-brand);
+    border: 0;
+    font-size: 13px; font-weight: 500;
+    transition: background-color 0.15s ease;
+  }
+  .btn-primary:hover { background: var(--brand-hover); }
+  .btn-primary:disabled,
+  .btn-primary[aria-disabled="true"] {
+    background: var(--bg-active);
+    color: var(--text-label);
+    cursor: not-allowed;
+  }
+  .btn-primary svg { width: 14px; height: 14px; }
+  .btn-quiet {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 16px;
+    height: 38px;
+    border-radius: 8px;
+    background: transparent;
+    border: 0.5px solid var(--border-strong);
+    color: var(--text-body);
+    font-size: 13px; font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .btn-quiet:hover { background: var(--bg-hover); color: var(--text-heading); }
+  .btn-quiet svg { width: 14px; height: 14px; }
+  .btn-outline {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 16px;
+    height: 38px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid var(--brand);
+    color: var(--brand);
+    font-size: 13px; font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .btn-outline:hover { background: var(--brand); color: var(--text-on-brand); }
+  .btn-outline svg { width: 14px; height: 14px; }
+  .btn-danger {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 18px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--danger);
+    color: #ffffff;
+    border: 0;
+    font-size: 13px; font-weight: 500;
+    transition: filter 0.15s ease;
+  }
+  .btn-danger:hover { filter: brightness(1.1); }
+  .btn-danger svg { width: 14px; height: 14px; }
+  .btn-amber {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 18px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--amber);
+    color: #ffffff;
+    border: 0;
+    font-size: 13px; font-weight: 500;
+    transition: background-color 0.15s ease;
+  }
+  .btn-amber:hover { background: #cc7a00; }
+  .btn-amber svg { width: 14px; height: 14px; }
+
+  /* ───────────── BILLING — TOP CARDS ───────────── */
+  .billing-top-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .bill-card {
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+    padding: 20px 22px;
+    display: flex; flex-direction: column;
+    gap: 4px;
+    min-height: 168px;
+  }
+  .bill-card__eyebrow {
+    font-size: 10.5px; font-weight: 500;
+    color: var(--text-label);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0 0 12px;
+  }
+  .bill-card__title {
+    font-size: 24px; font-weight: 500;
+    color: var(--text-heading);
+    line-height: 1.2;
+    margin: 0 0 6px;
+    display: inline-flex; align-items: center; gap: 8px;
+    letter-spacing: -0.01em;
+  }
+  .bill-card__title-star { color: var(--amber); font-size: 18px; line-height: 1; }
+  .bill-card__price {
+    font-size: 15px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0 0 2px;
+    line-height: 1.3;
+  }
+  .bill-card__sub {
+    font-size: 12.5px; font-weight: 400;
+    color: var(--text-body);
+    margin: 0 0 14px;
+    line-height: 1.5;
+  }
+  .bill-card__foot {
+    margin-top: auto;
+    display: flex; justify-content: flex-end;
+  }
+  body[data-role="user"] .bill-card__foot { display: none; }
+
+  /* ───────────── SECTIONS ───────────── */
+  .bill-section {
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .bill-section__head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    padding: 16px 22px;
+    border-bottom: 0.5px solid var(--border-soft);
+    background: var(--bg-card);
+  }
+  .bill-section__title {
+    font-size: 14px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+  .bill-section__body { padding: 18px 22px; }
+
+  /* ─── Usage rows ─── */
+  .usage-row {
+    display: flex; flex-direction: column;
+    padding: 12px 0;
+    border-bottom: 0.5px solid var(--border-divide);
+  }
+  .usage-row:first-child { padding-top: 4px; }
+  .usage-row:last-child { border-bottom: 0; padding-bottom: 4px; }
+  .usage-row__head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .usage-row__label {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-size: 13.5px; font-weight: 500;
+    color: var(--text-heading);
+  }
+  .usage-row__label svg {
+    width: 14px; height: 14px;
+    color: var(--text-label);
+  }
+  .usage-row__right {
+    display: inline-flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .usage-row__count {
+    font-size: 13.5px; font-weight: 500;
+    color: var(--text-heading);
+    font-variant-numeric: tabular-nums;
+  }
+  .usage-row__count--over { color: var(--danger); }
+  .usage-row__limit-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 4px;
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  .usage-row__bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 99px;
+    background: var(--bg-active);
+    overflow: hidden;
+    position: relative;
+  }
+  .usage-row__fill {
+    height: 100%;
+    border-radius: 99px;
+    width: 0;
+    transition: width 0.32s ease-out;
+  }
+  .usage-row__fill[data-tone="green"]  { background: var(--success); }
+  .usage-row__fill[data-tone="amber"]  { background: var(--warning); }
+  .usage-row__fill[data-tone="red"]    { background: var(--danger); }
+  .usage-row__pct {
+    margin-top: 6px;
+    font-size: 11.5px; font-weight: 500;
+    color: var(--text-label);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─── Overage alert ─── */
+  .overage-alert {
+    background: var(--amber-soft);
+    border: 2px solid var(--amber);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    display: flex; flex-direction: column;
+    gap: 12px;
+  }
+  .overage-alert__title {
+    font-size: 15px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0;
+    display: inline-flex; align-items: center; gap: 8px;
+    line-height: 1.3;
+  }
+  .overage-alert__title-icon {
+    color: var(--amber);
+    display: inline-grid; place-items: center;
+    width: 18px; height: 18px;
+  }
+  .overage-alert__title-icon svg { width: 18px; height: 18px; }
+  .overage-alert__calc {
+    font-size: 13.5px; font-weight: 400;
+    color: var(--text-body);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .overage-alert__calc strong {
+    color: var(--text-heading);
+    font-weight: 500;
+  }
+  .overage-alert__when {
+    font-size: 12.5px; font-weight: 400;
+    color: var(--text-body);
+    margin: 0;
+    line-height: 1.5;
+  }
+  .overage-alert__actions {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  /* ─── Features list ─── */
+  .features-list {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 22px;
+  }
+  .features-list__item {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13px;
+    color: var(--text-body);
+    line-height: 1.5;
+  }
+  .features-list__icon {
+    flex-shrink: 0;
+    width: 18px; height: 18px;
+    margin-top: 1px;
+    display: inline-grid; place-items: center;
+  }
+  .features-list__icon svg { width: 16px; height: 16px; }
+  .features-list__item--ok    .features-list__icon { color: var(--success); }
+  .features-list__item--ok    { color: var(--text-body); }
+  .features-list__item--ok strong { color: var(--text-heading); font-weight: 500; }
+  .features-list__item--miss  .features-list__icon { color: var(--danger); }
+  .features-list__item--miss  { color: var(--text-label); }
+  .features-list__hint {
+    font-size: 11px; font-weight: 500;
+    color: var(--text-trust);
+    letter-spacing: 0.04em;
+    margin-inline-start: 4px;
+    text-transform: uppercase;
+  }
+  .features-collapse-toggle {
+    display: none;
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 0.5px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-body);
+    font-size: 12.5px; font-weight: 500;
+    text-align: center;
+  }
+
+  /* ─── Comparison table ─── */
+  .compare-toggle-wrap {
+    display: flex; justify-content: center;
+    margin: 8px 0 18px;
+  }
+  .compare-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 0 18px;
+    height: 38px;
+    border-radius: 8px;
+    background: transparent;
+    border: 0.5px solid var(--border-strong);
+    color: var(--text-body);
+    font-size: 13px; font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .compare-toggle:hover { background: var(--bg-hover); color: var(--text-heading); border-color: var(--brand); }
+  .compare-toggle svg { width: 14px; height: 14px; }
+  .compare-wrap {
+    display: none;
+    margin-bottom: 24px;
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  .compare-wrap[data-open="true"] { display: block; }
+  .compare-scroll {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 720px;
+  }
+  .compare-table th,
+  .compare-table td {
+    padding: 12px 14px;
+    text-align: start;
+    vertical-align: middle;
+    border-bottom: 0.5px solid var(--border-divide);
+  }
+  .compare-table thead th {
+    background: var(--bg-card-soft);
+    font-size: 11.5px; font-weight: 500;
+    color: var(--text-label);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 0.5px solid var(--border-soft);
+    white-space: nowrap;
+  }
+  .compare-table thead th.compare-plan {
+    text-align: center;
+    color: var(--text-heading);
+    font-size: 12.5px;
+  }
+  .compare-table thead th.compare-plan .compare-plan__name {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--text-heading);
+    font-size: 13.5px; font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    line-height: 1.2;
+  }
+  .compare-table thead th.compare-plan .compare-plan__star { color: var(--amber); font-size: 13px; line-height: 1; }
+  .compare-table thead th.compare-plan .compare-plan__price {
+    display: block;
+    font-size: 11px; font-weight: 400;
+    color: var(--text-body);
+    margin-top: 4px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .compare-table td.compare-feat {
+    color: var(--text-body);
+    font-weight: 400;
+  }
+  .compare-table td.compare-feat strong {
+    color: var(--text-heading);
+    font-weight: 500;
+  }
+  .compare-table td.compare-cell {
+    text-align: center;
+    color: var(--text-body);
+    font-variant-numeric: tabular-nums;
+  }
+  .compare-table td.compare-cell--current {
+    background: var(--current-highlight);
+  }
+  .compare-table th.compare-plan--current {
+    background: var(--current-highlight);
+  }
+  .compare-check { color: var(--success); display: inline-grid; place-items: center; }
+  .compare-check svg { width: 16px; height: 16px; }
+  .compare-x { color: var(--text-trust); display: inline-grid; place-items: center; }
+  .compare-x svg { width: 14px; height: 14px; }
+  .compare-table tbody tr:last-child td { border-bottom: 0; }
+
+  /* ─── Empty / Loading states ─── */
+  .empty-state {
+    background: var(--bg-card);
+    border: 0.5px dashed var(--border-strong);
+    border-radius: 14px;
+    padding: 56px 24px;
+    text-align: center;
+  }
+  .empty-state__icon {
+    width: 64px; height: 64px;
+    border-radius: 16px;
+    background: var(--bg-active);
+    color: var(--brand);
+    display: inline-grid; place-items: center;
+    margin-bottom: 16px;
+  }
+  .empty-state__icon svg { width: 32px; height: 32px; }
+  .empty-state__title {
+    font-size: 17px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0 0 6px;
+  }
+  .empty-state__sub {
+    font-size: 13px;
+    color: var(--text-body);
+    margin: 0 0 20px;
+    max-width: 380px;
+    margin-inline: auto;
+    line-height: 1.55;
+  }
+
+  @keyframes skeleton-shimmer {
+    0%   { background-position: -120px 0; }
+    100% { background-position: 120px 0; }
+  }
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--bg-active) 0%,
+      var(--bg-hover) 50%,
+      var(--bg-active) 100%
+    );
+    background-size: 240px 100%;
+    border-radius: 6px;
+    animation: skeleton-shimmer 1.2s linear infinite;
+    display: block;
+  }
+  .skel-card {
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: var(--shadow-card);
+  }
+  .skel-card .skeleton + .skeleton { margin-top: 10px; }
+
+  /* ───────────── MODALS ───────────── */
+  .modal-layer {
+    position: fixed; inset: 0;
+    background: var(--bg-overlay);
+    z-index: 80;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(2px);
+  }
+  body[data-modal="change-plan"]       .modal-layer[data-modal="change-plan"],
+  body[data-modal="confirm-change"]    .modal-layer[data-modal="confirm-change"],
+  body[data-modal="downgrade-warning"] .modal-layer[data-modal="downgrade-warning"] {
+    display: flex;
+  }
+  .modal {
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-strong);
+    border-radius: 14px;
+    box-shadow: var(--shadow-modal);
+    width: 480px; max-width: 100%;
+    overflow: hidden;
+    transform: scale(0.95);
+    opacity: 0;
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+  }
+  body[data-modal] .modal-layer[data-modal] .modal {
+    transform: scale(1);
+    opacity: 1;
+  }
+  .modal--change-plan { width: 940px; }
+  .modal__head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 22px;
+    border-bottom: 0.5px solid var(--border-soft);
+  }
+  .modal__title {
+    font-size: 16px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .modal__title-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--amber-soft);
+    color: var(--amber);
+    display: inline-grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .modal__title-icon svg { width: 14px; height: 14px; }
+  .modal__close {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    border: 0; background: transparent;
+    color: var(--text-label);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .modal__close:hover { background: var(--bg-hover); color: var(--text-heading); }
+  .modal__close svg { width: 16px; height: 16px; }
+  .modal__body { padding: 22px; }
+  .modal__foot {
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 22px;
+    border-top: 0.5px solid var(--border-soft);
+    background: var(--bg-card-soft);
+  }
+  .modal__info {
+    font-size: 12.5px;
+    color: var(--text-body);
+    line-height: 1.5;
+    padding: 12px 22px;
+    border-top: 0.5px solid var(--border-soft);
+    background: var(--bg-card-soft);
+    display: inline-flex; align-items: flex-start; gap: 8px;
+  }
+  .modal__info-icon {
+    flex-shrink: 0;
+    width: 16px; height: 16px;
+    color: var(--brand);
+    margin-top: 1px;
+  }
+  .modal__info-icon svg { width: 16px; height: 16px; }
+
+  /* Change plan — carousel */
+  .plan-carousel {
+    position: relative;
+    margin-inline: -22px; /* extend to modal body edges so peek can bleed */
+    padding-inline: 4px;
+  }
+  .plan-grid {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: visible;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scroll-padding-inline: 22px;
+    padding: 4px 22px 12px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .plan-grid::-webkit-scrollbar { display: none; }
+  .plan-card {
+    background: var(--bg-card-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 18px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+    flex: 0 0 auto;
+    /* Default: ~4 cards visible on desktop (modal is 940px wide, body ~896px) */
+    width: calc((100% - 88px) / 4);
+    min-width: 200px;
+    scroll-snap-align: center;
+  }
+  .plan-card:hover {
+    border-color: var(--brand);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+  }
+  .plan-card--current {
+    border: 2px solid var(--brand);
+    background: var(--bg-card);
+  }
+  /* Carousel controls */
+  .plan-carousel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 0 22px;
+  }
+  .plan-carousel-dots {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .plan-carousel-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    background: var(--border-strong);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    transition: width 0.2s ease, background 0.2s ease;
+  }
+  .plan-carousel-dot[aria-current="true"] {
+    width: 20px;
+    background: var(--brand);
+  }
+  .plan-carousel-arrow {
+    width: 34px;
+    height: 34px;
+    border-radius: 99px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-heading);
+    transition: background 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+    box-shadow: var(--shadow-card);
+  }
+  .plan-carousel-arrow:hover { background: var(--bg-card-soft); }
+  .plan-carousel-arrow:active { transform: scale(0.94); }
+  .plan-carousel-arrow:disabled { opacity: 0.35; cursor: default; }
+  .plan-carousel-arrow svg { width: 16px; height: 16px; }
+  /* Tablet: 2 cards visible with hint of third */
+  @media (max-width: 1023px) {
+    .plan-card {
+      width: calc((100% - 70px) / 2.2);
+      min-width: 240px;
+    }
+  }
+  /* Phone: 1 card with peek, hide arrows (swipe-only) */
+  @media (max-width: 640px) {
+    .plan-carousel { margin-inline: -16px; }
+    .plan-grid { padding: 4px 16px 12px; scroll-padding-inline: 16px; gap: 10px; }
+    .plan-card {
+      width: 82%;
+      min-width: 0;
+    }
+    .plan-carousel-arrow { display: none; }
+    .plan-carousel-controls { padding: 0; gap: 6px; }
+  }
+  .plan-card__badge {
+    align-self: flex-start;
+    display: inline-flex; align-items: center;
+    height: 20px;
+    padding: 0 9px;
+    border-radius: 99px;
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .plan-card__badge[data-tone="starter"]  { background: var(--sky-soft); color: var(--sky); }
+  .plan-card__badge[data-tone="launch"]   { background: var(--brand-soft); color: var(--brand); }
+  .plan-card__badge[data-tone="pro"]      { background: var(--amber-soft); color: var(--amber); }
+  .plan-card__badge[data-tone="scale"]    { background: var(--purple-soft); color: var(--purple); }
+  .plan-card__badge[data-tone="current"]  { background: var(--brand); color: var(--text-on-brand); }
+  .plan-card__name {
+    font-size: 15px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    line-height: 1.2;
+  }
+  .plan-card__name-star { color: var(--amber); font-size: 13px; line-height: 1; }
+  .plan-card__price {
+    font-size: 22px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 4px 0 6px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+  .plan-card__price-suffix {
+    font-size: 12px; font-weight: 400;
+    color: var(--text-label);
+    margin-inline-start: 2px;
+  }
+  .plan-card__limits {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex; flex-direction: column;
+    gap: 4px;
+  }
+  .plan-card__limit {
+    font-size: 12px; font-weight: 400;
+    color: var(--text-body);
+    line-height: 1.45;
+  }
+  .plan-card__limit strong { color: var(--text-heading); font-weight: 500; }
+  .plan-card__cta {
+    margin-top: auto;
+    width: 100%;
+  }
+
+  /* Confirm dialog */
+  .confirm-block {
+    background: var(--bg-card-soft);
+    border: 0.5px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .confirm-block__title {
+    font-size: 15px; font-weight: 500;
+    color: var(--text-heading);
+    margin: 0 0 10px;
+    line-height: 1.3;
+  }
+  .confirm-block__line {
+    font-size: 13px;
+    color: var(--text-body);
+    margin: 0;
+    padding: 3px 0;
+    line-height: 1.5;
+  }
+  .confirm-block__line strong { color: var(--text-heading); font-weight: 500; }
+  .confirm-bullets {
+    list-style: none;
+    padding: 0; margin: 0;
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .confirm-bullets li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13px;
+    color: var(--text-body);
+    line-height: 1.5;
+  }
+  .confirm-bullets li::before {
+    content: '';
+    flex-shrink: 0;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--brand);
+    margin-top: 7px;
+  }
+  .confirm-bullets li strong { color: var(--text-heading); font-weight: 500; }
+  .downgrade-bullets li::before { background: var(--warning); }
+  .downgrade-hint {
+    font-size: 13px;
+    color: var(--text-body);
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    background: var(--sky-soft);
+    color: var(--sky);
+    border-radius: 8px;
+    line-height: 1.5;
+  }
+  :root[data-theme="light"] .downgrade-hint { color: var(--brand); background: var(--brand-soft); }
+
+  /* ───────────── TOAST ───────────── */
+  .toast {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 95;
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 12px 16px 12px 14px;
+    box-shadow: var(--shadow-elev);
+    display: flex; align-items: center; gap: 10px;
+    min-width: 240px; max-width: 360px;
+    transform: translateX(calc(100% + 32px));
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .toast[data-visible="true"] {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .toast__icon {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: grid; place-items: center;
+  }
+  .toast__icon svg { width: 14px; height: 14px; }
+  .toast[data-tone="success"] .toast__icon { background: var(--success-soft); color: var(--success); }
+  .toast[data-tone="error"]   .toast__icon { background: var(--danger-soft);  color: var(--danger); }
+  .toast[data-tone="warning"] .toast__icon { background: var(--amber-soft);   color: var(--amber); }
+  .toast__msg {
+    font-size: 13px;
+    color: var(--text-heading);
+    line-height: 1.45;
+  }
+
+  /* ───────────── RESPONSIVE ───────────── */
+  @media (max-width: 1319px) {
+    .billing-top-grid { gap: 14px; }
+    .plan-grid { gap: 10px; }
+  }
+  @media (max-width: 1023px) {
+    .breadcrumbs { padding-inline-start: 12px; margin-inline-start: 8px; font-size: 12.5px; }
+    .breadcrumbs__home { display: none; }
+    .breadcrumbs__sep { display: none; }
+    .billing-top-grid { gap: 12px; }
+    .features-list { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .topbar { padding: 0 12px; gap: 8px; }
+    .breadcrumbs { display: none; }
+    .content { padding: 16px; }
+    .panel-head__title { font-size: 19px; }
+    .billing-top-grid { gap: 10px; margin-bottom: 18px; }
+    .bill-card { padding: 14px 14px; min-height: 0; gap: 2px; }
+    .bill-card__eyebrow { margin: 0 0 8px; font-size: 9.5px; }
+    .bill-card__title { font-size: 17px; margin: 0 0 4px; }
+    .bill-card__title-star { font-size: 14px; }
+    .bill-card__price { font-size: 12.5px; margin: 0 0 1px; }
+    .bill-card__sub { font-size: 11px; margin: 0 0 10px; line-height: 1.4; }
+    .bill-card__foot .btn-primary {
+      width: 100%;
+      padding: 0 8px;
+      font-size: 11.5px;
+      height: 34px;
+      gap: 4px;
+      letter-spacing: 0;
+    }
+    .bill-card__foot .btn-primary svg { width: 12px; height: 12px; }
+    .bill-card__foot { width: 100%; }
+    .bill-section__head, .bill-section__body { padding-inline: 16px; padding-block: 14px; }
+    .overage-alert { padding: 14px 16px; }
+    .overage-alert__actions .btn-primary,
+    .overage-alert__actions .btn-quiet { flex: 1; min-width: 0; }
+    .modal-layer { padding: 0; }
+    .modal {
+      width: 100vw;
+      max-width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      border-radius: 0;
+      border: 0;
+      display: flex; flex-direction: column;
+    }
+    .modal__body { flex: 1; overflow-y: auto; }
+    .modal__foot { flex-direction: column-reverse; align-items: stretch; gap: 8px; }
+    .modal__foot .btn-primary, .modal__foot .btn-quiet, .modal__foot .btn-danger, .modal__foot .btn-outline { width: 100%; }
+    .features-list { display: none; }
+    body[data-features-open="true"] .features-list { display: grid; }
+    .features-collapse-toggle { display: block; }
+    .toast { top: 76px; right: 12px; left: 12px; max-width: none; }
+  }
+</style>
+</head>
+<body data-role="master" data-features-open="false">
+
+<header class="topbar" role="banner">
+  <div class="topbar__left">
+    <a class="topbar-logo" href="#" aria-label="NTSsign home">
+      <div class="topbar-logo__mark">NT</div>
+      <div class="topbar-logo__name">NTSsign</div>
+    </a>
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a class="breadcrumbs__home" href="../dashboard/dashboard.html">Dashboard</a>
+      <span class="breadcrumbs__sep">/</span>
+      <span class="breadcrumbs__current">Billing</span>
+    </nav>
+  </div>
+  <div class="topbar__right">
+    <button class="icon-btn theme-toggle" type="button" aria-label="Toggle theme" onclick="toggleTheme()">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <div class="topbar-avatar">
+      <button class="topbar-avatar-btn" type="button" aria-label="Open user menu" aria-expanded="false" aria-haspopup="menu" onclick="toggleTopbarUser(event)">
+        <span class="topbar-avatar-circle" aria-hidden="true">JD</span>
+      </button>
+      <div class="topbar-avatar-dropdown" id="topbar-avatar-dropdown" role="menu" data-open="false" aria-hidden="true">
+        <div class="topbar-avatar-header">
+          <div class="topbar-avatar-header__big" aria-hidden="true">JD</div>
+          <div class="topbar-avatar-header__info">
+            <p class="topbar-avatar-header__name">John Doe</p>
+            <p class="topbar-avatar-header__role" data-role-label>Workspace owner</p>
+            <p class="topbar-avatar-header__email">john@example.com</p>
+          </div>
+        </div>
+        <div class="topbar-avatar-divider"></div>
+        <div class="topbar-avatar-section">
+          <a class="topbar-avatar-item" href="#" role="menuitem">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profile
+          </a>
+          <a class="topbar-avatar-item" href="#" role="menuitem">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
+          </a>
+          <a class="topbar-avatar-item" href="#" role="menuitem">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Help & support
+          </a>
+        </div>
+        <div class="topbar-avatar-divider"></div>
+        <div class="topbar-avatar-section">
+          <p class="topbar-avatar-section__label">Preview mode</p>
+          <div class="role-radio" data-role="user" role="menuitemradio" aria-checked="false" tabindex="0" onclick="setRole('user')">
+            <span class="role-radio__avatar" aria-hidden="true"><span class="role-radio__initial">R</span></span>
+            <div class="role-radio__text">
+              <span class="role-radio__label">Regular user</span>
+              <span class="role-radio__desc">View own data only</span>
+            </div>
+          </div>
+          <div class="role-radio" data-role="admin" role="menuitemradio" aria-checked="false" tabindex="0" onclick="setRole('admin')">
+            <span class="role-radio__avatar" aria-hidden="true"><span class="role-radio__initial">T</span></span>
+            <div class="role-radio__text">
+              <span class="role-radio__label">Team admin</span>
+              <span class="role-radio__desc">Manage everything</span>
+            </div>
+          </div>
+          <div class="role-radio" data-role="master" role="menuitemradio" aria-checked="true" tabindex="0" onclick="setRole('master')">
+            <span class="role-radio__avatar" aria-hidden="true"><span class="role-radio__initial">W</span></span>
+            <div class="role-radio__text">
+              <span class="role-radio__label">Workspace owner</span>
+              <span class="role-radio__desc">Full access</span>
+            </div>
+          </div>
+        </div>
+        <div class="topbar-avatar-divider"></div>
+        <button class="topbar-avatar-item topbar-avatar-item--danger" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign out
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="content">
+  <div class="content__inner">
+
+    <header class="panel-head">
+      <div class="panel-head__main">
+        <h1 class="panel-head__title">Billing</h1>
+        <p class="panel-head__sub">Manage your plan, usage and renewal details.</p>
+        <span class="panel-head__role-chip" data-role="master" id="roleChipMaster">
+          <span data-icon="shield"></span>
+          Master · workspace owner
+        </span>
+        <span class="panel-head__role-chip" data-role="user" id="roleChipUser" style="display:none">
+          <span data-icon="eye"></span>
+          User · read-only
+        </span>
+      </div>
+    </header>
+
+    <!-- ───── LOADING SKELETON ───── -->
+    <div id="loadingView" style="display:none">
+      <div class="billing-top-grid">
+        <div class="skel-card">
+          <span class="skeleton" style="width:90px; height:10px;"></span>
+          <span class="skeleton" style="width:60%; height:22px; margin-top:14px;"></span>
+          <span class="skeleton" style="width:40%; height:14px;"></span>
+          <span class="skeleton" style="width:50%; height:12px;"></span>
+        </div>
+        <div class="skel-card">
+          <span class="skeleton" style="width:90px; height:10px;"></span>
+          <span class="skeleton" style="width:55%; height:22px; margin-top:14px;"></span>
+          <span class="skeleton" style="width:48%; height:14px;"></span>
+          <span class="skeleton" style="width:42%; height:12px;"></span>
+        </div>
+      </div>
+      <div class="bill-section">
+        <div class="bill-section__head"><h2 class="bill-section__title">Monthly Usage</h2></div>
+        <div class="bill-section__body">
+          <div style="display:flex; flex-direction:column; gap:18px;">
+            <div><span class="skeleton" style="width:100%; height:12px;"></span></div>
+            <div><span class="skeleton" style="width:100%; height:12px;"></span></div>
+            <div><span class="skeleton" style="width:100%; height:12px;"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── EMPTY STATE ───── -->
+    <div class="empty-state" id="emptyView" style="display:none">
+      <div class="empty-state__icon" aria-hidden="true"><span data-icon="credit-card"></span></div>
+      <h2 class="empty-state__title">No active subscription</h2>
+      <p class="empty-state__sub">Choose a plan to start signing documents.</p>
+      <button type="button" class="btn-primary" id="emptyViewBtn" onclick="openModal('change-plan')">
+        <span data-icon="credit-card"></span>
+        View Plans
+      </button>
+    </div>
+
+    <!-- ───── NORMAL VIEW ───── -->
+    <div id="normalView">
+
+      <div class="billing-top-grid" id="topGrid"></div>
+
+      <div class="bill-section" id="overageSection" style="display:none">
+        <div class="bill-section__body" style="padding:0">
+          <div class="overage-alert" style="border-radius:0; margin:0;" id="overageAlertInline"></div>
+        </div>
+      </div>
+
+      <div id="overageAlertHolder"></div>
+
+      <div class="bill-section">
+        <div class="bill-section__head">
+          <h2 class="bill-section__title">Monthly Usage</h2>
+          <span style="font-size:11.5px; color:var(--text-label); font-weight:500; letter-spacing:0.04em; text-transform:uppercase;" id="cycleHint">May 2026</span>
+        </div>
+        <div class="bill-section__body" id="usageBody"></div>
+      </div>
+
+      <div class="bill-section">
+        <div class="bill-section__head">
+          <h2 class="bill-section__title">Plan Features</h2>
+          <span style="font-size:11.5px; color:var(--text-label); font-weight:500; letter-spacing:0.04em; text-transform:uppercase;" id="planFeaturesHint">Launch · $39/mo</span>
+        </div>
+        <div class="bill-section__body">
+          <button type="button" class="features-collapse-toggle" id="featuresToggle" onclick="toggleFeatures()">Show features</button>
+          <ul class="features-list" id="featuresList"></ul>
+        </div>
+      </div>
+
+      <div class="compare-toggle-wrap">
+        <button type="button" class="compare-toggle" id="compareToggleBtn" onclick="toggleComparison()">
+          <span data-icon="bar-chart"></span>
+          <span id="compareToggleLabel">Compare all plans</span>
+        </button>
+      </div>
+
+      <div class="compare-wrap" id="compareWrap" data-open="false">
+        <div class="compare-scroll">
+          <table class="compare-table" id="compareTable" aria-label="Plan comparison"></table>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<!-- ───────── MODAL: Change Plan ───────── -->
+<div class="modal-layer" data-modal="change-plan" onclick="if(event.target===this) closeModal()">
+  <div class="modal modal--change-plan" role="dialog" aria-labelledby="changePlanTitle" aria-modal="true">
+    <header class="modal__head">
+      <h2 class="modal__title" id="changePlanTitle">Choose Your Plan</h2>
+      <button class="modal__close" type="button" aria-label="Close" onclick="closeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </header>
+    <div class="modal__body">
+      <div class="plan-carousel">
+        <div class="plan-grid" id="planGrid" role="region" aria-label="Available plans" tabindex="0"></div>
+      </div>
+      <div class="plan-carousel-controls">
+        <button type="button" class="plan-carousel-arrow" id="planPrev" aria-label="Previous plan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="plan-carousel-dots" id="planDots" role="tablist" aria-label="Select a plan"></div>
+        <button type="button" class="plan-carousel-arrow" id="planNext" aria-label="Next plan">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="modal__info">
+      <span class="modal__info-icon" data-icon="info"></span>
+      <span>Changes take effect immediately. You'll be charged the prorated amount for the remainder of this billing cycle.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── MODAL: Confirm Plan Change ───────── -->
+<div class="modal-layer" data-modal="confirm-change" onclick="if(event.target===this) closeModal()">
+  <div class="modal" role="dialog" aria-labelledby="confirmChangeTitle" aria-modal="true">
+    <header class="modal__head">
+      <h2 class="modal__title" id="confirmChangeTitle">Confirm Plan Change</h2>
+      <button class="modal__close" type="button" aria-label="Close" onclick="closeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </header>
+    <div class="modal__body" id="confirmChangeBody"></div>
+    <footer class="modal__foot">
+      <button type="button" class="btn-quiet" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn-primary" onclick="confirmPlanChange()">
+        <span data-icon="check"></span>
+        Confirm Change
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- ───────── MODAL: Downgrade Warning ───────── -->
+<div class="modal-layer" data-modal="downgrade-warning" onclick="if(event.target===this) closeModal()">
+  <div class="modal" role="dialog" aria-labelledby="downgradeTitle" aria-modal="true">
+    <header class="modal__head">
+      <h2 class="modal__title" id="downgradeTitle">
+        <span class="modal__title-icon" aria-hidden="true" data-icon="alert-circle"></span>
+        Downgrade Warning
+      </h2>
+      <button class="modal__close" type="button" aria-label="Close" onclick="closeModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </header>
+    <div class="modal__body" id="downgradeBody"></div>
+    <footer class="modal__foot">
+      <button type="button" class="btn-quiet" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn-danger" onclick="confirmPlanChange()">
+        Downgrade Anyway
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- ───────── TOAST ───────── -->
+<div class="toast" id="toast" data-tone="success" data-visible="false" role="status" aria-live="polite">
+  <span class="toast__icon" id="toastIcon"></span>
+  <span class="toast__msg" id="toastMsg"></span>
+</div>
+
+<script>
+  /* ─────────── ICON LIBRARY (Feather-style) ─────────── */
+  const ICONS = {
+    'home':         '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+    'file-text':    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+    'users':        '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    'user':         '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    'briefcase':    '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+    'credit-card':  '<rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+    'layout':       '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>',
+    'bell':         '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    'clock':        '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    'x-circle':     '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+    'bar-chart':    '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+    'clipboard':    '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
+    'smartphone':   '<rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
+    'activity':     '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    'gift':         '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+    'link':         '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    'zap':          '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    'dollar-sign':  '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    'edit':         '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+    'menu':         '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
+    'lock':         '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    'alert-circle': '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+    'alert-triangle':'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    'info':         '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+    'eye':          '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+    'plus':         '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    'search':       '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+    'trash':        '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>',
+    'more-vertical':'<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
+    'settings':     '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    'log-out':      '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+    'help-circle':  '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    'chevron-up':   '<polyline points="18 15 12 9 6 15"/>',
+    'chevron-right':'<polyline points="9 18 15 12 9 6"/>',
+    'chevron-down': '<polyline points="6 9 12 15 18 9"/>',
+    'shield':       '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    'check':        '<polyline points="20 6 9 17 4 12"/>',
+    'x':            '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+    'calendar':     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    'repeat':       '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+    'arrow-up':     '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>',
+    'package':      '<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'
+  };
+  function svg(name, sw){
+    if (!ICONS[name]) return '';
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+  }
+  function hydrateIcons(scope) {
+    (scope || document).querySelectorAll('[data-icon]').forEach(el => {
+      if (!el.dataset.iconHydrated) {
+        el.innerHTML = svg(el.dataset.icon);
+        el.dataset.iconHydrated = 'true';
+      }
+    });
+  }
+
+  /* ─────────── SIDEBAR NAV CONFIG (shared) ─────────── */
+  const NAV = [
+    { type: 'group', items: [
+        {id: 'overview',  icon: 'home',        label: 'Dashboard'},
+        {id: 'documents', icon: 'file-text',   label: 'Documents'},
+        {id: 'customers', icon: 'users',       label: 'Customers'},
+        {id: 'profile',   icon: 'user',        label: 'Profile'},
+        {id: 'billing',   icon: 'credit-card', label: 'Billing'}
+    ]},
+    { type: 'group', label: 'Phase 1', items: [
+        {id: 'templates',  icon: 'layout',   label: 'Templates',  locked: true},
+        {id: 'reminders',  icon: 'bell',     label: 'Reminders',  locked: true},
+        {id: 'expiration', icon: 'clock',    label: 'Expiration', locked: true},
+        {id: 'decline',    icon: 'x-circle', label: 'Decline',    locked: true}
+    ]},
+    { type: 'group', label: 'Phase 2', items: [
+        {id: 'reports',    icon: 'bar-chart',  label: 'Reports',      locked: true},
+        {id: 'audit',      icon: 'clipboard',  label: 'Audit trail',  locked: true},
+        {id: 'sms',        icon: 'smartphone', label: 'SMS verify',   locked: true},
+        {id: 'team-roles', icon: 'users',      label: 'Team roles',   locked: true},
+        {id: 'activity',   icon: 'activity',   label: 'Activity log', locked: true},
+        {id: 'referrals',  icon: 'gift',       label: 'Referrals',    locked: true}
+    ]},
+    { type: 'group', label: 'Phase 3', items: [
+        {id: 'integrations', icon: 'link',        label: 'Integrations',   locked: true},
+        {id: 'api',          icon: 'zap',         label: 'API & webhooks', locked: true},
+        {id: 'payment',      icon: 'dollar-sign', label: 'Payment link',   locked: true},
+        {id: 'in-person',    icon: 'edit',        label: 'In-person sign', locked: true}
+    ]}
+  ];
+
+  function renderSidebar() {
+    const sb = document.getElementById('sidebar-nav');
+    if (!sb) return;
+    let html = '';
+    NAV.forEach((group, gi) => {
+      if (gi > 0) html += '<hr class="sidebar__divider">';
+      html += '<div class="sidebar__section">';
+      if (group.label) html += `<div class="sidebar__label">${group.label}</div>`;
+      group.items.forEach(item => {
+        const isActive = item.id === 'billing';
+        const lockedClass = item.locked ? ' is-locked' : '';
+        const activeClass = isActive ? ' is-active' : '';
+        const href = item.id === 'billing' ? '#'
+          : item.id === 'customers' ? '../customers/customers.html'
+          : item.id === 'profile' ? '../profile/profile.html'
+          : `../dashboard/dashboard.html?panel=${item.id}`;
+        html += `<a class="nav-item${activeClass}${lockedClass}" href="${href}">
+          <span class="nav-item__icon">${svg(item.icon)}</span>
+          <span class="nav-item__label">${item.label}</span>
+          ${item.locked ? `<span class="nav-item__lock">${svg('lock', 2)}</span>` : ''}
+        </a>`;
+      });
+      html += '</div>';
+    });
+    sb.innerHTML = html;
+  }
+
+  /* ─────────── DATA ─────────── */
+  const PLANS = {
+    starter:  { id:'starter',  name:'Starter',  price:19,  docs:5,   users:1,  templates:1,  overage:4.00, tier:1,
+      features:{userMgmt:false,multiSigner:false,branding:false,bulk:false,analytics:false,priority:false,retention:'1 year'} },
+    launch:   { id:'launch',   name:'Launch',   price:39,  docs:15,  users:2,  templates:3,  overage:3.50, tier:2, star:true,
+      features:{userMgmt:true, multiSigner:true, branding:false,bulk:false,analytics:false,priority:false,retention:'2 years'} },
+    pro:      { id:'pro',      name:'Pro',      price:89,  docs:50,  users:5,  templates:10, overage:2.50, tier:3,
+      features:{userMgmt:true, multiSigner:true, branding:true, bulk:true, analytics:true, priority:false,retention:'3 years'} },
+    scale:    { id:'scale',    name:'Scale',    price:229, docs:150, users:15, templates:'Unlimited', overage:1.50, tier:4,
+      features:{userMgmt:true, multiSigner:true, branding:true, bulk:true, analytics:true, priority:true, retention:'5 years'} },
+    payg:     { id:'payg',     name:'Pay-per-contract', perDoc:12, tier:0, features:{} }
+  };
+
+  const PLAN_ORDER = ['starter','launch','pro','scale'];
+
+  const ACCOUNT = {
+    plan: 'launch',
+    cycle: { month:'May 2026', startDate:'2026-05-01', endDate:'2026-05-31', nextBilling:'Jun 1, 2026' },
+    usage: { documents:12, users:2, templates:2 }
+  };
+
+  /* ─────────── STATE ─────────── */
+  const STATE = {
+    role: 'master',
+    state: 'normal',
+    compareOpen: false,
+    pendingPlan: null
+  };
+
+  /* ─────────── URL PARAMS ─────────── */
+  function getURLParams() {
+    const p = new URLSearchParams(location.search);
+    return {
+      role:     ['user','admin','master'].includes(p.get('role')) ? p.get('role') : 'master',
+      state:    ['normal','warning','limit','overage','loading','empty'].includes(p.get('state')) ? p.get('state') : 'normal',
+      modal:    ['change-plan','confirm-change','downgrade-warning'].includes(p.get('modal')) ? p.get('modal') : null,
+      plan:     ['starter','launch','pro','scale','payg'].includes(p.get('plan')) ? p.get('plan') : 'launch',
+      compare:  p.get('compare') === 'open',
+      theme:    (p.get('theme') === 'light' || p.get('theme') === 'dark') ? p.get('theme') : null
+    };
+  }
+
+  /* ─────────── THEME ─────────── */
+  function applyTheme(theme) {
+    if (theme === 'light' || theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', theme);
+      try { localStorage.setItem('ntssign-theme', theme); } catch(e){}
+      return;
+    }
+    let stored = null;
+    try { stored = localStorage.getItem('ntssign-theme'); } catch(e){}
+    if (stored === 'light' || stored === 'dark') {
+      document.documentElement.setAttribute('data-theme', stored);
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('ntssign-theme', next); } catch(e){}
+  }
+
+  /* ─────────── STATE APPLICATION ─────────── */
+  function applyState(stateName) {
+    // Reset usage to defaults
+    ACCOUNT.usage = { documents:12, users:2, templates:2 };
+    if (stateName === 'warning') {
+      ACCOUNT.usage.documents = 13;
+    } else if (stateName === 'limit') {
+      ACCOUNT.usage.documents = 15;
+    } else if (stateName === 'overage') {
+      ACCOUNT.usage.documents = 18;
+    }
+    STATE.state = stateName;
+  }
+
+  /* ─────────── PLAN HELPERS ─────────── */
+  function currentPlan() { return PLANS[ACCOUNT.plan] || PLANS.launch; }
+  function tierOf(planId) { return (PLANS[planId] || {}).tier || 0; }
+  function planLabel(p) { return p.name + (p.star ? ' ⭐' : ''); }
+  function progressTone(pct) {
+    if (pct > 95) return 'red';
+    if (pct >= 80) return 'amber';
+    return 'green';
+  }
+
+  /* ─────────── ROLE ─────────── */
+  const ROLE_LABELS = { user: 'Regular user', admin: 'Team admin', master: 'Workspace owner' };
+  function setRole(role) {
+    if (!['user','admin','master'].includes(role)) role = 'master';
+    STATE.role = role;
+    document.body.setAttribute('data-role', role);
+    document.querySelectorAll('.role-radio').forEach(r => {
+      r.setAttribute('aria-checked', r.dataset.role === role ? 'true' : 'false');
+    });
+    const label = document.querySelector('[data-role-label]');
+    if (label) label.textContent = ROLE_LABELS[role];
+    const chipMaster = document.getElementById('roleChipMaster');
+    const chipUser   = document.getElementById('roleChipUser');
+    if (chipMaster) chipMaster.style.display = (role === 'master') ? 'inline-flex' : 'none';
+    if (chipUser)   chipUser.style.display   = (role === 'user')   ? 'inline-flex' : 'none';
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('role', role);
+      window.history.replaceState({}, '', url);
+    } catch(e){}
+    renderPanel();
+  }
+
+  /* ─────────── TOPBAR AVATAR DROPDOWN ─────────── */
+  function toggleTopbarUser(e) {
+    if (e) e.stopPropagation();
+    const dd = document.getElementById('topbar-avatar-dropdown');
+    const btn = document.querySelector('.topbar-avatar-btn');
+    if (!dd || !btn) return;
+    const isOpen = dd.getAttribute('data-open') === 'true';
+    dd.setAttribute('data-open', !isOpen);
+    dd.setAttribute('aria-hidden', isOpen);
+    btn.setAttribute('aria-expanded', !isOpen);
+  }
+
+  function closeTopbarUser() {
+    const dd = document.getElementById('topbar-avatar-dropdown');
+    const btn = document.querySelector('.topbar-avatar-btn');
+    if (!dd || !btn) return;
+    dd.setAttribute('data-open', 'false');
+    dd.setAttribute('aria-hidden', 'true');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+
+  document.addEventListener('click', function(e) {
+    const dd = document.getElementById('topbar-avatar-dropdown');
+    const btn = document.querySelector('.topbar-avatar-btn');
+    if (dd && btn && !dd.contains(e.target) && !btn.contains(e.target)) {
+      closeTopbarUser();
+    }
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    if (document.body.hasAttribute('data-modal')) closeModal();
+    const dd = document.getElementById('topbar-avatar-dropdown');
+    if (dd && dd.getAttribute('data-open') === 'true') {
+      closeTopbarUser();
+    }
+  });
+
+  /* ─────────── TOAST ─────────── */
+  let toastTimer = null;
+  function showToast(message, type) {
+    const t = document.getElementById('toast');
+    const icon = document.getElementById('toastIcon');
+    const msg  = document.getElementById('toastMsg');
+    const tone = (type === 'error' || type === 'warning') ? type : 'success';
+    t.setAttribute('data-tone', tone);
+    icon.innerHTML = svg(tone === 'error' ? 'x' : tone === 'warning' ? 'alert-triangle' : 'check');
+    msg.textContent = message;
+    t.setAttribute('data-visible', 'true');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.setAttribute('data-visible', 'false'), 3200);
+  }
+
+  /* ─────────── RENDER: TOP CARDS ─────────── */
+  function renderTopCards() {
+    const p = currentPlan();
+    const c = ACCOUNT.cycle;
+    const grid = document.getElementById('topGrid');
+    const isMaster = STATE.role === 'master';
+    const star = p.star ? '<span class="bill-card__title-star" aria-hidden="true">⭐</span>' : '';
+    grid.innerHTML = `
+      <div class="bill-card">
+        <p class="bill-card__eyebrow">Current Plan</p>
+        <h2 class="bill-card__title">${p.name}${star}</h2>
+        <p class="bill-card__price">$${p.price}/month</p>
+        <p class="bill-card__sub">Billed monthly</p>
+        <div class="bill-card__foot">
+          ${isMaster ? `<button type="button" class="btn-primary" onclick="openModal('change-plan')">
+            <span data-icon="repeat"></span>
+            Change Plan
+          </button>` : ''}
+        </div>
+      </div>
+      <div class="bill-card">
+        <p class="bill-card__eyebrow">Billing Cycle</p>
+        <h2 class="bill-card__title">${c.month}</h2>
+        <p class="bill-card__price">Next billing: ${c.nextBilling}</p>
+        <p class="bill-card__sub">Renews automatically</p>
+      </div>
+    `;
+    hydrateIcons(grid);
+    document.getElementById('cycleHint').textContent = c.month;
+    document.getElementById('planFeaturesHint').textContent = `${p.name} · $${p.price}/mo`;
+  }
+
+  /* ─────────── RENDER: PROGRESS BARS ─────────── */
+  function renderProgressBars() {
+    const p = currentPlan();
+    const u = ACCOUNT.usage;
+    const docsLimit = typeof p.docs === 'number' ? p.docs : 0;
+    const usersLimit = typeof p.users === 'number' ? p.users : 0;
+    const tmplLimit  = typeof p.templates === 'number' ? p.templates : null;
+
+    const rows = [
+      { icon:'file-text', label:'Documents', used:u.documents, limit:docsLimit, unitOver:'over' },
+      { icon:'users',     label:'Users',     used:u.users,     limit:usersLimit, unitOver:'over' },
+      { icon:'layout',    label:'Templates', used:u.templates, limit:tmplLimit,  unitOver:'over' }
+    ];
+
+    const html = rows.map(r => {
+      if (r.limit === null) {
+        // Unlimited
+        return `
+          <div class="usage-row">
+            <div class="usage-row__head">
+              <span class="usage-row__label"><span data-icon="${r.icon}"></span> ${r.label}</span>
+              <span class="usage-row__right">
+                <span class="usage-row__count">${r.used} / Unlimited</span>
+              </span>
+            </div>
+            <div class="usage-row__bar"><div class="usage-row__fill" data-tone="green" data-target="6"></div></div>
+            <p class="usage-row__pct">${r.used} used</p>
+          </div>`;
+      }
+      const limit = r.limit || 1;
+      const pctRaw = (r.used / limit) * 100;
+      const pct = Math.min(100, Math.round(pctRaw));
+      const tone = progressTone(pctRaw);
+      const isAtLimit = r.used === limit;
+      const isOver = r.used > limit;
+      const overBy = isOver ? r.used - limit : 0;
+      let countHtml = isOver
+        ? `<span class="usage-row__count usage-row__count--over">${r.used} / ${limit}</span>
+           <span style="font-size:11.5px; color:var(--danger); font-weight:500; font-variant-numeric:tabular-nums;">${overBy} ${r.unitOver}</span>`
+        : `<span class="usage-row__count">${r.used} / ${limit}</span>`;
+      const limitBadge = isAtLimit && !isOver
+        ? `<span class="usage-row__limit-badge"><span data-icon="alert-triangle" style="display:inline-flex;width:11px;height:11px;"></span> At limit</span>`
+        : '';
+      return `
+        <div class="usage-row">
+          <div class="usage-row__head">
+            <span class="usage-row__label"><span data-icon="${r.icon}"></span> ${r.label}</span>
+            <span class="usage-row__right">
+              ${countHtml}
+              ${limitBadge}
+            </span>
+          </div>
+          <div class="usage-row__bar"><div class="usage-row__fill" data-tone="${tone}" data-target="${pct}"></div></div>
+          <p class="usage-row__pct">${Math.round(pctRaw)}% used</p>
+        </div>`;
+    }).join('');
+
+    const body = document.getElementById('usageBody');
+    body.innerHTML = html;
+    hydrateIcons(body);
+
+    // Animate bar fills
+    requestAnimationFrame(() => {
+      body.querySelectorAll('.usage-row__fill').forEach(el => {
+        const target = parseInt(el.dataset.target, 10) || 0;
+        el.style.width = target + '%';
+      });
+    });
+  }
+
+  /* ─────────── RENDER: OVERAGE ALERT ─────────── */
+  function renderOverageAlert() {
+    const holder = document.getElementById('overageAlertHolder');
+    if (STATE.state !== 'overage') {
+      holder.innerHTML = '';
+      return;
+    }
+    const p = currentPlan();
+    const u = ACCOUNT.usage;
+    const docsLimit = p.docs || 15;
+    const over = Math.max(0, u.documents - docsLimit);
+    const overage = p.overage || 3.50;
+    const total = (over * overage).toFixed(2);
+    const isMaster = STATE.role === 'master';
+    holder.innerHTML = `
+      <div class="overage-alert" role="alert">
+        <h2 class="overage-alert__title">
+          <span class="overage-alert__title-icon" aria-hidden="true" data-icon="alert-triangle"></span>
+          You've exceeded your plan limit
+        </h2>
+        <p class="overage-alert__calc">Extra documents: <strong>${over} × $${overage.toFixed(2)} = $${total}</strong></p>
+        <p class="overage-alert__when">This will be charged on your next invoice (${ACCOUNT.cycle.nextBilling}).</p>
+        <div class="overage-alert__actions">
+          <button type="button" class="btn-quiet" onclick="scrollToCompare()">
+            <span data-icon="bar-chart"></span>
+            View Plans
+          </button>
+          ${isMaster ? `<button type="button" class="btn-primary" onclick="openModal('change-plan')">
+            <span data-icon="arrow-up"></span>
+            Upgrade Now
+          </button>` : `<button type="button" class="btn-primary" onclick="showToast('Only the workspace owner can change the plan', 'warning')">
+            <span data-icon="arrow-up"></span>
+            Upgrade Now
+          </button>`}
+        </div>
+      </div>
+    `;
+    hydrateIcons(holder);
+  }
+  function scrollToCompare() {
+    if (!STATE.compareOpen) toggleComparison();
+    document.getElementById('compareWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ─────────── RENDER: FEATURES LIST ─────────── */
+  function renderFeatures() {
+    const p = currentPlan();
+    const f = p.features || {};
+    // 8 included + 3 not-included structure (Launch baseline). For other plans we map their features.
+    const included = [
+      `<strong>${p.docs}</strong> documents per month`,
+      `<strong>${p.users}</strong> team users`,
+      `<strong>${p.templates}</strong> active templates`,
+      f.userMgmt    ? 'User management' : null,
+      f.multiSigner ? 'Multi-signer / sequential signing' : null,
+      'Automatic reminders',
+      'Document expiration',
+      `${f.retention || '2 years'} document retention`
+    ].filter(Boolean);
+    const notIncluded = [
+      { ok: f.branding,  label: 'Custom branding',       hint: 'available in Pro' },
+      { ok: f.bulk,      label: 'Bulk send',             hint: 'available in Pro' },
+      { ok: f.analytics, label: 'Analytics & reporting', hint: 'available in Pro' }
+    ];
+
+    let html = '';
+    included.forEach(item => {
+      html += `<li class="features-list__item features-list__item--ok">
+        <span class="features-list__icon" aria-hidden="true">${svg('check')}</span>
+        <span>${item}</span>
+      </li>`;
+    });
+    notIncluded.forEach(item => {
+      if (item.ok) {
+        html += `<li class="features-list__item features-list__item--ok">
+          <span class="features-list__icon" aria-hidden="true">${svg('check')}</span>
+          <span>${item.label}</span>
+        </li>`;
+      } else {
+        html += `<li class="features-list__item features-list__item--miss">
+          <span class="features-list__icon" aria-hidden="true">${svg('x')}</span>
+          <span>${item.label}<span class="features-list__hint">${item.hint}</span></span>
+        </li>`;
+      }
+    });
+    document.getElementById('featuresList').innerHTML = html;
+  }
+  function toggleFeatures() {
+    const cur = document.body.getAttribute('data-features-open') === 'true';
+    document.body.setAttribute('data-features-open', cur ? 'false' : 'true');
+    const btn = document.getElementById('featuresToggle');
+    if (btn) btn.textContent = cur ? 'Show features' : 'Hide features';
+  }
+
+  /* ─────────── RENDER: COMPARISON TABLE ─────────── */
+  function renderComparison() {
+    const t = document.getElementById('compareTable');
+    const cols = PLAN_ORDER.map(id => PLANS[id]);
+    const curId = ACCOUNT.plan;
+
+    function checkCell(v) { return v ? `<span class="compare-check">${svg('check')}</span>` : `<span class="compare-x">${svg('x')}</span>`; }
+
+    const rows = [
+      { label: 'Price / month',          render: p => `<strong>$${p.price}</strong>` },
+      { label: 'Documents / month',      render: p => p.docs },
+      { label: 'Users',                  render: p => p.users },
+      { label: 'Templates',              render: p => p.templates },
+      { label: 'Overage rate / doc',     render: p => `$${p.overage.toFixed(2)}` },
+      { label: 'User management',        render: p => checkCell(p.features.userMgmt) },
+      { label: 'Multi-signer',           render: p => checkCell(p.features.multiSigner) },
+      { label: 'Custom branding',        render: p => checkCell(p.features.branding) },
+      { label: 'Bulk send',              render: p => checkCell(p.features.bulk) },
+      { label: 'Analytics & reporting',  render: p => checkCell(p.features.analytics) },
+      { label: 'Priority support',       render: p => checkCell(p.features.priority) },
+      { label: 'Retention',              render: p => p.features.retention }
+    ];
+
+    let head = `<thead><tr><th class="compare-feat" style="min-width:180px;">Feature</th>`;
+    cols.forEach(p => {
+      const isCur = p.id === curId;
+      const star = p.star ? '<span class="compare-plan__star" aria-hidden="true">⭐</span>' : '';
+      head += `<th class="compare-plan${isCur ? ' compare-plan--current' : ''}">
+        <span class="compare-plan__name">${p.name}${star}</span>
+        <span class="compare-plan__price">$${p.price}/mo</span>
+      </th>`;
+    });
+    head += `</tr></thead>`;
+    let body = `<tbody>`;
+    rows.forEach(r => {
+      body += `<tr><td class="compare-feat"><strong>${r.label}</strong></td>`;
+      cols.forEach(p => {
+        const isCur = p.id === curId;
+        body += `<td class="compare-cell${isCur ? ' compare-cell--current' : ''}">${r.render(p)}</td>`;
+      });
+      body += `</tr>`;
+    });
+    body += `</tbody>`;
+    t.innerHTML = head + body;
+  }
+  function toggleComparison() {
+    STATE.compareOpen = !STATE.compareOpen;
+    const wrap = document.getElementById('compareWrap');
+    wrap.setAttribute('data-open', STATE.compareOpen ? 'true' : 'false');
+    document.getElementById('compareToggleLabel').textContent = STATE.compareOpen ? 'Hide comparison' : 'Compare all plans';
+  }
+
+  /* ─────────── MODALS ─────────── */
+  function openModal(name) {
+    // Permission gating — Master only for plan-change flows
+    if (STATE.role !== 'master') {
+      showToast('Only the workspace owner can change the plan', 'warning');
+      return;
+    }
+    if (name === 'change-plan') {
+      renderPlanGrid();
+      document.body.setAttribute('data-modal', 'change-plan');
+    } else if (name === 'confirm-change') {
+      renderConfirmChange();
+      document.body.setAttribute('data-modal', 'confirm-change');
+    } else if (name === 'downgrade-warning') {
+      renderDowngradeWarning();
+      document.body.setAttribute('data-modal', 'downgrade-warning');
+    }
+  }
+  function closeModal() {
+    document.body.removeAttribute('data-modal');
+  }
+
+  function renderPlanGrid() {
+    const grid = document.getElementById('planGrid');
+    const curId = ACCOUNT.plan;
+    const html = PLAN_ORDER.map(id => {
+      const p = PLANS[id];
+      const isCur = id === curId;
+      const star = p.star ? '<span class="plan-card__name-star" aria-hidden="true">⭐</span>' : '';
+      const cardClass = 'plan-card' + (isCur ? ' plan-card--current' : '');
+      const badgeTone = isCur ? 'current' : id;
+      const badgeText = isCur ? 'Current' : id.toUpperCase();
+      return `
+        <div class="${cardClass}" data-plan-id="${id}">
+          <span class="plan-card__badge" data-tone="${badgeTone}">${badgeText}</span>
+          <h3 class="plan-card__name">${p.name}${star}</h3>
+          <p class="plan-card__price">$${p.price}<span class="plan-card__price-suffix">/mo</span></p>
+          <ul class="plan-card__limits">
+            <li class="plan-card__limit"><strong>${p.docs}</strong> documents / month</li>
+            <li class="plan-card__limit"><strong>${p.users}</strong> users</li>
+            <li class="plan-card__limit"><strong>${p.templates}</strong> templates</li>
+          </ul>
+          ${isCur
+            ? `<button type="button" class="btn-primary plan-card__cta" disabled aria-disabled="true">Current</button>`
+            : `<button type="button" class="btn-primary plan-card__cta" onclick="selectPlan('${id}')">Select</button>`}
+        </div>`;
+    }).join('');
+    grid.innerHTML = html;
+    setupPlanCarousel();
+  }
+
+  /* ─────────── PLAN CAROUSEL ─────────── */
+  let _planCarouselScrollT = null;
+  function setupPlanCarousel() {
+    const grid = document.getElementById('planGrid');
+    const dotsEl = document.getElementById('planDots');
+    const prevBtn = document.getElementById('planPrev');
+    const nextBtn = document.getElementById('planNext');
+    if (!grid || !dotsEl) return;
+    const cards = Array.from(grid.children);
+    if (!cards.length) return;
+
+    // Build dots
+    dotsEl.innerHTML = cards.map((card, i) => {
+      const planId = card.getAttribute('data-plan-id') || `plan-${i}`;
+      const planName = card.querySelector('.plan-card__name')?.textContent?.trim() || `Plan ${i + 1}`;
+      return `<button type="button" class="plan-carousel-dot" data-idx="${i}" data-plan="${planId}" role="tab" aria-label="${planName}" aria-current="false"></button>`;
+    }).join('');
+
+    function scrollToCard(idx) {
+      const card = cards[idx];
+      if (!card) return;
+      const target = card.offsetLeft - (grid.clientWidth / 2 - card.offsetWidth / 2);
+      grid.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    }
+    function activeIndex() {
+      const gridRect = grid.getBoundingClientRect();
+      const center = gridRect.left + gridRect.width / 2;
+      let bestIdx = 0, bestDist = Infinity;
+      cards.forEach((card, i) => {
+        const cr = card.getBoundingClientRect();
+        const cardCenter = cr.left + cr.width / 2;
+        const dist = Math.abs(cardCenter - center);
+        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+      });
+      return bestIdx;
+    }
+    function refresh() {
+      const cur = activeIndex();
+      dotsEl.querySelectorAll('.plan-carousel-dot').forEach((d, i) => {
+        d.setAttribute('aria-current', i === cur ? 'true' : 'false');
+      });
+      if (prevBtn) prevBtn.disabled = cur === 0;
+      if (nextBtn) nextBtn.disabled = cur === cards.length - 1;
+    }
+
+    // Wire dots
+    dotsEl.querySelectorAll('.plan-carousel-dot').forEach(dot => {
+      dot.addEventListener('click', () => scrollToCard(parseInt(dot.dataset.idx, 10)));
+    });
+    // Wire arrows
+    if (prevBtn) prevBtn.onclick = () => scrollToCard(Math.max(0, activeIndex() - 1));
+    if (nextBtn) nextBtn.onclick = () => scrollToCard(Math.min(cards.length - 1, activeIndex() + 1));
+
+    // Detect scroll → refresh dots
+    grid.onscroll = () => {
+      if (_planCarouselScrollT) clearTimeout(_planCarouselScrollT);
+      _planCarouselScrollT = setTimeout(refresh, 60);
+    };
+
+    // Default: center the current plan card (or first non-current if no current)
+    const curIdx = cards.findIndex(c => c.classList.contains('plan-card--current'));
+    requestAnimationFrame(() => {
+      if (curIdx >= 0) scrollToCard(curIdx);
+      else refresh();
+      // refresh once after smooth scroll settles
+      setTimeout(refresh, 200);
+    });
+  }
+
+  /* Keyboard nav for change-plan carousel */
+  function planCarouselKeyHandler(e) {
+    if (!document.body.matches('[data-modal="change-plan"]')) return;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      document.getElementById('planPrev')?.click();
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      document.getElementById('planNext')?.click();
+    }
+  }
+  document.addEventListener('keydown', planCarouselKeyHandler);
+
+  function selectPlan(planId) {
+    if (STATE.role !== 'master') {
+      showToast('Only the workspace owner can change the plan', 'warning');
+      return;
+    }
+    if (planId === ACCOUNT.plan) return;
+    STATE.pendingPlan = planId;
+    const cur = currentPlan();
+    const next = PLANS[planId];
+    if (next.tier < cur.tier) {
+      // downgrade
+      closeModal();
+      setTimeout(() => openModal('downgrade-warning'), 80);
+    } else {
+      closeModal();
+      setTimeout(() => openModal('confirm-change'), 80);
+    }
+  }
+
+  function renderConfirmChange() {
+    const cur = currentPlan();
+    const next = PLANS[STATE.pendingPlan] || PLANS.pro;
+    // Prorated: rough mock = half-month diff
+    const diff = Math.max(0, next.price - cur.price);
+    const prorated = (diff * 0.65).toFixed(2);
+    document.getElementById('confirmChangeBody').innerHTML = `
+      <div class="confirm-block">
+        <h3 class="confirm-block__title">Change from ${cur.name} to ${next.name}?</h3>
+        <p class="confirm-block__line"><strong>Current:</strong> ${cur.name} ($${cur.price}/mo)</p>
+        <p class="confirm-block__line"><strong>New:</strong> ${next.name} ($${next.price}/mo)</p>
+      </div>
+      <ul class="confirm-bullets">
+        <li>Change is effective <strong>immediately</strong></li>
+        <li>Prorated charge: <strong>$${prorated}</strong></li>
+        <li>Next full charge: <strong>${ACCOUNT.cycle.nextBilling} ($${next.price})</strong></li>
+      </ul>
+    `;
+  }
+
+  function renderDowngradeWarning() {
+    const cur = currentPlan();
+    const next = PLANS[STATE.pendingPlan] || PLANS.launch;
+    // Loss list — features that the new plan does NOT include
+    const losses = [];
+    if (cur.features.branding  && !next.features.branding)  losses.push('Custom branding');
+    if (cur.features.bulk      && !next.features.bulk)      losses.push('Bulk send');
+    if (cur.features.analytics && !next.features.analytics) losses.push('Analytics &amp; reporting');
+    if (cur.features.priority  && !next.features.priority)  losses.push('Priority support');
+    // Quotas (mock realistic numbers)
+    if (typeof next.users === 'number' && next.users < (cur.users || 0)) {
+      losses.push(`${next.users} users (you have ${cur.users === 5 ? 5 : Math.min(cur.users, 5)})`);
+    }
+    if (typeof next.docs === 'number' && typeof cur.docs === 'number' && next.docs < cur.docs) {
+      // Mock current usage near top of plan
+      const usingNow = Math.max(ACCOUNT.usage.documents, Math.round(cur.docs * 0.84));
+      losses.push(`${next.docs} documents/month (you're using ${usingNow})`);
+    }
+    if (losses.length === 0) losses.push('Some Pro features will no longer be available');
+
+    // Scale hint only if user is going from a pricier plan down past it
+    const showScaleHint = next.tier <= 2 && cur.tier >= 3;
+    document.getElementById('downgradeBody').innerHTML = `
+      <p style="font-size:14px; color:var(--text-heading); margin:0 0 14px; font-weight:500; line-height:1.4;">
+        You're downgrading from <strong>${cur.name}</strong> to <strong>${next.name}</strong>.
+      </p>
+      <p style="font-size:13px; color:var(--text-body); margin:0 0 10px;">You will lose access to:</p>
+      <ul class="confirm-bullets downgrade-bullets">
+        ${losses.map(l => `<li>${l}</li>`).join('')}
+      </ul>
+      ${showScaleHint ? `<p class="downgrade-hint">Consider <strong>Scale</strong> plan instead — it includes everything you have now and adds more capacity.</p>` : ''}
+    `;
+  }
+
+  function confirmPlanChange() {
+    const next = PLANS[STATE.pendingPlan];
+    if (!next) { closeModal(); return; }
+    closeModal();
+    showToast(`Plan changed to ${next.name}`, 'success');
+    // In a real product we'd update ACCOUNT.plan here. For prototype we keep current.
+    STATE.pendingPlan = null;
+  }
+
+  /* ─────────── PANEL RENDER ─────────── */
+  function renderPanel() {
+    const isLoading = STATE.state === 'loading';
+    const isEmpty   = STATE.state === 'empty';
+
+    document.getElementById('loadingView').style.display = isLoading ? '' : 'none';
+    document.getElementById('emptyView').style.display   = isEmpty   ? '' : 'none';
+    document.getElementById('normalView').style.display  = (isLoading || isEmpty) ? 'none' : '';
+
+    // Empty state — gate button for non-master
+    if (isEmpty) {
+      const btn = document.getElementById('emptyViewBtn');
+      if (STATE.role !== 'master') {
+        btn.setAttribute('disabled', 'disabled');
+        btn.setAttribute('aria-disabled', 'true');
+      } else {
+        btn.removeAttribute('disabled');
+        btn.removeAttribute('aria-disabled');
+      }
+      hydrateIcons(document.getElementById('emptyView'));
+      return;
+    }
+
+    if (isLoading) {
+      hydrateIcons(document.getElementById('loadingView'));
+      return;
+    }
+
+    renderTopCards();
+    renderProgressBars();
+    renderOverageAlert();
+    renderFeatures();
+    renderComparison();
+    hydrateIcons(document);
+  }
+
+  /* ─────────── INITIAL URL PARAMS ─────────── */
+  function applyInitial() {
+    const p = getURLParams();
+
+    // Theme
+    applyTheme(p.theme);
+
+    // Plan (mock current)
+    if (PLANS[p.plan]) ACCOUNT.plan = p.plan;
+
+    // State variants override usage
+    applyState(p.state);
+
+    // Role (this also calls renderPanel)
+    setRole(p.role);
+
+    // Comparison
+    if (p.compare) {
+      STATE.compareOpen = false; // toggle flips it
+      toggleComparison();
+    }
+
+    // Modals — only if master (silently ignored otherwise per spec)
+    if (p.modal) {
+      if (STATE.role === 'master') {
+        // Set a pending plan for confirm/downgrade demos
+        if (p.modal === 'confirm-change' && !STATE.pendingPlan) STATE.pendingPlan = 'pro';
+        if (p.modal === 'downgrade-warning' && !STATE.pendingPlan) {
+          // Pretend current is Pro so the downgrade narrative makes sense
+          ACCOUNT.plan = 'pro';
+          STATE.pendingPlan = 'launch';
+          renderPanel();
+        }
+        openModal(p.modal);
+      }
+      // else: silently ignored (per spec)
+    }
+  }
+
+  /* ─────────── BOOT ─────────── */
+  renderSidebar();
+  hydrateIcons(document);
+  applyInitial();
+</script>
+</body>
+</html>

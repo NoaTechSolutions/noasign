@@ -651,17 +651,12 @@ input {
   }
 }
 
-/* Topbar logo container — mobile only (sidebar carries the brand on desktop) */
+/* Topbar logo — hidden at all widths. The brand lives in the sidebar
+   (desktop + tablet) and in the MobileMenu drawer (mobile), so the topbar
+   "NS" is redundant. (Removed from mobile per request; was already hidden
+   on desktop/tablet.) */
 .topbar-logo-container {
   display: none;
-}
-
-@media (max-width: 768px) {
-  .topbar-logo-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
 }
 
 /* MobileMenu hamburger button — only visible on mobile (≤768px) */
@@ -673,4 +668,380 @@ input {
   .mobile-menu-button {
     display: block !important;
   }
+}
+
+/* Topbar user meta (name + plan beside avatar) — hidden on mobile,
+   only the avatar shows there to save space */
+.topbar-user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+/* Hide on phones (≤700). At 701px+ (tablet + desktop) the name + plan show
+   beside the avatar. 700 (not 767) leaves margin so a 768 tablet still shows
+   it even when the responsive-viewer scrollbar shrinks the effective width. */
+@media (max-width: 700px) {
+  .topbar-user-meta {
+    display: none;
+  }
+}
+
+/* Sidebar collapsed hover tooltip — fixed-positioned so it escapes the
+   sidebar's overflow:hidden. Positioned inline via JS (button rect). */
+.sidebar-tooltip-pop {
+  z-index: 200;
+  background: var(--bg-card);
+  color: var(--text-heading);
+  border: 0.5px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  animation: sidebar-tooltip-fade 0.1s ease-out;
+}
+
+@keyframes sidebar-tooltip-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Skeleton loading — global baseline so the Topbar (and any always-mounted
+   chrome) can use it regardless of which panel CSS is loaded. Mirrors the
+   definitions in the v2 panel CSS files. */
+.skeleton-pulse {
+  background: var(--bg-hover);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-line {
+  border-radius: 6px;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============================================
+   CARD LEGEND — pill-style floating title
+   Title + icon sit in an independent pill (own brand border + solid bg)
+   floating over the card's top-left border, so the card border never
+   slices the text. The pill bg matches the surface behind it: defaults
+   to --bg-card; set --card-legend-bg on the container to override per
+   context (modal, sidebar). Theme-aware via --brand (navy light / sky dark).
+   ============================================ */
+.card-legend {
+  position: relative;
+  /* Soft brand border (brand @ 25%) — theme-aware via --brand. */
+  border: 1.5px solid color-mix(in srgb, var(--brand) 25%, transparent);
+  border-radius: 10px;
+}
+
+.card-legend__label {
+  position: absolute;
+  top: -12px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* Independent pill: own brand border + solid bg so the card border
+     doesn't slice the text. Bg matches the surface behind it — defaults
+     to --bg-card; override --card-legend-bg per context (modal, sidebar). */
+  border: 1.5px solid color-mix(in srgb, var(--brand) 25%, transparent);
+  border-radius: 20px;
+  padding: 2px 10px;
+  background: var(--card-legend-bg, var(--bg-card));
+  white-space: nowrap;
+}
+
+.card-legend__icon {
+  color: var(--brand);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.card-legend__title {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand);
+}
+
+.card-legend__edit {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.card-legend__edit:hover {
+  color: var(--text-primary);
+  background: var(--tx-hover);
+}
+
+/* ============================================
+   DISCARD CHANGES MODAL — global, sits above all other overlays
+   ============================================ */
+.discard-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  /* Above .modal-overlay (1000) and .gep-overlay (1100). */
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: discardOverlayIn 0.15s ease-out;
+}
+
+@keyframes discardOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.discard-modal {
+  background: var(--bg-card, #fff);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border-soft, transparent);
+  animation: discardModalIn 0.18s ease-out;
+}
+
+@keyframes discardModalIn {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.discard-modal__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.discard-modal__desc {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.discard-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.discard-modal__btn {
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  font-family: inherit;
+}
+
+.discard-modal__btn--cancel {
+  background: transparent;
+  color: var(--text-body);
+  border: 1px solid var(--border-strong);
+}
+.discard-modal__btn--cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+}
+
+.discard-modal__btn--confirm {
+  background: var(--danger);
+  color: #fff;
+}
+.discard-modal__btn--confirm:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   ConfirmActionModal — generic confirm dialog (Send / Cancel document).
+   Mirrors .discard-modal styling; adds amber + danger confirm variants.
+   ============================================ */
+.confirm-action-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  /* Above .doc-detail-modal-overlay (400), .gep-overlay (1100). */
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.confirm-action-modal {
+  background: var(--bg-card, #fff);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 440px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.confirm-action-modal__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.confirm-action-modal__desc {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.confirm-action-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-action-modal__btn {
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.confirm-action-modal__btn--cancel {
+  background: transparent;
+  color: var(--text-body);
+  border: 1px solid var(--border-strong);
+}
+.confirm-action-modal__btn--cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+}
+
+.confirm-action-modal__btn--amber {
+  background: var(--amber, #ff9900);
+  color: #fff;
+}
+.confirm-action-modal__btn--amber:hover {
+  opacity: 0.9;
+}
+
+.confirm-action-modal__btn--danger {
+  background: var(--danger);
+  color: #fff;
+}
+.confirm-action-modal__btn--danger:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   GLOBAL btn-danger — solid red baseline.
+   Panel-scoped overrides may still tweak this (see customers-panel.css).
+   ============================================ */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--danger);
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.btn-danger:hover {
+  background: var(--danger-hover, #dc2626);
+  border-color: var(--danger-hover, #dc2626);
+}
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   GLOBAL btn-warning — solid amber. For important
+   but NON-destructive confirmations (e.g. reassign).
+   ============================================ */
+.btn-warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--warning);
+  background: var(--warning);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.btn-warning:hover {
+  background: var(--warning-hover, #e68a00);
+  border-color: var(--warning-hover, #e68a00);
+}
+.btn-warning:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   BACKDROP BLUR — every "*-overlay" gets a subtle blur behind the modal.
+   Lighter touch than the existing 2px on billing modal-layer so it stays
+   theme-agnostic. Browsers without backdrop-filter degrade gracefully.
+   ============================================ */
+.modal-overlay,
+.gep-overlay,
+.discard-modal-overlay,
+[class*="-overlay"] {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
