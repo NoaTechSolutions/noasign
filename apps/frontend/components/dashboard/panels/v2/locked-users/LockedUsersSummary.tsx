@@ -3,6 +3,40 @@
 import React from 'react';
 import type { LockedUserWithStatus } from './types';
 
+// ---------------------------------------------------------------------------
+// Skeleton — rendered during initial load (before first fetch resolves)
+// ---------------------------------------------------------------------------
+export function LockedUsersSummarySkeleton() {
+  return (
+    <div className="lockout-summary" aria-hidden="true">
+      <div className="lockout-summary__icon">
+        <span
+          className="skeleton-pulse skeleton-circle"
+          style={{ width: 28, height: 28 }}
+        />
+      </div>
+      <div className="lockout-summary__content">
+        {/* Label row */}
+        <span
+          className="skeleton-pulse skeleton-line"
+          style={{ display: 'block', width: 100, height: 12, marginBottom: 8 }}
+        />
+        {/* Value (large number) */}
+        <span
+          className="skeleton-pulse skeleton-line"
+          style={{ display: 'block', width: 40, height: 28, marginBottom: 8 }}
+        />
+        {/* Hint row */}
+        <span
+          className="skeleton-pulse skeleton-line"
+          style={{ display: 'block', width: 160, height: 12 }}
+        />
+      </div>
+    </div>
+  );
+}
+// ---------------------------------------------------------------------------
+
 interface LockedUsersSummaryProps {
   activeLockouts: number;
   users: LockedUserWithStatus[];

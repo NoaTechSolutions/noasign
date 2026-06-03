@@ -175,7 +175,8 @@
   font-weight: 600;
   color: var(--text-muted);
   border-bottom: 1px solid var(--tx-border);
-  background: var(--tx-hover);
+  /* Raised surface so the header reads distinct from the row hover (--tx-hover). */
+  background: var(--surface-raised);
 }
 
 .member-row td {
@@ -624,7 +625,8 @@
   font-weight: 600;
   color: var(--text-muted);
   border-bottom: 1px solid var(--tx-border);
-  background: var(--tx-hover);
+  /* Raised surface so the header reads distinct from the row hover (--tx-hover). */
+  background: var(--surface-raised);
 }
 
 .request-row td {
@@ -683,6 +685,18 @@
 /* ============================================
    MEMBER DETAIL MODAL
    ============================================ */
+
+/* Give the group-pair top breathing room so the card-legend pill
+   (absolute, top:-12px) doesn't clip against the badges above. */
+.member-detail .group-pair {
+  margin-top: 20px;
+}
+
+/* Ensure card-legend brand border wins over any inherited form-group border. */
+.member-detail .form-group.card-legend {
+  border: 1.5px solid color-mix(in srgb, var(--brand) 25%, transparent);
+  padding: 18px 16px 14px;
+}
 
 .member-detail__header {
   display: flex;

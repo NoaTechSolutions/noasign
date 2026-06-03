@@ -4,9 +4,23 @@ import React from 'react';
 
 interface AccountRequestsSummaryProps {
   pendingCount: number;
+  loading?: boolean;
 }
 
-export function AccountRequestsSummary({ pendingCount }: AccountRequestsSummaryProps) {
+export function AccountRequestsSummary({ pendingCount, loading = false }: AccountRequestsSummaryProps) {
+  if (loading) {
+    return (
+      <div className="summary-card summary-card--slate">
+        <span className="skeleton-pulse skeleton-circle" style={{ width: 48, height: 48, display: 'inline-block', flexShrink: 0 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+          <span className="skeleton-pulse skeleton-line" style={{ width: 120, height: 13, display: 'block' }} />
+          <span className="skeleton-pulse skeleton-line" style={{ width: 40, height: 28, display: 'block' }} />
+          <span className="skeleton-pulse skeleton-line" style={{ width: 140, height: 13, display: 'block' }} />
+        </div>
+      </div>
+    );
+  }
+
   if (pendingCount === 0) return null;
 
   let toneClass = 'summary-card--slate';

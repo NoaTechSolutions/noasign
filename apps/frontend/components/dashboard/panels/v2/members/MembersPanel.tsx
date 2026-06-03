@@ -220,6 +220,7 @@ export function MembersPanel({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onNewMember={() => setActiveModal('create')}
+        isLoading={loading}
       />
 
       {activeTab === 'members' ? (
@@ -245,6 +246,7 @@ export function MembersPanel({
               <MembersTable
                 users={filteredUsers}
                 currentUserId={currentUserId}
+                loading={loading}
                 onView={(user) => { setSelectedUser(user); setActiveModal('detail'); }}
                 onEdit={(user) => { setSelectedUser(user); setActiveModal('edit'); }}
                 onResetPassword={(user) => { setSelectedUser(user); setActiveModal('reset-password'); }}
@@ -254,6 +256,7 @@ export function MembersPanel({
               <MemberCards
                 users={filteredUsers}
                 currentUserId={currentUserId}
+                loading={loading}
                 onView={(user) => { setSelectedUser(user); setActiveModal('detail'); }}
                 onEdit={(user) => { setSelectedUser(user); setActiveModal('edit'); }}
                 onResetPassword={(user) => { setSelectedUser(user); setActiveModal('reset-password'); }}
@@ -265,7 +268,7 @@ export function MembersPanel({
         </>
       ) : (
         <>
-          <AccountRequestsSummary pendingCount={pendingCount} />
+          <AccountRequestsSummary pendingCount={pendingCount} loading={loading} />
 
           <MembersToolbar
             search={search}
@@ -284,6 +287,7 @@ export function MembersPanel({
           ) : (
             <AccountRequestsTable
               requests={filteredRequests}
+              loading={loading}
               onView={(request) => { setSelectedRequest(request); setActiveModal('request-detail'); }}
               onApprove={handleApproveRequest}
               onReject={handleRejectRequest}

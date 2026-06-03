@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { FieldRow } from '@/components/dashboard/shared/ui';
 import type { AccountRequest } from './types';
 
 interface AccountRequestDetailModalProps {
@@ -62,17 +63,12 @@ export function AccountRequestDetailModal({
                   <span>None specified</span>
                 )}
               </div>
+            </div>
 
-              <div className="request-detail__field">
-                <label>Submitted</label>
-                <span>{new Date(request.createdAt).toLocaleString()}</span>
-              </div>
-
+            <div className="field-rows">
+              <FieldRow label="Submitted" value={new Date(request.createdAt).toLocaleString()} />
               {request.processedAt && (
-                <div className="request-detail__field">
-                  <label>Processed</label>
-                  <span>{new Date(request.processedAt).toLocaleString()}</span>
-                </div>
+                <FieldRow label="Processed" value={new Date(request.processedAt).toLocaleString()} />
               )}
             </div>
           </div>

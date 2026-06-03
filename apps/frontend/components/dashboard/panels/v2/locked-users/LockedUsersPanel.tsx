@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LockedUsersPanelHeader } from './LockedUsersPanelHeader';
 import { LockedUsersToolbar } from './LockedUsersToolbar';
-import { LockedUsersSummary } from './LockedUsersSummary';
-import { LockedUsersTable } from './LockedUsersTable';
-import { LockedUsersCards } from './LockedUsersCards';
+import { LockedUsersSummary, LockedUsersSummarySkeleton } from './LockedUsersSummary';
+import { LockedUsersTable, LockedUsersTableSkeleton } from './LockedUsersTable';
+import { LockedUsersCards, LockedUsersCardsSkeleton } from './LockedUsersCards';
 import { LockedUsersEmptyState } from './LockedUsersEmptyState';
 import type { LockedUser, LockedUserWithStatus } from './types';
 import { computeStatus } from './types';
@@ -23,6 +23,9 @@ export function LockedUsersPanel({
   const [users, setUsers] = useState<LockedUserWithStatus[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<LockedUserWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  // Tracks only the very first fetch — auto-refresh must NOT re-trigger skeletons.
+  const [initialLoading, setInitialLoading] = useState(true);
+  const isFirstFetch = useRef(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'LOCKED' | 'UNLOCKED'>('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -36,6 +39,11 @@ export function LockedUsersPanel({
       setUsers([]);
     } finally {
       setLoading(false);
+      // Only clear initialLoading once — subsequent auto-refresh calls are silent.
+      if (isFirstFetch.current) {
+        isFirstFetch.current = false;
+        setInitialLoading(false);
+      }
     }
   }, [onFetchLockedUsers]);
 
@@ -106,7 +114,7 @@ export function LockedUsersPanel({
 
   return (
     <div className="locked-users-panel">
-      <LockedUsersPanelHeader />
+      <LockedUsersPanelHeader isLoading={initialLoading} />
 
       <LockedUsersToolbar
         search={search}
@@ -119,11 +127,20 @@ export function LockedUsersPanel({
         loading={loading}
       />
 
-      {activeLockouts > 0 && (
+      {/* Summary — show skeleton on initial load, real data once loaded */}
+      {initialLoading ? (
+        <LockedUsersSummarySkeleton />
+      ) : activeLockouts > 0 ? (
         <LockedUsersSummary activeLockouts={activeLockouts} users={users} />
-      )}
+      ) : null}
 
-      {showEmpty ? (
+      {/* Table / Cards — show skeletons on initial load only */}
+      {initialLoading ? (
+        <>
+          <LockedUsersTableSkeleton />
+          <LockedUsersCardsSkeleton />
+        </>
+      ) : showEmpty ? (
         <LockedUsersEmptyState
           hasFilters={search.length > 0 || statusFilter !== 'all'}
         />

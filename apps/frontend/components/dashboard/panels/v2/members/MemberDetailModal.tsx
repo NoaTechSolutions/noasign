@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
+import { User as UserIcon, Calendar } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { FieldRow } from '@/components/dashboard/shared/ui';
 import type { ManagedUser } from './types';
 import { getDisplayName, getInitials } from './types';
 
@@ -42,7 +44,7 @@ export function MemberDetailModal({
           </button>
         </div>
 
-        <div className="modal-body">
+        <div className="modal-body" style={{ ['--card-legend-bg' as string]: 'var(--surface)' } as React.CSSProperties}>
           <div className="member-detail">
             <div className="member-detail__header">
               <div className="member-detail__avatar">
@@ -73,35 +75,27 @@ export function MemberDetailModal({
               <span className={`status-badge status-badge--${user.status.toLowerCase()}`}>{user.status}</span>
             </div>
 
-            <div className="member-detail__grid">
-              <div className="member-detail__field">
-                <label>Account Type</label>
-                <span>{user.accountType || '—'}</span>
+            <div className="group-pair">
+              <div className="form-group card-legend">
+                <span className="card-legend__label">
+                  <span className="card-legend__icon"><UserIcon size={14} /></span>
+                  <span className="card-legend__title">Identity</span>
+                </span>
+                <div className="field-rows">
+                  <FieldRow label="Account Type" value={user.accountType} />
+                  <FieldRow label="Company" value={user.companyProfile?.companyName} />
+                  <FieldRow label="Plan" value={user.companyProfile?.planName} />
+                </div>
               </div>
-
-              <div className="member-detail__field">
-                <label>Phone</label>
-                <span>{user.phone || '—'}</span>
-              </div>
-
-              <div className="member-detail__field">
-                <label>Company</label>
-                <span>{user.companyProfile?.companyName || '—'}</span>
-              </div>
-
-              <div className="member-detail__field">
-                <label>Plan</label>
-                <span>{user.companyProfile?.planName || '—'}</span>
-              </div>
-
-              <div className="member-detail__field">
-                <label>Joined</label>
-                <span>{new Date(user.createdAt).toLocaleDateString()}</span>
-              </div>
-
-              <div className="member-detail__field">
-                <label>Last Updated</label>
-                <span>{new Date(user.updatedAt).toLocaleDateString()}</span>
+              <div className="form-group card-legend">
+                <span className="card-legend__label">
+                  <span className="card-legend__icon"><Calendar size={14} /></span>
+                  <span className="card-legend__title">Activity</span>
+                </span>
+                <div className="field-rows">
+                  <FieldRow label="Joined" value={new Date(user.createdAt).toLocaleDateString()} />
+                  <FieldRow label="Last Updated" value={new Date(user.updatedAt).toLocaleDateString()} />
+                </div>
               </div>
             </div>
 

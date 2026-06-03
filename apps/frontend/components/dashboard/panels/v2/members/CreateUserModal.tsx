@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { formatUsPhone } from '@/lib/format-phone';
+import { formatTitleCase } from '@/lib/format-text';
 import type { CreateUserData } from './types';
 
 interface CreateUserModalProps {
@@ -115,12 +116,12 @@ export function CreateUserModal({ onSubmit, onClose }: CreateUserModalProps) {
             <div className="form-grid">
               <div className="form-group">
                 <label htmlFor="firstName">First Name</label>
-                <input id="firstName" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="form-input" />
+                <input id="firstName" type="text" value={firstName} onChange={(e) => setFirstName(formatTitleCase(e.target.value))} className="form-input" />
               </div>
 
               <div className="form-group">
                 <label htmlFor="lastName">Last Name</label>
-                <input id="lastName" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="form-input" />
+                <input id="lastName" type="text" value={lastName} onChange={(e) => setLastName(formatTitleCase(e.target.value))} className="form-input" />
               </div>
             </div>
 
