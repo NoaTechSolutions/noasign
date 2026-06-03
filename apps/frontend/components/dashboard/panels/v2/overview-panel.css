@@ -33,54 +33,72 @@
 /* ============================================
    WELCOME CARD
    ============================================ */
+/* Subtle card (NO more saturated celeste gradient — text washed out on it).
+   Desktop/tablet: text block left, CTA right. Mobile: stack, CTA full width. */
 .welcome-card {
-  background: linear-gradient(135deg, var(--brand) 0%, #0400f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--surface-raised);
+  border: 0.5px solid var(--tx-border);
   border-radius: 14px;
-  padding: 36px;
-  color: #ffffff;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(2, 41, 119, 0.15);
-}
-
-[data-theme="dark"] .welcome-card {
-  background: linear-gradient(135deg, #05a5ff 0%, #0066cc 100%);
-}
-
-.welcome-card::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -20%;
-  width: 400px;
-  height: 400px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-  pointer-events: none;
+  padding: 20px 22px;
 }
 
 .welcome-content {
-  position: relative;
-  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.welcome-date {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .welcome-greeting {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 500;
-  margin: 0 0 12px 0;
-  line-height: 1.3;
+  margin: 0;
+  line-height: 1.25;
+  color: var(--text-heading);
 }
 
 .welcome-user-name {
-  color: #ff9900;
+  color: var(--text-heading);
+}
+
+.welcome-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.welcome-cta:hover {
+  opacity: 0.92;
 }
 
 .welcome-company-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-  font-size: 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .welcome-company-name {
@@ -91,44 +109,17 @@
   opacity: 0.5;
 }
 
-.plan-badge {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+.welcome-plan {
+  color: var(--brand);
   font-weight: 500;
-  display: inline-block;
-}
-
-.plan-badge-launch {
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
-}
-
-.plan-badge-scale {
-  background: rgba(138, 43, 226, 0.3);
-  color: #ffffff;
-}
-
-.plan-badge-pro {
-  background: rgba(255, 153, 0, 0.3);
-  color: #ffffff;
-}
-
-.plan-badge-default {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-}
-
-.welcome-date {
-  margin: 0;
-  font-size: 13px;
-  opacity: 0.8;
 }
 
 /* Loading state */
 .welcome-card.loading {
   background: var(--bg-card);
-  min-height: 140px;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 120px;
 }
 
 .welcome-skeleton-line {
@@ -371,7 +362,7 @@
 
 .status-breakdown-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -560,7 +551,7 @@
 
 .recent-documents-table-header {
   display: grid;
-  grid-template-columns: 2fr 1fr 2fr 1fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   padding: 10px 14px;
   background: var(--bg-page);
@@ -581,7 +572,7 @@
 
 .recent-doc-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 2fr 1fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   padding: 12px 14px;
   background: var(--bg-page);
@@ -589,6 +580,21 @@
   border-radius: 6px;
   align-items: center;
   transition: border-color 0.2s, background 0.2s;
+}
+
+/* Let every cell shrink, and truncate the long text cells (doc number, email)
+   so they ellipsize instead of forcing the row wider than its column. */
+.recent-doc-row > *,
+.recent-documents-table-header > * {
+  min-width: 0;
+}
+.recent-doc-number,
+.recent-doc-email {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .recent-doc-row:hover {
@@ -786,4 +792,247 @@
     display: flex;
     justify-content: flex-end;
   }
+}
+
+/* ============================================
+   METRIC CARDS (4-up) — TASK 2
+   ============================================ */
+.metric-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.metric-card {
+  background: var(--surface-card, var(--bg-card));
+  border: 0.5px solid var(--tx-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.metric-card--sky .metric-card__icon { color: #05a5ff; background: rgba(5, 165, 255, 0.12); }
+.metric-card--amber .metric-card__icon { color: #ff9900; background: rgba(255, 153, 0, 0.12); }
+.metric-card--green .metric-card__icon { color: #10b981; background: rgba(16, 185, 129, 0.12); }
+
+.metric-card__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.metric-card__value {
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--text-heading);
+  line-height: 1;
+}
+.metric-card__value-sub {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.metric-card__foot {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.metric-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+.metric-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #05a5ff;
+  transition: width 0.3s ease;
+}
+.metric-progress--warning .metric-progress__fill { background: #ff9900; }
+.metric-progress--danger .metric-progress__fill { background: #ef4444; }
+
+.metric-card--loading { min-height: 96px; }
+.metric-skeleton {
+  border-radius: 6px;
+  background: var(--bg-hover);
+  animation: overview-pulse 1.4s ease-in-out infinite;
+}
+.metric-skeleton--label { width: 60%; height: 12px; }
+.metric-skeleton--value { width: 40%; height: 24px; margin-top: 8px; }
+
+@keyframes overview-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============================================
+   TWO-COLUMN LAYOUT (main + side) — TASK 4
+   ============================================ */
+.overview-columns {
+  display: grid;
+  /* minmax(0, ...) so the 1fr tracks can shrink below their content's
+     min-content size — otherwise long doc numbers / emails inside push the
+     column past the available width and overflow the page. */
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.overview-columns__main,
+.overview-columns__side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* ============================================
+   NEEDS ATTENTION — TASK 3
+   ============================================ */
+.needs-attention {
+  background: var(--surface-card, var(--bg-card));
+  border: 0.5px solid var(--tx-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.needs-attention__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.needs-attention__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+.needs-attention__title svg { color: #ff9900; }
+.needs-attention__view-all {
+  border: none;
+  background: transparent;
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.needs-attention__view-all:hover { text-decoration: underline; }
+
+.needs-attention__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.needs-attention__list li + li {
+  border-top: 1px solid var(--tx-border);
+}
+.needs-attention__item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 8px;
+  transition: background 0.12s;
+}
+.needs-attention__item:hover { background: var(--bg-hover); }
+.needs-attention__item-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.needs-attention__item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.needs-attention__item-sep { color: var(--text-muted); }
+.needs-attention__item-number {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.needs-attention__item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.needs-attention__item-age {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.needs-attention__empty {
+  padding: 20px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.needs-attention__empty--ok {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.needs-attention__empty--ok svg { color: #10b981; }
+.needs-attention__empty--ok p { margin: 0; }
+
+/* ============================================
+   RESPONSIVE — TASK 4
+   ============================================ */
+/* Stack the bottom two columns a bit earlier (≤1180) so a small laptop doesn't
+   cram the recent-docs table + side cards into halves that feel too tight. */
+@media (max-width: 1180px) {
+  .overview-columns { grid-template-columns: minmax(0, 1fr); }
+}
+/* Tablet — keep 4 in a row (base), just tighten so they fit comfortably. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .metric-cards { gap: 10px; }
+  .metric-card { padding: 14px; }
+  .metric-card__value { font-size: 22px; }
+}
+@media (max-width: 767px) {
+  .metric-cards { grid-template-columns: repeat(2, 1fr); gap: 10px; } /* mobile 2x2 */
+  /* Number a touch smaller so it fits the ~170px card on a 375px screen. */
+  .metric-card__value { font-size: 22px; }
+  .metric-card__value-sub { font-size: 13px; }
+  /* Header stacks: text block on top, CTA full width below. */
+  .welcome-card { flex-direction: column; align-items: stretch; gap: 14px; }
+  .welcome-cta { width: 100%; justify-content: center; }
 }

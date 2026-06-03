@@ -1,11 +1,11 @@
 import './overview-panel.css';
 import React from 'react';
 import { WelcomeCard } from './WelcomeCard';
-import { StatsGrid } from './StatsGrid';
+import { MetricCards } from './MetricCards';
+import { NeedsAttention } from './NeedsAttention';
 import { StatusBreakdown } from './StatusBreakdown';
 import { RecentDocumentsTable } from './RecentDocumentsTable';
 
-// Types matching the existing page.tsx state
 interface DashboardUser {
   id: string;
   name: string;
@@ -39,8 +39,15 @@ interface DashboardDocument {
   status: string;
   recipientEmail: string;
   createdAt: string;
-  updatedAt?: string;
-  completedAt?: string;
+  sentAt?: string | null;
+  viewedAt?: string | null;
+  completedAt?: string | null;
+  customerId?: string | null;
+}
+
+interface CustomerLite {
+  id: string;
+  fullName: string;
 }
 
 export interface OverviewPanelProps {
@@ -49,7 +56,11 @@ export interface OverviewPanelProps {
   usage: CurrentUsage | null;
   monthlySummary: MonthlySummary | null;
   documents: DashboardDocument[] | null;
+  customers?: CustomerLite[];
   isLoading: boolean;
+  onNewDocument?: () => void;
+  onOpenDocument?: (docId: string) => void;
+  onViewAllAttention?: () => void;
 }
 
 export function OverviewPanel({
@@ -58,36 +69,47 @@ export function OverviewPanel({
   usage,
   monthlySummary,
   documents,
+  customers = [],
   isLoading,
+  onNewDocument,
+  onOpenDocument,
+  onViewAllAttention,
 }: OverviewPanelProps) {
   return (
     <div className="overview-panel">
-      {/* Welcome section */}
       <WelcomeCard
         user={user}
         company={companyProfile}
         isLoading={isLoading}
+        onNewDocument={onNewDocument}
       />
 
-      {/* Stats grid - 4 metric cards */}
-      <StatsGrid
+      <MetricCards
         usage={usage}
         monthlySummary={monthlySummary}
         documents={documents}
         isLoading={isLoading}
       />
 
-      {/* Status breakdown - visual bar chart */}
-      <StatusBreakdown
-        documents={documents}
-        isLoading={isLoading}
-      />
+      <div className="overview-columns">
+        <div className="overview-columns__main">
+          <RecentDocumentsTable
+            documents={documents?.slice(0, 5) || []}
+            isLoading={isLoading}
+          />
+        </div>
 
-      {/* Recent documents table */}
-      <RecentDocumentsTable
-        documents={documents?.slice(0, 5) || []}
-        isLoading={isLoading}
-      />
+        <div className="overview-columns__side">
+          <NeedsAttention
+            documents={documents}
+            customers={customers}
+            isLoading={isLoading}
+            onOpenDocument={onOpenDocument}
+            onViewAll={onViewAllAttention}
+          />
+          <StatusBreakdown documents={documents} isLoading={isLoading} />
+        </div>
+      </div>
     </div>
   );
 }
