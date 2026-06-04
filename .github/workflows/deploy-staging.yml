@@ -4,6 +4,11 @@ on:
   push:
     branches: [develop]
   workflow_dispatch:
+    inputs:
+      seed_test_users:
+        description: 'One-shot: run the staging test-user seed after deploy'
+        type: boolean
+        default: false
 
 # Only one deploy at a time
 concurrency:
@@ -43,6 +48,24 @@ jobs:
           pm2 reload ntssign-backend --update-env
 
           echo "--- Backend deploy complete ---"
+
+      # Gated one-shot seed. ONLY runs when triggered via workflow_dispatch with
+      # seed_test_users=true — never on normal pushes to develop. Idempotent +
+      # non-destructive (upserts). bcrypt + @prisma/client are prod deps (survive
+      # the dev-prune above). Sources the VM .env so the runtime scripts get
+      # DATABASE_URL (the prisma CLI auto-loads it; node runtime does not).
+      - name: Seed staging test users (one-shot, gated)
+        if: github.event.inputs.seed_test_users == 'true'
+        run: |
+          set -e
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          set -a; [ -f .env ] && . ./.env; set +a
+          echo "--- Seeding CONSTRUCTION_CONTRACT (doc type + form schema) ---"
+          node prisma/seed.js
+          echo "--- Seeding staging test users + customers ---"
+          node scripts/dev-helpers/_seed-staging-test-users.js
 
       - name: Deploy frontend
         timeout-minutes: 20
