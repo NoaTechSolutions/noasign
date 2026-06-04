@@ -510,7 +510,7 @@ export function LoginForm() {
       }
 
       startTransition(() => {
-        router.push("/dashboard");
+        router.push("/dashboard?panel=overview");
       });
     } catch (submitError) {
       setLoginErrors({
@@ -661,7 +661,7 @@ export function LoginForm() {
       setForcePasswordSuccess("Password updated successfully.");
 
       startTransition(() => {
-        router.push("/dashboard");
+        router.push("/dashboard?panel=overview");
       });
     } catch (submitError) {
       setForcePasswordErrors({

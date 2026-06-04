@@ -413,7 +413,11 @@ export default function DashboardPage() {
 function DashboardPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const newLayoutPanel = searchParams.get("panel");
+  // Default to the V2 "overview" panel when no ?panel= is present. This makes
+  // the V2 dashboard the default and leaves the legacy DashboardSidebarDemo
+  // (the `else` branch of the `if (newLayoutPanel)` below) unreachable via the
+  // normal flow — without deleting it yet.
+  const newLayoutPanel = searchParams.get("panel") ?? "overview";
   const { setTheme } = useTheme();
   const [user, setUser] = useState<StoredUser | null>(null);
   const [dashboardUser, setDashboardUser] = useState<DashboardUser | null>(null);
