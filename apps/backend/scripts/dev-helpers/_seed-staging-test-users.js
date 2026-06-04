@@ -19,7 +19,10 @@ const bcrypt = require('bcrypt');
 const prisma = new PrismaClient();
 
 const COMPANY_ID = '7aaad16a-6d76-4c36-97c7-b9ce3e45b801'; // World Pavers
-const TEMPLATE_ID = 'staging-test-construction-template';
+// SignatureTemplate id MUST be a UUID — the create-draft DTO validates
+// signatureTemplateId with @IsUUID(), so a literal string id caused a 400.
+const TEMPLATE_ID = 'b8f0e01b-c3cb-4c02-b1d3-566d6053a78c';
+const OLD_LITERAL_TEMPLATE_ID = 'staging-test-construction-template';
 const PROVIDER_TEMPLATE_ID =
   process.env.STAGING_PROVIDER_TEMPLATE_ID ||
   'cb255e39-9f97-44cb-a8c1-4c841f94b3bc'; // real World Pavers BoldSign template
@@ -111,7 +114,21 @@ async function main() {
     throw new Error('No active FormDefinition for CONSTRUCTION_CONTRACT.');
   }
 
-  // 3. SignatureTemplate (real World Pavers BoldSign template) — upsert by stable id.
+  // 3. Migrate away from the old non-UUID template id (caused 400s): drop its
+  //    configs + the template itself. No documents reference it (creation was
+  //    blocked), so this is safe. Idempotent: no-op once it's gone.
+  const oldTemplate = await prisma.signatureTemplate.findUnique({
+    where: { id: OLD_LITERAL_TEMPLATE_ID },
+  });
+  if (oldTemplate) {
+    await prisma.userDocumentConfig.deleteMany({
+      where: { signatureTemplateId: OLD_LITERAL_TEMPLATE_ID },
+    });
+    await prisma.signatureTemplate.delete({ where: { id: OLD_LITERAL_TEMPLATE_ID } });
+    console.log(`Removed old non-UUID template ${OLD_LITERAL_TEMPLATE_ID}`);
+  }
+
+  // SignatureTemplate (real World Pavers BoldSign template) — upsert by UUID id.
   const template = await prisma.signatureTemplate.upsert({
     where: { id: TEMPLATE_ID },
     update: {

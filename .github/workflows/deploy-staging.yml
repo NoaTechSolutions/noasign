@@ -42,6 +42,16 @@ jobs:
           rm -f tsconfig.build.tsbuildinfo
           npm run build
           test -f dist/main.js || { echo "ERROR: dist/main.js not produced by build"; exit 1; }
+          # Compile the construction seed so prisma/seed.ts is the source of truth.
+          # nest build excludes prisma/ (tsconfig.build.json), and prisma/seed.js is
+          # gitignored, so without this the gated seed step would run a STALE seed.js.
+          # This only GENERATES prisma/seed.js — it does NOT run the seed. Execution
+          # stays gated behind the `seed_test_users` dispatch step below. Runs while
+          # typescript (a devDep) is still installed, i.e. before the prune.
+          echo "--- Compiling construction seed (prisma/seed.ts -> seed.js) ---"
+          ./node_modules/.bin/tsc prisma/seed.ts --outDir prisma --module commonjs \
+            --target es2021 --moduleResolution node --esModuleInterop --skipLibCheck
+          test -f prisma/seed.js || { echo "ERROR: prisma/seed.js not produced"; exit 1; }
           npm prune --omit=dev
 
           echo "--- Reloading backend (zero-downtime) ---"
