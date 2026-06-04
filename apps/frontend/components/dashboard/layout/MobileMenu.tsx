@@ -8,6 +8,7 @@ import {
   isNavGroup,
   type NavigationItem,
 } from "./NavigationItems";
+import { DashboardFooter } from "./DashboardFooter";
 
 interface MobileMenuProps {
   userRole: string;
@@ -315,6 +316,10 @@ export function MobileMenu({
                 </span>
                 Sign out
               </button>
+            </div>
+
+            <div style={{ padding: "0 24px 16px" }}>
+              <DashboardFooter />
             </div>
           </div>
         </>

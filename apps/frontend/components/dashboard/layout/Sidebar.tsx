@@ -9,6 +9,7 @@ import {
   type NavigationItem,
 } from "./NavigationItems";
 import { useDirtyForm } from "@/components/dashboard/shared/dirty-form-context";
+import { DashboardFooter } from "./DashboardFooter";
 
 interface SidebarProps {
   userRole: string;
@@ -563,17 +564,7 @@ export function Sidebar({
         </button>
         )}
 
-        {!isCollapsed && (
-          <div
-            style={{
-              fontSize: "11px",
-              color: "var(--text-label)",
-              textAlign: "center",
-            }}
-          >
-            Dashboard v2.0
-          </div>
-        )}
+        {!isCollapsed && <DashboardFooter />}
       </div>
 
       {/* Custom hover tooltip (collapsed only). Fixed positioning escapes

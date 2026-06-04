@@ -1,5 +1,42 @@
 # Changelog
 
+Versioning follows [SemVer](https://semver.org/) — see [VERSIONING.md](./VERSIONING.md).
+
+## [2.0.0] - 2026-06-04
+
+Full dashboard redesign (V2). V2 is now the default; the legacy dashboard is
+kept in the codebase but no longer reachable through the normal flow.
+
+### Added
+- **Dashboard V2** — collapsible sidebar (MASTER-only "User management" group),
+  shell, topbar.
+- **Overview** — redesigned: subtle header, 4 metric cards, "Needs attention"
+  widget, status breakdown, recent documents, responsive 2-column layout.
+- **Documents V2** — detail modal (per-card edit, Finance toggle + colored grid,
+  signed-PDF tab), schema-driven creation wizard, client select popup +
+  Client-tab auto-fill, Send/Cancel confirmations, mobile collapsible cards.
+- **Customers V2** — table + mobile cards, status (Active/Inactive/Deleted),
+  owner assignment, detail modal, form drawer.
+- **Members V2** — members + account requests (approve/reject) in one panel;
+  locked-users panel.
+- **Profile / Billing V2** — per-section inline editing, plan features, usage.
+- Shared building blocks: ConfirmActionModal, DiscardChangesModal,
+  GroupEditPopup, unsaved-changes guard (`useBeforeUnload` + dirty-form).
+- Versioned footer that reads the version from `package.json`.
+
+### Changed
+- Default dashboard route renders the V2 overview (no `?panel=` → overview).
+- Backend: customer soft-delete + status model, document detail includes,
+  `streamFinalPdf` test-pdf bypass for QA.
+
+### Removed
+- Form Definitions admin UI (route + components). Backend endpoints kept for
+  script-based form seeding.
+
+### Notes
+- Legacy dashboard (`DashboardSidebarDemo` + legacy panels) retained in the
+  codebase, unreachable via the normal flow — deletion is a follow-up.
+
 ## [Abril 2026] — Session 2
 
 ### Nuevas funcionalidades
