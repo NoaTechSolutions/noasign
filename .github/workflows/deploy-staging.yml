@@ -61,7 +61,12 @@ jobs:
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           cd ~/apps/ntssign/apps/backend
-          set -a; [ -f .env ] && . ./.env; set +a
+          # Extract ONLY DATABASE_URL from .env (do NOT `source` the whole file —
+          # some lines aren't valid bash and break it). Strip optional quotes.
+          DATABASE_URL="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d '=' -f2-)"
+          DATABASE_URL="${DATABASE_URL%\"}"; DATABASE_URL="${DATABASE_URL#\"}"
+          DATABASE_URL="${DATABASE_URL%\'}"; DATABASE_URL="${DATABASE_URL#\'}"
+          export DATABASE_URL
           echo "--- Seeding CONSTRUCTION_CONTRACT (doc type + form schema) ---"
           node prisma/seed.js
           echo "--- Seeding staging test users + customers ---"
