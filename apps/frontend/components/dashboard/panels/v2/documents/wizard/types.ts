@@ -146,7 +146,16 @@ export function applyTransform(
     const [whole = '', ...rest] = normalized.split('.');
     const cleanWhole = whole.replace(/^0+(?=\d)/, '') || whole || '0';
     const decimal = rest.join('').slice(0, 2);
-    return normalized.includes('.') ? `${cleanWhole}.${decimal}` : cleanWhole;
+    const formatted = normalized.includes('.')
+      ? `${cleanWhole}.${decimal}`
+      : cleanWhole;
+    // Cap at $1,000,000,000 to match the edit-modal currency limit.
+    const MAX_CURRENCY = 1_000_000_000;
+    const numeric = Number(formatted);
+    if (Number.isFinite(numeric) && numeric > MAX_CURRENCY) {
+      return String(MAX_CURRENCY);
+    }
+    return formatted;
   }
   if (transform === 'digitsOnly') {
     return value.replace(/\D/g, '').slice(0, 100);

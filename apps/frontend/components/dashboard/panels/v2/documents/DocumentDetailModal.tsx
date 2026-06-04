@@ -65,7 +65,6 @@ const FINANCE_COLORS: Record<
 const CONTRACT_BASE_FIELDS: CardField[] = [
   { key: 'contract_amount', label: 'Contract amount', type: 'currency' },
   { key: 'down_payment_amount', label: 'Down payment', type: 'currency' },
-  { key: 'payment_schedule', label: 'Payment schedule', type: 'text' },
 ];
 const FINANCE_CHARGE_FIELD: CardField = { key: 'finance_charge', label: 'Finance charge', type: 'currency' };
 const financeFieldKeys = (n: number) => [
@@ -145,7 +144,6 @@ const CONTRACT_GROUP: CardGroup = {
     { key: 'contract_amount', label: 'Contract amount', type: 'currency' },
     { key: 'down_payment_amount', label: 'Down payment', type: 'currency' },
     { key: 'finance_charge', label: 'Finance charge', type: 'currency' },
-    { key: 'payment_schedule', label: 'Payment schedule', type: 'text' },
   ],
 };
 
