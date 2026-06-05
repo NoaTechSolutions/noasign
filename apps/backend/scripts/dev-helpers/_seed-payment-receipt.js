@@ -42,7 +42,7 @@ const RECEIPT_FORM_SCHEMA = {
 };
 
 const WPC_FIELD_MAPPING = {
-  receipt_number: { type: 'text', x: 387, baseline: 488.5, font: 'Montserrat-Black', size: 16, color: '#000000', autoShiftRightLimit: 558 },
+  receipt_number: { type: 'text', x: 387, baseline: 488.5, font: 'Montserrat-Regular', size: 16, color: '#000000', autoShiftRightLimit: 558 },
   date: { type: 'text', x: 428, lineTop: 331, font: 'Carlito', size: 11.5 },
   client: { type: 'text', x: 118, lineTop: 371, font: 'Carlito', size: 11.5 },
   amount: { type: 'currency', x: 118, lineTop: 396, font: 'Carlito', size: 11.5 },

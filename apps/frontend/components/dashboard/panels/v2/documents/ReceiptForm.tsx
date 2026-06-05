@@ -6,6 +6,7 @@ import { BaseField } from './wizard/fields/BaseField';
 import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { applyTransform } from './wizard/types';
+import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
 
 export interface CreateReceiptPayload {
   client: string;
@@ -91,6 +92,8 @@ export function ReceiptForm({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sending emails the receipt to the client — confirm first (irreversible).
+  const [confirmSend, setConfirmSend] = useState(false);
 
   // Re-fill client/email when a different client is selected in the setup card.
   useEffect(() => {
@@ -149,6 +152,18 @@ export function ReceiptForm({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // "Create & send" validates first, then asks for confirmation (the receipt is
+  // emailed to the client — irreversible). "Save draft" skips this.
+  function handleSendClick() {
+    const err = validate(true);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError(null);
+    setConfirmSend(true);
   }
 
   return (
@@ -347,12 +362,32 @@ export function ReceiptForm({
         <button
           type="button"
           className={`wizard-btn wizard-btn--primary${submitting ? ' wizard-btn--primary-disabled' : ''}`}
-          onClick={() => submit(true)}
+          onClick={handleSendClick}
           disabled={submitting}
         >
           Create &amp; send
         </button>
       </footer>
+
+      <ConfirmActionModal
+        isOpen={confirmSend}
+        title="Send receipt?"
+        message={
+          <>
+            This will email the receipt to{' '}
+            <strong>{email.trim() || 'the client'}</strong>. This action cannot be
+            undone.
+          </>
+        }
+        confirmLabel="Send receipt"
+        cancelLabel="Cancel"
+        variant="amber"
+        onConfirm={() => {
+          setConfirmSend(false);
+          void submit(true);
+        }}
+        onCancel={() => setConfirmSend(false)}
+      />
     </>
   );
 }

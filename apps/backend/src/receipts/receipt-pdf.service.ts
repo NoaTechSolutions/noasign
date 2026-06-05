@@ -38,6 +38,7 @@ export interface ReceiptTemplateLike {
 // Embedded fonts available to any template (referenced by name in the mapping).
 const FONT_FILES: Record<string, string> = {
   'Montserrat-Black': 'Montserrat-Black.ttf',
+  'Montserrat-Regular': 'Montserrat-Regular.ttf',
   Carlito: 'Carlito-Regular.ttf',
   'Carlito-Bold': 'Carlito-Bold.ttf',
 };
@@ -72,16 +73,16 @@ export class ReceiptPdfService {
       return fontCache[key];
     };
 
-    const offsetY = template.mediaBoxOffsetY ?? 0;
-    // pdf-lib draws in PDF user space (origin at 0,0), which does NOT account for
-    // a non-zero MediaBox lower-left, so the offset is added back here.
+    // pdf-lib's drawText already positions relative to the page's MediaBox
+    // lower-left, so a non-zero MediaBox origin (this base PDF starts at y=7.92)
+    // needs NO compensation. Adding mediaBoxOffsetY here double-counts it and
+    // floats every field ~8pt above its line — verified against the approved
+    // preview. mediaBoxOffsetY is kept on the template for reference only.
     const yOf = (m: ReceiptFieldMapping): number => {
       const gap = m.gap ?? 2.5;
-      const base =
-        m.baseline != null
-          ? m.baseline
-          : template.pageHeight - (m.lineTop ?? 0) + gap;
-      return base + offsetY;
+      return m.baseline != null
+        ? m.baseline
+        : template.pageHeight - (m.lineTop ?? 0) + gap;
     };
 
     for (const [key, m] of Object.entries(template.fieldMappingJson)) {
