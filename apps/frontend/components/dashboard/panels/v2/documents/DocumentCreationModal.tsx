@@ -6,6 +6,7 @@ import { useBlockScroll } from '@/lib/use-block-scroll';
 import { useBeforeUnload } from '@/lib/use-before-unload';
 import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
 import { DocumentSetupCard } from './DocumentSetupCard';
+import { ReceiptForm, type CreateReceiptPayload } from './ReceiptForm';
 import { DocumentWizard } from './wizard';
 import type { DocumentSchema } from './wizard';
 import type {
@@ -30,6 +31,10 @@ interface DocumentCreationModalProps {
   isMaster?: boolean;
   onClose: () => void;
   onCreate: (payload: CreateDraftPayload) => Promise<void>;
+  // DIRECT_PDF types (receipts) hand off to the receipt form instead of the
+  // BoldSign wizard once selected in the type dropdown.
+  onCreateReceipt?: (payload: CreateReceiptPayload) => Promise<void>;
+  defaultReceivedBy?: string;
 }
 
 function todayIso(): string {
@@ -71,6 +76,8 @@ export function DocumentCreationModal({
   isMaster = false,
   onClose,
   onCreate,
+  onCreateReceipt,
+  defaultReceivedBy,
 }: DocumentCreationModalProps) {
   const [setup, setSetup] = useState<DocumentSetupValue>({
     documentTypeId: '',
@@ -178,6 +185,11 @@ export function DocumentCreationModal({
     }
   }
 
+  // DIRECT_PDF (receipt) types render the receipt form below the setup card
+  // instead of the BoldSign wizard — the setup card stays for type + client.
+  const isReceipt =
+    selectedDocType?.generationMode === 'DIRECT_PDF' && !!onCreateReceipt;
+
   return (
     <div className="docs-v2-creation-modal">
       <div
@@ -218,31 +230,43 @@ export function DocumentCreationModal({
             isMaster={isMaster}
           />
 
-          {submitError ? (
-            <div className="docs-v2-creation-modal__error" role="alert">
-              {submitError}
-            </div>
-          ) : null}
-
-          {hasValidSchema ? (
-            <DocumentWizard
-              key={`${setup.documentTypeId}-${setup.formDefinitionId}`}
-              schema={schema!}
-              clientPrefill={clientPrefill}
-              onDirtyChange={setWizardDirty}
-              initialToggles={initialToggles}
-              persistKey={persistKey}
-              canSubmit={canSubmit}
-              isSubmitting={isSubmitting}
-              onSubmit={handleSubmit}
-              onCancel={onClose}
+          {isReceipt ? (
+            <ReceiptForm
+              defaultReceivedBy={defaultReceivedBy ?? ''}
+              prefillClient={selectedCustomer?.fullName}
+              prefillEmail={selectedCustomer?.email ?? undefined}
+              onCreate={onCreateReceipt!}
+              onClose={onClose}
             />
           ) : (
-            <div className="docs-v2-creation-modal__placeholder">
-              {setup.documentTypeId
-                ? 'No form schema configured for this document type.'
-                : 'Select a document type to start filling in the form.'}
-            </div>
+            <>
+              {submitError ? (
+                <div className="docs-v2-creation-modal__error" role="alert">
+                  {submitError}
+                </div>
+              ) : null}
+
+              {hasValidSchema ? (
+                <DocumentWizard
+                  key={`${setup.documentTypeId}-${setup.formDefinitionId}`}
+                  schema={schema!}
+                  clientPrefill={clientPrefill}
+                  onDirtyChange={setWizardDirty}
+                  initialToggles={initialToggles}
+                  persistKey={persistKey}
+                  canSubmit={canSubmit}
+                  isSubmitting={isSubmitting}
+                  onSubmit={handleSubmit}
+                  onCancel={onClose}
+                />
+              ) : (
+                <div className="docs-v2-creation-modal__placeholder">
+                  {setup.documentTypeId
+                    ? 'No form schema configured for this document type.'
+                    : 'Select a document type to start filling in the form.'}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

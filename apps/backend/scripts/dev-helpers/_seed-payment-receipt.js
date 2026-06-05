@@ -15,6 +15,7 @@ const RECEIPT_FORM_SCHEMA = {
       label: 'Receipt',
       fields: [
         { key: 'client', label: 'Client', type: 'text', required: true },
+        { key: 'email', label: 'Email', type: 'email' },
         { key: 'amount', label: 'Amount', type: 'currency', required: true },
         { key: 'date', label: 'Date', type: 'date', required: true },
         {

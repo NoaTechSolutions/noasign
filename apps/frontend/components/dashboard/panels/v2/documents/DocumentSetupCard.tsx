@@ -8,6 +8,7 @@ export interface DocumentTypeOption {
   id: string;
   name: string;
   code: string;
+  generationMode?: "BOLDSIGN" | "DIRECT_PDF";
   formDefinitions: Array<{
     id: string;
     name: string;
@@ -81,6 +82,9 @@ export function DocumentSetupCard({
   const formDefinitions = selectedDocType?.formDefinitions ?? [];
   const signatureTemplates = selectedDocType?.signatureTemplates ?? [];
   const selectedCustomer = customers.find((c) => c.id === value.customerId) ?? null;
+  // Receipts (DIRECT_PDF) have no contract date / signature template — hide the
+  // contract-specific fields; the type selector + client picker stay.
+  const isReceipt = selectedDocType?.generationMode === 'DIRECT_PDF';
 
   // TASK 4 — selecting a type auto-loads its form + template (hidden for non-master).
   function handleDocTypeChange(docTypeId: string) {
@@ -115,21 +119,24 @@ export function DocumentSetupCard({
           </select>
         </label>
 
-        <label className="docs-v2-setup-card__field">
-          <span className="docs-v2-setup-card__label">Contract Date *</span>
-          <input
-            type="date"
-            value={value.contractDate}
-            disabled={disabled}
-            onChange={(e) => onChange({ ...value, contractDate: e.target.value })}
-            className="docs-v2-setup-card__input"
-          />
-        </label>
+        {!isReceipt ? (
+          <label className="docs-v2-setup-card__field">
+            <span className="docs-v2-setup-card__label">Contract Date *</span>
+            <input
+              type="date"
+              value={value.contractDate}
+              disabled={disabled}
+              onChange={(e) => onChange({ ...value, contractDate: e.target.value })}
+              className="docs-v2-setup-card__input"
+            />
+          </label>
+        ) : null}
       </div>
 
       {/* MASTER-only: explicit Form Version + Signature Template. For everyone
-          else these are auto-loaded from the selected type (TASK 4). */}
-      {isMaster ? (
+          else these are auto-loaded from the selected type (TASK 4). Hidden for
+          receipts (DIRECT_PDF) — they don't use a signature template. */}
+      {isMaster && !isReceipt ? (
         <div className="docs-v2-setup-card__row">
           <label className="docs-v2-setup-card__field">
             <span className="docs-v2-setup-card__label">Form Version</span>

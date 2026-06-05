@@ -469,6 +469,7 @@ export class DocumentsService {
       id: string;
       name: string;
       code: string;
+      generationMode: string;
       formDefinitions: Array<{ id: string; name: string; schemaJson: unknown }>;
       signatureTemplates: Array<{ id: string; name: string; providerTemplateId: string | null }>;
     }>();
@@ -485,6 +486,7 @@ export class DocumentsService {
           id: config.documentType.id,
           name: config.documentType.name,
           code: config.documentType.code,
+          generationMode: config.documentType.generationMode,
           formDefinitions: [{ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson }],
           signatureTemplates: [{ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId }],
         });
@@ -494,6 +496,43 @@ export class DocumentsService {
         }
         if (!existing.signatureTemplates.some((st) => st.id === config.signatureTemplate.id)) {
           existing.signatureTemplates.push({ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId });
+        }
+      }
+    }
+
+    // Receipts (DIRECT_PDF) are available company-wide: any non-master user
+    // whose company has an active ReceiptTemplate can create them — no per-user
+    // UserDocumentConfig is needed (unlike BoldSign types).
+    if (user.companyProfileId) {
+      const receiptTemplates = await this.prisma.receiptTemplate.findMany({
+        where: { companyProfileId: user.companyProfileId, isActive: true },
+        select: { id: true },
+      });
+      if (receiptTemplates.length > 0) {
+        const directTypes = await this.prisma.documentType.findMany({
+          where: { generationMode: 'DIRECT_PDF' },
+          include: {
+            formDefinitions: {
+              where: { isActive: true },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+          orderBy: { name: 'asc' },
+        });
+        for (const dt of directTypes) {
+          if (typeMap.has(dt.id)) continue;
+          typeMap.set(dt.id, {
+            id: dt.id,
+            name: dt.name,
+            code: dt.code,
+            generationMode: dt.generationMode,
+            formDefinitions: dt.formDefinitions.map((fd) => ({
+              id: fd.id,
+              name: fd.name,
+              schemaJson: fd.schemaJson,
+            })),
+            signatureTemplates: [],
+          });
         }
       }
     }

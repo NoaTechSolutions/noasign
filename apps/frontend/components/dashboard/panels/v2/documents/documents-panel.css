@@ -1842,3 +1842,105 @@
 .client-select-modal__btn--primary:hover {
   opacity: 0.92;
 }
+
+/* ===== RECEIPT CREATION MODAL (Phase 2) — reuses DS tokens ===== */
+.receipt-section {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--tx-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.receipt-section:last-of-type {
+  border-bottom: none;
+}
+.receipt-section__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.receipt-methods {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+@media (min-width: 640px) {
+  .receipt-methods {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.receipt-method {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--tx-border);
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.receipt-method:hover {
+  background: var(--tx-hover);
+}
+.receipt-other {
+  margin-top: 4px;
+}
+.receipt-received-by {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--tx-border);
+  background: var(--surface);
+}
+.receipt-received-by__value {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.receipt-received-by__edit {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.receipt-received-by__edit:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+.receipt-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--tx-border);
+}
+
+.documents-v2-toolbar__create-btn--secondary {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--tx-border);
+}
+.documents-v2-toolbar__create-btn--secondary:hover {
+  background: var(--tx-hover);
+}
+
+/* Payment N + M stay side-by-side even on mobile (short "N of M" pair). */
+.receipt-pair-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}

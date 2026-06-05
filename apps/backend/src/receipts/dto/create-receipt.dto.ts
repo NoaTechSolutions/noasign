@@ -34,6 +34,12 @@ export class CreateReceiptDto {
   @IsIn(PAYMENT_METHODS)
   payment_method: PaymentMethod;
 
+  // Internal contact phone — captured + stored in dataJson, NOT drawn on the
+  // PDF (it has no slot in the receipt template's fieldMappingJson).
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
   @IsOptional()
   @IsString()
   other_label?: string;

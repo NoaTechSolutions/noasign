@@ -10,6 +10,7 @@ import { DocumentsCards } from './DocumentsCards';
 import { DocumentDetailModal } from './DocumentDetailModal';
 import { DocumentsEmptyState } from './DocumentsEmptyState';
 import { DocumentCreationModal } from './DocumentCreationModal';
+import type { CreateReceiptPayload } from './ReceiptForm';
 import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
 import type {
   V2DocumentItem,
@@ -41,6 +42,9 @@ export interface DocumentsPanelProps {
   documentTypes: DocumentTypeOption[];
   customers: CustomerOption[];
   onCreateDraft: (payload: CreateDraftPayload) => Promise<void>;
+  // Phase 2 — direct PDF receipts. When provided, a "New Receipt" action shows.
+  onCreateReceipt?: (payload: CreateReceiptPayload) => Promise<void>;
+  defaultReceivedBy?: string;
   onEditDocument: (docId: string) => void;
   onDocumentAction: (docId: string, action: BackendDocumentAction) => Promise<void>;
   onSyncStatus: (docId: string) => Promise<void>;
@@ -76,6 +80,8 @@ export function DocumentsPanel({
   documentTypes,
   customers,
   onCreateDraft,
+  onCreateReceipt,
+  defaultReceivedBy,
   onEditDocument,
   onDocumentAction,
   onSyncStatus,
@@ -360,6 +366,8 @@ export function DocumentsPanel({
           isMaster={isMaster}
           onClose={() => setShowCreateModal(false)}
           onCreate={onCreateDraft}
+          onCreateReceipt={onCreateReceipt}
+          defaultReceivedBy={defaultReceivedBy}
         />
       ) : null}
 

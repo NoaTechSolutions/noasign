@@ -220,6 +220,7 @@ type DocumentTypeCatalogItem = {
   id: string;
   name: string;
   code: string;
+  generationMode?: "BOLDSIGN" | "DIRECT_PDF";
   formDefinitions: Array<{
     id: string;
     name: string;
@@ -1761,6 +1762,7 @@ function DashboardPageInner() {
       id: dt.id,
       name: dt.name,
       code: dt.code,
+      generationMode: dt.generationMode,
       formDefinitions: dt.formDefinitions.map((fd) => ({
         id: fd.id,
         name: fd.name,
@@ -1816,6 +1818,40 @@ function DashboardPageInner() {
       }) => {
         await handleCreateDraft(payload);
       },
+      onCreateReceipt: async (payload: {
+        client: string;
+        recipientEmail?: string;
+        amount: number;
+        date: string;
+        payment_method: string;
+        other_label?: string;
+        payment_for?: string;
+        payment_current?: number;
+        payment_total?: number;
+        received_by?: string;
+        send: boolean;
+      }) => {
+        await apiRequest<{ message: string; receiptNumber: string }>(
+          "/documents/receipt",
+          { method: "POST", body: payload },
+        );
+        await loadWorkspace();
+      },
+      defaultReceivedBy: (() => {
+        const userName = [dashboardUser?.firstName, dashboardUser?.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+        const contactName = [
+          companyProfile?.contactFirstName,
+          companyProfile?.contactLastName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+        const isBusiness = dashboardUser?.accountType === "BUSINESS";
+        return isBusiness && contactName ? contactName : userName || contactName;
+      })(),
       onEditDocument: (docId: string) => {
         // Edit flow still routes to legacy: the V2 modal currently supports
         // create-only. Wiring edit requires loading the existing document's
@@ -1953,6 +1989,8 @@ function DashboardPageInner() {
           documentTypes={documentsV2.types}
           customers={documentsV2.customers}
           onCreateDraft={documentsV2.onCreateDraft}
+          onCreateReceipt={documentsV2.onCreateReceipt}
+          defaultReceivedBy={documentsV2.defaultReceivedBy}
           onEditDocument={documentsV2.onEditDocument}
           onDocumentAction={documentsV2.onDocumentAction}
           onSyncStatus={documentsV2.onSyncStatus}
