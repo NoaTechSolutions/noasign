@@ -2067,7 +2067,7 @@ export class DocumentsService {
       last_name: lastName || undefined,
       firstName: firstName || undefined,
       lastName: lastName || undefined,
-      role: document.signatureTemplate.recipientRole || 'BUYER',
+      role: document.signatureTemplate?.recipientRole || 'BUYER',
     };
   }
 

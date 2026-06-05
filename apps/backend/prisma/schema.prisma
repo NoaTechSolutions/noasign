@@ -56,6 +56,11 @@ enum DocumentFileType {
   ATTACHMENT
 }
 
+enum GenerationMode {
+  BOLDSIGN
+  DIRECT_PDF
+}
+
 enum StorageProvider {
   BOLDSIGN
   S3
@@ -110,9 +115,11 @@ model CompanyProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  documents Document[]
-  customers Customer[]
+  users            User[]
+  documents        Document[]
+  customers        Customer[]
+  receiptTemplates ReceiptTemplate[]
+  receiptCounters  ReceiptCounter[]
 
   @@map("company_profiles")
 }
@@ -298,6 +305,10 @@ model DocumentType {
   name String @unique
   code String @unique
 
+  // BOLDSIGN: signed via BoldSign. DIRECT_PDF: generated + emailed directly
+  // (receipts) using a ReceiptTemplate — no signature flow.
+  generationMode GenerationMode @default(BOLDSIGN)
+
   formDefinitions    FormDefinition[]
   signatureTemplates SignatureTemplate[]
   userConfigs        UserDocumentConfig[]
@@ -344,6 +355,42 @@ model SignatureTemplate {
   @@map("signature_templates")
 }
 
+// Template-driven receipt generation (DIRECT_PDF). Base PDF + field coordinates
+// live here, not in code — a new client is a new row, not a code change.
+model ReceiptTemplate {
+  id               String   @id @default(cuid())
+  companyProfileId String
+  name             String
+  basePdfPath      String
+  pageWidth        Float    @default(612)
+  pageHeight       Float    @default(792)
+  mediaBoxOffsetY  Float    @default(0)
+  fieldMappingJson Json
+  numberFormat     String   @default("REC-{YYYY}-{NNNN}")
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  documents      Document[]
+
+  @@index([companyProfileId])
+  @@map("receipt_templates")
+}
+
+// Per-tenant, per-year correlative counter (resets each year via the unique key).
+model ReceiptCounter {
+  id               String @id @default(cuid())
+  companyProfileId String
+  year             Int
+  lastNumber       Int    @default(0)
+
+  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([companyProfileId, year])
+  @@map("receipt_counters")
+}
+
 model UserDocumentConfig {
   id                  String   @id @default(uuid())
   userId              String
@@ -372,7 +419,10 @@ model Document {
   customerId           String?
   documentTypeId       String
   formDefinitionId     String
-  signatureTemplateId  String
+  // Nullable: DIRECT_PDF docs (receipts) have no BoldSign template; they use
+  // receiptTemplateId instead. Gated by documentType.generationMode.
+  signatureTemplateId  String?
+  receiptTemplateId    String?
   providerDocumentId   String?
   providerStatus       String?
   providerLastSyncedAt DateTime?
@@ -397,9 +447,10 @@ model Document {
   user              User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   companyProfile    CompanyProfile?   @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
   customer          Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  documentType      DocumentType      @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
-  formDefinition    FormDefinition    @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
-  signatureTemplate SignatureTemplate @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
+  documentType      DocumentType       @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  formDefinition    FormDefinition     @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
+  signatureTemplate SignatureTemplate? @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
+  receiptTemplate   ReceiptTemplate?   @relation(fields: [receiptTemplateId], references: [id], onDelete: Restrict)
   data              DocumentData?
   versions          DocumentVersion[]
   files             DocumentFile[]

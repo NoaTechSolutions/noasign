@@ -11,6 +11,7 @@ import { BillingModule } from './billing/billing.module';
 import { AdminModule } from './admin/admin.module';
 import { ContactModule } from './contact/contact.module';
 import { CustomersModule } from './customers/customers.module';
+import { ReceiptsModule } from './receipts/receipts.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { CustomersModule } from './customers/customers.module';
     AdminModule,
     ContactModule,
     CustomersModule,
+    ReceiptsModule,
   ],
   providers: [
     {

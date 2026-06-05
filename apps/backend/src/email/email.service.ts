@@ -51,6 +51,14 @@ export type AccountUnlockedPayload = {
   to: string;
 };
 
+export type ReceiptPayload = {
+  to: string;
+  receiptNumber: string;
+  clientName: string;
+  companyName: string;
+  pdfBuffer: Buffer;
+};
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -123,6 +131,36 @@ export class EmailService {
 
     this.logger.log(
       `[EmailService] Signed confirmation sent to ${payload.to} (id: ${data?.id})`,
+    );
+  }
+
+  async sendReceipt(payload: ReceiptPayload): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(
+        `[EmailService] Skipping receipt ${payload.receiptNumber} to ${payload.to} — Resend not configured`,
+      );
+      return;
+    }
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to: payload.to,
+      subject: `Payment receipt ${payload.receiptNumber} from ${payload.companyName}`,
+      html: `<p>Hi ${payload.clientName},</p><p>Thank you for your payment. Your receipt <strong>${payload.receiptNumber}</strong> from ${payload.companyName} is attached.</p>`,
+      attachments: [
+        { filename: `${payload.receiptNumber}.pdf`, content: payload.pdfBuffer },
+      ],
+    });
+
+    if (error) {
+      this.logger.error(
+        `[EmailService] Failed to send receipt ${payload.receiptNumber} to ${payload.to}: ${JSON.stringify(error)}`,
+      );
+      throw new Error(`Email delivery failed: ${error.message}`);
+    }
+
+    this.logger.log(
+      `[EmailService] Receipt ${payload.receiptNumber} sent to ${payload.to} (id: ${data?.id})`,
     );
   }
 
