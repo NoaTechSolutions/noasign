@@ -6,6 +6,11 @@ import { FieldRenderer } from '../fields/FieldRenderer';
 import { WizardToggleRow } from './WizardToggleRow';
 import { groupFields, todayIso } from '../types';
 import type { SchemaField, SchemaSection } from '../types';
+import { FinanceCard, PricingCard, CONTRACT_ACCENT } from '../../finance-cards';
+
+// finance_1_amount / finance_2_description / finance_3_date ... → grouped into
+// the matching numbered Finance card (①②③④).
+const FINANCE_FIELD_RE = /^finance_([1-4])_(amount|description|date)$/;
 
 interface WizardSectionProps {
   section: SchemaSection;
@@ -88,8 +93,59 @@ export function WizardSection({
     };
   }
 
+  // Renders one schema field through the type dispatcher with its resolved
+  // value/error/computed state. Used for the Finance-card inputs (the generic
+  // row layout below still renders everything else inline).
+  function renderSingleField(field: SchemaField) {
+    const resolved = resolveValue(field);
+    return (
+      <FieldRenderer
+        key={field.key}
+        field={field}
+        value={resolved.value}
+        error={errors[field.key]}
+        disabled={readOnly || resolved.isDisabledByCopy}
+        computed={resolved.isComputed}
+        minDate={getMinDate(field)}
+        onChange={(value) => onUpdateField(field.key, value)}
+      />
+    );
+  }
+
   const visibleFields = section.fields.filter(isFieldVisible);
-  const fieldGroups = groupFields(visibleFields);
+  // Pull finance_N_* fields out of the generic flow so they render as colored
+  // numbered cards (matching the detail/edit modal). Everything else keeps the
+  // row-based layout. finance_charge has no index → stays in the generic flow.
+  const financeFields = visibleFields.filter((f) => FINANCE_FIELD_RE.test(f.key));
+  const nonFinanceFields = visibleFields.filter((f) => !FINANCE_FIELD_RE.test(f.key));
+  const fieldGroups = groupFields(nonFinanceFields);
+
+  const financeByIndex = new Map<number, SchemaField[]>();
+  for (const f of financeFields) {
+    const n = Number(f.key.match(FINANCE_FIELD_RE)![1]);
+    const list = financeByIndex.get(n) ?? [];
+    list.push(f);
+    financeByIndex.set(n, list);
+  }
+  const financeIndices = [...financeByIndex.keys()].sort((a, b) => a - b);
+
+  // Pricing/finance section gets a dedicated layout: Contract card → Finance
+  // toggle → finance_charge → numbered Finance cards. Detected by the 'finance'
+  // toggle (only the pricing section declares it).
+  const financeToggle = (section.toggles ?? []).find((t) => t.key === 'finance');
+  const otherToggles = (section.toggles ?? []).filter((t) => t.key !== 'finance');
+  const financeOn = financeToggle
+    ? customToggles[`${section.key}:${financeToggle.key}`] ?? false
+    : false;
+  // finance_charge is showWhen:'finance', so isFieldVisible already hides it
+  // when the toggle is off; it lands here only when Finance is ON.
+  const financeChargeField = financeToggle
+    ? visibleFields.find((f) => f.key === 'finance_charge')
+    : undefined;
+  // Contract base amounts = the non-card fields minus finance_charge.
+  const contractFields = financeToggle
+    ? nonFinanceFields.filter((f) => f.key !== 'finance_charge')
+    : [];
 
   const copyAddressEnabled =
     !!section.copyAddressToggle &&
@@ -108,7 +164,7 @@ export function WizardSection({
         />
       ) : null}
 
-      {(section.toggles ?? []).map((toggle) => (
+      {otherToggles.map((toggle) => (
         <WizardToggleRow
           key={toggle.key}
           label={toggle.label}
@@ -119,7 +175,39 @@ export function WizardSection({
       ))}
 
       <div className="wizard-section__fields">
-        {fieldGroups.map((group, groupIndex) => {
+        {financeToggle ? (
+          <>
+            <PricingCard accent={CONTRACT_ACCENT} title="Contract">
+              <div className="wizard-section__row wizard-section__row--2col">
+                {contractFields.map((field) => renderSingleField(field))}
+              </div>
+            </PricingCard>
+
+            <WizardToggleRow
+              label={financeToggle.label}
+              checked={financeOn}
+              disabled={readOnly}
+              onChange={(value) => onSetCustomToggle(financeToggle.key, value)}
+            />
+
+            {financeChargeField ? renderSingleField(financeChargeField) : null}
+
+            {financeIndices.length > 0 ? (
+              <div className="wizard-finance-grid">
+                {financeIndices.map((n) => (
+                  <FinanceCard index={n} key={n}>
+                    <div className="wizard-finance-card__fields">
+                      {(financeByIndex.get(n) ?? []).map((field) =>
+                        renderSingleField(field),
+                      )}
+                    </div>
+                  </FinanceCard>
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          fieldGroups.map((group, groupIndex) => {
           if (group.length === 1) {
             const field = group[0]!;
             if (field.type === 'dynamic_array') {
@@ -176,7 +264,8 @@ export function WizardSection({
               })}
             </div>
           );
-        })}
+          })
+        )}
       </div>
     </div>
   );

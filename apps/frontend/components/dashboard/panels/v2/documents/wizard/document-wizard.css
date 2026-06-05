@@ -99,6 +99,29 @@
   }
 }
 
+/* ===== FINANCE CARDS (creation wizard) =====
+   Mirrors the detail/edit modal's .gep-finance-grid: stacked on mobile, 2x2 on
+   desktop. The colored card chrome + numbered badge come from the shared
+   <FinanceCard> component. Inputs inside a card need their own column gap since
+   they sit outside .wizard-section__fields' flex flow. */
+.wizard-finance-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.wizard-finance-card__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 1024px) {
+  .wizard-finance-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* ===== TOGGLE ROW ===== */
 .wizard-toggle-row {
   display: inline-flex;

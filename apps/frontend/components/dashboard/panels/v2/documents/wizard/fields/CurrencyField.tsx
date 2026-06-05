@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { BaseField } from './BaseField';
-import { applyTransform, iconForType } from '../types';
+import { iconForType } from '../types';
 import type { FieldRenderProps } from '../types';
+import { CurrencyInput } from '../../CurrencyInput';
 
 export function CurrencyField({
   field,
@@ -26,13 +27,11 @@ export function CurrencyField({
         className={`wizard-field__currency-wrapper${error ? ' wizard-field__currency-wrapper--error' : ''}${effectiveDisabled ? ' wizard-field__currency-wrapper--disabled' : ''}`}
       >
         <span className="wizard-field__currency-prefix">$</span>
-        <input
-          type="text"
-          inputMode="decimal"
+        <CurrencyInput
           value={value}
-          placeholder={field.placeholder ?? '0.00'}
+          onChange={onChange}
           disabled={effectiveDisabled}
-          onChange={(e) => onChange(applyTransform(e.target.value, 'currency'))}
+          placeholder={field.placeholder ?? '0.00'}
           className="wizard-field__currency-input"
         />
       </div>

@@ -17,6 +17,9 @@ import type {
   SchemaSection,
 } from './types';
 import { getStatusBadgeClass } from './types';
+import { FINANCE_COLORS, FinanceCard } from './finance-cards';
+import { CurrencyInput } from './CurrencyInput';
+import { forceTwoDecimals } from './currency';
 
 interface DocumentDetailModalProps {
   documentId: string;
@@ -50,16 +53,6 @@ interface CardGroup {
   accent?: { color: string; bg: string; border?: string };
 }
 
-// Per-Finance-group color (numbered badge). Sky / amber / green / navy.
-const FINANCE_COLORS: Record<
-  number,
-  { color: string; bg: string; border: string; label: string }
-> = {
-  1: { color: '#05a5ff', bg: 'rgba(5,165,255,0.06)', border: 'rgba(5,165,255,0.25)', label: '①' },
-  2: { color: '#ff9900', bg: 'rgba(255,153,0,0.06)', border: 'rgba(255,153,0,0.25)', label: '②' },
-  3: { color: '#10b981', bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.25)', label: '③' },
-  4: { color: '#a855f7', bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.25)', label: '④' },
-};
 
 // Contract edit popup field sets (the toggle gates the finance ones).
 const CONTRACT_BASE_FIELDS: CardField[] = [
@@ -385,10 +378,24 @@ export function DocumentDetailModal({
       group.key === 'contract'
         ? [...CONTRACT_BASE_FIELDS.map((f) => f.key), ...ALL_FINANCE_KEYS]
         : group.fields.map((f) => f.key);
+    // Currency fields: finance_charge, finance_N_amount, and any declared
+    // type:'currency' (e.g. contract_amount). Normalised to 2 decimals on load
+    // so existing values show $12,000.00 immediately AND save normalised.
+    const isCurrencyKey = (key: string): boolean => {
+      if (key === 'finance_charge' || /^finance_[1-4]_amount$/.test(key)) return true;
+      const declared =
+        CONTRACT_BASE_FIELDS.find((f) => f.key === key) ??
+        group.fields.find((f) => f.key === key);
+      return declared?.type === 'currency';
+    };
     const vals: Record<string, string> = {};
     for (const key of keys) {
       const raw = dataJson[key];
-      vals[key] = raw == null ? '' : String(raw);
+      if (raw == null || raw === '') {
+        vals[key] = '';
+      } else {
+        vals[key] = isCurrencyKey(key) ? forceTwoDecimals(String(raw)) : String(raw);
+      }
     }
     setEditValues(vals);
     setEditDirty(false);
@@ -590,23 +597,7 @@ export function DocumentDetailModal({
                   <FieldInput field={FINANCE_CHARGE_FIELD} value={editValues.finance_charge ?? ''} onChange={onFieldChange} />
                   <div className="gep-finance-grid">
                   {[1, 2, 3, 4].map((n) => (
-                    <div
-                      className="gep-finance-group"
-                      key={n}
-                      style={{
-                        background: FINANCE_COLORS[n].bg,
-                        border: `1px solid ${FINANCE_COLORS[n].border}`,
-                        borderRadius: '10px',
-                        padding: '12px',
-                      }}
-                    >
-                      <div
-                        className="gep-finance-header"
-                        style={{ color: FINANCE_COLORS[n].color }}
-                      >
-                        <span className="gep-finance-badge">{FINANCE_COLORS[n].label}</span>
-                        <span>Finance {n}</span>
-                      </div>
+                    <FinanceCard index={n} key={n}>
                       <FieldInput
                         field={{ key: `finance_${n}_amount`, label: 'Amount', type: 'currency' }}
                         value={editValues[`finance_${n}_amount`] ?? ''}
@@ -622,7 +613,7 @@ export function DocumentDetailModal({
                         value={editValues[`finance_${n}_date`] ?? ''}
                         onChange={onFieldChange}
                       />
-                    </div>
+                    </FinanceCard>
                   ))}
                   </div>
                 </div>
@@ -637,26 +628,6 @@ export function DocumentDetailModal({
       ) : null}
     </>
   );
-}
-
-// Currency cap: $1,000,000,000.00.
-const MAX_CURRENCY = 1_000_000_000;
-
-// Keep only digits + a single dot, capped at 2 decimals and at MAX_CURRENCY.
-// The "$" is a display-only prefix, so the stored value stays a plain number
-// string ("45000.00"). If the candidate exceeds the cap, `prev` is returned so
-// the keystroke is rejected without losing what was already typed.
-function formatCurrency(value: string, prev: string): string {
-  let cleaned = value.replace(/[^0-9.]/g, '');
-  const firstDot = cleaned.indexOf('.');
-  if (firstDot !== -1) {
-    const intPart = cleaned.slice(0, firstDot);
-    const decPart = cleaned.slice(firstDot + 1).replace(/\./g, '').slice(0, 2);
-    cleaned = `${intPart}.${decPart}`;
-  }
-  const num = parseFloat(cleaned);
-  if (!Number.isNaN(num) && num > MAX_CURRENCY) return prev;
-  return cleaned;
 }
 
 function FieldInput({
@@ -678,14 +649,7 @@ function FieldInput({
           {label}
           <div className="gep-input-currency">
             <span className="gep-input-prefix">$</span>
-            <input
-              className="form-input"
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={value}
-              onChange={(e) => set(formatCurrency(e.target.value, value))}
-            />
+            <CurrencyInput value={value} onChange={set} className="form-input" />
           </div>
         </div>
       );
