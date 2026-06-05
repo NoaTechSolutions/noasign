@@ -63,7 +63,12 @@ export function DashboardShell({
           minWidth: 0, // critical for flex children with overflow
         }}
       >
-        <Topbar user={user} currentPanel={currentPanel} isLoading={isLoading}>
+        <Topbar
+          user={user}
+          currentPanel={currentPanel}
+          isLoading={isLoading}
+          onSignOut={onSignOut}
+        >
           <MobileMenu
             userRole={user.role}
             currentPanel={currentPanel}

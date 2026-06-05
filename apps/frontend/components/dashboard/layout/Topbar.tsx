@@ -21,6 +21,9 @@ interface TopbarProps {
   // Optional slot for elements rendered at the leftmost position (before the
   // logo). DashboardShell uses this to inject the MobileMenu hamburger button.
   children?: React.ReactNode;
+  // Wires the avatar-dropdown "Sign out" to the host's real logout flow
+  // (POST /auth/logout + clear session). Forwarded by DashboardShell.
+  onSignOut?: () => Promise<void> | void;
 }
 
 // Stable display labels for breadcrumb + menu. Falls back to "Overview" when
@@ -40,7 +43,7 @@ const PANEL_LABELS: Record<string, string> = {
   support: "Support",
 };
 
-export function Topbar({ user, currentPanel, isLoading, children }: TopbarProps) {
+export function Topbar({ user, currentPanel, isLoading, children, onSignOut }: TopbarProps) {
   const [avatarOpen, setAvatarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -329,9 +332,11 @@ export function Topbar({ user, currentPanel, isLoading, children }: TopbarProps)
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
                   }}
-                  onClick={() => {
-                    // TODO: wire to actual logout (POST /auth/logout + clearSession)
-                    alert("Sign out — TODO: integrate with auth");
+                  onClick={async () => {
+                    setAvatarOpen(false);
+                    if (onSignOut) {
+                      await onSignOut();
+                    }
                   }}
                 >
                   <DropdownIcon>
