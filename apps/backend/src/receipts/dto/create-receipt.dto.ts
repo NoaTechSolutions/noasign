@@ -3,7 +3,9 @@ import {
   IsEmail,
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   IsUUID,
   Min,
@@ -24,6 +26,8 @@ export class CreateReceiptDto {
   client: string;
 
   // Numeric amount; the generator formats it as $X,XXX.XX.
+  @IsNumber()
+  @IsPositive()
   amount: number;
 
   // Display date for the receipt (e.g. "06/04/2026"). Free-form so the caller
