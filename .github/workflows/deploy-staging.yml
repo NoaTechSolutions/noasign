@@ -30,7 +30,12 @@ jobs:
 
           echo "--- Pulling latest code ---"
           cd ~/apps/ntssign
-          git pull origin develop
+          # Hard-reset to the remote: the VM is a deploy target, and `npm prune`
+          # dirties package-lock.json, which makes `git pull` abort when a commit
+          # also changes it. Reset discards that drift (untracked/gitignored files
+          # like .env and prisma/seed.js are preserved).
+          git fetch origin develop
+          git reset --hard origin/develop
 
           echo "--- Building backend ---"
           cd apps/backend
@@ -99,7 +104,12 @@ jobs:
 
           echo "--- Pulling latest code ---"
           cd ~/apps/ntssign
-          git pull origin develop
+          # Hard-reset to the remote: the VM is a deploy target, and `npm prune`
+          # dirties package-lock.json, which makes `git pull` abort when a commit
+          # also changes it. Reset discards that drift (untracked/gitignored files
+          # like .env and prisma/seed.js are preserved).
+          git fetch origin develop
+          git reset --hard origin/develop
 
           echo "--- Building frontend ---"
           cd apps/frontend
