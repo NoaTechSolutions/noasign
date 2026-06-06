@@ -4,13 +4,35 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DocumentStatus } from '@prisma/client';
+import { DocumentStatus, Prisma } from '@prisma/client';
+import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { ReceiptPdfService, ReceiptTemplateLike } from './receipt-pdf.service';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
+import { UpdateReceiptDto } from './dto/update-receipt.dto';
+import {
+  formatCooldownRemaining,
+  getResendCooldownRemainingMs,
+  normalizeEmail,
+} from '../common/resend-cooldown';
 
 const RECEIPT_TYPE_CODE = 'PAYMENT_RECEIPT';
+
+// Fields the generator draws onto the base PDF — shared shape between a fresh
+// create (from the DTO) and a regenerate (from the stored dataJson).
+interface ReceiptPdfSource {
+  receipt_number: string;
+  date: string;
+  client: string;
+  amount: number;
+  payment_current?: number | null;
+  payment_total?: number | null;
+  payment_for?: string | null;
+  received_by?: string | null;
+  other_label?: string | null;
+  payment_method: string;
+}
 
 @Injectable()
 export class ReceiptsService {
@@ -67,17 +89,18 @@ export class ReceiptsService {
     );
 
     // Data the generator draws onto the base PDF (keys match fieldMappingJson).
-    const pdfData: Record<string, string | number> = {
+    const pdfData = this.buildPdfData({
       receipt_number: receiptNumber,
       date: dto.date,
       client: dto.client,
       amount: dto.amount,
-      payment_n: `${dto.payment_current ?? 1} of ${dto.payment_total ?? 1}`,
-      payment_for: dto.payment_for ?? '',
-      received_by: dto.received_by ?? '',
-      other_label: dto.other_label ?? '',
+      payment_current: dto.payment_current,
+      payment_total: dto.payment_total,
+      payment_for: dto.payment_for,
+      received_by: dto.received_by,
+      other_label: dto.other_label,
       payment_method: dto.payment_method,
-    };
+    });
 
     // Stored record, keyed to MATCH the form schema so the detail view renders
     // every field. Empty optionals are '' (not undefined → dropped). `email`
@@ -133,7 +156,9 @@ export class ReceiptsService {
     }
 
     if (!dto.recipientEmail) {
-      throw new BadRequestException('recipientEmail is required when send=true');
+      throw new BadRequestException(
+        'recipientEmail is required when send=true',
+      );
     }
     const company = await this.prisma.companyProfile.findUnique({
       where: { id: companyProfileId },
@@ -182,6 +207,261 @@ export class ReceiptsService {
         sendError: reason,
       };
     }
+  }
+
+  // Build the generator input (keys match fieldMappingJson). Shared by a fresh
+  // create (from the DTO) and a regenerate (from the stored dataJson).
+  private buildPdfData(src: ReceiptPdfSource): Record<string, string | number> {
+    return {
+      receipt_number: src.receipt_number,
+      date: src.date,
+      client: src.client,
+      amount: src.amount,
+      payment_n: `${src.payment_current ?? 1} of ${src.payment_total ?? 1}`,
+      payment_for: src.payment_for ?? '',
+      received_by: src.received_by ?? '',
+      other_label: src.other_label ?? '',
+      payment_method: src.payment_method,
+    };
+  }
+
+  private asObject(
+    json: Prisma.JsonValue | null | undefined,
+  ): Record<string, unknown> {
+    return json && typeof json === 'object' && !Array.isArray(json)
+      ? (json as Record<string, unknown>)
+      : {};
+  }
+
+  // Safe readers off an unknown-valued JSON object (avoids stringifying objects).
+  private readStr(value: unknown, fallback = ''): string {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    return fallback;
+  }
+
+  private readNum(value: unknown, fallback: number): number {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const n = Number(value);
+      if (Number.isFinite(n)) return n;
+    }
+    return fallback;
+  }
+
+  // Load a receipt the user is allowed to touch (same tenant + actually a
+  // PAYMENT_RECEIPT), with the data + template needed to regenerate/resend.
+  private async loadReceiptForUser(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: RECEIPT_TYPE_CODE },
+      },
+      include: {
+        data: true,
+        receiptTemplate: true,
+        companyProfile: { select: { companyName: true } },
+      },
+    });
+    if (!document) {
+      throw new NotFoundException('Receipt not found');
+    }
+    return document;
+  }
+
+  // Rebuild the PDF from stored dataJson (the receipt PDF is NOT persisted).
+  private regenerateReceiptPdf(
+    template: ReceiptTemplateLike,
+    dataJson: Record<string, unknown>,
+    fallbackNumber: string,
+  ): Promise<Buffer> {
+    const pdfData = this.buildPdfData({
+      receipt_number: this.readStr(dataJson.receipt_number, fallbackNumber),
+      date: this.readStr(dataJson.date),
+      client: this.readStr(dataJson.client),
+      amount: this.readNum(dataJson.amount, 0),
+      payment_current: this.readNum(dataJson.payment_current, 1),
+      payment_total: this.readNum(dataJson.payment_total, 1),
+      payment_for: this.readStr(dataJson.payment_for),
+      received_by: this.readStr(dataJson.received_by),
+      other_label: this.readStr(dataJson.other_label),
+      payment_method: this.readStr(dataJson.payment_method),
+    });
+    return this.receiptPdf.generate(template, pdfData);
+  }
+
+  /** Regenerate a stored receipt's PDF on the fly and stream it inline. */
+  async streamReceiptPdf(
+    userId: string,
+    documentId: string,
+    res: Response,
+  ): Promise<void> {
+    const document = await this.loadReceiptForUser(userId, documentId);
+    if (!document.receiptTemplate) {
+      throw new BadRequestException('Receipt template not found');
+    }
+    const pdfBuffer = await this.regenerateReceiptPdf(
+      document.receiptTemplate as unknown as ReceiptTemplateLike,
+      this.asObject(document.data?.dataJson),
+      document.documentNumber,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${document.documentNumber}.pdf"`,
+    );
+    res.send(pdfBuffer);
+  }
+
+  /**
+   * Resend a receipt's email. SEND_FAILED → immediate retry (no cooldown). SENT
+   * → resend a copy, gated by the shared 24h cooldown (bypassed when the
+   * recipient email changed). Marks SENT/SEND_FAILED based on the real result.
+   */
+  async resendReceipt(userId: string, documentId: string) {
+    const document = await this.loadReceiptForUser(userId, documentId);
+    const isFailed = document.status === DocumentStatus.SEND_FAILED;
+    const isSent = document.status === DocumentStatus.SENT;
+    const isDraft = document.status === DocumentStatus.DRAFT;
+    // DRAFT = first send (from the kebab); SEND_FAILED = retry; both skip the
+    // cooldown. Only an already-SENT receipt is rate-limited.
+    if (!isFailed && !isSent && !isDraft) {
+      throw new BadRequestException(
+        'Only draft, sent or failed receipts can be sent',
+      );
+    }
+    if (!document.receiptTemplate) {
+      throw new BadRequestException('Receipt template not found');
+    }
+
+    const dataJson = this.asObject(document.data?.dataJson);
+    const recipientEmail = normalizeEmail(
+      typeof dataJson.email === 'string' ? dataJson.email : null,
+    );
+    if (!recipientEmail) {
+      throw new BadRequestException(
+        'This receipt has no recipient email to resend to',
+      );
+    }
+
+    // Cooldown applies ONLY to resending an already-SENT receipt (anti-spam),
+    // bypassed when the recipient email changed. A SEND_FAILED retry has no
+    // cooldown — the user just fixed the cause and should retry immediately.
+    if (isSent) {
+      const cooldownMs = getResendCooldownRemainingMs(
+        document.lastManualReminderAt,
+      );
+      const lastEmail = normalizeEmail(document.lastSentRecipientEmail);
+      const sameRecipient = !!lastEmail && lastEmail === recipientEmail;
+      if (cooldownMs > 0 && sameRecipient) {
+        throw new BadRequestException(
+          `This receipt can be resent again in ${formatCooldownRemaining(
+            cooldownMs,
+          )}.`,
+        );
+      }
+    }
+
+    const pdfBuffer = await this.regenerateReceiptPdf(
+      document.receiptTemplate as unknown as ReceiptTemplateLike,
+      dataJson,
+      document.documentNumber,
+    );
+
+    try {
+      const { id: providerEmailId } = await this.email.sendReceipt({
+        to: recipientEmail,
+        receiptNumber: this.readStr(
+          dataJson.receipt_number,
+          document.documentNumber,
+        ),
+        clientName: this.readStr(dataJson.client),
+        companyName: document.companyProfile?.companyName ?? 'NTSsign',
+        pdfBuffer,
+      });
+      const sent = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SENT,
+          sentAt: new Date(),
+          lastSentRecipientEmail: recipientEmail,
+          // Start the cooldown only on a true resend of a SENT receipt; a
+          // SEND_FAILED→SENT recovery behaves like a first send (no cooldown).
+          lastManualReminderAt: isSent ? new Date() : null,
+          providerEmailId: providerEmailId || null,
+          sendError: null,
+        },
+      });
+      return { document: sent };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[ReceiptsService] Receipt ${document.documentNumber} resend failed: ${reason}`,
+      );
+      const failed = await this.prisma.document.update({
+        where: { id: document.id },
+        data: { status: DocumentStatus.SEND_FAILED, sendError: reason },
+      });
+      return { document: failed, sendError: reason };
+    }
+  }
+
+  /**
+   * Edit a receipt's stored data. Only DRAFT or SEND_FAILED are editable — a
+   * SENT receipt is an issued document and must not be altered.
+   */
+  async updateReceipt(
+    userId: string,
+    documentId: string,
+    dto: UpdateReceiptDto,
+  ) {
+    const document = await this.loadReceiptForUser(userId, documentId);
+    if (
+      document.status !== DocumentStatus.DRAFT &&
+      document.status !== DocumentStatus.SEND_FAILED
+    ) {
+      throw new BadRequestException(
+        'Only draft or send-failed receipts can be edited',
+      );
+    }
+
+    // PATCH semantics: start from the stored data, overwrite only provided keys.
+    const merged: Record<string, string | number> = {};
+    for (const [k, v] of Object.entries(
+      this.asObject(document.data?.dataJson),
+    )) {
+      if (typeof v === 'string' || typeof v === 'number') merged[k] = v;
+    }
+    const setIf = (key: string, value: string | number | undefined) => {
+      if (value !== undefined) merged[key] = value;
+    };
+    setIf('client', dto.client);
+    setIf('email', dto.recipientEmail);
+    setIf('amount', dto.amount);
+    setIf('date', dto.date);
+    setIf('payment_method', dto.payment_method);
+    setIf('other_label', dto.other_label);
+    setIf('payment_for', dto.payment_for);
+    setIf('payment_current', dto.payment_current);
+    setIf('payment_total', dto.payment_total);
+    setIf('received_by', dto.received_by);
+    setIf('phone', dto.phone);
+
+    const updated = await this.prisma.document.update({
+      where: { id: document.id },
+      data: {
+        customerId: dto.customerId ?? document.customerId,
+        lastEditedAt: new Date(),
+        data: { update: { dataJson: merged } },
+      },
+      include: { data: true },
+    });
+    return { document: updated };
   }
 
   /**

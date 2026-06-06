@@ -444,6 +444,9 @@ model Document {
   // FASE 2 (bounce webhooks) can correlate the document with the delivery.
   sendError       String?
   providerEmailId String?
+  // Last time a receipt's data was edited (DRAFT/SEND_FAILED) — drives the
+  // "Edited" entry in the receipt timeline. Not used for contracts.
+  lastEditedAt    DateTime?
 
   countedInBilling Boolean @default(false)
   isOverage        Boolean @default(false)

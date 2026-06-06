@@ -15,6 +15,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SignatureProviderService } from '../signature-provider/signature-provider.service';
 import { CreateDraftDocumentDto } from './dto/create-draft-document.dto';
 import { UpdateDraftDocumentDto } from './dto/update-draft-document.dto';
+import {
+  formatCooldownRemaining as formatCooldownRemainingMs,
+  getResendAvailableAt as computeResendAvailableAt,
+  getResendCooldownRemainingMs as computeResendCooldownRemainingMs,
+  normalizeEmail as normalizeEmailValue,
+} from '../common/resend-cooldown';
 
 type ScalarValue = string | number | boolean;
 
@@ -84,7 +90,6 @@ const publicDocumentInclude = {
 } satisfies Prisma.DocumentInclude;
 
 const PUBLIC_SIGNATURE_LINK_TTL_MS = 1000 * 60 * 60 * 24 * 14;
-const MANUAL_REMINDER_COOLDOWN_MS = 1000 * 60 * 60 * 24;
 
 @Injectable()
 export class DocumentsService {
@@ -198,40 +203,21 @@ export class DocumentsService {
   }
 
   private getResendAvailableAt(lastManualReminderAt?: Date | string | null) {
-    if (!lastManualReminderAt) {
-      return null;
-    }
-
-    const reminderDate =
-      lastManualReminderAt instanceof Date
-        ? lastManualReminderAt
-        : new Date(lastManualReminderAt);
-
-    if (Number.isNaN(reminderDate.getTime())) {
-      return null;
-    }
-
-    return new Date(reminderDate.getTime() + MANUAL_REMINDER_COOLDOWN_MS);
+    return computeResendAvailableAt(lastManualReminderAt ?? null);
   }
 
   private getResendCooldownRemainingMs(
     document: { lastManualReminderAt?: Date | string | null },
     now = new Date(),
   ) {
-    const resendAvailableAt = this.getResendAvailableAt(
+    return computeResendCooldownRemainingMs(
       document.lastManualReminderAt ?? null,
+      now,
     );
-
-    if (!resendAvailableAt) {
-      return 0;
-    }
-
-    return Math.max(0, resendAvailableAt.getTime() - now.getTime());
   }
 
   private normalizeEmail(value?: string | null) {
-    const normalized = value?.trim().toLowerCase() ?? '';
-    return normalized.length > 0 ? normalized : null;
+    return normalizeEmailValue(value ?? null);
   }
 
   private getCurrentRecipientEmail(document: {
@@ -312,20 +298,7 @@ export class DocumentsService {
   }
 
   private formatCooldownRemaining(remainingMs: number) {
-    const totalSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${seconds}s`;
-    }
-
-    if (minutes > 0) {
-      return `${minutes}m ${seconds}s`;
-    }
-
-    return `${seconds}s`;
+    return formatCooldownRemainingMs(remainingMs);
   }
 
   private getDocumentStatusRank(status?: DocumentStatus | null) {
@@ -465,17 +438,31 @@ export class DocumentsService {
       },
     });
 
-    const typeMap = new Map<string, {
-      id: string;
-      name: string;
-      code: string;
-      generationMode: string;
-      formDefinitions: Array<{ id: string; name: string; schemaJson: unknown }>;
-      signatureTemplates: Array<{ id: string; name: string; providerTemplateId: string | null }>;
-    }>();
+    const typeMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        code: string;
+        generationMode: string;
+        formDefinitions: Array<{
+          id: string;
+          name: string;
+          schemaJson: unknown;
+        }>;
+        signatureTemplates: Array<{
+          id: string;
+          name: string;
+          providerTemplateId: string | null;
+        }>;
+      }
+    >();
 
     for (const config of configs) {
-      if (!config.formDefinition.isActive || !config.signatureTemplate.isActive) {
+      if (
+        !config.formDefinition.isActive ||
+        !config.signatureTemplate.isActive
+      ) {
         continue;
       }
 
@@ -487,15 +474,43 @@ export class DocumentsService {
           name: config.documentType.name,
           code: config.documentType.code,
           generationMode: config.documentType.generationMode,
-          formDefinitions: [{ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson }],
-          signatureTemplates: [{ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId }],
+          formDefinitions: [
+            {
+              id: config.formDefinition.id,
+              name: config.formDefinition.name,
+              schemaJson: config.formDefinition.schemaJson,
+            },
+          ],
+          signatureTemplates: [
+            {
+              id: config.signatureTemplate.id,
+              name: config.signatureTemplate.name,
+              providerTemplateId: config.signatureTemplate.providerTemplateId,
+            },
+          ],
         });
       } else {
-        if (!existing.formDefinitions.some((fd) => fd.id === config.formDefinition.id)) {
-          existing.formDefinitions.push({ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson });
+        if (
+          !existing.formDefinitions.some(
+            (fd) => fd.id === config.formDefinition.id,
+          )
+        ) {
+          existing.formDefinitions.push({
+            id: config.formDefinition.id,
+            name: config.formDefinition.name,
+            schemaJson: config.formDefinition.schemaJson,
+          });
         }
-        if (!existing.signatureTemplates.some((st) => st.id === config.signatureTemplate.id)) {
-          existing.signatureTemplates.push({ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId });
+        if (
+          !existing.signatureTemplates.some(
+            (st) => st.id === config.signatureTemplate.id,
+          )
+        ) {
+          existing.signatureTemplates.push({
+            id: config.signatureTemplate.id,
+            name: config.signatureTemplate.name,
+            providerTemplateId: config.signatureTemplate.providerTemplateId,
+          });
         }
       }
     }
@@ -537,7 +552,9 @@ export class DocumentsService {
       }
     }
 
-    return Array.from(typeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(typeMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
   }
 
   private async generateDocumentNumber(
@@ -834,7 +851,8 @@ export class DocumentsService {
     let providerDocumentId = document.providerDocumentId;
     let providerStatus = document.providerStatus;
 
-    const { completionUrl: baseCompletionUrl, signingProxyUrl } = this.buildPublicSignatureLinks(documentId, recipient.email);
+    const { completionUrl: baseCompletionUrl, signingProxyUrl } =
+      this.buildPublicSignatureLinks(documentId, recipient.email);
     const completionUrl = `${baseCompletionUrl}&email=${encodeURIComponent(recipient.email)}`;
 
     if (!providerDocumentId) {
@@ -1083,10 +1101,11 @@ export class DocumentsService {
     if (
       document.status !== DocumentStatus.DRAFT &&
       document.status !== DocumentStatus.SENT &&
-      document.status !== DocumentStatus.VIEWED
+      document.status !== DocumentStatus.VIEWED &&
+      document.status !== DocumentStatus.SEND_FAILED
     ) {
       throw new BadRequestException(
-        'Only draft, sent or viewed documents can be cancelled',
+        'Only draft, sent, viewed or failed documents can be cancelled',
       );
     }
 
@@ -1828,9 +1847,10 @@ export class DocumentsService {
         await this.sleep(delayMs);
       }
       try {
-        const pdf = await this.signatureProviderService.downloadDocumentPdf(
-          providerDocumentId,
-        );
+        const pdf =
+          await this.signatureProviderService.downloadDocumentPdf(
+            providerDocumentId,
+          );
         this.logger.log(
           `[syncDocumentToCompleted] PDF ready on attempt ${attempt + 1}/${retries} for document ${documentId}`,
         );
@@ -1842,7 +1862,7 @@ export class DocumentsService {
       }
     }
     this.logger.error(
-      `[syncDocumentToCompleted] PDF not available after ${retries} attempts (~${Math.round((retries - 1) * delayMs / 1000)}s) for document ${documentId}`,
+      `[syncDocumentToCompleted] PDF not available after ${retries} attempts (~${Math.round(((retries - 1) * delayMs) / 1000)}s) for document ${documentId}`,
     );
     return null;
   }
@@ -1975,10 +1995,22 @@ export class DocumentsService {
     };
   }
 
-  private createSigningProxyToken(documentId: string, signerEmail: string): string {
+  private createSigningProxyToken(
+    documentId: string,
+    signerEmail: string,
+  ): string {
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 30 days
-    const payload: SigningProxyTokenPayload = { v: 1, p: 'sign-proxy', documentId, signerEmail, exp };
-    const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+    const payload: SigningProxyTokenPayload = {
+      v: 1,
+      p: 'sign-proxy',
+      documentId,
+      signerEmail,
+      exp,
+    };
+    const encodedPayload = Buffer.from(
+      JSON.stringify(payload),
+      'utf8',
+    ).toString('base64url');
     const signature = createHmac('sha256', this.getPublicSignatureSecret())
       .update(encodedPayload)
       .digest('base64url');
@@ -1986,11 +2018,17 @@ export class DocumentsService {
   }
 
   async resolveSigningRedirect(proxyToken: string): Promise<string> {
-    const [encodedPayload, receivedSignature] = proxyToken.trim().split('.', 2).filter(Boolean);
+    const [encodedPayload, receivedSignature] = proxyToken
+      .trim()
+      .split('.', 2)
+      .filter(Boolean);
     if (!encodedPayload || !receivedSignature) {
       throw new BadRequestException('Invalid signing proxy token');
     }
-    const expectedSignature = createHmac('sha256', this.getPublicSignatureSecret())
+    const expectedSignature = createHmac(
+      'sha256',
+      this.getPublicSignatureSecret(),
+    )
       .update(encodedPayload)
       .digest('base64url');
     if (!this.safeCompare(expectedSignature, receivedSignature)) {
@@ -1998,22 +2036,35 @@ export class DocumentsService {
     }
     let payload: SigningProxyTokenPayload;
     try {
-      payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as SigningProxyTokenPayload;
+      payload = JSON.parse(
+        Buffer.from(encodedPayload, 'base64url').toString('utf8'),
+      ) as SigningProxyTokenPayload;
     } catch {
       throw new BadRequestException('Invalid signing proxy token');
     }
-    if (payload.v !== 1 || payload.p !== 'sign-proxy' || !payload.documentId || !payload.signerEmail) {
+    if (
+      payload.v !== 1 ||
+      payload.p !== 'sign-proxy' ||
+      !payload.documentId ||
+      !payload.signerEmail
+    ) {
       throw new BadRequestException('Invalid signing proxy token');
     }
     if (payload.exp * 1000 <= Date.now()) {
       throw new BadRequestException('Signing link has expired');
     }
 
-    const document = await this.prisma.document.findUnique({ where: { id: payload.documentId } });
+    const document = await this.prisma.document.findUnique({
+      where: { id: payload.documentId },
+    });
     const appUrl = this.getAppUrl();
     const emailParam = `email=${encodeURIComponent(payload.signerEmail)}`;
 
-    const terminalStatuses: DocumentStatus[] = [DocumentStatus.COMPLETED, DocumentStatus.SIGNED, DocumentStatus.CANCELLED];
+    const terminalStatuses: DocumentStatus[] = [
+      DocumentStatus.COMPLETED,
+      DocumentStatus.SIGNED,
+      DocumentStatus.CANCELLED,
+    ];
     if (!document || terminalStatuses.includes(document.status)) {
       return `${appUrl}/signature-complete?${emailParam}`;
     }
@@ -2022,7 +2073,9 @@ export class DocumentsService {
       return `${appUrl}/signature-complete?${emailParam}`;
     }
 
-    const { completionUrl: baseCompletionUrl } = this.buildPublicSignatureLinks(payload.documentId);
+    const { completionUrl: baseCompletionUrl } = this.buildPublicSignatureLinks(
+      payload.documentId,
+    );
     const completionUrl = `${baseCompletionUrl}&${emailParam}`;
 
     const signingLink = await this.signatureProviderService.getSigningLink(
@@ -2244,9 +2297,9 @@ export class DocumentsService {
         'signature_request_reassigned',
         'revoked',
         'reassigned',
-        'documentdeclined',   // BoldSign webhook
-        'documentexpired',    // BoldSign webhook
-        'documentrevoked',    // BoldSign webhook
+        'documentdeclined', // BoldSign webhook
+        'documentexpired', // BoldSign webhook
+        'documentrevoked', // BoldSign webhook
         'documentreassigned', // BoldSign webhook
       ].includes(normalized)
     ) {
