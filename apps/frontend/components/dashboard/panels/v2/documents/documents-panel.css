@@ -1944,3 +1944,9 @@
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+
+.receipt-btn-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

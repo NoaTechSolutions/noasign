@@ -76,6 +76,24 @@ export class ReceiptsService {
       payment_method: dto.payment_method,
     };
 
+    // Stored record, keyed to MATCH the form schema so the detail view renders
+    // every field. Empty optionals are '' (not undefined → dropped). `email`
+    // mirrors recipientEmail (the schema field is `email`).
+    const dataJson: Record<string, string | number> = {
+      client: dto.client,
+      email: dto.recipientEmail ?? '',
+      amount: dto.amount,
+      date: dto.date,
+      payment_method: dto.payment_method,
+      other_label: dto.other_label ?? '',
+      payment_for: dto.payment_for ?? '',
+      payment_current: dto.payment_current ?? 1,
+      payment_total: dto.payment_total ?? 1,
+      received_by: dto.received_by ?? '',
+      phone: dto.phone ?? '',
+      receipt_number: receiptNumber,
+    };
+
     const pdfBuffer = await this.receiptPdf.generate(
       template as unknown as ReceiptTemplateLike,
       pdfData,
@@ -102,7 +120,7 @@ export class ReceiptsService {
         lastSentRecipientEmail: send ? (dto.recipientEmail ?? null) : null,
         countedInBilling: false,
         isOverage: false,
-        data: { create: { dataJson: { ...pdfData, ...dto } } },
+        data: { create: { dataJson } },
       },
     });
 

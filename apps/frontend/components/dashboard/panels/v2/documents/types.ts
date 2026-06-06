@@ -104,9 +104,10 @@ export interface DocumentVersion {
 export function getCustomerDisplayName(doc: V2DocumentItem): string {
   if (doc.customer?.name) return doc.customer.name;
   if (doc.customer?.email) return doc.customer.email;
-  // Fallback: docs without a linked customerId (seeded + wizard-created without
-  // picking from the dropdown) still carry the name in dataJson.customer_name.
-  const fromData = doc.data?.dataJson?.customer_name;
+  // Fallback: docs without a linked customerId still carry the name in
+  // dataJson — contracts use `customer_name`, receipts use `client`.
+  const dataJson = doc.data?.dataJson;
+  const fromData = dataJson?.customer_name ?? dataJson?.client;
   if (typeof fromData === 'string' && fromData.trim()) return fromData.trim();
   return 'No customer';
 }

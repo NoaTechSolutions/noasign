@@ -1,7 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { User, Mail, Phone, DollarSign, Calendar, FileText, Pencil } from 'lucide-react';
+import {
+  User,
+  Mail,
+  Phone,
+  DollarSign,
+  Calendar,
+  FileText,
+  Pencil,
+  Loader2,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 import { BaseField } from './wizard/fields/BaseField';
 import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
@@ -90,7 +100,8 @@ export function ReceiptForm({
   const [receivedBy, setReceivedBy] = useState(defaultReceivedBy);
   const [editingReceivedBy, setEditingReceivedBy] = useState(false);
 
-  const [submitting, setSubmitting] = useState(false);
+  const [busyAction, setBusyAction] = useState<'draft' | 'send' | null>(null);
+  const submitting = busyAction !== null;
   const [error, setError] = useState<string | null>(null);
   // Sending emails the receipt to the client — confirm first (irreversible).
   const [confirmSend, setConfirmSend] = useState(false);
@@ -111,6 +122,7 @@ export function ReceiptForm({
     if (method === 'OTHER' && !otherLabel.trim()) {
       return 'Describe the "Other" payment method';
     }
+    if (!paymentFor.trim()) return 'Payment for is required';
     if (multiPayment) {
       const c = Number(paymentCurrent);
       const t = Number(paymentTotal);
@@ -130,7 +142,7 @@ export function ReceiptForm({
       return;
     }
     setError(null);
-    setSubmitting(true);
+    setBusyAction(send ? 'send' : 'draft');
     try {
       await onCreate({
         client: client.trim(),
@@ -140,17 +152,20 @@ export function ReceiptForm({
         date: toUsDate(date),
         payment_method: method as PaymentMethod,
         other_label: method === 'OTHER' ? otherLabel.trim() : undefined,
-        payment_for: paymentFor.trim() || undefined,
+        payment_for: paymentFor.trim(),
         payment_current: multiPayment ? Number(paymentCurrent) : 1,
         payment_total: multiPayment ? Number(paymentTotal) : 1,
         received_by: receivedBy.trim() || undefined,
         send,
       });
+      toast.success(
+        send ? `Receipt sent to ${email.trim()}` : 'Receipt saved as draft',
+      );
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to create receipt');
     } finally {
-      setSubmitting(false);
+      setBusyAction(null);
     }
   }
 
@@ -231,8 +246,8 @@ export function ReceiptForm({
             </BaseField>
           </div>
 
-          {/* Payment for — full width */}
-          <BaseField label="Payment for" icon={<FileText size={14} />}>
+          {/* Payment for — full width, required */}
+          <BaseField label="Payment for" icon={<FileText size={14} />} required>
             <input
               type="text"
               className="wizard-field__input"
@@ -357,7 +372,13 @@ export function ReceiptForm({
           onClick={() => submit(false)}
           disabled={submitting}
         >
-          Save draft
+          {busyAction === 'draft' ? (
+            <span className="receipt-btn-busy">
+              <Loader2 size={14} className="animate-spin" /> Saving…
+            </span>
+          ) : (
+            'Save draft'
+          )}
         </button>
         <button
           type="button"
@@ -365,7 +386,13 @@ export function ReceiptForm({
           onClick={handleSendClick}
           disabled={submitting}
         >
-          Create &amp; send
+          {busyAction === 'send' ? (
+            <span className="receipt-btn-busy">
+              <Loader2 size={14} className="animate-spin" /> Sending…
+            </span>
+          ) : (
+            <>Create &amp; send</>
+          )}
         </button>
       </footer>
 

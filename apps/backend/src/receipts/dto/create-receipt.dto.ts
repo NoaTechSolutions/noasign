@@ -3,6 +3,7 @@ import {
   IsEmail,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsPositive,
@@ -48,9 +49,10 @@ export class CreateReceiptDto {
   @IsString()
   other_label?: string;
 
-  @IsOptional()
+  // Required — every receipt states what the payment was for.
   @IsString()
-  payment_for?: string;
+  @IsNotEmpty()
+  payment_for: string;
 
   @IsOptional()
   @IsInt()
