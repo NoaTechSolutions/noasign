@@ -5,6 +5,7 @@ export type { DashboardDocument };
 export type DocumentStatus =
   | 'DRAFT'
   | 'SENT'
+  | 'SEND_FAILED'
   | 'VIEWED'
   | 'SIGNED'
   | 'COMPLETED'
@@ -197,6 +198,7 @@ export function getStatusBadgeClass(status: string): string {
   const classes: Record<DocumentStatus, string> = {
     DRAFT: 'doc-status-badge--draft',
     SENT: 'doc-status-badge--sent',
+    SEND_FAILED: 'doc-status-badge--failed',
     VIEWED: 'doc-status-badge--viewed',
     SIGNED: 'doc-status-badge--signed',
     COMPLETED: 'doc-status-badge--completed',
@@ -205,10 +207,27 @@ export function getStatusBadgeClass(status: string): string {
   return classes[normalized] ?? 'doc-status-badge--draft';
 }
 
+/** Human-readable status label — avoids showing raw enum values like
+ *  "SEND_FAILED" (underscored) in badges. */
+export function getStatusLabel(status: string): string {
+  const labels: Record<DocumentStatus, string> = {
+    DRAFT: 'Draft',
+    SENT: 'Sent',
+    SEND_FAILED: 'Send failed',
+    VIEWED: 'Viewed',
+    SIGNED: 'Signed',
+    COMPLETED: 'Completed',
+    CANCELLED: 'Cancelled',
+  };
+  const normalized = status.toUpperCase() as DocumentStatus;
+  return labels[normalized] ?? status;
+}
+
 export const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'all', label: 'All statuses' },
   { value: 'DRAFT', label: 'Draft' },
   { value: 'SENT', label: 'Sent' },
+  { value: 'SEND_FAILED', label: 'Send failed' },
   { value: 'VIEWED', label: 'Viewed' },
   { value: 'SIGNED', label: 'Signed' },
   { value: 'COMPLETED', label: 'Completed' },

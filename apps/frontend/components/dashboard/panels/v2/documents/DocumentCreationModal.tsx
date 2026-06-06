@@ -6,7 +6,11 @@ import { useBlockScroll } from '@/lib/use-block-scroll';
 import { useBeforeUnload } from '@/lib/use-before-unload';
 import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
 import { DocumentSetupCard } from './DocumentSetupCard';
-import { ReceiptForm, type CreateReceiptPayload } from './ReceiptForm';
+import {
+  ReceiptForm,
+  type CreateReceiptPayload,
+  type ReceiptCreateResult,
+} from './ReceiptForm';
 import { DocumentWizard } from './wizard';
 import type { DocumentSchema } from './wizard';
 import type {
@@ -33,7 +37,9 @@ interface DocumentCreationModalProps {
   onCreate: (payload: CreateDraftPayload) => Promise<void>;
   // DIRECT_PDF types (receipts) hand off to the receipt form instead of the
   // BoldSign wizard once selected in the type dropdown.
-  onCreateReceipt?: (payload: CreateReceiptPayload) => Promise<void>;
+  onCreateReceipt?: (
+    payload: CreateReceiptPayload,
+  ) => Promise<ReceiptCreateResult>;
   defaultReceivedBy?: string;
 }
 

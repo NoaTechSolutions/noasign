@@ -33,6 +33,13 @@ export interface CreateReceiptPayload {
   send: boolean;
 }
 
+// Outcome of a create attempt — lets the form tell an honest "sent" from a
+// "saved but the email failed" (FASE 1: honest send state).
+export interface ReceiptCreateResult {
+  status: string;
+  sendError: string | null;
+}
+
 type PaymentMethod =
   | 'CASH'
   | 'CREDIT_DEBIT_CARD'
@@ -68,7 +75,7 @@ interface ReceiptFormProps {
   // Pre-fill from the client picked in the setup card (shared with contracts).
   prefillClient?: string;
   prefillEmail?: string;
-  onCreate: (payload: CreateReceiptPayload) => Promise<void>;
+  onCreate: (payload: CreateReceiptPayload) => Promise<ReceiptCreateResult>;
   // Closes the host modal (Cancel + after a successful create).
   onClose: () => void;
 }
@@ -144,7 +151,7 @@ export function ReceiptForm({
     setError(null);
     setBusyAction(send ? 'send' : 'draft');
     try {
-      await onCreate({
+      const result = await onCreate({
         client: client.trim(),
         recipientEmail: email.trim() || undefined,
         phone: phone.trim() || undefined,
@@ -158,9 +165,18 @@ export function ReceiptForm({
         received_by: receivedBy.trim() || undefined,
         send,
       });
-      toast.success(
-        send ? `Receipt sent to ${email.trim()}` : 'Receipt saved as draft',
-      );
+      if (send && result?.status === 'SEND_FAILED') {
+        // Honest state: the receipt was saved, but the email never left.
+        toast.error(
+          `Receipt saved, but the email could not be sent: ${
+            result.sendError ?? 'unknown error'
+          }`,
+        );
+      } else {
+        toast.success(
+          send ? `Receipt sent to ${email.trim()}` : 'Receipt saved as draft',
+        );
+      }
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to create receipt');

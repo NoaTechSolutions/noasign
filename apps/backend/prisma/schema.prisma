@@ -44,6 +44,7 @@ enum CustomerStatus {
 enum DocumentStatus {
   DRAFT
   SENT
+  SEND_FAILED
   VIEWED
   SIGNED
   COMPLETED
@@ -436,6 +437,13 @@ model Document {
   cancelledAt            DateTime?
   lastManualReminderAt   DateTime?
   lastSentRecipientEmail String?
+
+  // Send-outcome tracking (FASE 1: honest send state).
+  // sendError: human-readable reason when status is SEND_FAILED.
+  // providerEmailId: Resend message id of the last successful send — kept so
+  // FASE 2 (bounce webhooks) can correlate the document with the delivery.
+  sendError       String?
+  providerEmailId String?
 
   countedInBilling Boolean @default(false)
   isOverage        Boolean @default(false)

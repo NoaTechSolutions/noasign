@@ -259,6 +259,13 @@
   color: #ef4444;
 }
 
+/* Send failed — stronger red than "cancelled" to flag it needs attention. */
+.doc-status-badge--failed {
+  background: rgba(220, 38, 38, 0.16);
+  color: #dc2626;
+  font-weight: 700;
+}
+
 /* In Progress (stats grouping SENT + VIEWED + SIGNED) — amber. */
 .doc-status-badge--in-progress {
   background: rgba(255, 153, 0, 0.12);

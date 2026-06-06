@@ -138,12 +138,16 @@ export class EmailService {
     );
   }
 
-  async sendReceipt(payload: ReceiptPayload): Promise<void> {
+  async sendReceipt(payload: ReceiptPayload): Promise<{ id: string }> {
     if (!this.resend) {
-      this.logger.warn(
-        `[EmailService] Skipping receipt ${payload.receiptNumber} to ${payload.to} — Resend not configured`,
+      this.logger.error(
+        `[EmailService] Cannot send receipt ${payload.receiptNumber} to ${payload.to} — Resend not configured`,
       );
-      return;
+      // FASE 1: surface this as a failure so the caller marks the receipt
+      // SEND_FAILED instead of leaving a false "sent" state on a silent skip.
+      throw new Error(
+        'Email sending is not configured (RESEND_API_KEY missing)',
+      );
     }
 
     const { data, error } = await this.resend.emails.send({
@@ -169,6 +173,7 @@ export class EmailService {
     this.logger.log(
       `[EmailService] Receipt ${payload.receiptNumber} sent to ${payload.to} (id: ${data?.id})`,
     );
+    return { id: data?.id ?? '' };
   }
 
   async sendSignatureProcessing(

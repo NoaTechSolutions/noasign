@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { DocumentStatus } from '@prisma/client';
@@ -13,6 +14,8 @@ const RECEIPT_TYPE_CODE = 'PAYMENT_RECEIPT';
 
 @Injectable()
 export class ReceiptsService {
+  private readonly logger = new Logger(ReceiptsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly receiptPdf: ReceiptPdfService,
@@ -105,6 +108,9 @@ export class ReceiptsService {
       docType.code,
     );
 
+    // FASE 1 — honest send state: the receipt is ALWAYS created as DRAFT first.
+    // We only flip it to SENT after the email actually leaves, or to SEND_FAILED
+    // if the provider rejects it. No more false "sent" before the email goes out.
     const document = await this.prisma.document.create({
       data: {
         documentNumber,
@@ -114,36 +120,68 @@ export class ReceiptsService {
         documentTypeId: docType.id,
         formDefinitionId: formDefinition.id,
         receiptTemplateId: template.id,
-        status: send ? DocumentStatus.SENT : DocumentStatus.DRAFT,
+        status: DocumentStatus.DRAFT,
         contractDate: new Date(),
-        sentAt: send ? new Date() : null,
-        lastSentRecipientEmail: send ? (dto.recipientEmail ?? null) : null,
         countedInBilling: false,
         isOverage: false,
         data: { create: { dataJson } },
       },
     });
 
-    if (send) {
-      if (!dto.recipientEmail) {
-        throw new BadRequestException(
-          'recipientEmail is required when send=true',
-        );
-      }
-      const company = await this.prisma.companyProfile.findUnique({
-        where: { id: companyProfileId },
-        select: { companyName: true },
-      });
-      await this.email.sendReceipt({
+    if (!send) {
+      return { document, receiptNumber, pdf: pdfBuffer };
+    }
+
+    if (!dto.recipientEmail) {
+      throw new BadRequestException('recipientEmail is required when send=true');
+    }
+    const company = await this.prisma.companyProfile.findUnique({
+      where: { id: companyProfileId },
+      select: { companyName: true },
+    });
+
+    try {
+      const { id: providerEmailId } = await this.email.sendReceipt({
         to: dto.recipientEmail,
         receiptNumber,
         clientName: dto.client,
         companyName: company?.companyName ?? 'NTSsign',
         pdfBuffer,
       });
-    }
 
-    return { document, receiptNumber, pdf: pdfBuffer };
+      const sent = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SENT,
+          sentAt: new Date(),
+          lastSentRecipientEmail: dto.recipientEmail,
+          providerEmailId: providerEmailId || null,
+          sendError: null,
+        },
+      });
+      return { document: sent, receiptNumber, pdf: pdfBuffer };
+    } catch (err) {
+      // The receipt exists, the PDF is valid — only delivery failed. Mark it
+      // SEND_FAILED with the reason so the UI shows the truth and the user can
+      // retry, instead of a 500 + a phantom "sent" receipt.
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[ReceiptsService] Receipt ${receiptNumber} email failed: ${reason}`,
+      );
+      const failed = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: reason,
+        },
+      });
+      return {
+        document: failed,
+        receiptNumber,
+        pdf: pdfBuffer,
+        sendError: reason,
+      };
+    }
   }
 
   /**

@@ -12,6 +12,7 @@ import {
   getCustomerDisplayName,
   getDocumentTypeDisplayName,
   getStatusBadgeClass,
+  getStatusLabel,
 } from './types';
 
 interface DocumentTableRowProps {
@@ -49,7 +50,7 @@ export function DocumentTableRow({
       {/* 4. Status */}
       <td>
         <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
-          {document.status}
+          {getStatusLabel(document.status)}
         </span>
       </td>
       {/* 5. Actions */}

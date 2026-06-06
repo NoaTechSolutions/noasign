@@ -1831,11 +1831,17 @@ function DashboardPageInner() {
         received_by?: string;
         send: boolean;
       }) => {
-        await apiRequest<{ message: string; receiptNumber: string }>(
-          "/documents/receipt",
-          { method: "POST", body: payload },
-        );
+        const res = await apiRequest<{
+          message: string;
+          receiptNumber: string;
+          document: { status: string };
+          sendError: string | null;
+        }>("/documents/receipt", { method: "POST", body: payload });
         await loadWorkspace();
+        return {
+          status: res.document?.status ?? "SENT",
+          sendError: res.sendError ?? null,
+        };
       },
       defaultReceivedBy: (() => {
         const userName = [dashboardUser?.firstName, dashboardUser?.lastName]

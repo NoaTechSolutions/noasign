@@ -10,6 +10,7 @@ import {
   getCustomerDisplayName,
   getDocumentTypeDisplayName,
   getStatusBadgeClass,
+  getStatusLabel,
 } from './types';
 
 interface DocumentCardProps {
@@ -41,7 +42,7 @@ export function DocumentCard({ document, selected, onAction }: DocumentCardProps
           </div>
           <div className="documents-v2-card__badges">
             <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
-              {document.status}
+              {getStatusLabel(document.status)}
             </span>
           </div>
         </div>
@@ -64,7 +65,7 @@ export function DocumentCard({ document, selected, onAction }: DocumentCardProps
             </div>
             <div className="documents-v2-card__info-row">
               <span className="documents-v2-card__label">Status</span>
-              <span>{document.status}</span>
+              <span>{getStatusLabel(document.status)}</span>
             </div>
           </div>
 

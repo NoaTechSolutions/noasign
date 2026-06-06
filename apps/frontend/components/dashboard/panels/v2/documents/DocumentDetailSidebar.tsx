@@ -13,6 +13,7 @@ import {
   getCreatorDisplayName,
   getCustomerDisplayName,
   getStatusBadgeClass,
+  getStatusLabel,
 } from './types';
 
 interface DocumentDetailSidebarProps {
@@ -104,7 +105,7 @@ export function DocumentDetailSidebar({
               <span
                 className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}
               >
-                {document.status}
+                {getStatusLabel(document.status)}
               </span>
             </div>
           </div>

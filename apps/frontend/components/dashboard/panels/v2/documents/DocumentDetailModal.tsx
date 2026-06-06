@@ -16,7 +16,7 @@ import type {
   SchemaField,
   SchemaSection,
 } from './types';
-import { getStatusBadgeClass } from './types';
+import { getStatusBadgeClass, getStatusLabel } from './types';
 import { FINANCE_COLORS, FinanceCard } from './finance-cards';
 import { CurrencyInput } from './CurrencyInput';
 import { forceTwoDecimals } from './currency';
@@ -465,7 +465,7 @@ export function DocumentDetailModal({
           <div className="doc-detail-modal-header__main">
             <div className="doc-detail-modal-header__title-row">
               <h2 className="doc-detail-modal-header__number">{number}</h2>
-              <span className={`doc-status-badge ${getStatusBadgeClass(status)}`}>{status}</span>
+              <span className={`doc-status-badge ${getStatusBadgeClass(status)}`}>{getStatusLabel(status)}</span>
             </div>
             <div className="doc-detail-modal-header__subtitle">
               {[tenant, headerDate].filter(Boolean).join(' · ')}
