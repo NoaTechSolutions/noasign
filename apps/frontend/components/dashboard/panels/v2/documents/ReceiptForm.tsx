@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   User,
   Mail,
@@ -9,9 +9,7 @@ import {
   Calendar,
   FileText,
   Pencil,
-  Loader2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { BaseField } from './wizard/fields/BaseField';
 import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
@@ -76,7 +74,7 @@ interface ReceiptFormProps {
   prefillClient?: string;
   prefillEmail?: string;
   onCreate: (payload: CreateReceiptPayload) => Promise<ReceiptCreateResult>;
-  // Closes the host modal (Cancel + after a successful create).
+  // Closes the host modal (Cancel + after a successful create / on send).
   onClose: () => void;
 }
 
@@ -107,19 +105,24 @@ export function ReceiptForm({
   const [receivedBy, setReceivedBy] = useState(defaultReceivedBy);
   const [editingReceivedBy, setEditingReceivedBy] = useState(false);
 
-  const [busyAction, setBusyAction] = useState<'draft' | 'send' | null>(null);
-  const submitting = busyAction !== null;
   const [error, setError] = useState<string | null>(null);
   // Sending emails the receipt to the client — confirm first (irreversible).
   const [confirmSend, setConfirmSend] = useState(false);
 
   // Re-fill client/email when a different client is selected in the setup card.
-  useEffect(() => {
+  // Adjust-during-render (React-recommended) instead of an effect — avoids the
+  // cascading re-render that setState-in-effect triggers, and re-fills only
+  // these two fields (the rest of the form is preserved).
+  const [seenPrefillClient, setSeenPrefillClient] = useState(prefillClient);
+  if (prefillClient !== seenPrefillClient) {
+    setSeenPrefillClient(prefillClient);
     if (prefillClient) setClient(prefillClient);
-  }, [prefillClient]);
-  useEffect(() => {
+  }
+  const [seenPrefillEmail, setSeenPrefillEmail] = useState(prefillEmail);
+  if (prefillEmail !== seenPrefillEmail) {
+    setSeenPrefillEmail(prefillEmail);
     if (prefillEmail) setEmail(prefillEmail);
-  }, [prefillEmail]);
+  }
 
   function validate(send: boolean): string | null {
     if (!client.trim()) return 'Client is required';
@@ -142,47 +145,31 @@ export function ReceiptForm({
     return null;
   }
 
-  async function submit(send: boolean) {
+  function submit(send: boolean) {
     const err = validate(send);
     if (err) {
       setError(err);
       return;
     }
     setError(null);
-    setBusyAction(send ? 'send' : 'draft');
-    try {
-      const result = await onCreate({
-        client: client.trim(),
-        recipientEmail: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-        amount: Number(amount),
-        date: toUsDate(date),
-        payment_method: method as PaymentMethod,
-        other_label: method === 'OTHER' ? otherLabel.trim() : undefined,
-        payment_for: paymentFor.trim(),
-        payment_current: multiPayment ? Number(paymentCurrent) : 1,
-        payment_total: multiPayment ? Number(paymentTotal) : 1,
-        received_by: receivedBy.trim() || undefined,
-        send,
-      });
-      if (send && result?.status === 'SEND_FAILED') {
-        // Honest state: the receipt was saved, but the email never left.
-        toast.error(
-          `Receipt saved, but the email could not be sent: ${
-            result.sendError ?? 'unknown error'
-          }`,
-        );
-      } else {
-        toast.success(
-          send ? `Receipt sent to ${email.trim()}` : 'Receipt saved as draft',
-        );
-      }
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to create receipt');
-    } finally {
-      setBusyAction(null);
-    }
+    // Optimistic: close immediately; the parent shows the progress toast (a
+    // top-right animated bar for send, a simple toast for draft) with the REAL
+    // result. No in-form spinner/overlay — the popup is already gone.
+    onClose();
+    void onCreate({
+      client: client.trim(),
+      recipientEmail: email.trim() || undefined,
+      phone: phone.trim() || undefined,
+      amount: Number(amount),
+      date: toUsDate(date),
+      payment_method: method as PaymentMethod,
+      other_label: method === 'OTHER' ? otherLabel.trim() : undefined,
+      payment_for: paymentFor.trim(),
+      payment_current: multiPayment ? Number(paymentCurrent) : 1,
+      payment_total: multiPayment ? Number(paymentTotal) : 1,
+      received_by: receivedBy.trim() || undefined,
+      send,
+    });
   }
 
   // "Create & send" validates first, then asks for confirmation (the receipt is
@@ -378,7 +365,6 @@ export function ReceiptForm({
           type="button"
           className="wizard-btn wizard-btn--secondary"
           onClick={onClose}
-          disabled={submitting}
         >
           Cancel
         </button>
@@ -386,29 +372,15 @@ export function ReceiptForm({
           type="button"
           className="wizard-btn wizard-btn--secondary"
           onClick={() => submit(false)}
-          disabled={submitting}
         >
-          {busyAction === 'draft' ? (
-            <span className="receipt-btn-busy">
-              <Loader2 size={14} className="animate-spin" /> Saving…
-            </span>
-          ) : (
-            'Save draft'
-          )}
+          Save draft
         </button>
         <button
           type="button"
-          className={`wizard-btn wizard-btn--primary${submitting ? ' wizard-btn--primary-disabled' : ''}`}
+          className="wizard-btn wizard-btn--primary"
           onClick={handleSendClick}
-          disabled={submitting}
         >
-          {busyAction === 'send' ? (
-            <span className="receipt-btn-busy">
-              <Loader2 size={14} className="animate-spin" /> Sending…
-            </span>
-          ) : (
-            <>Create &amp; send</>
-          )}
+          Create &amp; send
         </button>
       </footer>
 
@@ -427,7 +399,7 @@ export function ReceiptForm({
         variant="amber"
         onConfirm={() => {
           setConfirmSend(false);
-          void submit(true);
+          submit(true);
         }}
         onCancel={() => setConfirmSend(false)}
       />

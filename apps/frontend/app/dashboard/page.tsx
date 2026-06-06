@@ -3,6 +3,8 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
+import toast from "react-hot-toast";
+import { ReceiptSendToast } from "../../components/dashboard/panels/v2/documents/ReceiptSendToast";
 import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
@@ -1032,6 +1034,100 @@ function DashboardPageInner() {
     }
   }
 
+  // Receipt PDF is regenerated on the fly by the backend and streamed inline —
+  // the <iframe> renders it via this blob URL (cookie auth rides along).
+  async function handleFetchReceiptPdf(documentId: string): Promise<string> {
+    const response = await fetch(
+      `${API_URL}/documents/receipt/${documentId}/pdf`,
+      { credentials: "include" },
+    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearSession();
+        router.replace("/");
+        return "";
+      }
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+    const blob = await response.blob();
+    return window.URL.createObjectURL(blob);
+  }
+
+  // Optimistic send: show a top-right toast with an animated bar that resolves
+  // to the REAL result (SENT → success; SEND_FAILED / cooldown 400 → error with
+  // the reason). The caller has already closed the popup. Fire-and-forget.
+  function runReceiptSendWithToast(
+    send: () => Promise<{ status: string; sendError: string | null }>,
+  ): void {
+    const id = `rcpt-send-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 7)}`;
+    toast.custom(
+      () => <ReceiptSendToast state="loading" message="Sending receipt…" />,
+      { id, duration: Infinity },
+    );
+    send()
+      .then((res) => {
+        const failed = res.status === "SEND_FAILED";
+        toast.custom(
+          () => (
+            <ReceiptSendToast
+              state={failed ? "error" : "success"}
+              message={
+                failed
+                  ? `Could not send: ${res.sendError ?? "unknown error"}`
+                  : "Receipt sent successfully"
+              }
+              onDismiss={() => toast.dismiss(id)}
+            />
+          ),
+          { id, duration: failed ? 7000 : 4500 },
+        );
+      })
+      .catch((e: unknown) => {
+        toast.custom(
+          () => (
+            <ReceiptSendToast
+              state="error"
+              message={
+                e instanceof Error ? e.message : "Could not send the receipt"
+              }
+              onDismiss={() => toast.dismiss(id)}
+            />
+          ),
+          { id, duration: 7000 },
+        );
+      });
+  }
+
+  // Resend/retry from the kebab. The backend handles the 24h cooldown (bypassed
+  // on email change) and returns a clear message on 400 — surfaced in the toast.
+  async function handleResendReceipt(documentId: string): Promise<void> {
+    runReceiptSendWithToast(async () => {
+      const res = await apiRequest<{
+        message: string;
+        document: { status: string };
+        sendError: string | null;
+      }>(`/documents/receipt/${documentId}/resend`, { method: "POST" });
+      await loadWorkspace();
+      return {
+        status: res.document?.status ?? "SENT",
+        sendError: res.sendError ?? null,
+      };
+    });
+  }
+
+  async function handleUpdateReceipt(
+    documentId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await apiRequest(`/documents/receipt/${documentId}`, {
+      method: "PATCH",
+      body: payload,
+    });
+    await loadWorkspace();
+  }
+
   async function handleUpdateDraft(
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -1831,17 +1927,44 @@ function DashboardPageInner() {
         received_by?: string;
         send: boolean;
       }) => {
-        const res = await apiRequest<{
-          message: string;
-          receiptNumber: string;
-          document: { status: string };
-          sendError: string | null;
-        }>("/documents/receipt", { method: "POST", body: payload });
-        await loadWorkspace();
-        return {
-          status: res.document?.status ?? "SENT",
-          sendError: res.sendError ?? null,
-        };
+        if (payload.send) {
+          // Optimistic: the form already closed; show the progress toast and
+          // resolve it with the REAL SENT / SEND_FAILED result.
+          runReceiptSendWithToast(async () => {
+            const res = await apiRequest<{
+              message: string;
+              document: { status: string };
+              sendError: string | null;
+            }>("/documents/receipt", { method: "POST", body: payload });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          });
+          return { status: "SENT", sendError: null };
+        }
+        // Draft — no email, simple toast.
+        const tid = toast.loading("Saving draft…");
+        try {
+          const res = await apiRequest<{
+            message: string;
+            document: { status: string };
+            sendError: string | null;
+          }>("/documents/receipt", { method: "POST", body: payload });
+          await loadWorkspace();
+          toast.success("Draft saved", { id: tid });
+          return {
+            status: res.document?.status ?? "DRAFT",
+            sendError: res.sendError ?? null,
+          };
+        } catch (e) {
+          toast.error(
+            e instanceof Error ? e.message : "Could not save the draft",
+            { id: tid },
+          );
+          return { status: "DRAFT", sendError: null };
+        }
       },
       defaultReceivedBy: (() => {
         const userName = [dashboardUser?.firstName, dashboardUser?.lastName]
@@ -1913,6 +2036,9 @@ function DashboardPageInner() {
           body: payload,
         });
       },
+      onResendReceipt: handleResendReceipt,
+      onUpdateReceipt: handleUpdateReceipt,
+      onFetchReceiptPdf: handleFetchReceiptPdf,
     };
 
     const panelContent =
@@ -2006,6 +2132,9 @@ function DashboardPageInner() {
           onFetchDocument={documentsV2.onFetchDocument}
           onFetchPdfUrl={documentsV2.onFetchPdfUrl}
           onUpdateDraft={documentsV2.onUpdateDraft}
+          onResendReceipt={documentsV2.onResendReceipt}
+          onUpdateReceipt={documentsV2.onUpdateReceipt}
+          onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
         />
       ) : (

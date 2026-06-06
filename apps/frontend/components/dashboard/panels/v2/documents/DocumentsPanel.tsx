@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DocumentsPanelHeader } from './DocumentsPanelHeader';
 import { DocumentsStats } from './DocumentsStats';
@@ -23,7 +23,7 @@ import type {
   DocumentVersion,
   DocumentDetail,
 } from './types';
-import { BACKEND_ACTIONS } from './types';
+import { BACKEND_ACTIONS, isReceiptDoc } from './types';
 import type {
   CustomerOption,
   DocumentTypeOption,
@@ -62,6 +62,14 @@ export interface DocumentsPanelProps {
     docId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
   ) => Promise<void>;
+  // Receipt-specific (DIRECT_PDF). Resend handles the cooldown + toast; update
+  // PATCHes the receipt's data (DRAFT/SEND_FAILED only).
+  onResendReceipt?: (docId: string) => Promise<void>;
+  onUpdateReceipt?: (
+    docId: string,
+    payload: Record<string, unknown>,
+  ) => Promise<void>;
+  onFetchReceiptPdf?: (docId: string) => Promise<string>;
   isMaster?: boolean;
 }
 
@@ -95,6 +103,9 @@ export function DocumentsPanel({
   onFetchDocument,
   onFetchPdfUrl,
   onUpdateDraft,
+  onResendReceipt,
+  onUpdateReceipt,
+  onFetchReceiptPdf,
   isMaster = false,
 }: DocumentsPanelProps) {
   // Filters + search seeded from the URL so they survive a reload / can be shared.
@@ -117,8 +128,17 @@ export function DocumentsPanel({
     action: 'send' | 'cancel';
     docId: string;
   } | null>(null);
+  // Confirm before any receipt email from the kebab — send (DRAFT), resend
+  // (SENT) or retry (SEND_FAILED). isResend drives the wording.
+  const [receiptSendConfirm, setReceiptSendConfirm] = useState<{
+    docId: string;
+    email: string;
+    isResend: boolean;
+  } | null>(null);
   // Which tab the detail modal opens on ('pdf' for kebab "Preview PDF").
   const [initialTab, setInitialTab] = useState<string | undefined>(undefined);
+  // In-flight receipt resends — locks out double-clicks (ajuste 3).
+  const resendingRef = useRef<Set<string>>(new Set());
   const [sessionId] = useState<string>(() => {
     if (typeof window === 'undefined') return '';
     const KEY = 'noasign:draft-session-id';
@@ -215,7 +235,29 @@ export function DocumentsPanel({
     return documents.find((d) => d.id === selectedDocId) ?? null;
   }, [selectedDocId, documents]);
 
+  // Resend/retry/send a receipt with a double-click lock (shared by the kebab
+  // direct path and the confirm-dialog path).
+  const runReceiptResend = async (docId: string) => {
+    if (!onResendReceipt || resendingRef.current.has(docId)) return;
+    resendingRef.current.add(docId);
+    try {
+      await onResendReceipt(docId);
+    } finally {
+      resendingRef.current.delete(docId);
+    }
+  };
+
+  const handleConfirmReceiptSend = () => {
+    if (!receiptSendConfirm) return;
+    const { docId } = receiptSendConfirm;
+    setReceiptSendConfirm(null);
+    void runReceiptResend(docId);
+  };
+
   const handleAction = async (action: V2DocumentAction, docId: string) => {
+    const doc = documents.find((d) => d.id === docId);
+    const receipt = doc ? isReceiptDoc(doc) : false;
+
     if (action === 'view') {
       setInitialTab(undefined);
       setSelectedDocId(docId);
@@ -229,14 +271,33 @@ export function DocumentsPanel({
       await onSyncStatus(docId);
       return;
     }
-    if (action === 'preview') {
-      // Open the View modal directly on the PDF tab (no new tab / no download).
+    // 'preview' (contract) and 'viewPdf' (receipt): open the detail on the PDF
+    // tab (no new browser tab / no download).
+    if (action === 'preview' || action === 'viewPdf') {
       setInitialTab('pdf');
       setSelectedDocId(docId);
       return;
     }
     if (action === 'download') {
       onDownloadPdf(docId);
+      return;
+    }
+    // Any receipt email — send (DRAFT), resend (SENT) or retry (SEND_FAILED) —
+    // confirms first; on confirm it fires the send-toast.
+    if (
+      (action === 'send' || action === 'resend' || action === 'retry') &&
+      receipt
+    ) {
+      const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
+      const email =
+        doc?.customer?.email ??
+        (typeof dj?.email === 'string' ? dj.email : '');
+      setReceiptSendConfirm({ docId, email, isResend: action !== 'send' });
+      return;
+    }
+    // Discard a receipt = cancel it (with confirmation).
+    if (action === 'discard') {
+      setConfirmAction({ action: 'cancel', docId });
       return;
     }
     // Send / Cancel are destructive-ish and irreversible → confirm first.
@@ -360,6 +421,9 @@ export function DocumentsPanel({
           onFetchDocument={onFetchDocument}
           onFetchPdfUrl={onFetchPdfUrl}
           onUpdateDraft={onUpdateDraft}
+          isReceipt={selectedDocument ? isReceiptDoc(selectedDocument) : false}
+          onUpdateReceipt={onUpdateReceipt}
+          onFetchReceiptPdf={onFetchReceiptPdf}
         />
       ) : null}
 
@@ -399,6 +463,24 @@ export function DocumentsPanel({
           variant={confirmAction.action === 'send' ? 'amber' : 'danger'}
           onConfirm={handleConfirmAction}
           onCancel={() => setConfirmAction(null)}
+        />
+      ) : null}
+
+      {receiptSendConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title={receiptSendConfirm.isResend ? 'Resend receipt?' : 'Send receipt?'}
+          message={
+            <>
+              {receiptSendConfirm.isResend ? 'Resend' : 'Send'} the receipt to{' '}
+              <strong>{receiptSendConfirm.email || 'the recipient'}</strong>?
+            </>
+          }
+          confirmLabel={receiptSendConfirm.isResend ? 'Resend' : 'Send'}
+          cancelLabel="Cancel"
+          variant="amber"
+          onConfirm={handleConfirmReceiptSend}
+          onCancel={() => setReceiptSendConfirm(null)}
         />
       ) : null}
     </div>

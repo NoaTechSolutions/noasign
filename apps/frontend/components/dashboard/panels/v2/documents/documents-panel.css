@@ -266,6 +266,98 @@
   font-weight: 700;
 }
 
+/* Receipt detail fields in 2 columns on desktop, 1 on mobile (only receipts). */
+.receipt-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 28px;
+}
+/* "Payment #" + "Of (total)" span the full width as their own 2-col row. */
+.receipt-detail-grid--span {
+  grid-column: 1 / -1;
+}
+@media (max-width: 640px) {
+  .receipt-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Receipt send toast (top-right) with an animated progress bar. Replaces the
+   in-modal overlay: the popup closes optimistically and progress shows here. */
+.receipt-toast {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(2, 41, 119, 0.16);
+  padding: 12px 14px 14px;
+  min-width: 300px;
+  max-width: 360px;
+}
+.receipt-toast__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+.receipt-toast__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.receipt-toast--loading .receipt-toast__icon {
+  color: #05a5ff;
+}
+.receipt-toast--success .receipt-toast__icon {
+  color: #22c55e;
+}
+.receipt-toast--error .receipt-toast__icon {
+  color: #dc2626;
+}
+.receipt-toast__msg {
+  flex: 1;
+  line-height: 1.35;
+}
+.receipt-toast__close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 2px;
+  display: inline-flex;
+}
+.receipt-toast__track {
+  margin-top: 10px;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.receipt-toast__fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.receipt-toast__fill--loading {
+  background: #05a5ff;
+  animation: receipt-toast-progress 6s cubic-bezier(0.12, 0.7, 0.3, 1) forwards;
+}
+.receipt-toast__fill--success {
+  background: #22c55e;
+  width: 100%;
+  transition: width 0.3s ease;
+}
+.receipt-toast__fill--error {
+  background: #dc2626;
+  width: 100%;
+}
+@keyframes receipt-toast-progress {
+  0% {
+    width: 8%;
+  }
+  100% {
+    width: 90%;
+  }
+}
+
 /* In Progress (stats grouping SENT + VIEWED + SIGNED) — amber. */
 .doc-status-badge--in-progress {
   background: rgba(255, 153, 0, 0.12);

@@ -26,7 +26,12 @@ export type V2DocumentAction =
   | 'reactivate'
   | 'sync'
   | 'preview'
-  | 'download';
+  | 'download'
+  // Receipt-specific (DIRECT_PDF): view the regenerated PDF, retry a failed
+  // send, or discard a draft/failed receipt.
+  | 'viewPdf'
+  | 'retry'
+  | 'discard';
 
 /** Subset matching page.tsx `DocumentAction` (the backend-bound one). */
 export type BackendDocumentAction = 'send' | 'resend' | 'cancel' | 'reactivate';
@@ -88,6 +93,11 @@ export interface DocumentDetail {
   cancelledAt?: string | null;
   lastSentRecipientEmail?: string | null;
   providerDocumentId?: string | null;
+  // Receipt timeline (DIRECT_PDF): resend / failure / edit tracking.
+  updatedAt?: string | null;
+  lastManualReminderAt?: string | null;
+  sendError?: string | null;
+  lastEditedAt?: string | null;
 }
 
 /** Version timeline entry. Fetched on-demand when the sidebar opens
@@ -154,7 +164,33 @@ export function formatRelativeTime(date: string | Date): string {
   return `${diffYears}y ago`;
 }
 
+/** A receipt (DIRECT_PDF) — its action set differs from a BoldSign contract. */
+export function isReceiptDoc(doc: {
+  documentType?: { code?: string | null } | null;
+}): boolean {
+  return doc.documentType?.code === 'PAYMENT_RECEIPT';
+}
+
 export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
+  // Receipts (DIRECT_PDF): the PDF is always viewable; a SENT receipt is issued
+  // and is NOT cancellable; a failed one can be retried or discarded. Edit is a
+  // per-card pencil (DRAFT/SEND_FAILED), not a kebab action.
+  if (isReceiptDoc(doc)) {
+    const actions: V2DocumentAction[] = ['view', 'viewPdf'];
+    switch (doc.status as DocumentStatus) {
+      case 'DRAFT':
+        actions.push('send', 'discard');
+        break;
+      case 'SENT':
+        actions.push('resend');
+        break;
+      case 'SEND_FAILED':
+        actions.push('retry', 'discard');
+        break;
+    }
+    return actions;
+  }
+
   const actions: V2DocumentAction[] = ['view'];
   switch (doc.status as DocumentStatus) {
     case 'DRAFT':
@@ -189,6 +225,9 @@ export function getActionLabel(action: V2DocumentAction): string {
     sync: 'Sync Status',
     preview: 'Preview PDF',
     download: 'Download PDF',
+    viewPdf: 'View PDF',
+    retry: 'Retry send',
+    discard: 'Discard',
   };
   return labels[action];
 }

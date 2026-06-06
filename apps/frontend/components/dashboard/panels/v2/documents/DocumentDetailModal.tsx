@@ -8,6 +8,7 @@ import { formatUsPhone } from '@/lib/format-phone';
 import { formatState } from '@/lib/format-text';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
+import { ReceiptEditPopup } from './ReceiptEditPopup';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import type {
   V2DocumentItem,
@@ -35,6 +36,15 @@ interface DocumentDetailModalProps {
     docId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
   ) => Promise<void>;
+  // Receipt-specific (DIRECT_PDF): the PDF is always available (regenerated on
+  // the fly), edit is allowed in DRAFT/SEND_FAILED, and uses a receipt-specific
+  // edit popup + fetcher instead of the BoldSign contract flow.
+  isReceipt?: boolean;
+  onUpdateReceipt?: (
+    docId: string,
+    payload: Record<string, unknown>,
+  ) => Promise<void>;
+  onFetchReceiptPdf?: (docId: string) => Promise<string>;
 }
 
 // Editable field groups (per card) — drives both readOnly display and the
@@ -236,6 +246,9 @@ export function DocumentDetailModal({
   onFetchDocument,
   onFetchPdfUrl,
   onUpdateDraft,
+  isReceipt = false,
+  onUpdateReceipt,
+  onFetchReceiptPdf,
 }: DocumentDetailModalProps) {
   const [detail, setDetail] = useState<DocumentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -249,6 +262,8 @@ export function DocumentDetailModal({
   const [editDirty, setEditDirty] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [financeOn, setFinanceOn] = useState(false);
+  // Receipt edit popup (DRAFT/SEND_FAILED only — a SENT receipt is immutable).
+  const [receiptEditOpen, setReceiptEditOpen] = useState(false);
 
   useBlockScroll();
 
@@ -266,6 +281,11 @@ export function DocumentDetailModal({
   const fetchPdfRef = useRef(onFetchPdfUrl);
   useEffect(() => {
     fetchPdfRef.current = onFetchPdfUrl;
+  });
+  // Receipts fetch their PDF from a different endpoint (regenerated on the fly).
+  const fetchReceiptPdfRef = useRef(onFetchReceiptPdf);
+  useEffect(() => {
+    fetchReceiptPdfRef.current = onFetchReceiptPdf;
   });
 
   const loadDetail = useCallback(() => {
@@ -312,7 +332,8 @@ export function DocumentDetailModal({
   const tabs = [
     ...sections.map((s) => ({ key: s.key, label: s.label })),
     { key: 'timeline', label: 'Timeline' },
-    ...(isSigned ? [{ key: 'pdf', label: 'PDF' }] : []),
+    // Contracts: PDF only once signed. Receipts: always (regenerated on the fly).
+    ...(isSigned || isReceipt ? [{ key: 'pdf', label: 'PDF' }] : []),
   ];
 
   // Default to the first tab; reset if the current tab no longer exists (e.g.
@@ -329,10 +350,16 @@ export function DocumentDetailModal({
   // re-ran the effect, whose cleanup cancelled the in-flight fetch, leaving
   // pdfLoading stuck true forever ("Loading preview…" never resolved).
   useEffect(() => {
-    if (activeTab !== 'pdf' || !fetchPdfRef.current) return;
+    if (activeTab !== 'pdf') return;
+    // Receipts regenerate from a dedicated endpoint; contracts use final-pdf.
+    const fetcher =
+      isReceipt && fetchReceiptPdfRef.current
+        ? fetchReceiptPdfRef.current
+        : fetchPdfRef.current;
+    if (!fetcher) return;
     let cancelled = false;
     setPdfLoading(true);
-    fetchPdfRef.current(documentId)
+    fetcher(documentId)
       .then((url) => {
         if (!cancelled) setPdfUrl(url);
       })
@@ -345,7 +372,7 @@ export function DocumentDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [activeTab, documentId]);
+  }, [activeTab, documentId, isReceipt]);
 
   // Revoke the blob URL when it's replaced or the modal unmounts (avoid leaks).
   useEffect(() => {
@@ -372,6 +399,11 @@ export function DocumentDetailModal({
 
   const dataJson = detail?.data?.dataJson ?? {};
   const canEdit = status === 'DRAFT' && Boolean(onUpdateDraft);
+  // Receipts edit via their own popup, allowed in DRAFT or SEND_FAILED only.
+  const canEditReceipt =
+    isReceipt &&
+    (status === 'DRAFT' || status === 'SEND_FAILED') &&
+    Boolean(onUpdateReceipt);
 
   const openEdit = (group: CardGroup) => {
     const keys =
@@ -520,12 +552,24 @@ export function DocumentDetailModal({
             {/* Content */}
             <div className="doc-detail-modal-content">
               {activeTab === 'timeline' ? (
-                <TimelineTab detail={detail} />
+                <TimelineTab detail={detail} isReceipt={isReceipt} />
               ) : activeTab === 'pdf' ? (
                 <PdfTab
                   url={pdfUrl}
                   loading={pdfLoading}
-                  onDownload={() => onAction('download', documentId)}
+                  onDownload={
+                    isReceipt
+                      ? () => {
+                          // Receipt PDF isn't persisted — download the blob we
+                          // already regenerated for the iframe.
+                          if (!pdfUrl) return;
+                          const a = window.document.createElement('a');
+                          a.href = pdfUrl;
+                          a.download = `${number}.pdf`;
+                          a.click();
+                        }
+                      : () => onAction('download', documentId)
+                  }
                 />
               ) : (
                 (() => {
@@ -559,6 +603,12 @@ export function DocumentDetailModal({
                     <SectionTab
                       section={sections.find((s) => s.key === activeTab) ?? null}
                       dataJson={dataJson}
+                      twoColumns={isReceipt}
+                      onEdit={
+                        canEditReceipt
+                          ? () => setReceiptEditOpen(true)
+                          : undefined
+                      }
                     />
                   );
                 })()
@@ -625,6 +675,18 @@ export function DocumentDetailModal({
             ))
           )}
         </GroupEditPopup>
+      ) : null}
+
+      {receiptEditOpen && onUpdateReceipt ? (
+        <ReceiptEditPopup
+          dataJson={dataJson as Record<string, unknown>}
+          onClose={() => setReceiptEditOpen(false)}
+          onSave={async (payload) => {
+            await onUpdateReceipt(documentId, payload);
+            setReceiptEditOpen(false);
+            loadDetail();
+          }}
+        />
       ) : null}
     </>
   );
@@ -820,9 +882,15 @@ function GroupCard({
 function SectionTab({
   section,
   dataJson,
+  twoColumns = false,
+  onEdit,
 }: {
   section: SchemaSection | null;
   dataJson: Record<string, unknown>;
+  // Receipts: lay the fields out in a 2-col grid on desktop (1-col on mobile).
+  twoColumns?: boolean;
+  // Receipts: pencil in the card's top-right corner (DRAFT/SEND_FAILED only).
+  onEdit?: () => void;
 }) {
   if (!section || section.fields.length === 0) {
     return (
@@ -831,28 +899,100 @@ function SectionTab({
       </div>
     );
   }
+  // In the 2-col receipt layout, render "Payment #" + "Of (total)" as one
+  // full-width row split into two columns, so they sit side by side as
+  // "N of M" instead of drifting into separate grid rows (ajuste 4).
+  const rows: React.ReactNode[] = [];
+  for (const f of section.fields) {
+    if (twoColumns && f.key === 'payment_total') continue; // merged below
+    if (twoColumns && f.key === 'payment_current') {
+      const totalField = section.fields.find((x) => x.key === 'payment_total');
+      rows.push(
+        <div
+          key="payment-pair"
+          className="receipt-detail-grid receipt-detail-grid--span"
+        >
+          <FieldRow label={f.label} value={formatValue(f, dataJson[f.key])} />
+          {totalField ? (
+            <FieldRow
+              label={totalField.label}
+              value={formatValue(totalField, dataJson[totalField.key])}
+            />
+          ) : null}
+        </div>,
+      );
+      continue;
+    }
+    rows.push(
+      <FieldRow
+        key={f.key}
+        label={f.label}
+        value={formatValue(f, dataJson[f.key])}
+      />,
+    );
+  }
   return (
-    <DetailCard icon={SECTION_ICONS[section.key] ?? <FileText size={14} />} title={section.label}>
-      {section.fields.map((f) => (
-        <FieldRow key={f.key} label={f.label} value={formatValue(f, dataJson[f.key])} />
-      ))}
+    <DetailCard
+      icon={SECTION_ICONS[section.key] ?? <FileText size={14} />}
+      title={section.label}
+      onEdit={onEdit}
+    >
+      {twoColumns ? <div className="receipt-detail-grid">{rows}</div> : rows}
     </DetailCard>
   );
 }
 
-function TimelineTab({ detail }: { detail: DocumentDetail | null }) {
+function TimelineTab({
+  detail,
+  isReceipt = false,
+}: {
+  detail: DocumentDetail | null;
+  isReceipt?: boolean;
+}) {
   const creator =
     [detail?.user?.firstName, detail?.user?.lastName].filter(Boolean).join(' ') ||
     detail?.user?.email ||
     '';
-  const events = [
-    { label: 'Created', ts: detail?.createdAt, hint: creator ? `by ${creator}` : '' },
-    { label: 'Sent', ts: detail?.sentAt, hint: detail?.lastSentRecipientEmail ? `to ${detail.lastSentRecipientEmail}` : '' },
-    { label: 'Viewed', ts: detail?.viewedAt, hint: '' },
-    { label: 'Signed', ts: detail?.signedAt, hint: '' },
-    { label: 'Completed', ts: detail?.completedAt, hint: '' },
-    ...(detail?.cancelledAt ? [{ label: 'Cancelled', ts: detail.cancelledAt, hint: '' }] : []),
-  ];
+  const toEmail = detail?.lastSentRecipientEmail
+    ? `to ${detail.lastSentRecipientEmail}`
+    : '';
+
+  // Contracts keep the signature lifecycle (Viewed/Signed/Completed). Receipts
+  // have NO signing — only the events that actually happened, sorted by time.
+  const events = isReceipt
+    ? (
+        [
+          { label: 'Created', ts: detail?.createdAt, hint: creator ? `by ${creator}` : '' },
+          ...(detail?.sentAt ? [{ label: 'Sent', ts: detail.sentAt, hint: toEmail }] : []),
+          ...(detail?.lastManualReminderAt
+            ? [{ label: 'Resent', ts: detail.lastManualReminderAt, hint: toEmail }]
+            : []),
+          ...(detail?.lastEditedAt ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }] : []),
+          ...(detail?.status === 'SEND_FAILED'
+            ? [
+                {
+                  label: 'Send failed',
+                  ts: detail.updatedAt ?? detail.sentAt ?? detail.createdAt,
+                  hint: detail.sendError ?? '',
+                },
+              ]
+            : []),
+          ...(detail?.cancelledAt ? [{ label: 'Cancelled', ts: detail.cancelledAt, hint: '' }] : []),
+        ] as Array<{ label: string; ts?: string | null; hint: string }>
+      )
+        .filter((e) => Boolean(e.ts))
+        .sort(
+          (a, b) =>
+            new Date(a.ts as string).getTime() - new Date(b.ts as string).getTime(),
+        )
+    : [
+        { label: 'Created', ts: detail?.createdAt, hint: creator ? `by ${creator}` : '' },
+        { label: 'Sent', ts: detail?.sentAt, hint: toEmail },
+        { label: 'Viewed', ts: detail?.viewedAt, hint: '' },
+        { label: 'Signed', ts: detail?.signedAt, hint: '' },
+        { label: 'Completed', ts: detail?.completedAt, hint: '' },
+        ...(detail?.cancelledAt ? [{ label: 'Cancelled', ts: detail.cancelledAt, hint: '' }] : []),
+      ];
   return (
     <div className="doc-detail-modal__section card-legend">
       <span className="card-legend__label">

@@ -121,7 +121,7 @@ export function DocumentSetupCard({
 
         {!isReceipt ? (
           <label className="docs-v2-setup-card__field">
-            <span className="docs-v2-setup-card__label">Contract Date *</span>
+            <span className="docs-v2-setup-card__label">Document Date *</span>
             <input
               type="date"
               value={value.contractDate}

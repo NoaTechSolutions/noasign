@@ -129,7 +129,7 @@ export function DocumentDetailSidebar({
               <FieldRow label="Document Type" value={document.documentType?.name ?? 'Unknown'} />
 
               {document.contractDate ? (
-                <FieldRow label="Contract Date" value={new Date(document.contractDate).toLocaleDateString()} />
+                <FieldRow label="Document Date" value={new Date(document.contractDate).toLocaleDateString()} />
               ) : null}
 
               <FieldRow
