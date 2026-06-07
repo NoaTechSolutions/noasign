@@ -21,6 +21,7 @@ import {
   getResendCooldownRemainingMs as computeResendCooldownRemainingMs,
   normalizeEmail as normalizeEmailValue,
 } from '../common/resend-cooldown';
+import { evaluateReceiptResend } from '../common/receipt-resend-policy';
 
 type ScalarValue = string | number | boolean;
 
@@ -151,8 +152,13 @@ export class DocumentsService {
       this.isResendEligibleStatus(document.status) &&
       resendAvailableInSeconds === 0;
 
+    // Receipt resend policy v2 — live countdown / "limit reached" for receipts.
+    // Contracts keep the 24h fields above, untouched (this is null for them).
+    const receiptResend = this.buildReceiptResendState(document, now);
+
     return {
       ...document,
+      receiptResend,
       providerDocumentId: document.providerDocumentId ?? null,
       providerStatus: document.providerStatus ?? null,
       providerLastSyncedAt: document.providerLastSyncedAt ?? null,
@@ -172,6 +178,53 @@ export class DocumentsService {
               document.signatureTemplate.providerTemplateId ?? null,
           }
         : null,
+    };
+  }
+
+  // Receipt-only: evaluate the resend policy v2 for the UI's countdown / limit.
+  // Returns null for contracts (and for non-receipts), leaving them untouched.
+  private buildReceiptResendState(
+    document: {
+      documentType?: { code?: string | null } | null;
+      data?: { dataJson?: unknown } | null;
+      sendCount?: number | null;
+      lastAttemptAt?: Date | string | null;
+      lastSentRecipientEmail?: string | null;
+    },
+    now: Date,
+  ): {
+    canResend: boolean;
+    retryAfterSeconds: number;
+    limitReached: boolean;
+  } | null {
+    if (document.documentType?.code !== 'PAYMENT_RECEIPT') {
+      return null;
+    }
+    const dataJson = document.data?.dataJson;
+    const currentEmail =
+      dataJson &&
+      typeof dataJson === 'object' &&
+      !Array.isArray(dataJson) &&
+      typeof (dataJson as Record<string, unknown>).email === 'string'
+        ? ((dataJson as Record<string, unknown>).email as string)
+        : '';
+    const decision = evaluateReceiptResend({
+      sendCount: typeof document.sendCount === 'number' ? document.sendCount : 0,
+      lastAttemptAt: document.lastAttemptAt ?? null,
+      lastEmail: document.lastSentRecipientEmail ?? null,
+      currentEmail,
+      now,
+    });
+    if (decision.allowed) {
+      return { canResend: true, retryAfterSeconds: 0, limitReached: false };
+    }
+    if (decision.reason === 'hard-cap') {
+      return { canResend: false, retryAfterSeconds: 0, limitReached: true };
+    }
+    return {
+      canResend: false,
+      retryAfterSeconds: Math.ceil(decision.retryAfterMs / 1000),
+      limitReached: false,
     };
   }
 

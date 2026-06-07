@@ -1,0 +1,2 @@
+ALTER TABLE "documents" ADD COLUMN "sendCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "lastAttemptAt" TIMESTAMP(3);

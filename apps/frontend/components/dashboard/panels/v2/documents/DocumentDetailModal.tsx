@@ -899,45 +899,82 @@ function SectionTab({
       </div>
     );
   }
-  // In the 2-col receipt layout, render "Payment #" + "Of (total)" as one
-  // full-width row split into two columns, so they sit side by side as
-  // "N of M" instead of drifting into separate grid rows (ajuste 4).
-  const rows: React.ReactNode[] = [];
-  for (const f of section.fields) {
-    if (twoColumns && f.key === 'payment_total') continue; // merged below
-    if (twoColumns && f.key === 'payment_current') {
-      const totalField = section.fields.find((x) => x.key === 'payment_total');
-      rows.push(
-        <div
-          key="payment-pair"
-          className="receipt-detail-grid receipt-detail-grid--span"
-        >
-          <FieldRow label={f.label} value={formatValue(f, dataJson[f.key])} />
-          {totalField ? (
-            <FieldRow
-              label={totalField.label}
-              value={formatValue(totalField, dataJson[totalField.key])}
-            />
-          ) : null}
-        </div>,
+  // Receipt-specific layout: Client+Date / Email+Amount / Payment for /
+  // Payment method(+other)+Payment #+Of total / Received by. Responsive: the
+  // grids collapse to 1 column on mobile.
+  if (twoColumns) {
+    const byKey = new Map(section.fields.map((f) => [f.key, f]));
+    const field = (key: string, valueOverride?: string): React.ReactNode => {
+      const f = byKey.get(key);
+      if (!f) return null;
+      return (
+        <FieldRow
+          key={key}
+          label={f.label}
+          value={valueOverride ?? formatValue(f, dataJson[key])}
+        />
       );
-      continue;
+    };
+    // Payment method absorbs the "Other (label)" text → e.g. "Other (Venmo)".
+    const methodField = byKey.get('payment_method');
+    let methodValue = methodField
+      ? formatValue(methodField, dataJson['payment_method'])
+      : '';
+    const other = dataJson['other_label'];
+    if (
+      dataJson['payment_method'] === 'OTHER' &&
+      typeof other === 'string' &&
+      other.trim()
+    ) {
+      methodValue = `${methodValue} (${other.trim()})`;
     }
-    rows.push(
-      <FieldRow
-        key={f.key}
-        label={f.label}
-        value={formatValue(f, dataJson[f.key])}
-      />,
+    // VIEW only: fuse "Payment #" + "Of (total)" into one "N of M" value (the
+    // creation/edit form keeps them as two separate inputs).
+    const pcur = dataJson['payment_current'];
+    const ptot = dataJson['payment_total'];
+    const paymentNofM = `${
+      typeof pcur === 'number' || typeof pcur === 'string' ? pcur : 1
+    } of ${typeof ptot === 'number' || typeof ptot === 'string' ? ptot : 1}`;
+    return (
+      <DetailCard
+        icon={SECTION_ICONS[section.key] ?? <FileText size={14} />}
+        title={section.label}
+        onEdit={onEdit}
+      >
+        <div className="receipt-detail-grid receipt-detail-grid--2">
+          {field('client')}
+          {field('date')}
+        </div>
+        <div className="receipt-detail-grid receipt-detail-grid--2">
+          {field('email')}
+          {field('amount')}
+        </div>
+        {field('payment_for')}
+        <div className="receipt-detail-grid receipt-detail-grid--2 receipt-payment-row">
+          {field('payment_method', methodValue)}
+          {/* Payment # + Of (total) fused into one field — balances the row and
+              reads naturally as "N of M". */}
+          <FieldRow label="Payment" value={paymentNofM} />
+        </div>
+        {field('received_by')}
+      </DetailCard>
     );
   }
+
+  // Contract / non-receipt: schema-driven single column (unchanged).
   return (
     <DetailCard
       icon={SECTION_ICONS[section.key] ?? <FileText size={14} />}
       title={section.label}
       onEdit={onEdit}
     >
-      {twoColumns ? <div className="receipt-detail-grid">{rows}</div> : rows}
+      {section.fields.map((f) => (
+        <FieldRow
+          key={f.key}
+          label={f.label}
+          value={formatValue(f, dataJson[f.key])}
+        />
+      ))}
     </DetailCard>
   );
 }

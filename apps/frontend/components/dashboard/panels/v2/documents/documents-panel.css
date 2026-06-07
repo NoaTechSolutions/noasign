@@ -269,15 +269,29 @@
 /* Receipt detail fields in 2 columns on desktop, 1 on mobile (only receipts). */
 .receipt-detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   column-gap: 28px;
 }
-/* "Payment #" + "Of (total)" span the full width as their own 2-col row. */
-.receipt-detail-grid--span {
-  grid-column: 1 / -1;
+.receipt-detail-grid--2 {
+  grid-template-columns: 1fr 1fr;
 }
+.receipt-detail-grid--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+/* Opción A — both columns get separators. The right field is the grid's
+   :last-child, which drops its border in field-row.css; restore it with the
+   same design-system token so both columns match. */
+.receipt-detail-grid .field-row:last-child {
+  border-bottom: 0.5px solid var(--border-soft);
+}
+/* …except the last 2-col row (Payment): its right field keeps no line, matching
+   the left column's last field (Received by). */
+.receipt-payment-row .field-row:last-child {
+  border-bottom: none;
+}
+/* Responsive: stack to a single column on mobile. */
 @media (max-width: 640px) {
-  .receipt-detail-grid {
+  .receipt-detail-grid--2,
+  .receipt-detail-grid--3 {
     grid-template-columns: 1fr;
   }
 }

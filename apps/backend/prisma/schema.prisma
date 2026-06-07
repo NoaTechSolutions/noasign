@@ -447,6 +447,13 @@ model Document {
   // Last time a receipt's data was edited (DRAFT/SEND_FAILED) — drives the
   // "Edited" entry in the receipt timeline. Not used for contracts.
   lastEditedAt    DateTime?
+  // Receipt resend policy v2 (sliding window + hard cap, per recipient email).
+  // sendCount: total email ATTEMPTS (SENT or SEND_FAILED) to the current
+  //   recipient; reset to 0 when the recipient email changes.
+  // lastAttemptAt: timestamp of the last attempt (success OR failure) — drives
+  //   the 10-minute window. Not used for contracts.
+  sendCount       Int       @default(0)
+  lastAttemptAt   DateTime?
 
   countedInBilling Boolean @default(false)
   isOverage        Boolean @default(false)

@@ -11,7 +11,9 @@ import {
   getDocumentTypeDisplayName,
   getStatusBadgeClass,
   getStatusLabel,
+  isReceiptDoc,
 } from './types';
+import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
 
 interface DocumentCardProps {
   document: V2DocumentItem;
@@ -70,16 +72,32 @@ export function DocumentCard({ document, selected, onAction }: DocumentCardProps
           </div>
 
           <div className="documents-v2-card__actions">
-            {actions.map((action) => (
-              <button
-                key={action}
-                type="button"
-                className={`documents-v2-card__action-btn documents-v2-card__action-btn--${action}`}
-                onClick={() => void onAction(action, document.id)}
-              >
-                {getActionLabel(action)}
-              </button>
-            ))}
+            {actions.map((action) => {
+              if (
+                (action === 'resend' || action === 'retry') &&
+                isReceiptDoc(document)
+              ) {
+                return (
+                  <ReceiptResendMenuItem
+                    key={action}
+                    doc={document}
+                    action={action}
+                    itemClass={`documents-v2-card__action-btn documents-v2-card__action-btn--${action}`}
+                    onAction={onAction}
+                  />
+                );
+              }
+              return (
+                <button
+                  key={action}
+                  type="button"
+                  className={`documents-v2-card__action-btn documents-v2-card__action-btn--${action}`}
+                  onClick={() => void onAction(action, document.id)}
+                >
+                  {getActionLabel(action)}
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}

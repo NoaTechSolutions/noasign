@@ -11,11 +11,12 @@ import { EmailService } from '../email/email.service';
 import { ReceiptPdfService, ReceiptTemplateLike } from './receipt-pdf.service';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
 import { UpdateReceiptDto } from './dto/update-receipt.dto';
+import { normalizeEmail } from '../common/resend-cooldown';
 import {
-  formatCooldownRemaining,
-  getResendCooldownRemainingMs,
-  normalizeEmail,
-} from '../common/resend-cooldown';
+  evaluateReceiptResend,
+  nextSendCount,
+  receiptResendBlockMessage,
+} from '../common/receipt-resend-policy';
 
 const RECEIPT_TYPE_CODE = 'PAYMENT_RECEIPT';
 
@@ -180,6 +181,9 @@ export class ReceiptsService {
           status: DocumentStatus.SENT,
           sentAt: new Date(),
           lastSentRecipientEmail: dto.recipientEmail,
+          // First send → counts as attempt #1 in the resend policy.
+          sendCount: 1,
+          lastAttemptAt: new Date(),
           providerEmailId: providerEmailId || null,
           sendError: null,
         },
@@ -198,6 +202,10 @@ export class ReceiptsService {
         data: {
           status: DocumentStatus.SEND_FAILED,
           sendError: reason,
+          // A failed first send still counts as attempt #1 in the policy.
+          lastSentRecipientEmail: dto.recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
         },
       });
       return {
@@ -349,23 +357,21 @@ export class ReceiptsService {
       );
     }
 
-    // Cooldown applies ONLY to resending an already-SENT receipt (anti-spam),
-    // bypassed when the recipient email changed. A SEND_FAILED retry has no
-    // cooldown — the user just fixed the cause and should retry immediately.
-    if (isSent) {
-      const cooldownMs = getResendCooldownRemainingMs(
-        document.lastManualReminderAt,
+    // Resend policy v2: 3-email burst → 1 per 10 min → hard cap of 10, per
+    // (receipt, recipient email). Email change resets the counter. Counts every
+    // attempt (SENT or SEND_FAILED). Contracts are unaffected (own 24h policy).
+    const decision = evaluateReceiptResend({
+      sendCount: document.sendCount,
+      lastAttemptAt: document.lastAttemptAt,
+      lastEmail: document.lastSentRecipientEmail,
+      currentEmail: recipientEmail,
+    });
+    if (!decision.allowed) {
+      throw new BadRequestException(
+        receiptResendBlockMessage(decision, recipientEmail),
       );
-      const lastEmail = normalizeEmail(document.lastSentRecipientEmail);
-      const sameRecipient = !!lastEmail && lastEmail === recipientEmail;
-      if (cooldownMs > 0 && sameRecipient) {
-        throw new BadRequestException(
-          `This receipt can be resent again in ${formatCooldownRemaining(
-            cooldownMs,
-          )}.`,
-        );
-      }
     }
+    const newSendCount = nextSendCount(decision, document.sendCount);
 
     const pdfBuffer = await this.regenerateReceiptPdf(
       document.receiptTemplate as unknown as ReceiptTemplateLike,
@@ -390,9 +396,8 @@ export class ReceiptsService {
           status: DocumentStatus.SENT,
           sentAt: new Date(),
           lastSentRecipientEmail: recipientEmail,
-          // Start the cooldown only on a true resend of a SENT receipt; a
-          // SEND_FAILED→SENT recovery behaves like a first send (no cooldown).
-          lastManualReminderAt: isSent ? new Date() : null,
+          sendCount: newSendCount,
+          lastAttemptAt: new Date(),
           providerEmailId: providerEmailId || null,
           sendError: null,
         },
@@ -405,7 +410,15 @@ export class ReceiptsService {
       );
       const failed = await this.prisma.document.update({
         where: { id: document.id },
-        data: { status: DocumentStatus.SEND_FAILED, sendError: reason },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: reason,
+          // A failed attempt still counts against the policy, and records the
+          // attempted recipient so the counter tracks the right pair.
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: newSendCount,
+          lastAttemptAt: new Date(),
+        },
       });
       return { document: failed, sendError: reason };
     }

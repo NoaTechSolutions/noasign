@@ -13,7 +13,9 @@ import {
   getDocumentTypeDisplayName,
   getStatusBadgeClass,
   getStatusLabel,
+  isReceiptDoc,
 } from './types';
+import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
 
 interface DocumentTableRowProps {
   document: V2DocumentItem;
@@ -73,17 +75,34 @@ export function DocumentTableRow({
           {menuOpen && typeof window !== 'undefined'
             ? createPortal(
                 <div className="documents-v2-row__menu" role="menu" ref={menuRef} style={menuStyle} onClick={close}>
-                  {actions.map((action) => (
-                    <button
-                      key={action}
-                      type="button"
-                      role="menuitem"
-                      className="documents-v2-row__menu-item"
-                      onClick={() => void onAction(action, document.id)}
-                    >
-                      {getActionLabel(action)}
-                    </button>
-                  ))}
+                  {actions.map((action) => {
+                    // Receipt resend/retry → policy-aware item (countdown / limit).
+                    if (
+                      (action === 'resend' || action === 'retry') &&
+                      isReceiptDoc(document)
+                    ) {
+                      return (
+                        <ReceiptResendMenuItem
+                          key={action}
+                          doc={document}
+                          action={action}
+                          itemClass="documents-v2-row__menu-item"
+                          onAction={onAction}
+                        />
+                      );
+                    }
+                    return (
+                      <button
+                        key={action}
+                        type="button"
+                        role="menuitem"
+                        className="documents-v2-row__menu-item"
+                        onClick={() => void onAction(action, document.id)}
+                      >
+                        {getActionLabel(action)}
+                      </button>
+                    );
+                  })}
                 </div>,
                 // `document` is shadowed by the row prop here — reach the real DOM
                 // via window.document.

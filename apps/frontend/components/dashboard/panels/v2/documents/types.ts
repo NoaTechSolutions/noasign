@@ -46,6 +46,14 @@ export const BACKEND_ACTIONS: ReadonlySet<V2DocumentAction> = new Set<V2Document
 /** Document shape after page.tsx adapter enriches DashboardDocument with
  *  customer + user resolved from the existing customers/managedUsers caches.
  *  DashboardDocument from page.tsx does NOT include these fields natively. */
+/** Receipt resend policy v2 state (backend-computed), for the kebab countdown /
+ *  "limit reached". Null for contracts. */
+export interface ReceiptResendState {
+  canResend: boolean;
+  retryAfterSeconds: number;
+  limitReached: boolean;
+}
+
 export interface V2DocumentItem extends DashboardDocument {
   customer?: {
     id: string;
@@ -57,6 +65,7 @@ export interface V2DocumentItem extends DashboardDocument {
     name: string;
     email: string;
   } | null;
+  receiptResend?: ReceiptResendState | null;
 }
 
 /** Schema-driven form definition (subset of FormDefinition.schemaJson). */
