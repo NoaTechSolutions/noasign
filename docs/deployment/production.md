@@ -365,7 +365,7 @@ Before sending real documents:
 - [ ] `AUTH_COOKIE_DOMAIN=.ntssign.com` is set
 - [ ] `CORS_ORIGINS=https://app.ntssign.com` (only the frontend)
 - [ ] BoldSign webhook is registered and `BOLDSIGN_WEBHOOK_SECRET` matches
-- [ ] Database backup configured
+- [ ] Database backup configured (daily pg_dump → R2; see [backups.md](./backups.md))
 - [ ] pm2 startup configured (survives VM reboot)
 - [ ] Login, create document, send via BoldSign smoke-tested manually
 
