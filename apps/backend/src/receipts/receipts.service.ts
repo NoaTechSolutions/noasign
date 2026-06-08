@@ -393,9 +393,16 @@ export class ReceiptsService {
       const existing = await this.prisma.documentFile.findFirst({
         where: { documentId: document.id, fileType: DocumentFileType.RECEIPT },
       });
-      if (!existing) {
-        // Lazy backfill: regenerate once and upload.
-        const buffer = await this.regenerateReceiptPdf(
+      // Stream the R2-stored bytes through the backend (same-origin) so the
+      // in-app <iframe> preview can read them. A 302 to a presigned R2 URL fails
+      // here: R2 sends no CORS headers, so the browser blocks the blob fetch
+      // that follows the redirect → blank PDF.
+      let pdfBuffer: Buffer;
+      if (existing) {
+        pdfBuffer = await this.r2.getObject(existing.storageUrl);
+      } else {
+        // Lazy backfill: regenerate once, upload, then serve that buffer.
+        pdfBuffer = await this.regenerateReceiptPdf(
           document.receiptTemplate as unknown as ReceiptTemplateLike,
           this.asObject(document.data?.dataJson),
           document.documentNumber,
@@ -404,13 +411,16 @@ export class ReceiptsService {
         await this.persistReceiptToR2(
           document.id,
           document.companyProfileId,
-          buffer,
+          pdfBuffer,
           `${document.documentNumber}.pdf`,
         );
       }
-      const key = this.receiptR2Key(document.companyProfileId, document.id);
-      const url = await this.r2.getPresignedDownloadUrl(key, 300);
-      res.redirect(302, url);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${document.documentNumber}.pdf"`,
+      );
+      res.send(pdfBuffer);
       return;
     }
 
@@ -583,24 +593,62 @@ export class ReceiptsService {
       where: { id: original.id },
       data: { supersededAt: new Date() },
     });
-    if (
-      this.r2.isConfigured() &&
-      original.receiptTemplate &&
-      original.companyProfileId
-    ) {
-      const buffer = await this.regenerateReceiptPdf(
+
+    if (!this.r2.isConfigured() || !original.companyProfileId) {
+      // R2 disabled → streamReceiptPdf watermarks on the fly (driven by
+      // supersededAt). Nothing to stamp at rest.
+      return;
+    }
+
+    const existing = await this.prisma.documentFile.findFirst({
+      where: { documentId: original.id, fileType: DocumentFileType.RECEIPT },
+    });
+
+    let stamped: Buffer;
+    if (existing) {
+      // PRIMARY path: overlay VOID on the EXISTING stored PDF — the very file
+      // that was created + sent — so it's the same receipt, now stamped VOID.
+      const current = await this.r2.getObject(existing.storageUrl);
+      stamped = await this.receiptPdf.stampWatermark(current, 'VOID');
+    } else if (original.receiptTemplate) {
+      // Fallback: no stored copy yet (created before R2) → regenerate + stamp.
+      stamped = await this.regenerateReceiptPdf(
         original.receiptTemplate as unknown as ReceiptTemplateLike,
         this.asObject(original.data?.dataJson),
         original.documentNumber,
         { watermark: 'VOID' },
       );
-      await this.persistReceiptToR2(
-        original.id,
-        original.companyProfileId,
-        buffer,
-        `${original.documentNumber}.pdf`,
-      );
+    } else {
+      return;
     }
+
+    await this.persistReceiptToR2(
+      original.id,
+      original.companyProfileId,
+      stamped,
+      `${original.documentNumber}.pdf`,
+    );
+  }
+
+  /**
+   * Void (2c): mark a SENT receipt VOID WITHOUT a replacement (e.g. sent by
+   * mistake, no correction needed). Same VOID treatment as a reissue
+   * (supersededAt + VOID stamp on the stored PDF) but creates NO new receipt and
+   * sets NO supersededBy link — so traceability shows just VOID, no "Reissued to".
+   */
+  async voidReceipt(userId: string, documentId: string) {
+    const original = await this.loadReceiptForUser(userId, documentId);
+    if (original.status !== DocumentStatus.SENT) {
+      throw new BadRequestException('Only sent receipts can be voided');
+    }
+    if (original.supersededAt) {
+      throw new BadRequestException('This receipt is already void');
+    }
+    await this.voidOriginalReceipt(original);
+    const updated = await this.prisma.document.findUnique({
+      where: { id: documentId },
+    });
+    return { document: updated };
   }
 
   /**

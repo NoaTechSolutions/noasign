@@ -148,6 +148,8 @@ export type DashboardDocument = {
   completedAt?: string | null;
   countedInBilling: boolean;
   isOverage: boolean;
+  // Reissue (2c): set on a receipt once it has been superseded/voided.
+  supersededAt?: string | null;
   documentType?: {
     name: string;
     code: string;
@@ -1128,6 +1130,40 @@ function DashboardPageInner() {
     await loadWorkspace();
   }
 
+  // Reissue (2c): create a corrected copy of a SENT receipt + void the original.
+  // The corrected data comes from the prefilled popup. Throws on failure so the
+  // popup surfaces the error.
+  async function handleReissueReceipt(
+    documentId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const res = await apiRequest<{
+      message: string;
+      document: { status: string };
+      sendError: string | null;
+    }>(`/documents/receipt/${documentId}/reissue`, {
+      method: "POST",
+      body: payload,
+    });
+    await loadWorkspace();
+    if (res.document?.status === "SEND_FAILED") {
+      toast.error(
+        res.sendError ?? "Receipt reissued, but the email could not be sent",
+      );
+    } else {
+      toast.success("Receipt reissued");
+    }
+  }
+
+  // Void (2c): mark a SENT receipt VOID with no replacement (sent by mistake).
+  async function handleVoidReceipt(documentId: string): Promise<void> {
+    await apiRequest(`/documents/receipt/${documentId}/void`, {
+      method: "POST",
+    });
+    await loadWorkspace();
+    toast.success("Receipt voided");
+  }
+
   async function handleUpdateDraft(
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -2038,6 +2074,8 @@ function DashboardPageInner() {
       },
       onResendReceipt: handleResendReceipt,
       onUpdateReceipt: handleUpdateReceipt,
+      onReissueReceipt: handleReissueReceipt,
+      onVoidReceipt: handleVoidReceipt,
       onFetchReceiptPdf: handleFetchReceiptPdf,
     };
 
@@ -2134,6 +2172,8 @@ function DashboardPageInner() {
           onUpdateDraft={documentsV2.onUpdateDraft}
           onResendReceipt={documentsV2.onResendReceipt}
           onUpdateReceipt={documentsV2.onUpdateReceipt}
+          onReissueReceipt={documentsV2.onReissueReceipt}
+          onVoidReceipt={documentsV2.onVoidReceipt}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
         />

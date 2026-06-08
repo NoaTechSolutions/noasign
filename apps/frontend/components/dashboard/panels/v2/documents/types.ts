@@ -11,7 +11,8 @@ export type DocumentStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
-export type StatusFilter = 'all' | DocumentStatus;
+// 'VOID' is a derived filter (receipts with supersededAt) — not a DocumentStatus.
+export type StatusFilter = 'all' | DocumentStatus | 'VOID';
 
 /** Internal V2 action vocabulary. Dispatch logic in DocumentsPanel maps each
  *  to its corresponding handler prop — view/edit/sync/preview/download are
@@ -31,7 +32,11 @@ export type V2DocumentAction =
   // send, or discard a draft/failed receipt.
   | 'viewPdf'
   | 'retry'
-  | 'discard';
+  | 'discard'
+  // Reissue a SENT receipt (2c): create a corrected copy + void the original.
+  | 'reissue'
+  // Void a SENT receipt (2c): mark VOID with no replacement.
+  | 'void';
 
 /** Subset matching page.tsx `DocumentAction` (the backend-bound one). */
 export type BackendDocumentAction = 'send' | 'resend' | 'cancel' | 'reactivate';
@@ -66,6 +71,9 @@ export interface V2DocumentItem extends DashboardDocument {
     email: string;
   } | null;
   receiptResend?: ReceiptResendState | null;
+  // Reissue (2c): set on the original once it has been superseded → drives the
+  // red VOID badge in the list.
+  supersededAt?: string | null;
 }
 
 /** Schema-driven form definition (subset of FormDefinition.schemaJson). */
@@ -107,6 +115,12 @@ export interface DocumentDetail {
   lastManualReminderAt?: string | null;
   sendError?: string | null;
   lastEditedAt?: string | null;
+  // Reissue (2c) traceability. supersededAt: this receipt was voided/reissued.
+  // supersedes: the original this receipt corrects. supersededBy: the receipt(s)
+  // that replaced this one (normally one).
+  supersededAt?: string | null;
+  supersedes?: { id: string; documentNumber: string } | null;
+  supersededBy?: Array<{ id: string; documentNumber: string }> | null;
 }
 
 /** Version timeline entry. Fetched on-demand when the sidebar opens
@@ -180,6 +194,16 @@ export function isReceiptDoc(doc: {
   return doc.documentType?.code === 'PAYMENT_RECEIPT';
 }
 
+/** A reissued receipt — its internal status stays SENT, but it is DISPLAYED as
+ *  VOID (status, badge) and is terminal (no resend / reissue). Derived from
+ *  supersededAt so DocumentStatus (shared with contracts) is never polluted. */
+export function isVoidedReceipt(doc: {
+  documentType?: { code?: string | null } | null;
+  supersededAt?: string | null;
+}): boolean {
+  return isReceiptDoc(doc) && Boolean(doc.supersededAt);
+}
+
 export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
   // Receipts (DIRECT_PDF): the PDF is always viewable; a SENT receipt is issued
   // and is NOT cancellable; a failed one can be retried or discarded. Edit is a
@@ -191,7 +215,8 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
         actions.push('send', 'discard');
         break;
       case 'SENT':
-        actions.push('resend');
+        // A voided receipt is terminal: no resend, no reissue, no void.
+        if (!doc.supersededAt) actions.push('resend', 'reissue', 'void');
         break;
       case 'SEND_FAILED':
         actions.push('retry', 'discard');
@@ -237,6 +262,8 @@ export function getActionLabel(action: V2DocumentAction): string {
     viewPdf: 'View PDF',
     retry: 'Retry send',
     discard: 'Discard',
+    reissue: 'Reissue',
+    void: 'Void',
   };
   return labels[action];
 }
@@ -275,6 +302,7 @@ export const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }
   { value: 'all', label: 'All statuses' },
   { value: 'DRAFT', label: 'Draft' },
   { value: 'SENT', label: 'Sent' },
+  { value: 'VOID', label: 'Void' },
   { value: 'SEND_FAILED', label: 'Send failed' },
   { value: 'VIEWED', label: 'Viewed' },
   { value: 'SIGNED', label: 'Signed' },

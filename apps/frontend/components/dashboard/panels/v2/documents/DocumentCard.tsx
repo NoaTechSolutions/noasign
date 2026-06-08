@@ -12,6 +12,7 @@ import {
   getStatusBadgeClass,
   getStatusLabel,
   isReceiptDoc,
+  isVoidedReceipt,
 } from './types';
 import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
 
@@ -43,9 +44,13 @@ export function DocumentCard({ document, selected, onAction }: DocumentCardProps
             {getCustomerDisplayName(document)}
           </div>
           <div className="documents-v2-card__badges">
-            <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
-              {getStatusLabel(document.status)}
-            </span>
+            {isVoidedReceipt(document) ? (
+              <span className="doc-status-badge doc-status-badge--void">VOID</span>
+            ) : (
+              <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
+                {getStatusLabel(document.status)}
+              </span>
+            )}
           </div>
         </div>
         <ChevronDown
@@ -67,7 +72,9 @@ export function DocumentCard({ document, selected, onAction }: DocumentCardProps
             </div>
             <div className="documents-v2-card__info-row">
               <span className="documents-v2-card__label">Status</span>
-              <span>{getStatusLabel(document.status)}</span>
+              <span>
+                {isVoidedReceipt(document) ? 'VOID' : getStatusLabel(document.status)}
+              </span>
             </div>
           </div>
 

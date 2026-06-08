@@ -266,6 +266,100 @@
   font-weight: 700;
 }
 
+/* Reissue (2c) — a reissued receipt is DISPLAYED as VOID (derived from
+   supersededAt; internal status stays SENT). VOID is the deliberate exception to
+   sentence-case — it's an accounting state and must read as one: solid red,
+   uppercase, unmissable. */
+.doc-status-badge--void {
+  background: #dc2626;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.doc-detail-modal-header__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* "Reissue" action on a SENT receipt's detail header. */
+.doc-reissue-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  background: transparent;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.doc-reissue-btn:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+/* Traceability links: "Reissues REC-…" / "Reissued to REC-…". */
+.doc-reissue-trace {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+.doc-trace-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent, #0400f0);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.doc-trace-link:hover {
+  opacity: 0.8;
+}
+
+/* Kebab "Actions" submenu (groups Resend / Reissue / Void). */
+.documents-v2-row__menu-item--group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Match the other menu items: full-width clickable row (hover + pointer span
+     the whole dropdown width, not just the text). */
+  width: 100%;
+  box-sizing: border-box;
+  font-weight: 600;
+}
+/* Submenu flies out to the LEFT of the kebab item (not a vertical dropdown).
+   The wrapper is a full-width flex child so its button fills the dropdown. */
+.documents-v2-row__submenu-wrap {
+  position: relative;
+  width: 100%;
+}
+.documents-v2-row__submenu {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  margin-right: 6px;
+  z-index: 21;
+  min-width: 160px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 /* Receipt detail fields in 2 columns on desktop, 1 on mobile (only receipts). */
 .receipt-detail-grid {
   display: grid;

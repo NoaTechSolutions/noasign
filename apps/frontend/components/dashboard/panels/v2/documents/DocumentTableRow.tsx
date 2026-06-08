@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
 import { useDropdownPosition } from '@/components/dashboard/shared/use-dropdown-position';
@@ -14,6 +14,7 @@ import {
   getStatusBadgeClass,
   getStatusLabel,
   isReceiptDoc,
+  isVoidedReceipt,
 } from './types';
 import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
 
@@ -31,7 +32,38 @@ export function DocumentTableRow({
   onAction,
 }: DocumentTableRowProps) {
   const { open: menuOpen, toggle, close, style: menuStyle, triggerRef, menuRef } = useDropdownPosition();
+  const [actionsOpen, setActionsOpen] = useState(false);
   const actions = getAvailableActions(document);
+  // State-change actions live under an "Actions" submenu for tidiness; the rest
+  // (View PDF, etc.) stay as direct items. A VOID receipt has none of these.
+  const SUBMENU_ACTIONS = new Set<V2DocumentAction>(['resend', 'reissue', 'void']);
+  const directActions = actions.filter((a) => !SUBMENU_ACTIONS.has(a));
+  const groupedActions = actions.filter((a) => SUBMENU_ACTIONS.has(a));
+
+  const renderMenuItem = (action: V2DocumentAction) => {
+    if ((action === 'resend' || action === 'retry') && isReceiptDoc(document)) {
+      return (
+        <ReceiptResendMenuItem
+          key={action}
+          doc={document}
+          action={action}
+          itemClass="documents-v2-row__menu-item"
+          onAction={onAction}
+        />
+      );
+    }
+    return (
+      <button
+        key={action}
+        type="button"
+        role="menuitem"
+        className="documents-v2-row__menu-item"
+        onClick={() => void onAction(action, document.id)}
+      >
+        {getActionLabel(action)}
+      </button>
+    );
+  };
 
   return (
     <tr
@@ -51,9 +83,13 @@ export function DocumentTableRow({
       <td className="documents-v2-row__time">{formatDate(document.createdAt)}</td>
       {/* 4. Status */}
       <td>
-        <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
-          {getStatusLabel(document.status)}
-        </span>
+        {isVoidedReceipt(document) ? (
+          <span className="doc-status-badge doc-status-badge--void">VOID</span>
+        ) : (
+          <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
+            {getStatusLabel(document.status)}
+          </span>
+        )}
       </td>
       {/* 5. Actions */}
       <td
@@ -75,34 +111,29 @@ export function DocumentTableRow({
           {menuOpen && typeof window !== 'undefined'
             ? createPortal(
                 <div className="documents-v2-row__menu" role="menu" ref={menuRef} style={menuStyle} onClick={close}>
-                  {actions.map((action) => {
-                    // Receipt resend/retry → policy-aware item (countdown / limit).
-                    if (
-                      (action === 'resend' || action === 'retry') &&
-                      isReceiptDoc(document)
-                    ) {
-                      return (
-                        <ReceiptResendMenuItem
-                          key={action}
-                          doc={document}
-                          action={action}
-                          itemClass="documents-v2-row__menu-item"
-                          onAction={onAction}
-                        />
-                      );
-                    }
-                    return (
+                  {directActions.map(renderMenuItem)}
+                  {groupedActions.length > 0 && (
+                    <div className="documents-v2-row__submenu-wrap">
                       <button
-                        key={action}
                         type="button"
-                        role="menuitem"
-                        className="documents-v2-row__menu-item"
-                        onClick={() => void onAction(action, document.id)}
+                        className="documents-v2-row__menu-item documents-v2-row__menu-item--group"
+                        aria-expanded={actionsOpen}
+                        aria-haspopup="menu"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActionsOpen((v) => !v);
+                        }}
                       >
-                        {getActionLabel(action)}
+                        <span aria-hidden="true">‹</span>
+                        <span>Actions</span>
                       </button>
-                    );
-                  })}
+                      {actionsOpen && (
+                        <div className="documents-v2-row__submenu" role="menu">
+                          {groupedActions.map(renderMenuItem)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>,
                 // `document` is shadowed by the row prop here — reach the real DOM
                 // via window.document.

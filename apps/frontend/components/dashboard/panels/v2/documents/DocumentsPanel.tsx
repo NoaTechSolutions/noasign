@@ -23,7 +23,7 @@ import type {
   DocumentVersion,
   DocumentDetail,
 } from './types';
-import { BACKEND_ACTIONS, isReceiptDoc } from './types';
+import { BACKEND_ACTIONS, isReceiptDoc, isVoidedReceipt } from './types';
 import type {
   CustomerOption,
   DocumentTypeOption,
@@ -69,6 +69,13 @@ export interface DocumentsPanelProps {
     docId: string,
     payload: Record<string, unknown>,
   ) => Promise<void>;
+  // Reissue (2c): create a corrected copy of a SENT receipt + void the original.
+  onReissueReceipt?: (
+    docId: string,
+    payload: Record<string, unknown>,
+  ) => Promise<void>;
+  // Void (2c): mark a SENT receipt VOID with no replacement.
+  onVoidReceipt?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   isMaster?: boolean;
 }
@@ -78,6 +85,7 @@ const PAGE_SIZE = 10;
 const VALID_STATUSES: ReadonlySet<string> = new Set([
   'DRAFT',
   'SENT',
+  'VOID',
   'VIEWED',
   'SIGNED',
   'COMPLETED',
@@ -105,6 +113,8 @@ export function DocumentsPanel({
   onUpdateDraft,
   onResendReceipt,
   onUpdateReceipt,
+  onReissueReceipt,
+  onVoidReceipt,
   onFetchReceiptPdf,
   isMaster = false,
 }: DocumentsPanelProps) {
@@ -137,6 +147,10 @@ export function DocumentsPanel({
   } | null>(null);
   // Which tab the detail modal opens on ('pdf' for kebab "Preview PDF").
   const [initialTab, setInitialTab] = useState<string | undefined>(undefined);
+  // When the detail opens via the kebab "Reissue", auto-open the reissue form.
+  const [reissueOnOpen, setReissueOnOpen] = useState(false);
+  // Direct-void confirmation (kebab "Void" — no replacement created).
+  const [voidConfirm, setVoidConfirm] = useState<{ docId: string } | null>(null);
   // In-flight receipt resends — locks out double-clicks (ajuste 3).
   const resendingRef = useRef<Set<string>>(new Set());
   const [sessionId] = useState<string>(() => {
@@ -196,8 +210,14 @@ export function DocumentsPanel({
         );
       });
     }
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((doc) => doc.status === statusFilter);
+    if (statusFilter === 'VOID') {
+      // Derived state: a voided receipt keeps internal status SENT.
+      filtered = filtered.filter((doc) => isVoidedReceipt(doc));
+    } else if (statusFilter !== 'all') {
+      // A voided receipt shows under VOID, not under its internal status.
+      filtered = filtered.filter(
+        (doc) => doc.status === statusFilter && !isVoidedReceipt(doc),
+      );
     }
     if (typeFilter !== 'all') {
       filtered = filtered.filter((doc) => (doc.documentType?.name ?? '') === typeFilter);
@@ -282,6 +302,19 @@ export function DocumentsPanel({
       onDownloadPdf(docId);
       return;
     }
+    // Reissue (2c): open the detail modal and auto-open the prefilled reissue
+    // form (the corrected copy + void happens on submit).
+    if (action === 'reissue') {
+      setInitialTab(undefined);
+      setReissueOnOpen(true);
+      setSelectedDocId(docId);
+      return;
+    }
+    // Void directly (no replacement) — confirm first (irreversible).
+    if (action === 'void') {
+      setVoidConfirm({ docId });
+      return;
+    }
     // Any receipt email — send (DRAFT), resend (SENT) or retry (SEND_FAILED) —
     // confirms first; on confirm it fires the send-toast.
     if (
@@ -326,7 +359,10 @@ export function DocumentsPanel({
   };
 
   const handleSelect = (docId: string) => setSelectedDocId(docId);
-  const handleCloseSidebar = () => setSelectedDocId(null);
+  const handleCloseSidebar = () => {
+    setSelectedDocId(null);
+    setReissueOnOpen(false);
+  };
 
   const showEmpty = filteredDocuments.length === 0;
   const hasFilters =
@@ -423,6 +459,8 @@ export function DocumentsPanel({
           onUpdateDraft={onUpdateDraft}
           isReceipt={selectedDocument ? isReceiptDoc(selectedDocument) : false}
           onUpdateReceipt={onUpdateReceipt}
+          onReissueReceipt={onReissueReceipt}
+          autoOpenReissue={reissueOnOpen}
           onFetchReceiptPdf={onFetchReceiptPdf}
         />
       ) : null}
@@ -481,6 +519,23 @@ export function DocumentsPanel({
           variant="amber"
           onConfirm={handleConfirmReceiptSend}
           onCancel={() => setReceiptSendConfirm(null)}
+        />
+      ) : null}
+
+      {voidConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title="Void receipt?"
+          message="This receipt will be marked as VOID and cannot be undone. Continue?"
+          confirmLabel="Void"
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => {
+            const { docId } = voidConfirm;
+            setVoidConfirm(null);
+            void onVoidReceipt?.(docId);
+          }}
+          onCancel={() => setVoidConfirm(null)}
         />
       ) : null}
     </div>

@@ -8,6 +8,7 @@ import { formatUsPhone } from '@/lib/format-phone';
 import { formatState } from '@/lib/format-text';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
+import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
 import { ReceiptEditPopup } from './ReceiptEditPopup';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import type {
@@ -44,6 +45,13 @@ interface DocumentDetailModalProps {
     docId: string,
     payload: Record<string, unknown>,
   ) => Promise<void>;
+  // Reissue (2c): create a corrected copy of a SENT receipt + void the original.
+  onReissueReceipt?: (
+    docId: string,
+    payload: Record<string, unknown>,
+  ) => Promise<void>;
+  // Auto-open the reissue form on mount (when opened via the kebab "Reissue").
+  autoOpenReissue?: boolean;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
 }
 
@@ -248,6 +256,8 @@ export function DocumentDetailModal({
   onUpdateDraft,
   isReceipt = false,
   onUpdateReceipt,
+  onReissueReceipt,
+  autoOpenReissue = false,
   onFetchReceiptPdf,
 }: DocumentDetailModalProps) {
   const [detail, setDetail] = useState<DocumentDetail | null>(null);
@@ -264,6 +274,10 @@ export function DocumentDetailModal({
   const [financeOn, setFinanceOn] = useState(false);
   // Receipt edit popup (DRAFT/SEND_FAILED only — a SENT receipt is immutable).
   const [receiptEditOpen, setReceiptEditOpen] = useState(false);
+  // Reissue popup (SENT receipt only — corrects + voids the original).
+  const [reissueOpen, setReissueOpen] = useState(false);
+  // Irreversible-action warning shown before the reissue form opens.
+  const [reissueConfirm, setReissueConfirm] = useState(false);
 
   useBlockScroll();
 
@@ -405,6 +419,23 @@ export function DocumentDetailModal({
     (status === 'DRAFT' || status === 'SEND_FAILED') &&
     Boolean(onUpdateReceipt);
 
+  // Reissue (2c): a SENT receipt is corrected by reissuing (never edited). Once
+  // voided (supersededAt) it can't be reissued again.
+  const isVoidedReceipt = isReceipt && Boolean(detail?.supersededAt);
+  const canReissue =
+    isReceipt && status === 'SENT' && !isVoidedReceipt && Boolean(onReissueReceipt);
+  const reissuedTo = detail?.supersededBy?.[0] ?? null; // this one → its replacement
+  const reissues = detail?.supersedes ?? null; // this one corrects → the original
+
+  // Auto-open the reissue form when launched from the kebab "Reissue".
+  const autoReissueFiredRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenReissue && canReissue && !autoReissueFiredRef.current) {
+      autoReissueFiredRef.current = true;
+      setReissueConfirm(true);
+    }
+  }, [autoOpenReissue, canReissue]);
+
   const openEdit = (group: CardGroup) => {
     const keys =
       group.key === 'contract'
@@ -497,16 +528,46 @@ export function DocumentDetailModal({
           <div className="doc-detail-modal-header__main">
             <div className="doc-detail-modal-header__title-row">
               <h2 className="doc-detail-modal-header__number">{number}</h2>
-              <span className={`doc-status-badge ${getStatusBadgeClass(status)}`}>{getStatusLabel(status)}</span>
+              {isVoidedReceipt ? (
+                <span className="doc-status-badge doc-status-badge--void">VOID</span>
+              ) : (
+                <span className={`doc-status-badge ${getStatusBadgeClass(status)}`}>{getStatusLabel(status)}</span>
+              )}
             </div>
             <div className="doc-detail-modal-header__subtitle">
               {[tenant, headerDate].filter(Boolean).join(' · ')}
             </div>
+            {(reissues || reissuedTo) && (
+              <div className="doc-reissue-trace">
+                {reissues && (
+                  <button type="button" className="doc-trace-link" onClick={() => onAction('view', reissues.id)}>
+                    Reissues {reissues.documentNumber}
+                  </button>
+                )}
+                {reissuedTo && (
+                  <button type="button" className="doc-trace-link" onClick={() => onAction('view', reissuedTo.id)}>
+                    Reissued to {reissuedTo.documentNumber}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          <button type="button" className="doc-detail-modal__close" onClick={onClose} aria-label="Close">
-            <X size={20} />
-          </button>
+          <div className="doc-detail-modal-header__actions">
+            {canReissue && (
+              <button
+                type="button"
+                className="doc-reissue-btn"
+                onClick={() => setReissueConfirm(true)}
+              >
+                Reissue
+              </button>
+            )}
+            <button type="button" className="doc-detail-modal__close" onClick={onClose} aria-label="Close">
+              <X size={20} />
+            </button>
+          </div>
         </div>
+
 
         {loading ? (
           /* Skeleton while the detail loads — no fallback-tabs flash. */
@@ -617,7 +678,9 @@ export function DocumentDetailModal({
 
             {/* Footer actions — hidden on the PDF tab so its single Download
                 button isn't duplicated by the footer's (COMPLETED) Download. */}
-            {activeTab !== 'pdf' && <DetailFooter status={status} onAction={runAction} />}
+            {activeTab !== 'pdf' && !isVoidedReceipt && (
+              <DetailFooter status={status} onAction={runAction} />
+            )}
           </>
         )}
       </div>
@@ -685,6 +748,35 @@ export function DocumentDetailModal({
             await onUpdateReceipt(documentId, payload);
             setReceiptEditOpen(false);
             loadDetail();
+          }}
+        />
+      ) : null}
+
+      <ConfirmActionModal
+        isOpen={reissueConfirm}
+        title="Reissue receipt"
+        message="This receipt will be marked as VOID and cannot be undone once the corrected receipt is sent. A new receipt with the next number will be created and emailed to the client. Continue?"
+        confirmLabel="Reissue"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          setReissueConfirm(false);
+          setReissueOpen(true);
+        }}
+        onCancel={() => setReissueConfirm(false)}
+      />
+
+      {reissueOpen && onReissueReceipt ? (
+        <ReceiptEditPopup
+          title="Reissue receipt"
+          dataJson={dataJson as Record<string, unknown>}
+          onClose={() => setReissueOpen(false)}
+          onSave={async (payload) => {
+            // Creates a corrected copy + voids the original. The original is now
+            // VOID, so close the modal; the list reloads with both receipts.
+            await onReissueReceipt(documentId, payload);
+            setReissueOpen(false);
+            onClose();
           }}
         />
       ) : null}
@@ -1015,6 +1107,18 @@ function TimelineTab({
               ]
             : []),
           ...(detail?.cancelledAt ? [{ label: 'Cancelled', ts: detail.cancelledAt, hint: '' }] : []),
+          ...(detail?.supersededAt
+            ? [
+                {
+                  // Reissue → "Reissued to REC-X"; direct void → "Voided".
+                  label: detail.supersededBy?.[0] ? 'Reissued' : 'Voided',
+                  ts: detail.supersededAt,
+                  hint: detail.supersededBy?.[0]
+                    ? `to ${detail.supersededBy[0].documentNumber}`
+                    : '',
+                },
+              ]
+            : []),
         ] as Array<{ label: string; ts?: string | null; hint: string }>
       )
         .filter((e) => Boolean(e.ts))

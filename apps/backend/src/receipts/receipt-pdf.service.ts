@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { degrees, PDFDocument, PDFFont, rgb } from 'pdf-lib';
+import { degrees, PDFDocument, PDFFont, PDFPage, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -124,24 +124,55 @@ export class ReceiptPdfService {
       });
     }
 
-    // Optional watermark (e.g. "VOID" on a reissued/voided receipt) — a big,
-    // semi-transparent red diagonal stamp drawn over the receipt so any download
-    // of a voided receipt is unmistakably marked.
+    // Optional watermark on a freshly-generated receipt (used as the R2-disabled
+    // fallback; the primary void path overlays the EXISTING PDF — stampWatermark).
     if (opts?.watermark) {
-      const wmFont = await getFont('Montserrat-Black');
-      const { width, height } = page.getSize();
-      page.drawText(opts.watermark, {
-        x: width * 0.12,
-        y: height * 0.34,
-        size: Math.min(width, height) * 0.3,
-        font: wmFont,
-        color: rgb(0.86, 0.12, 0.12),
-        rotate: degrees(38),
-        opacity: 0.32,
-      });
+      this.drawWatermark(page, await getFont('Montserrat-Black'), opts.watermark);
     }
 
     return Buffer.from(await pdfDoc.save());
+  }
+
+  /**
+   * Overlay a watermark on an EXISTING PDF (the original stored in R2) — loads
+   * the real PDF and stamps over it, so a voided receipt is the SAME document
+   * with a VOID stamp, not a regeneration. Stamps every page.
+   */
+  async stampWatermark(pdfBuffer: Buffer, text = 'VOID'): Promise<Buffer> {
+    const pdfDoc = await PDFDocument.load(pdfBuffer);
+    pdfDoc.registerFontkit(fontkit);
+    const font = await pdfDoc.embedFont(
+      fs.readFileSync(
+        path.join(this.assetsRoot, 'fonts', FONT_FILES['Montserrat-Black']),
+      ),
+    );
+    for (const page of pdfDoc.getPages()) {
+      this.drawWatermark(page, font, text);
+    }
+    return Buffer.from(await pdfDoc.save());
+  }
+
+  // Big, semi-transparent red diagonal stamp spanning ~the whole page diagonal,
+  // centered — unmistakable on any receipt download.
+  private drawWatermark(page: PDFPage, font: PDFFont, text: string): void {
+    const { width, height } = page.getSize();
+    const diag = Math.sqrt(width * width + height * height);
+    const angle = Math.atan2(height, width); // along the page diagonal (radians)
+    const probe = font.widthOfTextAtSize(text, 100);
+    const size = ((diag * 0.82) / probe) * 100; // ~82% of the diagonal
+    const textW = font.widthOfTextAtSize(text, size);
+    // Anchor so the text's visual center sits at the page center.
+    const x = width / 2 - (textW / 2) * Math.cos(angle) + size * 0.33 * Math.sin(angle);
+    const y = height / 2 - (textW / 2) * Math.sin(angle) - size * 0.33 * Math.cos(angle);
+    page.drawText(text, {
+      x,
+      y,
+      size,
+      font,
+      color: rgb(0.86, 0.12, 0.12),
+      rotate: degrees((angle * 180) / Math.PI),
+      opacity: 0.28,
+    });
   }
 
   private formatCurrency(value: string | number): string {

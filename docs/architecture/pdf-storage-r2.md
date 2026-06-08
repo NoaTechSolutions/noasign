@@ -1,13 +1,21 @@
 # PDF storage in Cloudflare R2 (plan)
 
 **Status: IN PROGRESS (local).**
-- ✅ Receipts: persisted to R2 on create + served via 302→presigned + lazy
-  backfill on read + cache-invalidation on edit. **E2E verified local**
-  (`scripts/test-r2-receipt.mjs`).
+- ✅ Receipts: persisted to R2 on create + **streamed from R2** through the
+  backend on read + lazy backfill + cache-invalidation on edit. **E2E verified
+  local** (`scripts/test-r2-receipt.mjs`).
 - ✅ Contracts: wired — eager cache on COMPLETED (best-effort) + lazy on-read in
-  `streamFinalPdf` (302→presigned, attachment). Not yet e2e-verified (needs a
+  `streamFinalPdf` (streamed from R2, attachment). Not yet e2e-verified (needs a
   real BoldSign-COMPLETED doc; same R2Service round-trip is proven).
 - ⬜ Staging/prod: owner creates `ntssign-docs-staging/-prod` buckets + creds.
+
+> **Delivery = stream, NOT 302→presigned.** A 302 to a presigned R2 URL breaks
+> the in-app PDF viewer: it blob-fetches the endpoint and follows the redirect to
+> R2, but R2 sends no CORS headers, so the browser blocks reading the
+> cross-origin body → blank PDF. The backend therefore downloads from R2 and
+> streams the bytes same-origin (CORS already allows the app). The presigned-URL
+> helper remains for a possible future direct-download-link feature (would need
+> per-bucket R2 CORS config).
 
 This is the design of record; keep it current as implementation lands.
 
@@ -48,10 +56,11 @@ download from history, retention by plan, audit, and future features.
     download), download the signed PDF from BoldSign **once** → upload →
     `signed/{tenantId}/{documentId}.pdf` → `DocumentFile` row. Future downloads
     serve from R2, not BoldSign.
-- **Download model: presigned URL.** Backend validates tenant ownership (existing
-  gate) → issues a short-TTL (~5 min) presigned GET URL → client downloads
-  direct from R2. No credentials on the client, no backend byte-proxying. Security
-  is the **gate before issuing the URL**, not the URL itself.
+- **Delivery model: stream from R2 (backend proxy).** Backend validates tenant
+  ownership (existing gate) → downloads the object from R2 → streams the bytes
+  same-origin. (A 302→presigned URL was tried but breaks the in-app viewer — R2
+  has no CORS, see the status note above. Security is the tenant gate before the
+  bytes are served.)
 - **Backfill:** lazy on-read (existing docs get uploaded to R2 on first access,
   served from R2 thereafter). Optional batch script for day-1 retention/audit.
 

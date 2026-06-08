@@ -7,9 +7,12 @@ import { CurrencyInput } from './CurrencyInput';
 interface ReceiptEditPopupProps {
   // Stored receipt data (DocumentData.dataJson).
   dataJson: Record<string, unknown>;
-  // PATCHes the receipt; resolves once saved (parent closes + reloads).
+  // PATCHes the receipt (edit) OR creates a corrected copy (reissue); resolves
+  // once saved (parent closes + reloads).
   onSave: (payload: Record<string, unknown>) => Promise<void>;
   onClose: () => void;
+  // Popup title — defaults to the edit flow; reissue overrides it.
+  title?: string;
 }
 
 const PAYMENT_METHODS: Array<{ value: string; label: string }> = [
@@ -30,6 +33,7 @@ export function ReceiptEditPopup({
   dataJson,
   onSave,
   onClose,
+  title = 'Edit receipt',
 }: ReceiptEditPopupProps) {
   const [client, setClient] = useState(str(dataJson.client));
   const [email, setEmail] = useState(str(dataJson.email));
@@ -89,7 +93,7 @@ export function ReceiptEditPopup({
 
   return (
     <GroupEditPopup
-      title="Edit receipt"
+      title={title}
       isOpen
       onClose={onClose}
       onSave={handleSave}

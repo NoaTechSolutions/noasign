@@ -72,6 +72,17 @@ export class ReceiptsController {
     };
   }
 
+  // Void a SENT receipt directly (no replacement) — marks it VOID + stamps the
+  // stored PDF. Distinct from reissue (which also creates a corrected copy).
+  @Post(':id/void')
+  async voidReceipt(
+    @Req() req: { user: { id: string } },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const { document } = await this.receiptsService.voidReceipt(req.user.id, id);
+    return { message: 'Receipt voided', document };
+  }
+
   @Post(':id/resend')
   async resendReceipt(
     @Req() req: { user: { id: string } },
