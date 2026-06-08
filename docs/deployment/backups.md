@@ -90,6 +90,19 @@ interference.
 > **custom format** (`pg_dump --format=custom`), so they restore with
 > `pg_restore` (NOT `psql`).
 
+> **Helper script:** [`scripts/restore-postgres-from-r2.sh`](../../scripts/restore-postgres-from-r2.sh)
+> automates all of the below — safe by default (restores into a throwaway
+> `ntssign_restore_test` DB unless you set `TARGET_DATABASE_URL`, and refuses to
+> overwrite the live DB without `FORCE=1`). The manual steps follow for reference
+> / when you want full control.
+>
+> ```bash
+> # Safe restore drill (latest dump → scratch DB):
+> ./scripts/restore-postgres-from-r2.sh
+> # Specific dump:
+> BACKUP_KEY=backups/prod/ntssign-<TS>.dump ./scripts/restore-postgres-from-r2.sh
+> ```
+
 ### 1. Download a dump from R2
 
 ```bash
@@ -183,7 +196,7 @@ prefix `backups/staging/`) would suffice — but that's a "when needed", not now
 
 | Gap | DEV (code/docs) | Owner (VM / R2 dashboard) |
 |-----|-----------------|---------------------------|
-| **Restore** | ✅ Documented above. Can provide a `scripts/restore-postgres-from-r2.sh` helper on request. | Run the SAFE restore drill periodically (needs DB + R2 creds on the VM). |
+| **Restore** | ✅ Documented + helper script `scripts/restore-postgres-from-r2.sh` (safe by default). | Run the SAFE restore drill periodically (needs DB + R2 creds on the VM). |
 | **Retention** | Can add a prune step to the script if lifecycle isn't used. | Add the **R2 lifecycle rule** (30d, prefix `backups/prod/`) — dashboard, ~2 min. |
 | **Live cron** | — | Confirm the crontab entry exists (NOA-127); bucket has dumps so it's running. |
 | **Staging backup** | — | Decision: skip (reproducible from seeds). |
