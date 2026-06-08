@@ -15,12 +15,34 @@ on:
           - backup
           - orphan-check
           - set-env
+          - post-deploy-check
 
 concurrency:
   group: prod-maintenance
   cancel-in-progress: false
 
 jobs:
+  # 4) Read-only post-deploy verification: existing prod documents untouched by
+  #    the additive migrations (status distribution + supersededAt all NULL +
+  #    WorldPaver docs if that tenant exists).
+  post-deploy-check:
+    if: github.event.inputs.step == 'post-deploy-check'
+    name: Post-deploy data check (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Verify documents intact
+        run: |
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL"; exit 1; fi
+          echo "=== documents by status (existing docs intact) ==="
+          psql "$DB" -c "SELECT status, count(*) FROM \"documents\" GROUP BY status ORDER BY status;" || echo "(query failed)"
+          echo "=== docs voided right after deploy (expect 0) ==="
+          psql "$DB" -c "SELECT count(*) AS docs_with_supersededAt FROM \"documents\" WHERE \"supersededAt\" IS NOT NULL;" || echo "(query failed)"
+          echo "=== WorldPaver docs (if the tenant exists on prod) — statuses + supersededAt NULL ==="
+          psql "$DB" -c "SELECT d.\"documentNumber\", d.status, d.\"supersededAt\" FROM \"documents\" d JOIN \"company_profiles\" cp ON cp.id = d.\"companyProfileId\" WHERE cp.\"companyName\" ILIKE '%World Paver%' ORDER BY d.\"createdAt\" DESC LIMIT 10;" || echo "(query failed)"
+
   # 0) Read-only ground-truth diagnostic of the REAL prod schema. NO set -e and
   #    every query has `|| true`, so it prints ALL output even if one query fails.
   schema-diag:
