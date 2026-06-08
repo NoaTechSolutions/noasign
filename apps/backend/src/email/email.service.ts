@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Resend } from 'resend';
+import { Resend, type WebhookEventPayload } from 'resend';
 
 export type SigningInvitationPayload = {
   to: string;
@@ -79,12 +79,13 @@ export class EmailService {
 
   async sendSigningInvitation(
     payload: SigningInvitationPayload,
-  ): Promise<void> {
+  ): Promise<{ id: string }> {
     if (!this.resend) {
       this.logger.warn(
         `[EmailService] Skipping signing invitation to ${payload.to} — Resend not configured`,
       );
-      return;
+      // No delivery → no Resend id to correlate a later bounce against.
+      return { id: '' };
     }
 
     const { data, error } = await this.resend.emails.send({
@@ -104,6 +105,59 @@ export class EmailService {
     this.logger.log(
       `[EmailService] Signing invitation sent to ${payload.to} (id: ${data?.id})`,
     );
+    // FASE 2: return the Resend message id so the contract send can persist it
+    // as providerEmailId and later correlate an async bounce webhook to it.
+    return { id: data?.id ?? '' };
+  }
+
+  /**
+   * Verify a Resend webhook signature (Svix) and return the parsed event.
+   *
+   * Resend signs webhooks with Svix headers (svix-id / svix-timestamp /
+   * svix-signature). resend.webhooks.verify() wraps the Svix verification — it
+   * is SYNCHRONOUS and THROWS on a bad/expired signature (it does not return a
+   * boolean). We translate any failure — including missing config — into null
+   * so the controller can answer 4xx without leaking why.
+   */
+  verifyResendWebhook(
+    rawBody: Buffer | string | undefined,
+    svixHeaders: {
+      'svix-id'?: string;
+      'svix-timestamp'?: string;
+      'svix-signature'?: string;
+    },
+  ): WebhookEventPayload | null {
+    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+
+    if (!this.resend || !webhookSecret || !rawBody) {
+      if (!webhookSecret) {
+        this.logger.warn(
+          '[EmailService] RESEND_WEBHOOK_SECRET not set — rejecting Resend webhook',
+        );
+      }
+      return null;
+    }
+
+    try {
+      // resend.webhooks.verify expects the raw Svix values (id/timestamp/
+      // signature) as a plain object — it rebuilds the svix-* headers and
+      // feeds Svix internally. NOT the Web Headers class.
+      return this.resend.webhooks.verify({
+        payload:
+          typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8'),
+        headers: {
+          id: svixHeaders['svix-id'] ?? '',
+          timestamp: svixHeaders['svix-timestamp'] ?? '',
+          signature: svixHeaders['svix-signature'] ?? '',
+        },
+        webhookSecret,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[EmailService] Resend webhook signature verification failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
   }
 
   async sendSignedConfirmation(

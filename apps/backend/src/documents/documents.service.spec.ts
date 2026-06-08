@@ -70,7 +70,9 @@ describe('DocumentsService', () => {
         {
           provide: EmailService,
           useValue: {
-            sendSigningInvitation: jest.fn().mockResolvedValue(undefined),
+            sendSigningInvitation: jest
+              .fn()
+              .mockResolvedValue({ id: 'test-email-id' }),
             sendSignedConfirmation: jest.fn().mockResolvedValue(undefined),
           },
         },

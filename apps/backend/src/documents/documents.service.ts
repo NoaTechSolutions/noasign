@@ -10,6 +10,7 @@ import {
 import { DocumentStatus, Prisma } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { Response } from 'express';
+import type { WebhookEventPayload } from 'resend';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignatureProviderService } from '../signature-provider/signature-provider.service';
@@ -1005,6 +1006,11 @@ export class DocumentsService {
       message,
     });
 
+    // FASE 2: Resend message id of the invitation, captured so a later async
+    // bounce webhook can correlate the bounce back to this contract. Email
+    // failure is non-fatal (doc is already sent in BoldSign), so it stays null.
+    let providerEmailId: string | null = null;
+
     // Fetch the signer's signing link from BoldSign and send our own email
     try {
       // Use signing proxy URL so re-clicks after signing redirect to success page
@@ -1016,7 +1022,7 @@ export class DocumentsService {
           completionUrl,
         );
       }
-      await this.emailService.sendSigningInvitation({
+      const { id } = await this.emailService.sendSigningInvitation({
         to: recipient.email,
         signerName: this.buildPublicSignerName(document),
         senderName: this.buildPublicSenderName(document),
@@ -1028,6 +1034,7 @@ export class DocumentsService {
         documentNumber: document.documentNumber,
         signingUrl: emailSigningUrl,
       });
+      providerEmailId = id || null;
     } catch (emailError) {
       this.logger.error(
         `[sendDraftDocument] Email sending failed for document ${documentId}: ${emailError instanceof Error ? emailError.message : String(emailError)}`,
@@ -1048,6 +1055,7 @@ export class DocumentsService {
         providerDocumentId,
         providerStatus: 'document.sent',
         providerLastSyncedAt: new Date(),
+        providerEmailId,
       },
       include: documentDetailInclude,
     });
@@ -1058,6 +1066,72 @@ export class DocumentsService {
       billingPeriod: null,
       document: this.serializeDocument(updatedDocument),
     };
+  }
+
+  /**
+   * Handle a verified Resend webhook event (FASE 2: async bounce detection).
+   *
+   * Resend accepts a send synchronously (returns an id, looks SENT) but a hard
+   * bounce arrives minutes later as a webhook. We only act on a PERMANENT
+   * bounce — flip the matching document to SEND_FAILED with a human-readable
+   * reason so receipts AND contracts show the truth instead of a phantom SENT.
+   * Transient (soft) bounces are retried by Resend, so we ignore them. Spam
+   * complaints are logged softly (reputation signal, no status change). Unknown
+   * events and unmatched ids are benign no-ops (we still ack with 200).
+   */
+  async handleResendWebhook(event: WebhookEventPayload): Promise<void> {
+    if (event.type === 'email.bounced') {
+      const emailId = event.data.email_id;
+      const bounceType = event.data.bounce?.type ?? '';
+      const bounceMessage = event.data.bounce?.message ?? 'Email bounced';
+
+      // Only PERMANENT (hard) bounces are terminal. Transient = Resend retries.
+      if (bounceType.toLowerCase() !== 'permanent') {
+        this.logger.log(
+          `[ResendWebhook] Ignoring non-permanent bounce (${bounceType}) for email ${emailId}`,
+        );
+        return;
+      }
+
+      if (!emailId) {
+        return;
+      }
+
+      const document = await this.prisma.document.findFirst({
+        where: { providerEmailId: emailId },
+      });
+
+      if (!document) {
+        // Foreign id — e.g. cross-talk from a shared Resend account, or an old
+        // send whose id was overwritten by a resend. Benign no-op.
+        this.logger.warn(
+          `[ResendWebhook] Permanent bounce for unknown email id ${emailId} — no matching document`,
+        );
+        return;
+      }
+
+      await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: `Bounced: ${bounceMessage}`,
+        },
+      });
+
+      this.logger.warn(
+        `[ResendWebhook] Document ${document.id} marked SEND_FAILED — permanent bounce: ${bounceMessage}`,
+      );
+      return;
+    }
+
+    if (event.type === 'email.complained') {
+      this.logger.warn(
+        `[ResendWebhook] Spam complaint for email id ${event.data.email_id} — logged for reputation (no status change)`,
+      );
+      return;
+    }
+
+    // Any other event type → ack as a no-op.
   }
 
   async resendDocument(userId: string, documentId: string) {
