@@ -16,12 +16,48 @@ on:
           - orphan-check
           - set-env
           - post-deploy-check
+          - receipts-readiness
 
 concurrency:
   group: prod-maintenance
   cancel-in-progress: false
 
 jobs:
+  # 5) Read-only: can these users create receipts? Reports their tenants/roles,
+  #    whether the PAYMENT_RECEIPT type+form exist, and each tenant's receipt
+  #    templates + the users' doc configs. Uses Prisma (exact field names).
+  receipts-readiness:
+    if: github.event.inputs.step == 'receipts-readiness'
+    name: Receipts readiness (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Report receipt config state
+        run: |
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          DATABASE_URL="$DB" node -e '
+            const { PrismaClient } = require("@prisma/client");
+            const p = new PrismaClient();
+            (async () => {
+              const emails = ["admin@noatechsolutions.com", "worldpaversco@gmail.com"];
+              const users = await p.user.findMany({ where: { email: { in: emails } }, select: { id:true, email:true, role:true, companyProfileId:true, companyProfile:{ select:{ companyName:true } } } });
+              console.log("=== USERS ==="); console.log(JSON.stringify(users, null, 2));
+              const dt = await p.documentType.findUnique({ where: { code: "PAYMENT_RECEIPT" }, include: { formDefinitions: { where: { isActive: true }, select: { id:true } } } });
+              console.log("=== PAYMENT_RECEIPT type ==="); console.log(dt ? JSON.stringify({ id: dt.id, mode: dt.generationMode, activeForms: dt.formDefinitions.length }) : "MISSING (must seed docType + form on prod first)");
+              for (const u of users) {
+                if (!u.companyProfileId) { console.log(u.email, "-> no companyProfileId"); continue; }
+                const rt = await p.receiptTemplate.findMany({ where: { companyProfileId: u.companyProfileId }, select: { name:true, isActive:true, basePdfPath:true } });
+                const cfg = await p.userDocumentConfig.findMany({ where: { userId: u.id }, include: { documentType: { select: { code:true } } } });
+                console.log("=== " + u.email + " | tenant " + (u.companyProfile && u.companyProfile.companyName) + " (" + u.companyProfileId + ") | role " + u.role + " ===");
+                console.log("  ReceiptTemplates:", JSON.stringify(rt));
+                console.log("  UserDocumentConfigs:", JSON.stringify(cfg.map(c => ({ type: c.documentType && c.documentType.code, active: c.isActive }))));
+              }
+              await p.$disconnect();
+            })().catch(e => { console.error("ERR", e.message); process.exit(1); });
+          '
+
   # 4) Read-only post-deploy verification: existing prod documents untouched by
   #    the additive migrations (status distribution + supersededAt all NULL +
   #    WorldPaver docs if that tenant exists).
