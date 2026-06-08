@@ -3,6 +3,10 @@ name: Deploy to Production
 on:
   push:
     branches: [main]
+    # Workflow-only changes (e.g. the manual prod-maintenance workflow) must NOT
+    # trigger a prod redeploy.
+    paths-ignore:
+      - '.github/workflows/**'
   workflow_dispatch:
 
 # Only one deploy at a time

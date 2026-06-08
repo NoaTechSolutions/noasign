@@ -1,0 +1,108 @@
+name: Prod maintenance (manual)
+
+# Manual, runner-on-the-VM maintenance for the prod release. Pick a step and run.
+# Runs ON the prod self-hosted runner (no SSH needed). Run them IN ORDER:
+#   1) backup  → 2) orphan-check  → 3) set-env
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'Step to run (in order)'
+        type: choice
+        required: true
+        options:
+          - backup
+          - orphan-check
+          - set-env
+
+concurrency:
+  group: prod-maintenance
+  cancel-in-progress: false
+
+jobs:
+  # 1) Fresh prod DB backup → R2, before the release.
+  backup:
+    if: github.event.inputs.step == 'backup'
+    name: Backup prod DB to R2
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Run backup + verify object in R2
+        run: |
+          set -euo pipefail
+          cd ~/apps/ntssign
+          bash scripts/backup-postgres-to-r2.sh
+          echo "--- Verify the .dump landed in R2 ---"
+          cd apps/backend
+          val() { grep -E "^$1=" .env | head -1 | cut -d= -f2-; }
+          AWS_ACCESS_KEY_ID="$(val R2_ACCESS_KEY_ID)" \
+          AWS_SECRET_ACCESS_KEY="$(val R2_SECRET_ACCESS_KEY)" \
+          AWS_DEFAULT_REGION=auto \
+            aws s3 ls "s3://$(val R2_BUCKET)/backups/prod/" --endpoint-url "$(val R2_ENDPOINT)" | tail -5
+          echo "GATE: a .dump with today's timestamp must be listed above."
+
+  # 2) Read-only: customers that would break the userId NOT NULL backfill.
+  orphan-check:
+    if: github.event.inputs.step == 'orphan-check'
+    name: Orphan-customers pre-check (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Count orphan customers
+        run: |
+          set -euo pipefail
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d= -f2-)"
+          echo "--- Orphan customers (createdByUserId NULL AND no MASTER in tenant) ---"
+          psql "$DB" -c "SELECT count(*) AS orphan_customers FROM \"customers\" c WHERE c.\"createdByUserId\" IS NULL AND NOT EXISTS (SELECT 1 FROM \"users\" u WHERE u.\"companyProfileId\" = c.\"companyProfileId\" AND u.\"role\" = 'MASTER');"
+          echo "GATE: orphan_customers = 0 → safe to migrate. > 0 → STOP and fix before the release."
+
+  # 3) Write the 5 new env vars (from GitHub Secrets) into the prod .env + reload.
+  #    SAFEGUARDS: values never printed; only the 5 keys touched; idempotent;
+  #    .env backed up first; fails on an empty secret.
+  set-env:
+    if: github.event.inputs.step == 'set-env'
+    name: Set R2_DOCS_* + RESEND_WEBHOOK_SECRET in prod .env
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    env:
+      RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
+      R2_DOCS_BUCKET: ${{ secrets.R2_DOCS_BUCKET }}
+      R2_DOCS_ACCESS_KEY_ID: ${{ secrets.R2_DOCS_ACCESS_KEY_ID }}
+      R2_DOCS_SECRET_ACCESS_KEY: ${{ secrets.R2_DOCS_SECRET_ACCESS_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+    steps:
+      - name: Upsert env vars (idempotent, values never printed) + reload
+        run: |
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          ENV_FILE=~/apps/ntssign/apps/backend/.env
+          test -f "$ENV_FILE"
+          cp "$ENV_FILE" "$ENV_FILE.bak.$(date -u +%Y%m%d%H%M%S)"
+
+          upsert() {
+            local key="$1" val="$2"
+            if [ -z "$val" ]; then
+              echo "ERROR: secret $key is empty — set it in GitHub Secrets first."; exit 1
+            fi
+            grep -vE "^${key}=" "$ENV_FILE" > "$ENV_FILE.tmp" || true   # drop existing line if any
+            printf '%s=%s\n' "$key" "$val" >> "$ENV_FILE.tmp"          # append the new value
+            mv "$ENV_FILE.tmp" "$ENV_FILE"
+          }
+
+          upsert RESEND_WEBHOOK_SECRET     "$RESEND_WEBHOOK_SECRET"
+          upsert R2_DOCS_BUCKET            "$R2_DOCS_BUCKET"
+          upsert R2_DOCS_ACCESS_KEY_ID     "$R2_DOCS_ACCESS_KEY_ID"
+          upsert R2_DOCS_SECRET_ACCESS_KEY "$R2_DOCS_SECRET_ACCESS_KEY"
+          upsert R2_ACCOUNT_ID             "$R2_ACCOUNT_ID"
+
+          echo "--- Keys present (1 = ok); values NOT printed ---"
+          for k in RESEND_WEBHOOK_SECRET R2_DOCS_BUCKET R2_DOCS_ACCESS_KEY_ID R2_DOCS_SECRET_ACCESS_KEY R2_ACCOUNT_ID; do
+            printf '%s=%s\n' "$k" "$(grep -cE "^${k}=" "$ENV_FILE")"
+          done
+          echo "--- Backup var R2_BUCKET untouched (expect 1) ---"
+          printf 'R2_BUCKET present: %s\n' "$(grep -cE '^R2_BUCKET=' "$ENV_FILE")"
+
+          echo "--- Reload backend so it picks up the new vars ---"
+          pm2 reload ntssign-backend --update-env
+          echo "GATE: every key above = 1, R2_BUCKET = 1, reload OK."
