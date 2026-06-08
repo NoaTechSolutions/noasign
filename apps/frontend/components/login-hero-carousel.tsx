@@ -37,7 +37,7 @@ export function LoginHeroCarousel() {
   return (
     <div className="relative z-10 flex h-full items-center justify-center px-2 py-4 md:px-3 md:py-5 lg:px-4 lg:py-6">
       <div className="relative flex h-full w-full items-center justify-center">
-        <div className="relative aspect-[2/3] h-full max-h-full w-full max-w-[35rem] overflow-hidden rounded-[2rem] border border-[#022977] bg-white shadow-[0_22px_70px_rgba(8,22,47,0.20)] xl:max-w-[38rem] dark:border-[color:var(--border-strong)] dark:bg-[color:var(--bg-elevated)]">
+        <div className="relative aspect-[2/3] h-full max-h-full w-full max-w-[35rem] overflow-hidden rounded-[2rem] border border-[color:var(--brand-secondary)] bg-white shadow-[0_22px_70px_rgba(8,22,47,0.20)] xl:max-w-[38rem] dark:border-[color:var(--border-strong)] dark:bg-[color:var(--bg-elevated)]">
           <Image
             key={activeSlide.id}
             src={activeSlide.src}

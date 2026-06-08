@@ -4,6 +4,11 @@ on:
   push:
     branches: [develop]
   workflow_dispatch:
+    inputs:
+      seed_test_users:
+        description: 'One-shot: run the staging test-user seed after deploy'
+        type: boolean
+        default: false
 
 # Only one deploy at a time
 concurrency:
@@ -25,7 +30,12 @@ jobs:
 
           echo "--- Pulling latest code ---"
           cd ~/apps/ntssign
-          git pull origin develop
+          # Hard-reset to the remote: the VM is a deploy target, and `npm prune`
+          # dirties package-lock.json, which makes `git pull` abort when a commit
+          # also changes it. Reset discards that drift (untracked/gitignored files
+          # like .env and prisma/seed.js are preserved).
+          git fetch origin develop
+          git reset --hard origin/develop
 
           echo "--- Building backend ---"
           cd apps/backend
@@ -37,12 +47,51 @@ jobs:
           rm -f tsconfig.build.tsbuildinfo
           npm run build
           test -f dist/main.js || { echo "ERROR: dist/main.js not produced by build"; exit 1; }
+          # Compile the construction seed so prisma/seed.ts is the source of truth.
+          # nest build excludes prisma/ (tsconfig.build.json), and prisma/seed.js is
+          # gitignored, so without this the gated seed step would run a STALE seed.js.
+          # This only GENERATES prisma/seed.js — it does NOT run the seed. Execution
+          # stays gated behind the `seed_test_users` dispatch step below. Runs while
+          # typescript (a devDep) is still installed, i.e. before the prune.
+          echo "--- Compiling construction seed (prisma/seed.ts -> seed.js) ---"
+          ./node_modules/.bin/tsc prisma/seed.ts --outDir prisma --module commonjs \
+            --target es2021 --moduleResolution node --esModuleInterop --skipLibCheck
+          test -f prisma/seed.js || { echo "ERROR: prisma/seed.js not produced"; exit 1; }
           npm prune --omit=dev
 
           echo "--- Reloading backend (zero-downtime) ---"
           pm2 reload ntssign-backend --update-env
 
           echo "--- Backend deploy complete ---"
+
+      # Gated one-shot seed. ONLY runs when triggered via workflow_dispatch with
+      # seed_test_users=true — never on normal pushes to develop. Idempotent +
+      # non-destructive (upserts). bcrypt + @prisma/client are prod deps (survive
+      # the dev-prune above). Sources the VM .env so the runtime scripts get
+      # DATABASE_URL (the prisma CLI auto-loads it; node runtime does not).
+      - name: Seed staging test users (one-shot, gated)
+        if: github.event.inputs.seed_test_users == 'true'
+        run: |
+          set -e
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          # Extract ONLY DATABASE_URL from .env (do NOT `source` the whole file —
+          # some lines aren't valid bash and break it). Strip optional quotes.
+          DATABASE_URL="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d '=' -f2-)"
+          DATABASE_URL="${DATABASE_URL%\"}"; DATABASE_URL="${DATABASE_URL#\"}"
+          DATABASE_URL="${DATABASE_URL%\'}"; DATABASE_URL="${DATABASE_URL#\'}"
+          export DATABASE_URL
+          echo "--- Seeding CONSTRUCTION_CONTRACT (doc type + form schema) ---"
+          node prisma/seed.js
+          echo "--- Seeding staging test users + customers ---"
+          node scripts/dev-helpers/_seed-staging-test-users.js
+          # Receipts: PAYMENT_RECEIPT type + form + World Pavers ReceiptTemplate.
+          # Runs AFTER the user seed so the World Pavers company exists (the
+          # ReceiptTemplate is company-scoped). Non-master users see Receipt
+          # company-wide (getDocumentTypes), so no per-user config is needed.
+          echo "--- Seeding PAYMENT_RECEIPT + World Pavers ReceiptTemplate ---"
+          node scripts/dev-helpers/_seed-payment-receipt.js
 
       - name: Deploy frontend
         timeout-minutes: 20
@@ -55,7 +104,12 @@ jobs:
 
           echo "--- Pulling latest code ---"
           cd ~/apps/ntssign
-          git pull origin develop
+          # Hard-reset to the remote: the VM is a deploy target, and `npm prune`
+          # dirties package-lock.json, which makes `git pull` abort when a commit
+          # also changes it. Reset discards that drift (untracked/gitignored files
+          # like .env and prisma/seed.js are preserved).
+          git fetch origin develop
+          git reset --hard origin/develop
 
           echo "--- Building frontend ---"
           cd apps/frontend

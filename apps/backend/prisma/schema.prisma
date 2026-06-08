@@ -30,9 +30,21 @@ enum AccountType {
   BUSINESS
 }
 
+enum CustomerType {
+  PERSONAL
+  BUSINESS
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  DELETED
+}
+
 enum DocumentStatus {
   DRAFT
   SENT
+  SEND_FAILED
   VIEWED
   SIGNED
   COMPLETED
@@ -43,6 +55,13 @@ enum DocumentFileType {
   PREVIEW
   SIGNED_PDF
   ATTACHMENT
+  // Generated payment-receipt PDF persisted to R2 (DIRECT_PDF docs).
+  RECEIPT
+}
+
+enum GenerationMode {
+  BOLDSIGN
+  DIRECT_PDF
 }
 
 enum StorageProvider {
@@ -69,6 +88,7 @@ model CompanyProfile {
   insuranceName         String?
   insurancePhone        String?
   insurancePolicyNumber String?
+  insuranceExpiryDate   DateTime? @db.Date
   addressLine1          String?
   addressLine2          String?
   city                  String?
@@ -98,9 +118,11 @@ model CompanyProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  documents Document[]
-  customers Customer[]
+  users            User[]
+  documents        Document[]
+  customers        Customer[]
+  receiptTemplates ReceiptTemplate[]
+  receiptCounters  ReceiptCounter[]
 
   @@map("company_profiles")
 }
@@ -126,6 +148,11 @@ model User {
   zipCode                String?
   avatarUrl              String?
 
+  failedLoginAttempts Int       @default(0)
+  lockLevel           Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -134,7 +161,8 @@ model User {
   documents           Document[]
   documentVersions    DocumentVersion[]
   passwordResetTokens PasswordResetToken[]
-  createdCustomers    Customer[]
+  createdCustomers    Customer[] @relation("CustomerCreatedBy")
+  ownedCustomers      Customer[] @relation("CustomerOwner")
 
   @@index([companyProfileId])
   @@index([parentCompanyProfileId])
@@ -156,10 +184,37 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+// Append-only log of MASTER actions. actorId and targetUserId are stored as
+// raw IDs (no FK) so audit history survives if either user is later deleted —
+// retention beats referential cleanliness for this table. `action` is a
+// SCREAMING_SNAKE_CASE verb-object string ("UNLOCK_USER", future verbs added
+// without a migration). `payload` captures pre-action state for review.
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  actorId      String
+  action       String
+  targetUserId String?
+  payload      Json?
+  createdAt    DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetUserId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+
 model Customer {
-  id               String  @id @default(uuid())
+  id               String       @id @default(uuid())
   companyProfileId String
+  // Current owner — only this user (and tenant masters) can see/edit. Used
+  // for per-user tenant isolation. Distinct from createdByUserId, which is
+  // an immutable audit field.
+  userId           String
   createdByUserId  String?
+  customerType     CustomerType   @default(PERSONAL)
+  status           CustomerStatus @default(ACTIVE)
+  // Soft delete — null = active, timestamp = deleted (restorable by MASTER).
+  deletedAt        DateTime?
 
   fullName String
   email    String?
@@ -177,14 +232,60 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
-  createdBy      User?          @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  companyProfile CompanyProfile    @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  user           User              @relation("CustomerOwner", fields: [userId], references: [id], onDelete: Restrict)
+  createdBy      User?             @relation("CustomerCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  business       CustomerBusiness?
   documents      Document[]
 
   @@index([companyProfileId])
   @@index([companyProfileId, fullName])
   @@index([companyProfileId, email])
+  @@index([companyProfileId, customerType])
+  @@index([companyProfileId, status])
+  @@index([companyProfileId, deletedAt])
+  @@index([companyProfileId, userId])
+  @@index([userId])
   @@map("customers")
+}
+
+model CustomerBusiness {
+  id         String @id @default(uuid())
+  customerId String @unique
+
+  // Business Info
+  businessName      String
+  businessLegalName String?
+  licenseNumber     String?
+  industry          String?
+  website           String?
+  businessEmail     String?
+  businessPhone     String?
+
+  // Business Contact / Address
+  businessPhone2       String?
+  businessAddressLine1 String?
+  businessAddressLine2 String?
+  businessCity         String?
+  businessState        String?
+  businessZipCode      String?
+
+  // Primary Contact
+  primaryContactName        String?
+  primaryContactEmail       String?
+  primaryContactPhone       String?
+  primaryContactTitle       String?
+  primaryContactAddressLine1 String?
+  primaryContactCity        String?
+  primaryContactState       String?
+  primaryContactZipCode     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_businesses")
 }
 
 model AccountRequest {
@@ -206,6 +307,10 @@ model DocumentType {
   id   String @id @default(uuid())
   name String @unique
   code String @unique
+
+  // BOLDSIGN: signed via BoldSign. DIRECT_PDF: generated + emailed directly
+  // (receipts) using a ReceiptTemplate — no signature flow.
+  generationMode GenerationMode @default(BOLDSIGN)
 
   formDefinitions    FormDefinition[]
   signatureTemplates SignatureTemplate[]
@@ -253,6 +358,42 @@ model SignatureTemplate {
   @@map("signature_templates")
 }
 
+// Template-driven receipt generation (DIRECT_PDF). Base PDF + field coordinates
+// live here, not in code — a new client is a new row, not a code change.
+model ReceiptTemplate {
+  id               String   @id @default(cuid())
+  companyProfileId String
+  name             String
+  basePdfPath      String
+  pageWidth        Float    @default(612)
+  pageHeight       Float    @default(792)
+  mediaBoxOffsetY  Float    @default(0)
+  fieldMappingJson Json
+  numberFormat     String   @default("REC-{YYYY}-{NNNN}")
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  documents      Document[]
+
+  @@index([companyProfileId])
+  @@map("receipt_templates")
+}
+
+// Per-tenant, per-year correlative counter (resets each year via the unique key).
+model ReceiptCounter {
+  id               String @id @default(cuid())
+  companyProfileId String
+  year             Int
+  lastNumber       Int    @default(0)
+
+  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([companyProfileId, year])
+  @@map("receipt_counters")
+}
+
 model UserDocumentConfig {
   id                  String   @id @default(uuid())
   userId              String
@@ -281,7 +422,10 @@ model Document {
   customerId           String?
   documentTypeId       String
   formDefinitionId     String
-  signatureTemplateId  String
+  // Nullable: DIRECT_PDF docs (receipts) have no BoldSign template; they use
+  // receiptTemplateId instead. Gated by documentType.generationMode.
+  signatureTemplateId  String?
+  receiptTemplateId    String?
   providerDocumentId   String?
   providerStatus       String?
   providerLastSyncedAt DateTime?
@@ -296,6 +440,31 @@ model Document {
   lastManualReminderAt   DateTime?
   lastSentRecipientEmail String?
 
+  // Send-outcome tracking (FASE 1: honest send state).
+  // sendError: human-readable reason when status is SEND_FAILED.
+  // providerEmailId: Resend message id of the last successful send — kept so
+  // FASE 2 (bounce webhooks) can correlate the document with the delivery.
+  sendError       String?
+  providerEmailId String?
+  // Last time a receipt's data was edited (DRAFT/SEND_FAILED) — drives the
+  // "Edited" entry in the receipt timeline. Not used for contracts.
+  lastEditedAt    DateTime?
+  // Receipt resend policy v2 (sliding window + hard cap, per recipient email).
+  // sendCount: total email ATTEMPTS (SENT or SEND_FAILED) to the current
+  //   recipient; reset to 0 when the recipient email changes.
+  // lastAttemptAt: timestamp of the last attempt (success OR failure) — drives
+  //   the 10-minute window. Not used for contracts.
+  sendCount       Int       @default(0)
+  lastAttemptAt   DateTime?
+
+  // Receipt reissue (2c): a SENT receipt is never edited; a correction creates a
+  // NEW receipt that supersedes the original. supersedesId points from the new
+  // receipt to the original; supersededAt marks the original as voided (its
+  // status stays SENT — the accounting truth is preserved). "Reissued by" is the
+  // back-relation supersededBy.
+  supersedesId    String?
+  supersededAt    DateTime?
+
   countedInBilling Boolean @default(false)
   isOverage        Boolean @default(false)
   billingPeriod    String?
@@ -306,12 +475,15 @@ model Document {
   user              User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   companyProfile    CompanyProfile?   @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
   customer          Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  documentType      DocumentType      @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
-  formDefinition    FormDefinition    @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
-  signatureTemplate SignatureTemplate @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
+  documentType      DocumentType       @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  formDefinition    FormDefinition     @relation(fields: [formDefinitionId], references: [id], onDelete: Restrict)
+  signatureTemplate SignatureTemplate? @relation(fields: [signatureTemplateId], references: [id], onDelete: Restrict)
+  receiptTemplate   ReceiptTemplate?   @relation(fields: [receiptTemplateId], references: [id], onDelete: Restrict)
   data              DocumentData?
   versions          DocumentVersion[]
   files             DocumentFile[]
+  supersedes        Document?  @relation("ReceiptReissue", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy      Document[] @relation("ReceiptReissue")
 
   @@index([userId])
   @@index([companyProfileId])
@@ -320,6 +492,9 @@ model Document {
   @@index([status])
   @@index([createdAt])
   @@index([providerDocumentId])
+  // FASE 2: bounce webhooks look up the document by the Resend message id.
+  @@index([providerEmailId])
+  @@index([supersedesId])
   @@map("documents")
 }
 

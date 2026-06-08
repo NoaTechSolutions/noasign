@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Moon, SunMedium } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -25,25 +25,38 @@ export function ThemeToggle({
     setMounted(true);
   }, []);
 
-  const applyTheme = useCallback(
-    (nextTheme: ThemeName) => {
-      const root = document.documentElement;
-      root.classList.toggle("dark", nextTheme === "dark");
-      localStorage.setItem("theme", nextTheme);
+  // Smooth theme swap via the View Transition API (graceful fallback to
+  // instant set on browsers without support — Firefox today). Computes the
+  // toggle's center position and exposes it as CSS vars so the reveal
+  // circle in app/globals.css expands from the actual button regardless of
+  // viewport / layout. Falls back to the literal 96%/3.5% defaults baked
+  // into the keyframes if no button is found.
+  const handleThemeChange = (nextTheme: ThemeName) => {
+    if (typeof document === "undefined" || !document.startViewTransition) {
       setTheme(nextTheme);
-    },
-    [setTheme],
-  );
+      return;
+    }
 
-  const toggleTheme = useCallback(() => {
-    applyTheme(isDark ? "light" : "dark");
-  }, [applyTheme, isDark]);
+    const button = document.querySelector("[data-theme-toggle]");
+    if (button) {
+      const rect = button.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      document.documentElement.style.setProperty("--toggle-x", `${x}px`);
+      document.documentElement.style.setProperty("--toggle-y", `${y}px`);
+    }
+
+    document.startViewTransition(() => {
+      setTheme(nextTheme);
+    });
+  };
 
   return (
     <button
       type="button"
       ref={buttonRef}
-      onClick={toggleTheme}
+      data-theme-toggle
+      onClick={() => handleThemeChange(isDark ? "light" : "dark")}
       suppressHydrationWarning
       className={[
         buttonClassName,

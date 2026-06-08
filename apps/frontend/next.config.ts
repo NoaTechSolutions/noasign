@@ -1,11 +1,16 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { version } from "./package.json";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   turbopack: {
     root: path.join(__dirname),
+  },
+  // Single source of truth for the app version (shown in the dashboard footer).
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
   },
 };
 

@@ -1,0 +1,223 @@
+/* ========================================
+   GROUP EDIT POPUP — centered modal
+   ======================================== */
+
+.gep-overlay {
+  position: fixed;
+  inset: 0;
+  /* Above .modal-overlay (z-index 1000) so group edit popups opened from inside
+     the Client detail modal render on top of it, not behind. */
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  padding: 16px;
+  animation: gepFadeIn 0.15s ease-out;
+}
+
+@keyframes gepFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.gep-panel {
+  width: 90%;
+  max-width: 420px;
+  max-height: 90vh;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-soft);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: gepSlideUp 0.15s ease-out;
+}
+
+@keyframes gepSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+[data-theme="dark"] .gep-panel {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* Wide variant — Contract edit with Finance ON, so the 2x2 Finance grid gets
+   ~330px columns instead of being crammed into the default 420px panel.
+   Desktop only; on mobile the panel stays full width (90%). */
+@media (min-width: 1024px) {
+  .gep-panel--wide {
+    max-width: 720px;
+    width: 90vw;
+  }
+}
+
+.gep-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 0.5px solid var(--border-soft);
+}
+
+.gep-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.gep-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-label);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gep-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-body);
+}
+
+.gep-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gep-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 0.5px solid var(--border-soft);
+}
+
+/* Pencil button in group headers */
+.gep-edit-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-label);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.gep-edit-btn:hover {
+  background: var(--bg-hover);
+  color: var(--brand);
+}
+
+/* Reuse btn-cancel/btn-save from profile-panel-v2.css */
+
+/* ── Typed field inputs (currency / date) ─────────────────────────────
+   Used by DocumentDetailModal's FieldInput. Phone/number/state reuse the
+   plain .form-input — only currency (prefix) and date (picker icon) need
+   extra chrome. */
+.gep-input-currency {
+  position: relative;
+}
+
+.gep-input-currency .gep-input-prefix {
+  position: absolute;
+  left: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.gep-input-currency .form-input {
+  padding-left: 1.5rem;
+}
+
+/* Custom date picker icon.
+   The native ::-webkit-calendar-picker-indicator can't be recolored reliably
+   across themes (its glyph color is driven by color-scheme). So we render a
+   lucide <Calendar> overlay tinted with --brand (navy in light, sky in dark)
+   and keep the native indicator transparent on top as the click target.
+   color-scheme stays bound per theme so the *popup* calendar matches the theme. */
+.gep-input-date {
+  color-scheme: light;
+}
+
+.dark .gep-input-date,
+[data-theme="dark"] .gep-input-date {
+  color-scheme: dark;
+}
+
+.gep-date-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* Native indicator: invisible hit area over the icon so a click still opens it. */
+.gep-input-date::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 32px;
+  height: 100%;
+  cursor: pointer;
+}
+
+.gep-date-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--brand);
+  pointer-events: none;
+}
+
+/* Per-Finance-group header inside the Contract edit popup — colored to match
+   the FINANCE_COLORS badges (①②③④) used in the read-only Pricing cards. */
+.gep-finance-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  /* No border-top/margin anymore — each Finance group is now its own colored
+     card (bg + border), so the old divider line would sit awkwardly inside it. */
+  padding: 0 0 8px;
+}
+
+.gep-finance-badge {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Finance N groups in the Contract edit popup: 2x2 on desktop, stacked on
+   mobile. The Finance charge field above stays full width (outside this grid). */
+.gep-finance-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 1024px) {
+  .gep-finance-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

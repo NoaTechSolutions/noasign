@@ -18,6 +18,16 @@ export class CreateDraftDocumentDto {
   @IsUUID()
   signatureTemplateId?: string;
 
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
+
+  // Master may assign the draft to another user in the same tenant (NOA-238).
+  // Non-master attempts are rejected by the service layer.
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+
   @IsObject()
   @IsNotEmpty()
   dataJson: Record<string, any>;

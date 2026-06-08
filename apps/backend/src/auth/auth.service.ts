@@ -13,6 +13,12 @@ import { UserRole, UserStatus } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../email/email.service';
+import { AuthException } from './exceptions/auth.exception';
+
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LEVEL_1_DURATION_MS = 1 * 60 * 1000;   // 1 minute
+const LEVEL_2_DURATION_MS = 5 * 60 * 1000;   // 5 minutes
+const PERMANENT_LOCK_DATE = new Date('9999-12-31T23:59:59.999Z');
 
 @Injectable()
 export class AuthService {
@@ -24,30 +30,6 @@ export class AuthService {
     private configService: ConfigService,
     private emailService: EmailService,
   ) {}
-
-  async validateUser(email: string, password: string) {
-    const normalizedEmail = email.trim().toLowerCase();
-
-    const user = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-
-    if (!isMatch) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    return user;
-  }
 
   async register(data: RegisterDto) {
     const normalizedEmail = data.email.trim().toLowerCase();
@@ -94,7 +76,59 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.validateUser(email, password);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    // Same generic error for "user not found" and "wrong password" prevents
+    // email enumeration via the response shape.
+    if (!user) {
+      throw AuthException.invalidCredentials();
+    }
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      if (user.lockLevel >= 3) {
+        throw AuthException.accountPermanentlyLocked();
+      }
+      const retryAfter = Math.ceil(
+        (user.lockedUntil.getTime() - Date.now()) / 1000,
+      );
+      throw AuthException.accountLocked(retryAfter);
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw AuthException.accountNotActive();
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isMatch) {
+      const result = await this.recordFailedLogin(
+        user.id,
+        user.failedLoginAttempts,
+        user.lockLevel,
+      );
+      if (result.justLocked) {
+        void this.sendAccountLockedEmail(user.email, result.lockLevel);
+        if (result.lockLevel >= 3) {
+          throw AuthException.accountPermanentlyLocked();
+        }
+        throw AuthException.accountLocked(result.durationMs / 1000);
+      }
+      throw AuthException.invalidCredentials();
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockLevel: 0,
+        lockedUntil: null,
+        lastLoginAt: new Date(),
+      },
+    });
 
     const payload = {
       sub: user.id,
@@ -117,6 +151,94 @@ export class AuthService {
         mustChangePassword: user.mustChangePassword,
       },
     };
+  }
+
+  private async recordFailedLogin(
+    userId: string,
+    currentAttempts: number,
+    currentLockLevel: number,
+  ): Promise<{ justLocked: boolean; lockLevel: number; durationMs: number }> {
+    if (currentLockLevel === 0) {
+      const nextAttempts = currentAttempts + 1;
+      if (nextAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: {
+            failedLoginAttempts: 0,
+            lockLevel: 1,
+            lockedUntil: new Date(Date.now() + LEVEL_1_DURATION_MS),
+          },
+        });
+        return { justLocked: true, lockLevel: 1, durationMs: LEVEL_1_DURATION_MS };
+      }
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { failedLoginAttempts: nextAttempts },
+      });
+      return { justLocked: false, lockLevel: 0, durationMs: 0 };
+    }
+
+    if (currentLockLevel === 1) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          failedLoginAttempts: 0,
+          lockLevel: 2,
+          lockedUntil: new Date(Date.now() + LEVEL_2_DURATION_MS),
+        },
+      });
+      return { justLocked: true, lockLevel: 2, durationMs: LEVEL_2_DURATION_MS };
+    }
+
+    // Level 2 expired, one more failure → permanent lock
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: 0,
+        lockLevel: 3,
+        lockedUntil: PERMANENT_LOCK_DATE,
+      },
+    });
+    return { justLocked: true, lockLevel: 3, durationMs: 0 };
+  }
+
+  private async sendAccountLockedEmail(
+    email: string,
+    lockLevel: number,
+  ): Promise<void> {
+    this.logger.log(
+      `Sending account-locked email (level ${lockLevel} triggered)`,
+    );
+
+    const durationMs =
+      lockLevel === 1
+        ? LEVEL_1_DURATION_MS
+        : lockLevel === 2
+          ? LEVEL_2_DURATION_MS
+          : 0;
+
+    const unlocksAtText =
+      lockLevel >= 3
+        ? 'permanently (password reset required)'
+        : `at ${new Date(Date.now() + durationMs).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}`;
+
+    const appUrl =
+      this.configService.get<string>('APP_URL')?.trim().replace(/\/$/, '') ||
+      'http://127.0.0.1:3001';
+    const resetLink = `${appUrl}/login?view=forgotPassword`;
+
+    try {
+      await this.emailService.sendAccountLockedEmail({
+        to: email,
+        unlocksAtText,
+        resetLink,
+      });
+    } catch {
+      // EmailService logged it.
+    }
   }
 
   async changePassword(userId: string, password: string) {
@@ -201,21 +323,15 @@ export class AuthService {
         );
       }
 
-      const baseResponse: { message: string; resetLink?: string } = {
-        message:
-          'If the email exists, recovery instructions will be sent to your inbox.',
+      return {
+        message: 'We sent a reset link to your email. It expires in 15 minutes.',
+        userFound: true,
       };
-
-      if (process.env.NODE_ENV !== 'production') {
-        baseResponse.resetLink = resetLink;
-      }
-
-      return baseResponse;
     }
 
     return {
-      message:
-        'If the email exists, recovery instructions will be sent to your inbox.',
+      message: "We couldn't find an account with that email.",
+      userFound: false,
     };
   }
 
@@ -256,6 +372,9 @@ export class AuthService {
         data: {
           passwordHash,
           mustChangePassword: false,
+          failedLoginAttempts: 0,
+          lockLevel: 0,
+          lockedUntil: null,
         },
       }),
       this.prisma.passwordResetToken.update({

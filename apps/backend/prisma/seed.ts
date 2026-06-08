@@ -277,12 +277,6 @@ const constructionSchema = {
           showWhen: 'finance',
           row: 'fin4',
         },
-        {
-          key: 'payment_schedule',
-          label: 'Payment schedule',
-          type: 'text',
-          placeholder: 'Payment schedule',
-        },
       ],
     },
     {

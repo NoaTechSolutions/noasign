@@ -7,14 +7,28 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
-import { DocumentStatus, Prisma } from '@prisma/client';
+import {
+  DocumentFileType,
+  DocumentStatus,
+  Prisma,
+  StorageProvider,
+} from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { Response } from 'express';
+import type { WebhookEventPayload } from 'resend';
 import { EmailService } from '../email/email.service';
+import { R2Service } from '../storage/r2.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignatureProviderService } from '../signature-provider/signature-provider.service';
 import { CreateDraftDocumentDto } from './dto/create-draft-document.dto';
 import { UpdateDraftDocumentDto } from './dto/update-draft-document.dto';
+import {
+  formatCooldownRemaining as formatCooldownRemainingMs,
+  getResendAvailableAt as computeResendAvailableAt,
+  getResendCooldownRemainingMs as computeResendCooldownRemainingMs,
+  normalizeEmail as normalizeEmailValue,
+} from '../common/resend-cooldown';
+import { evaluateReceiptResend } from '../common/receipt-resend-policy';
 
 type ScalarValue = string | number | boolean;
 
@@ -68,6 +82,14 @@ const documentDetailInclude = {
   formDefinition: true,
   signatureTemplate: true,
   data: true,
+  customer: true,
+  companyProfile: true,
+  // select (not `true`) so the password hash never reaches the serialized detail.
+  user: { select: { id: true, email: true, firstName: true, lastName: true } },
+  // Receipt reissue (2c) traceability: the original this one corrects, and the
+  // receipt(s) that superseded this one. Lightweight selects (id + number).
+  supersedes: { select: { id: true, documentNumber: true } },
+  supersededBy: { select: { id: true, documentNumber: true } },
 } satisfies Prisma.DocumentInclude;
 
 const publicDocumentInclude = {
@@ -80,7 +102,6 @@ const publicDocumentInclude = {
 } satisfies Prisma.DocumentInclude;
 
 const PUBLIC_SIGNATURE_LINK_TTL_MS = 1000 * 60 * 60 * 24 * 14;
-const MANUAL_REMINDER_COOLDOWN_MS = 1000 * 60 * 60 * 24;
 
 @Injectable()
 export class DocumentsService {
@@ -91,7 +112,55 @@ export class DocumentsService {
     @Inject(forwardRef(() => SignatureProviderService))
     private readonly signatureProviderService: SignatureProviderService,
     private readonly emailService: EmailService,
+    private readonly r2: R2Service,
   ) {}
+
+  // Deterministic R2 object key for a contract's signed PDF (one per document).
+  private contractR2Key(
+    companyProfileId: string | null,
+    documentId: string,
+  ): string {
+    return `signed/${companyProfileId ?? 'no-tenant'}/${documentId}.pdf`;
+  }
+
+  /**
+   * Ensure the signed PDF is cached in R2 and return its object key (or null if
+   * R2 is disabled / the doc has no provider id). Downloads from BoldSign only
+   * once (first call) — subsequent calls reuse the stored DocumentFile. Used by
+   * the COMPLETED sync (eager warm) and streamFinalPdf (lazy on-read + backfill).
+   */
+  private async ensureContractPdfInR2(document: {
+    id: string;
+    companyProfileId: string | null;
+    providerDocumentId: string | null;
+    documentNumber: string;
+  }): Promise<string | null> {
+    if (!this.r2.isConfigured() || !document.providerDocumentId) {
+      return null;
+    }
+    const existing = await this.prisma.documentFile.findFirst({
+      where: { documentId: document.id, fileType: DocumentFileType.SIGNED_PDF },
+    });
+    if (existing) {
+      return existing.storageUrl;
+    }
+    const key = this.contractR2Key(document.companyProfileId, document.id);
+    const pdf = await this.signatureProviderService.downloadDocumentPdf(
+      document.providerDocumentId,
+    );
+    await this.r2.putObject(key, pdf.buffer, pdf.contentType ?? 'application/pdf');
+    await this.prisma.documentFile.create({
+      data: {
+        documentId: document.id,
+        fileType: DocumentFileType.SIGNED_PDF,
+        provider: StorageProvider.R2,
+        storageUrl: key,
+        fileName: `${document.documentNumber}.pdf`,
+        mimeType: 'application/pdf',
+      },
+    });
+    return key;
+  }
 
   private getCurrentBillingPeriod(date = new Date()): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -142,8 +211,13 @@ export class DocumentsService {
       this.isResendEligibleStatus(document.status) &&
       resendAvailableInSeconds === 0;
 
+    // Receipt resend policy v2 — live countdown / "limit reached" for receipts.
+    // Contracts keep the 24h fields above, untouched (this is null for them).
+    const receiptResend = this.buildReceiptResendState(document, now);
+
     return {
       ...document,
+      receiptResend,
       providerDocumentId: document.providerDocumentId ?? null,
       providerStatus: document.providerStatus ?? null,
       providerLastSyncedAt: document.providerLastSyncedAt ?? null,
@@ -163,6 +237,53 @@ export class DocumentsService {
               document.signatureTemplate.providerTemplateId ?? null,
           }
         : null,
+    };
+  }
+
+  // Receipt-only: evaluate the resend policy v2 for the UI's countdown / limit.
+  // Returns null for contracts (and for non-receipts), leaving them untouched.
+  private buildReceiptResendState(
+    document: {
+      documentType?: { code?: string | null } | null;
+      data?: { dataJson?: unknown } | null;
+      sendCount?: number | null;
+      lastAttemptAt?: Date | string | null;
+      lastSentRecipientEmail?: string | null;
+    },
+    now: Date,
+  ): {
+    canResend: boolean;
+    retryAfterSeconds: number;
+    limitReached: boolean;
+  } | null {
+    if (document.documentType?.code !== 'PAYMENT_RECEIPT') {
+      return null;
+    }
+    const dataJson = document.data?.dataJson;
+    const currentEmail =
+      dataJson &&
+      typeof dataJson === 'object' &&
+      !Array.isArray(dataJson) &&
+      typeof (dataJson as Record<string, unknown>).email === 'string'
+        ? ((dataJson as Record<string, unknown>).email as string)
+        : '';
+    const decision = evaluateReceiptResend({
+      sendCount: typeof document.sendCount === 'number' ? document.sendCount : 0,
+      lastAttemptAt: document.lastAttemptAt ?? null,
+      lastEmail: document.lastSentRecipientEmail ?? null,
+      currentEmail,
+      now,
+    });
+    if (decision.allowed) {
+      return { canResend: true, retryAfterSeconds: 0, limitReached: false };
+    }
+    if (decision.reason === 'hard-cap') {
+      return { canResend: false, retryAfterSeconds: 0, limitReached: true };
+    }
+    return {
+      canResend: false,
+      retryAfterSeconds: Math.ceil(decision.retryAfterMs / 1000),
+      limitReached: false,
     };
   }
 
@@ -194,40 +315,21 @@ export class DocumentsService {
   }
 
   private getResendAvailableAt(lastManualReminderAt?: Date | string | null) {
-    if (!lastManualReminderAt) {
-      return null;
-    }
-
-    const reminderDate =
-      lastManualReminderAt instanceof Date
-        ? lastManualReminderAt
-        : new Date(lastManualReminderAt);
-
-    if (Number.isNaN(reminderDate.getTime())) {
-      return null;
-    }
-
-    return new Date(reminderDate.getTime() + MANUAL_REMINDER_COOLDOWN_MS);
+    return computeResendAvailableAt(lastManualReminderAt ?? null);
   }
 
   private getResendCooldownRemainingMs(
     document: { lastManualReminderAt?: Date | string | null },
     now = new Date(),
   ) {
-    const resendAvailableAt = this.getResendAvailableAt(
+    return computeResendCooldownRemainingMs(
       document.lastManualReminderAt ?? null,
+      now,
     );
-
-    if (!resendAvailableAt) {
-      return 0;
-    }
-
-    return Math.max(0, resendAvailableAt.getTime() - now.getTime());
   }
 
   private normalizeEmail(value?: string | null) {
-    const normalized = value?.trim().toLowerCase() ?? '';
-    return normalized.length > 0 ? normalized : null;
+    return normalizeEmailValue(value ?? null);
   }
 
   private getCurrentRecipientEmail(document: {
@@ -308,20 +410,7 @@ export class DocumentsService {
   }
 
   private formatCooldownRemaining(remainingMs: number) {
-    const totalSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${seconds}s`;
-    }
-
-    if (minutes > 0) {
-      return `${minutes}m ${seconds}s`;
-    }
-
-    return `${seconds}s`;
+    return formatCooldownRemainingMs(remainingMs);
   }
 
   private getDocumentStatusRank(status?: DocumentStatus | null) {
@@ -398,17 +487,41 @@ export class DocumentsService {
     };
   }
 
-  async getDocumentTypes(userId: string) {
+  async getDocumentTypes(userId: string, asUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { role: true, companyProfileId: true },
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    if (user.role === 'MASTER') {
+    // NOA-238 — master may pass ?asUserId=<id> to see the catalog as the
+    // target user would. Validates the target lives in the same tenant
+    // before swapping perspective.
+    let effectiveUserId = userId;
+    let effectiveRole = user.role;
+    if (asUserId && asUserId !== userId) {
+      if (user.role !== 'MASTER') {
+        throw new ForbiddenException(
+          'Only master users can request templates as another user',
+        );
+      }
+      const target = await this.prisma.user.findFirst({
+        where: { id: asUserId, companyProfileId: user.companyProfileId },
+        select: { id: true, role: true },
+      });
+      if (!target) {
+        throw new BadRequestException(
+          'Target user not found in the current tenant',
+        );
+      }
+      effectiveUserId = target.id;
+      effectiveRole = target.role;
+    }
+
+    if (effectiveRole === 'MASTER') {
       const documentTypes = await this.prisma.documentType.findMany({
         include: {
           formDefinitions: {
@@ -429,7 +542,7 @@ export class DocumentsService {
     }
 
     const configs = await this.prisma.userDocumentConfig.findMany({
-      where: { userId, isActive: true },
+      where: { userId: effectiveUserId, isActive: true },
       include: {
         documentType: true,
         formDefinition: true,
@@ -437,16 +550,31 @@ export class DocumentsService {
       },
     });
 
-    const typeMap = new Map<string, {
-      id: string;
-      name: string;
-      code: string;
-      formDefinitions: Array<{ id: string; name: string; schemaJson: unknown }>;
-      signatureTemplates: Array<{ id: string; name: string; providerTemplateId: string | null }>;
-    }>();
+    const typeMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        code: string;
+        generationMode: string;
+        formDefinitions: Array<{
+          id: string;
+          name: string;
+          schemaJson: unknown;
+        }>;
+        signatureTemplates: Array<{
+          id: string;
+          name: string;
+          providerTemplateId: string | null;
+        }>;
+      }
+    >();
 
     for (const config of configs) {
-      if (!config.formDefinition.isActive || !config.signatureTemplate.isActive) {
+      if (
+        !config.formDefinition.isActive ||
+        !config.signatureTemplate.isActive
+      ) {
         continue;
       }
 
@@ -457,20 +585,88 @@ export class DocumentsService {
           id: config.documentType.id,
           name: config.documentType.name,
           code: config.documentType.code,
-          formDefinitions: [{ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson }],
-          signatureTemplates: [{ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId }],
+          generationMode: config.documentType.generationMode,
+          formDefinitions: [
+            {
+              id: config.formDefinition.id,
+              name: config.formDefinition.name,
+              schemaJson: config.formDefinition.schemaJson,
+            },
+          ],
+          signatureTemplates: [
+            {
+              id: config.signatureTemplate.id,
+              name: config.signatureTemplate.name,
+              providerTemplateId: config.signatureTemplate.providerTemplateId,
+            },
+          ],
         });
       } else {
-        if (!existing.formDefinitions.some((fd) => fd.id === config.formDefinition.id)) {
-          existing.formDefinitions.push({ id: config.formDefinition.id, name: config.formDefinition.name, schemaJson: config.formDefinition.schemaJson });
+        if (
+          !existing.formDefinitions.some(
+            (fd) => fd.id === config.formDefinition.id,
+          )
+        ) {
+          existing.formDefinitions.push({
+            id: config.formDefinition.id,
+            name: config.formDefinition.name,
+            schemaJson: config.formDefinition.schemaJson,
+          });
         }
-        if (!existing.signatureTemplates.some((st) => st.id === config.signatureTemplate.id)) {
-          existing.signatureTemplates.push({ id: config.signatureTemplate.id, name: config.signatureTemplate.name, providerTemplateId: config.signatureTemplate.providerTemplateId });
+        if (
+          !existing.signatureTemplates.some(
+            (st) => st.id === config.signatureTemplate.id,
+          )
+        ) {
+          existing.signatureTemplates.push({
+            id: config.signatureTemplate.id,
+            name: config.signatureTemplate.name,
+            providerTemplateId: config.signatureTemplate.providerTemplateId,
+          });
         }
       }
     }
 
-    return Array.from(typeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    // Receipts (DIRECT_PDF) are available company-wide: any non-master user
+    // whose company has an active ReceiptTemplate can create them — no per-user
+    // UserDocumentConfig is needed (unlike BoldSign types).
+    if (user.companyProfileId) {
+      const receiptTemplates = await this.prisma.receiptTemplate.findMany({
+        where: { companyProfileId: user.companyProfileId, isActive: true },
+        select: { id: true },
+      });
+      if (receiptTemplates.length > 0) {
+        const directTypes = await this.prisma.documentType.findMany({
+          where: { generationMode: 'DIRECT_PDF' },
+          include: {
+            formDefinitions: {
+              where: { isActive: true },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+          orderBy: { name: 'asc' },
+        });
+        for (const dt of directTypes) {
+          if (typeMap.has(dt.id)) continue;
+          typeMap.set(dt.id, {
+            id: dt.id,
+            name: dt.name,
+            code: dt.code,
+            generationMode: dt.generationMode,
+            formDefinitions: dt.formDefinitions.map((fd) => ({
+              id: fd.id,
+              name: fd.name,
+              schemaJson: fd.schemaJson,
+            })),
+            signatureTemplates: [],
+          });
+        }
+      }
+    }
+
+    return Array.from(typeMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
   }
 
   private async generateDocumentNumber(
@@ -484,16 +680,25 @@ export class DocumentsService {
       throw new NotFoundException('Document type not found');
     }
 
-    const latestDocument = await this.prisma.document.findFirst({
-      where: { documentTypeId },
+    // documentNumber is GLOBALLY @unique, so numbering stays global per type
+    // (NOT scoped per tenant — scoping the max to one tenant would generate
+    // numbers that collide with other tenants on the global constraint).
+    // Fetch only same-prefix rows and take the NUMERIC max: a plain string-sort
+    // "latest" breaks when dev/seed data mixes other formats (e.g.
+    // "SEED-LOCAL-PERSONAL-…-3"), which would be picked as latest and then
+    // collide on the unique constraint.
+    const prefix = `${documentType.code}-`;
+    const existing = await this.prisma.document.findMany({
+      where: { documentTypeId, documentNumber: { startsWith: prefix } },
       select: { documentNumber: true },
-      orderBy: { documentNumber: 'desc' },
     });
+    const maxNumber = existing.reduce((max, doc) => {
+      const suffix = doc.documentNumber.slice(prefix.length);
+      if (!/^\d+$/.test(suffix)) return max;
+      return Math.max(max, Number(suffix));
+    }, 0);
 
-    const latestMatch = latestDocument?.documentNumber.match(/-(\d+)$/);
-    const currentNumber = latestMatch ? Number(latestMatch[1]) : 0;
-    const nextNumber = currentNumber + 1;
-    return `${documentType.code}-${String(nextNumber).padStart(6, '0')}`;
+    return `${documentType.code}-${String(maxNumber + 1).padStart(6, '0')}`;
   }
 
   async createDraftDocument(userId: string, body: CreateDraftDocumentDto) {
@@ -540,11 +745,51 @@ export class DocumentsService {
       );
     }
 
+    // If caller linked a customer, verify it belongs to this tenant before
+    // writing the FK. Unknown or cross-tenant ids → 404 so we never leak
+    // existence across companies.
+    if (body.customerId) {
+      const customer = await this.prisma.customer.findFirst({
+        where: {
+          id: body.customerId,
+          companyProfileId: user.companyProfileId,
+        },
+        select: { id: true },
+      });
+      if (!customer) {
+        throw new NotFoundException('Customer not found');
+      }
+    }
+
+    // NOA-238 — master may assign the draft to another tenant user. The
+    // resulting Document.userId controls visibility under the per-user
+    // scope at getDocumentAccessScope, so this is effectively "create on
+    // behalf of <user>". Non-master attempts to override are rejected.
+    let ownerUserId: string = user.id;
+    if (body.userId && body.userId !== user.id) {
+      if (user.role !== 'MASTER') {
+        throw new ForbiddenException(
+          'Only master users can create documents on behalf of another user',
+        );
+      }
+      const target = await this.prisma.user.findFirst({
+        where: { id: body.userId, companyProfileId: user.companyProfileId },
+        select: { id: true },
+      });
+      if (!target) {
+        throw new BadRequestException(
+          'Target user not found in the current tenant',
+        );
+      }
+      ownerUserId = target.id;
+    }
+
     const document = await this.prisma.document.create({
       data: {
         documentNumber: await this.generateDocumentNumber(body.documentTypeId),
-        userId: user.id,
+        userId: ownerUserId,
         companyProfileId: user.companyProfileId,
+        customerId: body.customerId ?? null,
         documentTypeId: body.documentTypeId,
         formDefinitionId: body.formDefinitionId,
         signatureTemplateId,
@@ -718,7 +963,8 @@ export class DocumentsService {
     let providerDocumentId = document.providerDocumentId;
     let providerStatus = document.providerStatus;
 
-    const { completionUrl: baseCompletionUrl, signingProxyUrl } = this.buildPublicSignatureLinks(documentId, recipient.email);
+    const { completionUrl: baseCompletionUrl, signingProxyUrl } =
+      this.buildPublicSignatureLinks(documentId, recipient.email);
     const completionUrl = `${baseCompletionUrl}&email=${encodeURIComponent(recipient.email)}`;
 
     if (!providerDocumentId) {
@@ -818,6 +1064,11 @@ export class DocumentsService {
       message,
     });
 
+    // FASE 2: Resend message id of the invitation, captured so a later async
+    // bounce webhook can correlate the bounce back to this contract. Email
+    // failure is non-fatal (doc is already sent in BoldSign), so it stays null.
+    let providerEmailId: string | null = null;
+
     // Fetch the signer's signing link from BoldSign and send our own email
     try {
       // Use signing proxy URL so re-clicks after signing redirect to success page
@@ -829,7 +1080,7 @@ export class DocumentsService {
           completionUrl,
         );
       }
-      await this.emailService.sendSigningInvitation({
+      const { id } = await this.emailService.sendSigningInvitation({
         to: recipient.email,
         signerName: this.buildPublicSignerName(document),
         senderName: this.buildPublicSenderName(document),
@@ -841,6 +1092,7 @@ export class DocumentsService {
         documentNumber: document.documentNumber,
         signingUrl: emailSigningUrl,
       });
+      providerEmailId = id || null;
     } catch (emailError) {
       this.logger.error(
         `[sendDraftDocument] Email sending failed for document ${documentId}: ${emailError instanceof Error ? emailError.message : String(emailError)}`,
@@ -861,6 +1113,7 @@ export class DocumentsService {
         providerDocumentId,
         providerStatus: 'document.sent',
         providerLastSyncedAt: new Date(),
+        providerEmailId,
       },
       include: documentDetailInclude,
     });
@@ -871,6 +1124,72 @@ export class DocumentsService {
       billingPeriod: null,
       document: this.serializeDocument(updatedDocument),
     };
+  }
+
+  /**
+   * Handle a verified Resend webhook event (FASE 2: async bounce detection).
+   *
+   * Resend accepts a send synchronously (returns an id, looks SENT) but a hard
+   * bounce arrives minutes later as a webhook. We only act on a PERMANENT
+   * bounce — flip the matching document to SEND_FAILED with a human-readable
+   * reason so receipts AND contracts show the truth instead of a phantom SENT.
+   * Transient (soft) bounces are retried by Resend, so we ignore them. Spam
+   * complaints are logged softly (reputation signal, no status change). Unknown
+   * events and unmatched ids are benign no-ops (we still ack with 200).
+   */
+  async handleResendWebhook(event: WebhookEventPayload): Promise<void> {
+    if (event.type === 'email.bounced') {
+      const emailId = event.data.email_id;
+      const bounceType = event.data.bounce?.type ?? '';
+      const bounceMessage = event.data.bounce?.message ?? 'Email bounced';
+
+      // Only PERMANENT (hard) bounces are terminal. Transient = Resend retries.
+      if (bounceType.toLowerCase() !== 'permanent') {
+        this.logger.log(
+          `[ResendWebhook] Ignoring non-permanent bounce (${bounceType}) for email ${emailId}`,
+        );
+        return;
+      }
+
+      if (!emailId) {
+        return;
+      }
+
+      const document = await this.prisma.document.findFirst({
+        where: { providerEmailId: emailId },
+      });
+
+      if (!document) {
+        // Foreign id — e.g. cross-talk from a shared Resend account, or an old
+        // send whose id was overwritten by a resend. Benign no-op.
+        this.logger.warn(
+          `[ResendWebhook] Permanent bounce for unknown email id ${emailId} — no matching document`,
+        );
+        return;
+      }
+
+      await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: `Bounced: ${bounceMessage}`,
+        },
+      });
+
+      this.logger.warn(
+        `[ResendWebhook] Document ${document.id} marked SEND_FAILED — permanent bounce: ${bounceMessage}`,
+      );
+      return;
+    }
+
+    if (event.type === 'email.complained') {
+      this.logger.warn(
+        `[ResendWebhook] Spam complaint for email id ${event.data.email_id} — logged for reputation (no status change)`,
+      );
+      return;
+    }
+
+    // Any other event type → ack as a no-op.
   }
 
   async resendDocument(userId: string, documentId: string) {
@@ -967,10 +1286,11 @@ export class DocumentsService {
     if (
       document.status !== DocumentStatus.DRAFT &&
       document.status !== DocumentStatus.SENT &&
-      document.status !== DocumentStatus.VIEWED
+      document.status !== DocumentStatus.VIEWED &&
+      document.status !== DocumentStatus.SEND_FAILED
     ) {
       throw new BadRequestException(
-        'Only draft, sent or viewed documents can be cancelled',
+        'Only draft, sent, viewed or failed documents can be cancelled',
       );
     }
 
@@ -1248,6 +1568,31 @@ export class DocumentsService {
       );
     }
 
+    // Dev/test bypass: documents seeded with a 'test-pdf*' provider id have no
+    // real BoldSign document. Stream a self-generated sample PDF (no external
+    // dependency) so the preview/download UI can be exercised end-to-end. Never
+    // fires for real documents — their provider ids are BoldSign UUIDs.
+    if (document.providerDocumentId.startsWith('test-pdf')) {
+      const customerName =
+        document.customer?.fullName ?? document.customer?.email ?? 'N/A';
+      const buffer = buildSampleSignedPdf([
+        'SAMPLE SIGNED DOCUMENT',
+        '',
+        `Document: ${document.documentNumber}`,
+        `Customer: ${customerName}`,
+        `Status:   ${document.status}`,
+        '',
+        'This is a generated test PDF (no real BoldSign document).',
+      ]);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${document.documentNumber}.pdf"`,
+      );
+      res.send(buffer);
+      return;
+    }
+
     const remoteStatus = await this.signatureProviderService.getDocumentStatus(
       document.providerDocumentId,
     );
@@ -1276,11 +1621,35 @@ export class DocumentsService {
       );
     }
 
+    const safeFileName = `${document.documentNumber}.pdf`;
+
+    // With R2: cache the signed PDF (lazy backfill for pre-R2 docs) and stream
+    // the bytes through the backend (same-origin). NOT a 302 to a presigned R2
+    // URL — R2 sends no CORS headers, so the in-app viewer's blob fetch that
+    // follows the redirect is blocked → blank PDF.
+    if (this.r2.isConfigured()) {
+      const key = await this.ensureContractPdfInR2({
+        id: document.id,
+        companyProfileId: document.companyProfileId,
+        providerDocumentId: document.providerDocumentId,
+        documentNumber: document.documentNumber,
+      });
+      if (key) {
+        const buffer = await this.r2.getObject(key);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${safeFileName}"`,
+        );
+        res.send(buffer);
+        return;
+      }
+    }
+
+    // Fallback (R2 disabled): stream straight from BoldSign (legacy).
     const pdf = await this.signatureProviderService.downloadDocumentPdf(
       document.providerDocumentId,
     );
-    const safeFileName = `${document.documentNumber}.pdf`;
-
     res.setHeader('Content-Type', pdf.contentType ?? 'application/pdf');
     res.setHeader(
       'Content-Disposition',
@@ -1583,6 +1952,19 @@ export class DocumentsService {
       },
     });
 
+    // Eagerly cache the signed PDF in R2 (best-effort, non-blocking). Lazy
+    // on-read (streamFinalPdf) is the safety net if this is skipped or fails.
+    void this.ensureContractPdfInR2({
+      id: document.id,
+      companyProfileId: document.companyProfileId,
+      providerDocumentId: document.providerDocumentId,
+      documentNumber: document.documentNumber,
+    }).catch((err) =>
+      this.logger.warn(
+        `[R2] Eager signed-PDF cache failed for ${document.id}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
+
     // Send confirmation email to the signer with the signed PDF attached.
     // If BoldSign hasn't generated the PDF yet after all retries, send a
     // "your copy is on its way" email instead — never send without the attachment.
@@ -1687,9 +2069,10 @@ export class DocumentsService {
         await this.sleep(delayMs);
       }
       try {
-        const pdf = await this.signatureProviderService.downloadDocumentPdf(
-          providerDocumentId,
-        );
+        const pdf =
+          await this.signatureProviderService.downloadDocumentPdf(
+            providerDocumentId,
+          );
         this.logger.log(
           `[syncDocumentToCompleted] PDF ready on attempt ${attempt + 1}/${retries} for document ${documentId}`,
         );
@@ -1701,7 +2084,7 @@ export class DocumentsService {
       }
     }
     this.logger.error(
-      `[syncDocumentToCompleted] PDF not available after ${retries} attempts (~${Math.round((retries - 1) * delayMs / 1000)}s) for document ${documentId}`,
+      `[syncDocumentToCompleted] PDF not available after ${retries} attempts (~${Math.round(((retries - 1) * delayMs) / 1000)}s) for document ${documentId}`,
     );
     return null;
   }
@@ -1834,10 +2217,22 @@ export class DocumentsService {
     };
   }
 
-  private createSigningProxyToken(documentId: string, signerEmail: string): string {
+  private createSigningProxyToken(
+    documentId: string,
+    signerEmail: string,
+  ): string {
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 30 days
-    const payload: SigningProxyTokenPayload = { v: 1, p: 'sign-proxy', documentId, signerEmail, exp };
-    const encodedPayload = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+    const payload: SigningProxyTokenPayload = {
+      v: 1,
+      p: 'sign-proxy',
+      documentId,
+      signerEmail,
+      exp,
+    };
+    const encodedPayload = Buffer.from(
+      JSON.stringify(payload),
+      'utf8',
+    ).toString('base64url');
     const signature = createHmac('sha256', this.getPublicSignatureSecret())
       .update(encodedPayload)
       .digest('base64url');
@@ -1845,11 +2240,17 @@ export class DocumentsService {
   }
 
   async resolveSigningRedirect(proxyToken: string): Promise<string> {
-    const [encodedPayload, receivedSignature] = proxyToken.trim().split('.', 2).filter(Boolean);
+    const [encodedPayload, receivedSignature] = proxyToken
+      .trim()
+      .split('.', 2)
+      .filter(Boolean);
     if (!encodedPayload || !receivedSignature) {
       throw new BadRequestException('Invalid signing proxy token');
     }
-    const expectedSignature = createHmac('sha256', this.getPublicSignatureSecret())
+    const expectedSignature = createHmac(
+      'sha256',
+      this.getPublicSignatureSecret(),
+    )
       .update(encodedPayload)
       .digest('base64url');
     if (!this.safeCompare(expectedSignature, receivedSignature)) {
@@ -1857,22 +2258,35 @@ export class DocumentsService {
     }
     let payload: SigningProxyTokenPayload;
     try {
-      payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as SigningProxyTokenPayload;
+      payload = JSON.parse(
+        Buffer.from(encodedPayload, 'base64url').toString('utf8'),
+      ) as SigningProxyTokenPayload;
     } catch {
       throw new BadRequestException('Invalid signing proxy token');
     }
-    if (payload.v !== 1 || payload.p !== 'sign-proxy' || !payload.documentId || !payload.signerEmail) {
+    if (
+      payload.v !== 1 ||
+      payload.p !== 'sign-proxy' ||
+      !payload.documentId ||
+      !payload.signerEmail
+    ) {
       throw new BadRequestException('Invalid signing proxy token');
     }
     if (payload.exp * 1000 <= Date.now()) {
       throw new BadRequestException('Signing link has expired');
     }
 
-    const document = await this.prisma.document.findUnique({ where: { id: payload.documentId } });
+    const document = await this.prisma.document.findUnique({
+      where: { id: payload.documentId },
+    });
     const appUrl = this.getAppUrl();
     const emailParam = `email=${encodeURIComponent(payload.signerEmail)}`;
 
-    const terminalStatuses: DocumentStatus[] = [DocumentStatus.COMPLETED, DocumentStatus.SIGNED, DocumentStatus.CANCELLED];
+    const terminalStatuses: DocumentStatus[] = [
+      DocumentStatus.COMPLETED,
+      DocumentStatus.SIGNED,
+      DocumentStatus.CANCELLED,
+    ];
     if (!document || terminalStatuses.includes(document.status)) {
       return `${appUrl}/signature-complete?${emailParam}`;
     }
@@ -1881,7 +2295,9 @@ export class DocumentsService {
       return `${appUrl}/signature-complete?${emailParam}`;
     }
 
-    const { completionUrl: baseCompletionUrl } = this.buildPublicSignatureLinks(payload.documentId);
+    const { completionUrl: baseCompletionUrl } = this.buildPublicSignatureLinks(
+      payload.documentId,
+    );
     const completionUrl = `${baseCompletionUrl}&${emailParam}`;
 
     const signingLink = await this.signatureProviderService.getSigningLink(
@@ -1965,7 +2381,7 @@ export class DocumentsService {
       last_name: lastName || undefined,
       firstName: firstName || undefined,
       lastName: lastName || undefined,
-      role: document.signatureTemplate.recipientRole || 'BUYER',
+      role: document.signatureTemplate?.recipientRole || 'BUYER',
     };
   }
 
@@ -2103,9 +2519,9 @@ export class DocumentsService {
         'signature_request_reassigned',
         'revoked',
         'reassigned',
-        'documentdeclined',   // BoldSign webhook
-        'documentexpired',    // BoldSign webhook
-        'documentrevoked',    // BoldSign webhook
+        'documentdeclined', // BoldSign webhook
+        'documentexpired', // BoldSign webhook
+        'documentrevoked', // BoldSign webhook
         'documentreassigned', // BoldSign webhook
       ].includes(normalized)
     ) {
@@ -2153,6 +2569,8 @@ export class DocumentsService {
         zipCode: document.companyProfile?.zipCode ?? '',
         country: document.companyProfile?.country ?? '',
         licenseNumber: document.companyProfile?.licenseNumber ?? '',
+        insuranceName: document.companyProfile?.insuranceName ?? '',
+        insurancePhone: document.companyProfile?.insurancePhone ?? '',
       },
       contact: {
         firstName: document.companyProfile?.contactFirstName ?? '',
@@ -2206,6 +2624,14 @@ export class DocumentsService {
       this.readScalarString(context.data.state),
       this.readScalarString(context.data.zip),
     );
+    // Project address combined — the BoldSign template exposes a single
+    // `project_city_state_zip` field (the form keeps city/state/zip separate),
+    // mirroring the customer_city_state_zip derivation above.
+    const projectCityStateZip = this.formatCityStateZip(
+      this.readScalarString(context.data.project_city),
+      this.readScalarString(context.data.project_state),
+      this.readScalarString(context.data.project_zip),
+    );
 
     this.assignScalarValue(
       fallback,
@@ -2243,6 +2669,17 @@ export class DocumentsService {
       fallback,
       'company_city_state_zip',
       companyCityStateZip,
+    );
+    // Insurance (from CompanyProfile) — matches the template's insurance fields.
+    this.assignScalarValue(
+      fallback,
+      'insurance_name',
+      context.company.insuranceName,
+    );
+    this.assignScalarValue(
+      fallback,
+      'insurance_phone',
+      context.company.insurancePhone,
     );
     this.assignScalarValue(
       fallback,
@@ -2301,6 +2738,11 @@ export class DocumentsService {
       fallback,
       'customer_city_state_zip',
       customerCityStateZip,
+    );
+    this.assignScalarValue(
+      fallback,
+      'project_city_state_zip',
+      projectCityStateZip,
     );
 
     for (const [key, value] of Object.entries(context.data)) {
@@ -2486,4 +2928,47 @@ export class DocumentsService {
     }
     return null;
   }
+}
+
+/**
+ * Builds a minimal, valid single-page PDF with the given text lines. Offsets in
+ * the xref table are computed from the actual byte positions (not hardcoded), so
+ * the file is well-formed. Used only by the 'test-pdf*' dev bypass — no external
+ * dependency, no PDF library needed.
+ */
+function buildSampleSignedPdf(lines: string[]): Buffer {
+  const esc = (s: string) =>
+    s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+  const content =
+    lines
+      .map(
+        (line, i) =>
+          `BT /F1 ${i === 0 ? 18 : 12} Tf 72 ${720 - i * 22} Td (${esc(line)}) Tj ET`,
+      )
+      .join('\n') + '\n';
+
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}endstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+
+  let body = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((obj, idx) => {
+    offsets[idx] = Buffer.byteLength(body);
+    body += `${idx + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+
+  const xrefOffset = Buffer.byteLength(body);
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) {
+    xref += `${off.toString().padStart(10, '0')} 00000 n \n`;
+  }
+  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return Buffer.from(body + xref + trailer, 'latin1');
 }

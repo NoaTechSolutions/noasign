@@ -1,0 +1,2183 @@
+/* ============================================
+   DOCUMENTS PANEL V2 STYLES
+   ============================================ */
+
+.documents-v2-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ===== HEADER ===== */
+.documents-v2-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.documents-v2-head__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.documents-v2-head__sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+/* ===== STATS PILLS ===== */
+.documents-v2-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--sp-3);
+}
+
+.documents-v2-stat-pill {
+  padding: var(--sp-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--tx-border);
+  background: var(--surface);
+}
+
+.documents-v2-stat-pill--blue {
+  background: linear-gradient(135deg, var(--blue-soft) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--blue);
+}
+
+.documents-v2-stat-pill--slate {
+  background: linear-gradient(135deg, var(--slate-soft) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--slate);
+}
+
+.documents-v2-stat-pill--green {
+  background: linear-gradient(135deg, var(--green-soft) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--green);
+}
+
+/* In Progress — amber (replaces the off-system purple). */
+.documents-v2-stat-pill--amber {
+  background: linear-gradient(135deg, var(--amber-soft) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--amber);
+}
+
+.documents-v2-stat-pill__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.documents-v2-stat-pill__value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.documents-v2-stat-pill__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ===== TOOLBAR ===== */
+.documents-v2-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.documents-v2-toolbar__search {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.documents-v2-toolbar__search svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.documents-v2-toolbar__search-input {
+  width: 100%;
+  padding: 10px 40px;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.documents-v2-toolbar__search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.documents-v2-toolbar__search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+.documents-v2-toolbar__search-clear:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+
+.documents-v2-toolbar__filters {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.documents-v2-toolbar__filter {
+  padding: 10px 14px;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.documents-v2-toolbar__count {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.documents-v2-toolbar__create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: var(--text-on-brand, white);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.documents-v2-toolbar__create-btn:hover {
+  opacity: 0.92;
+}
+
+.documents-v2-toolbar__create-btn:active {
+  transform: scale(0.97);
+}
+
+/* Desktop: search on the left (not greedy), status tabs next to it, and the
+   "New Document" button pushed to the far right via margin-left:auto. */
+@media (min-width: 1024px) {
+  .documents-v2-toolbar__search {
+    flex: 0 1 340px;
+  }
+  .documents-v2-toolbar__filters {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .documents-v2-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .documents-v2-toolbar__filters {
+    flex-direction: row;
+  }
+
+  .documents-v2-toolbar__create-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ===== STATUS BADGES ===== */
+/* Status badges — Documents module. Design-system colors (rgba auto-adapt to
+   light/dark). Shared across table, cards, sidebar. */
+.doc-status-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.doc-status-badge--draft {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
+}
+
+.doc-status-badge--sent {
+  background: rgba(5, 165, 255, 0.12);
+  color: #05a5ff;
+}
+
+.doc-status-badge--viewed {
+  background: rgba(255, 153, 0, 0.12);
+  color: #ff9900;
+}
+
+.doc-status-badge--signed {
+  background: rgba(255, 153, 0, 0.20);
+  color: #cc7a00;
+}
+
+.doc-status-badge--completed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.doc-status-badge--cancelled {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+/* Send failed — stronger red than "cancelled" to flag it needs attention. */
+.doc-status-badge--failed {
+  background: rgba(220, 38, 38, 0.16);
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* Reissue (2c) — a reissued receipt is DISPLAYED as VOID (derived from
+   supersededAt; internal status stays SENT). VOID is the deliberate exception to
+   sentence-case — it's an accounting state and must read as one: solid red,
+   uppercase, unmissable. */
+.doc-status-badge--void {
+  background: #dc2626;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.doc-detail-modal-header__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* "Reissue" action on a SENT receipt's detail header. */
+.doc-reissue-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  background: transparent;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.doc-reissue-btn:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+/* Traceability links: "Reissues REC-…" / "Reissued to REC-…". */
+.doc-reissue-trace {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+.doc-trace-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent, #0400f0);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.doc-trace-link:hover {
+  opacity: 0.8;
+}
+
+/* Kebab "Actions" submenu (groups Resend / Reissue / Void). */
+.documents-v2-row__menu-item--group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Match the other menu items: full-width clickable row (hover + pointer span
+     the whole dropdown width, not just the text). */
+  width: 100%;
+  box-sizing: border-box;
+  font-weight: 600;
+}
+/* Submenu flies out to the LEFT of the kebab item (not a vertical dropdown).
+   The wrapper is a full-width flex child so its button fills the dropdown. */
+.documents-v2-row__submenu-wrap {
+  position: relative;
+  width: 100%;
+}
+.documents-v2-row__submenu {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  margin-right: 6px;
+  z-index: 21;
+  min-width: 160px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Receipt detail fields in 2 columns on desktop, 1 on mobile (only receipts). */
+.receipt-detail-grid {
+  display: grid;
+  column-gap: 28px;
+}
+.receipt-detail-grid--2 {
+  grid-template-columns: 1fr 1fr;
+}
+.receipt-detail-grid--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+/* Opción A — both columns get separators. The right field is the grid's
+   :last-child, which drops its border in field-row.css; restore it with the
+   same design-system token so both columns match. */
+.receipt-detail-grid .field-row:last-child {
+  border-bottom: 0.5px solid var(--border-soft);
+}
+/* …except the last 2-col row (Payment): its right field keeps no line, matching
+   the left column's last field (Received by). */
+.receipt-payment-row .field-row:last-child {
+  border-bottom: none;
+}
+/* Responsive: stack to a single column on mobile. */
+@media (max-width: 640px) {
+  .receipt-detail-grid--2,
+  .receipt-detail-grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Receipt send toast (top-right) with an animated progress bar. Replaces the
+   in-modal overlay: the popup closes optimistically and progress shows here. */
+.receipt-toast {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(2, 41, 119, 0.16);
+  padding: 12px 14px 14px;
+  min-width: 300px;
+  max-width: 360px;
+}
+.receipt-toast__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+.receipt-toast__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.receipt-toast--loading .receipt-toast__icon {
+  color: #05a5ff;
+}
+.receipt-toast--success .receipt-toast__icon {
+  color: #22c55e;
+}
+.receipt-toast--error .receipt-toast__icon {
+  color: #dc2626;
+}
+.receipt-toast__msg {
+  flex: 1;
+  line-height: 1.35;
+}
+.receipt-toast__close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 2px;
+  display: inline-flex;
+}
+.receipt-toast__track {
+  margin-top: 10px;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.receipt-toast__fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.receipt-toast__fill--loading {
+  background: #05a5ff;
+  animation: receipt-toast-progress 6s cubic-bezier(0.12, 0.7, 0.3, 1) forwards;
+}
+.receipt-toast__fill--success {
+  background: #22c55e;
+  width: 100%;
+  transition: width 0.3s ease;
+}
+.receipt-toast__fill--error {
+  background: #dc2626;
+  width: 100%;
+}
+@keyframes receipt-toast-progress {
+  0% {
+    width: 8%;
+  }
+  100% {
+    width: 90%;
+  }
+}
+
+/* In Progress (stats grouping SENT + VIEWED + SIGNED) — amber. */
+.doc-status-badge--in-progress {
+  background: rgba(255, 153, 0, 0.12);
+  color: #ff9900;
+}
+
+/* ===== TABLE (Desktop ≥768px) ===== */
+.documents-v2-table-wrapper {
+  display: block;
+  overflow-x: auto;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.documents-v2-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.documents-v2-table thead th {
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--tx-border);
+  /* Raised surface (NOT --tx-hover) so the header reads distinct from the row
+     hover, which uses --tx-hover. Matches the customers table header token. */
+  background: var(--surface-raised);
+}
+
+.documents-v2-table thead th:last-child {
+  width: 100px;
+  text-align: center;
+}
+
+.documents-v2-row {
+  border-bottom: 1px solid var(--tx-border);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.documents-v2-row:last-child {
+  border-bottom: none;
+}
+
+.documents-v2-row:hover {
+  background: var(--tx-hover);
+}
+
+.documents-v2-row--selected {
+  background: var(--primary-soft);
+}
+
+.documents-v2-row--selected:hover {
+  background: var(--primary-soft);
+}
+
+.documents-v2-row td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.documents-v2-row__number {
+  font-weight: 600;
+}
+
+.documents-v2-row__time {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.documents-v2-row__actions {
+  width: 48px;
+  text-align: right;
+}
+
+.documents-v2-row__menu-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.documents-v2-row__menu-trigger,
+.documents-v2-card__menu-trigger {
+  padding: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.documents-v2-row__menu-trigger:hover,
+.documents-v2-card__menu-trigger:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+
+.documents-v2-row__menu,
+.documents-v2-card__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  min-width: 180px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.documents-v2-row__menu-item,
+.documents-v2-card__menu-item {
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.documents-v2-row__menu-item:hover,
+.documents-v2-card__menu-item:hover {
+  background: var(--tx-hover);
+}
+
+/* ===== CARDS (Mobile <768px) ===== */
+.documents-v2-cards {
+  display: none;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+@media (max-width: 767px) {
+  .documents-v2-table-wrapper {
+    display: none;
+  }
+  .documents-v2-cards {
+    display: flex;
+  }
+}
+
+/* Collapsible mobile card (mirrors the Clients CustomerCard pattern). */
+.documents-v2-card {
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.documents-v2-card--selected {
+  border-color: var(--primary);
+}
+
+.documents-v2-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.documents-v2-card__header:hover {
+  background: var(--tx-hover);
+}
+
+.documents-v2-card__header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.documents-v2-card__number {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  min-width: 0;
+}
+.documents-v2-card__number svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.documents-v2-card__number span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documents-v2-card__customer {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documents-v2-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.documents-v2-card__chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+.documents-v2-card__chevron--open {
+  transform: rotate(180deg);
+}
+
+.documents-v2-card__body {
+  padding: 0 16px 14px;
+  border-top: 1px solid var(--tx-border);
+}
+.documents-v2-card__info {
+  padding-top: 10px;
+}
+.documents-v2-card__info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.documents-v2-card__label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.documents-v2-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.documents-v2-card__action-btn {
+  flex: 1;
+  min-width: 80px;
+  padding: 9px 12px;
+  border: 1px solid var(--tx-border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.documents-v2-card__action-btn:hover {
+  background: var(--tx-hover);
+}
+.documents-v2-card__action-btn--send,
+.documents-v2-card__action-btn--resend {
+  background: var(--amber, #ff9900);
+  border-color: transparent;
+  color: #fff;
+}
+.documents-v2-card__action-btn--cancel {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ===== DETAIL SIDEBAR — CARD-LEGEND OVERRIDES ===== */
+/* Sections that carry card-legend need extra top padding so the floating
+   pill (top: -12px, height ~22px) doesn't overlap the content. */
+.documents-v2-detail__section.card-legend {
+  padding-top: 24px;
+  margin-top: 20px;
+}
+
+/* ===== DETAIL SIDEBAR ===== */
+.documents-v2-detail__overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay, rgba(0, 0, 0, 0.5));
+  z-index: 50;
+}
+
+.documents-v2-detail__panel {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 90vw;
+  background: var(--surface);
+  border-left: 1px solid var(--tx-border);
+  z-index: 51;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xl, 0 -4px 16px rgba(0, 0, 0, 0.2));
+  animation: docs-v2-slide-in 0.2s ease-out;
+}
+
+@keyframes docs-v2-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.documents-v2-detail__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+}
+
+.documents-v2-detail__close:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+
+.documents-v2-detail__content {
+  padding: 60px 24px 24px;
+}
+
+.documents-v2-detail__header {
+  margin-bottom: 24px;
+}
+
+.documents-v2-detail__number {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.documents-v2-detail__header-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.documents-v2-detail__section {
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--tx-border);
+}
+
+.documents-v2-detail__section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.documents-v2-detail__field {
+  margin-bottom: 18px;
+}
+
+.documents-v2-detail__field:last-child {
+  margin-bottom: 0;
+}
+
+.documents-v2-detail__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.documents-v2-detail__value {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.documents-v2-detail__hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.documents-v2-detail__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.documents-v2-detail__action-btn {
+  padding: 10px 16px;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.documents-v2-detail__action-btn:hover {
+  background: var(--tx-hover);
+}
+
+/* ===== VERSION TIMELINE ===== */
+.documents-v2-version-timeline {
+  margin-top: 12px;
+}
+
+.documents-v2-version-timeline__entry {
+  position: relative;
+  padding-left: 24px;
+  padding-bottom: 20px;
+}
+
+.documents-v2-version-timeline__entry:last-child {
+  padding-bottom: 0;
+}
+
+.documents-v2-version-timeline__dot {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.documents-v2-version-timeline__line {
+  position: absolute;
+  left: 3px;
+  top: 14px;
+  bottom: 0;
+  width: 2px;
+  background: var(--tx-border);
+}
+
+.documents-v2-version-timeline__content {
+  padding-left: 8px;
+}
+
+.documents-v2-version-timeline__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.documents-v2-version-timeline__version {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.documents-v2-version-timeline__time {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.documents-v2-version-timeline__user {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ===== CREATION MODAL (centered) ===== */
+/* z-index 110 sits above Topbar (z-index 100) so the modal title isn't
+   occluded by the navbar. Cancel dialog (120 in document-wizard.css)
+   stacks above this. Mobile menu (999) still wins on small screens. */
+.docs-v2-creation-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+@media (max-width: 640px) {
+  .docs-v2-creation-modal {
+    padding: 12px;
+  }
+}
+
+.docs-v2-creation-modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.docs-v2-creation-modal__panel {
+  position: relative;
+  width: 100%;
+  max-width: 1000px;
+  max-height: calc(100vh - 48px);
+  background: var(--surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+  display: flex;
+  flex-direction: column;
+  animation: docs-v2-creation-fade-in 0.18s ease-out;
+}
+
+@keyframes docs-v2-creation-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.docs-v2-creation-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--tx-border);
+}
+
+.docs-v2-creation-modal__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.docs-v2-creation-modal__close {
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.docs-v2-creation-modal__close:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+
+.docs-v2-creation-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.docs-v2-creation-modal__error {
+  margin: 12px 20px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--red);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 14px;
+}
+
+.docs-v2-creation-modal__placeholder {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ===== SETUP CARD ===== */
+/* Background uses --bg-page-subtle so it visually separates from the modal
+   surface (light: #f7f8fa vs #ffffff modal; dark: #0f1628 vs #161d30 modal).
+   Mirrors the card-soft / surface-dark pattern from docs/product/design-system.md. */
+.docs-v2-setup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-bottom: 1px solid var(--tx-border);
+  background: var(--bg-page-subtle);
+}
+
+.docs-v2-setup-card__row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .docs-v2-setup-card__row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.docs-v2-setup-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.docs-v2-setup-card__field--full {
+  grid-column: 1 / -1;
+}
+
+.docs-v2-setup-card__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.docs-v2-setup-card__optional {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+.docs-v2-setup-card__input {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--tx-border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.docs-v2-setup-card__input:focus {
+  border-color: var(--primary);
+}
+
+.docs-v2-setup-card__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== EMPTY STATE ===== */
+.documents-v2-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 20px;
+  background: var(--surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+}
+
+.documents-v2-empty-state svg {
+  opacity: 0.5;
+  margin-bottom: 20px;
+  color: var(--text-muted);
+}
+
+.documents-v2-empty-state h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.documents-v2-empty-state p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ============================================
+   FILTER TABS (desktop ≥1024px) — TASK 2
+   ============================================ */
+.documents-filter-tabs {
+  display: none;
+}
+.documents-filter-tab {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 0.5px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.documents-filter-tab:hover {
+  border-color: var(--brand);
+  color: var(--text-primary);
+}
+.documents-filter-tab--active {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.documents-filter-tab--all.documents-filter-tab--active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+@media (min-width: 1024px) {
+  .documents-filter-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  /* Desktop uses tabs — hide the mobile status dropdown. */
+  .documents-filters-mobile {
+    display: none;
+  }
+}
+
+/* ============================================
+   FIXED COLUMN WIDTHS + TRUNCATE — TASK 3
+   ============================================ */
+.documents-v2-table {
+  table-layout: fixed;
+}
+.documents-v2-table th:nth-child(1),
+.documents-v2-table td:nth-child(1) { width: 39%; }
+.documents-v2-table th:nth-child(2),
+.documents-v2-table td:nth-child(2) { width: 17%; }
+.documents-v2-table th:nth-child(3),
+.documents-v2-table td:nth-child(3) { width: 16%; }
+.documents-v2-table th:nth-child(4),
+.documents-v2-table td:nth-child(4) { width: 17%; }
+.documents-v2-table th:nth-child(5),
+.documents-v2-table td:nth-child(5) { width: 11%; text-align: center; }
+
+/* Truncate cell text so column widths stay stable regardless of content. */
+.documents-v2-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+}
+
+/* Document cell = number (primary) + client (secondary), each truncated. */
+.doc-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.doc-number {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.doc-client {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================
+   HEADER QUICK-FILTER ICON (Type / Status) — TASK 4
+   ============================================ */
+.documents-th {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  position: relative;
+}
+.documents-th-filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  opacity: 0.4;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.12s ease;
+  padding: 0;
+}
+.documents-v2-table th:hover .documents-th-filter {
+  opacity: 1;
+  color: var(--text-primary);
+}
+.documents-th-filter:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+.documents-th-filter--active {
+  opacity: 1 !important;
+  color: var(--primary) !important;
+}
+.documents-th-filter-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 150px;
+  background: var(--surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 60;
+  padding: var(--sp-1);
+}
+.documents-th-filter-menu button {
+  width: 100%;
+  display: block;
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.12s ease;
+}
+.documents-th-filter-menu button:hover {
+  background: var(--tx-hover);
+}
+
+/* ============================================
+   PAGINATION — TASK 1
+   ============================================ */
+.documents-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  margin-top: var(--sp-2);
+}
+.documents-pagination__btn {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.documents-pagination__btn:hover:not(:disabled) {
+  background: var(--tx-hover);
+  border-color: var(--primary);
+}
+.documents-pagination__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.documents-pagination__info {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ============================================
+   DOCUMENT DETAIL MODAL
+   ============================================ */
+@keyframes docDetailFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes docDetailSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.doc-detail-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 22, 47, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: docDetailFadeIn 0.18s ease-out;
+}
+
+.doc-detail-modal {
+  display: flex;
+  flex-direction: column;
+  width: 92%;
+  max-width: 720px;
+  max-height: 85vh;
+  background: var(--surface);
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* Header */
+.doc-detail-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 0.5px solid var(--border-soft);
+}
+.doc-detail-modal-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.doc-detail-modal-header__number {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+.doc-detail-modal-header__subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.doc-detail-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.doc-detail-modal__close:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+
+/* Tabs */
+.doc-detail-modal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px;
+  border-bottom: 0.5px solid var(--border-soft);
+  overflow-x: auto;
+}
+.doc-detail-tab {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 0.5px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.doc-detail-tab:hover {
+  border-color: var(--brand);
+  color: var(--text-primary);
+}
+.doc-detail-tab--active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+/* Content */
+.doc-detail-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+.doc-detail-modal__hint {
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.doc-detail-modal__section {
+  margin-bottom: 0;
+}
+.doc-detail-modal__pdf {
+  width: 100%;
+  height: 500px;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+/* Canvas PDF viewer (pdf.js / react-pdf) — scrollable multipage, responsive. */
+.doc-pdf-canvas {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.doc-pdf-canvas__page {
+  box-shadow: var(--shadow-md);
+  border-radius: 2px;
+  overflow: hidden;
+}
+/* Safety net so a page never overflows its container width. */
+.doc-pdf-canvas canvas {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Timeline */
+.doc-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+.doc-timeline__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+}
+.doc-timeline__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  flex-shrink: 0;
+}
+.doc-timeline__row--inactive .doc-timeline__dot {
+  background: var(--border-soft);
+}
+.doc-timeline__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  min-width: 90px;
+}
+.doc-timeline__value {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.doc-timeline__hint {
+  color: var(--text-muted);
+}
+.doc-timeline__row--inactive .doc-timeline__label,
+.doc-timeline__row--inactive .doc-timeline__value {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* Footer */
+.doc-detail-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 0.5px solid var(--border-soft);
+}
+.doc-detail-modal-footer__left {
+  display: flex;
+  gap: 8px;
+}
+.doc-detail-modal-footer__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Tablet */
+@media (max-width: 1023px) {
+  .doc-detail-modal { width: 92%; max-height: 88vh; }
+}
+
+/* Mobile → bottom sheet */
+@media (max-width: 767px) {
+  .doc-detail-modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .doc-detail-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+    border-bottom: none;
+    animation: docDetailSheetIn 0.25s ease-out;
+  }
+  .doc-detail-modal__pdf { height: 60vh; }
+}
+
+/* ── Detail modal: secondary button (btn-secondary is scoped elsewhere, not
+   global — so style it here for the modal footer Edit/Sync buttons). ── */
+.doc-detail-modal .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--tx-border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.doc-detail-modal .btn-secondary:hover {
+  background: var(--tx-hover);
+  border-color: var(--primary);
+}
+
+/* Stack multiple cards (Pricing: Contract + Finance N) with spacing. */
+.doc-detail-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Loading skeleton */
+.doc-detail-modal__skeleton-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.doc-detail-tab-skeleton {
+  display: inline-block;
+  width: 80px;
+  height: 32px;
+  border-radius: 20px;
+}
+
+/* ISSUE 3 — bigger modal on desktop, more breathing room. */
+@media (min-width: 1024px) {
+  .doc-detail-modal {
+    width: 85%;
+    max-width: 900px;
+    max-height: 88vh;
+  }
+  .doc-detail-modal-content {
+    padding: 20px 24px;
+    gap: 20px;
+  }
+  .doc-detail-modal__section.card-legend {
+    width: 100%;
+  }
+}
+@media (min-width: 1440px) {
+  .doc-detail-modal {
+    max-width: 1000px;
+  }
+}
+
+/* TASK 1 — even bigger modal on desktop (overrides the earlier 900/1000). */
+@media (min-width: 1024px) {
+  .doc-detail-modal {
+    width: 90%;
+    max-width: 1100px;
+    max-height: 92vh;
+  }
+}
+@media (min-width: 1440px) {
+  .doc-detail-modal {
+    max-width: 1200px;
+  }
+}
+
+/* TASK 2 — breathing room between the card pill label and the first field. */
+.doc-detail-modal .card-legend {
+  position: relative;
+  padding-top: 8px;
+}
+.doc-detail-modal .card-legend .field-row:first-child {
+  padding-top: 12px;
+}
+
+/* TASK 4 — per-card edit pencil (DRAFT only), top-right interior of the card. */
+.card-legend__edit {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--tx-border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  z-index: 1;
+}
+.card-legend__edit:hover {
+  background: var(--tx-hover);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+
+
+/* Contract edit popup — Finance toggle section. */
+.gep-divider {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 16px 0;
+}
+.gep-finance-fields {
+  margin-top: 12px;
+  animation: docDetailFadeIn 0.2s ease-out;
+}
+.gep-finance-group {
+  /* Each group is now a colored card (bg/border/padding set inline) laid out by
+     .gep-finance-grid (gap handles spacing). The old stacked-layout margin/
+     padding/dashed-border-top were removed so they don't fight the card style. */
+  display: flex;
+  flex-direction: column;
+}
+.gep-finance-group__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+/* Pricing tab — Finance N cards in a 2x2 grid on desktop, stacked on mobile.
+   A single Finance card is rendered outside this grid (full width). */
+.doc-detail-finance-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .doc-detail-finance-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* PDF tab — Download button aligned bottom-right INSIDE the "Signed Document"
+   card. Root cause of "button over the border": the base .card-legend has NO
+   padding (only a border) and the modal override only sets padding-top. So the
+   iframe/button had 0 side+bottom inset. Add side + bottom padding here (leave
+   the 8px top from the modal override untouched to avoid a specificity fight). */
+.doc-detail-pdf-card {
+  padding-left: 14px;
+  padding-right: 14px;
+  padding-bottom: 14px;
+}
+
+.doc-detail-pdf-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* Block display kills the inline-baseline gap under the iframe. */
+.doc-detail-modal__pdf {
+  display: block;
+}
+
+/* Taller modal while the PDF tab is active, so the preview iframe gets the most
+   vertical room. Reverts automatically when another tab is selected (the
+   --pdf modifier is only applied when activeTab === 'pdf'). NOTE: the real
+   iframe class is .doc-detail-modal__pdf (not .doc-detail-pdf-iframe). */
+@media (min-width: 1024px) {
+  .doc-detail-modal--pdf {
+    max-height: 96vh;
+    height: 96vh;
+  }
+  .doc-detail-modal--pdf .doc-detail-modal__pdf {
+    height: calc(96vh - 240px);
+    min-height: 500px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .doc-detail-modal--pdf {
+    max-height: 94vh;
+    height: 94vh;
+  }
+  .doc-detail-modal--pdf .doc-detail-modal__pdf {
+    height: calc(94vh - 240px);
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 767px) {
+  .doc-detail-modal--pdf .doc-detail-modal__pdf {
+    height: calc(92vh - 200px);
+    min-height: 300px;
+  }
+}
+
+/* ============================================
+   Document setup — client chip + "Search client" button (TASK 2/3)
+   ============================================ */
+.docs-v2-client-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--tx-border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.docs-v2-client-search-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--text-primary);
+}
+.docs-v2-client-search-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.docs-v2-client-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 8px 0 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--primary);
+  background: var(--primary-soft);
+  color: var(--text-primary);
+  font-size: 14px;
+  max-width: 100%;
+}
+.docs-v2-client-chip__icon {
+  display: inline-flex;
+  color: var(--primary);
+}
+.docs-v2-client-chip__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.docs-v2-client-chip__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.docs-v2-client-chip__clear:hover:not(:disabled) {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   ClientSelectPopup (TASK 3)
+   ============================================ */
+.client-select-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200; /* above the creation modal (z-index 110) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 22, 47, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.client-select-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--tx-border);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.client-select-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--tx-border);
+}
+.client-select-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.client-select-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.client-select-modal__close:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+
+.client-select-modal__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 18px 0;
+  padding: 0 12px;
+  height: 40px;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+.client-select-modal__search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.client-select-modal__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 18px;
+}
+.client-select-tab {
+  padding: 5px 12px;
+  border: 1px solid var(--tx-border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.client-select-tab:hover {
+  color: var(--text-primary);
+}
+.client-select-tab--active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.client-select-modal__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.client-select-modal__empty {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.client-select-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+.client-select-row:hover {
+  background: var(--tx-hover);
+}
+.client-select-row--selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.client-select-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--tx-hover);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.client-select-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.client-select-row__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.client-select-row__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.client-select-row__status--inactive {
+  color: #ef4444;
+}
+
+.client-select-modal__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--tx-border);
+}
+.client-select-modal__btn {
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.client-select-modal__btn--ghost {
+  background: transparent;
+  color: var(--text-body);
+  border: 1px solid var(--border-strong);
+}
+.client-select-modal__btn--ghost:hover {
+  background: var(--tx-hover);
+}
+.client-select-modal__btn--primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+}
+.client-select-modal__btn--primary:hover {
+  opacity: 0.92;
+}
+
+/* ===== RECEIPT CREATION MODAL (Phase 2) — reuses DS tokens ===== */
+.receipt-section {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--tx-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.receipt-section:last-of-type {
+  border-bottom: none;
+}
+.receipt-section__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.receipt-methods {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+@media (min-width: 640px) {
+  .receipt-methods {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.receipt-method {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--tx-border);
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.receipt-method:hover {
+  background: var(--tx-hover);
+}
+.receipt-other {
+  margin-top: 4px;
+}
+.receipt-received-by {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--tx-border);
+  background: var(--surface);
+}
+.receipt-received-by__value {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.receipt-received-by__edit {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.receipt-received-by__edit:hover {
+  background: var(--tx-hover);
+  color: var(--text-primary);
+}
+.receipt-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--tx-border);
+}
+
+.documents-v2-toolbar__create-btn--secondary {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--tx-border);
+}
+.documents-v2-toolbar__create-btn--secondary:hover {
+  background: var(--tx-hover);
+}
+
+/* Payment N + M stay side-by-side even on mobile (short "N of M" pair). */
+.receipt-pair-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.receipt-btn-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

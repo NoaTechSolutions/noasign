@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateCompanyProfileDto {
   @IsOptional()
@@ -50,6 +50,10 @@ export class UpdateCompanyProfileDto {
   @IsString()
   @MaxLength(100)
   insurancePolicyNumber?: string;
+
+  @IsOptional()
+  @IsDateString()
+  insuranceExpiryDate?: string;
 
   @IsOptional()
   @IsString()

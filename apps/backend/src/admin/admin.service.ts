@@ -5,15 +5,27 @@ import {
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { CreateFormDefinitionDto } from './dto/create-form-definition.dto';
 import { UpdateFormDefinitionDto } from './dto/update-form-definition.dto';
 import { CreateSignatureTemplateDto } from './dto/create-signature-template.dto';
 import { UpdateSignatureTemplateDto } from './dto/update-signature-template.dto';
 import { CreateUserDocumentConfigDto } from './dto/create-user-document-config.dto';
+import { LockedUserDto } from './dto/locked-user.dto';
+
+// Identifies the kind of admin action in AdminAuditLog.action. String-literal
+// (not enum) so the audit table grows with new verbs without a migration.
+// Convention: SCREAMING_SNAKE_CASE, verb-object.
+export const ADMIN_ACTION = {
+  UNLOCK_USER: 'UNLOCK_USER',
+} as const;
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   private async assertRootMaster(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -29,6 +41,17 @@ export class AdminService {
     }
 
     return user;
+  }
+
+  // ── DocumentType (read-only helpers for admin UI) ────────────────────────
+
+  async listDocumentTypes(userId: string) {
+    await this.assertRootMaster(userId);
+
+    return this.prisma.documentType.findMany({
+      select: { id: true, code: true, name: true },
+      orderBy: { name: 'asc' },
+    });
   }
 
   // ── FormDefinition CRUD ──────────────────────────────────────────────────
@@ -61,7 +84,10 @@ export class AdminService {
 
     return this.prisma.formDefinition.findMany({
       where: documentTypeId ? { documentTypeId } : undefined,
-      include: { documentType: true },
+      include: {
+        documentType: true,
+        _count: { select: { userConfigs: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -315,5 +341,98 @@ export class AdminService {
     await this.prisma.userDocumentConfig.delete({ where: { id } });
 
     return { message: 'UserDocumentConfig removed successfully' };
+  }
+
+  // ── User lockout management (MASTER-only) ────────────────────────────────
+
+  async listLockedUsers(userId: string): Promise<LockedUserDto[]> {
+    await this.assertRootMaster(userId);
+
+    const now = new Date();
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { lockedUntil: { gt: now } },
+          { lockLevel: { gte: 3 } },
+        ],
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        failedLoginAttempts: true,
+        lockLevel: true,
+        lockedUntil: true,
+      },
+      orderBy: { lockedUntil: 'asc' },
+    });
+
+    return users
+      .filter((u) => u.lockedUntil !== null)
+      .map((u) => ({
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        failedLoginAttempts: u.failedLoginAttempts,
+        lockLevel: u.lockLevel,
+        lockedUntil: u.lockedUntil!,
+      }));
+  }
+
+  async unlockUser(
+    actorId: string,
+    targetUserId: string,
+  ): Promise<{ success: true; userId: string }> {
+    await this.assertRootMaster(actorId);
+
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        email: true,
+        lockedUntil: true,
+        lockLevel: true,
+        failedLoginAttempts: true,
+      },
+    });
+    if (!target) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: targetUserId },
+        data: {
+          lockedUntil: null,
+          lockLevel: 0,
+          failedLoginAttempts: 0,
+        },
+      }),
+      this.prisma.adminAuditLog.create({
+        data: {
+          actorId,
+          action: ADMIN_ACTION.UNLOCK_USER,
+          targetUserId,
+          payload: {
+            previousLockedUntil: target.lockedUntil?.toISOString() ?? null,
+            previousLockLevel: target.lockLevel,
+            previousFailedAttempts: target.failedLoginAttempts,
+          },
+        },
+      }),
+    ]);
+
+    // Fire-and-forget — unlock succeeded; email is courtesy, must not block.
+    void this.sendAccountUnlockedEmail(target.email);
+
+    return { success: true, userId: targetUserId };
+  }
+
+  private async sendAccountUnlockedEmail(email: string): Promise<void> {
+    try {
+      await this.emailService.sendAccountUnlockedEmail({ to: email });
+    } catch {
+      // EmailService logged it.
+    }
   }
 }

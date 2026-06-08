@@ -1,12 +1,37 @@
+import { CustomerStatus, CustomerType } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { UpdateCustomerBusinessDto } from './customer-business.dto';
 
 export class UpdateCustomerDto {
+  @IsOptional()
+  @IsEnum(CustomerType)
+  customerType?: CustomerType;
+
+  @IsOptional()
+  @IsEnum(CustomerStatus)
+  status?: CustomerStatus;
+
+  // Master may reassign ownership; non-master attempts are rejected by the
+  // service layer.
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateCustomerBusinessDto)
+  business?: UpdateCustomerBusinessDto;
+
   @IsOptional()
   @IsString()
   @MinLength(1)

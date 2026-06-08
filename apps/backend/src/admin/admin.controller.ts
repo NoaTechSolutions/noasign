@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -23,6 +25,13 @@ import { CreateUserDocumentConfigDto } from './dto/create-user-document-config.d
 @Controller('admin')
 export class AdminController {
   constructor(private adminService: AdminService) {}
+
+  // ── DocumentType endpoints (read-only helpers for admin UI) ──────────────
+
+  @Get('document-types')
+  async listDocumentTypes(@Req() req: any) {
+    return this.adminService.listDocumentTypes(req.user.id);
+  }
 
   // ── FormDefinition endpoints ─────────────────────────────────────────────
 
@@ -150,5 +159,21 @@ export class AdminController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.adminService.deleteUserDocumentConfig(req.user.id, id);
+  }
+
+  // ── User lockout endpoints (MASTER-only, enforced in service) ────────────
+
+  @Get('users/locked')
+  async listLockedUsers(@Req() req: any) {
+    return this.adminService.listLockedUsers(req.user.id);
+  }
+
+  @Post('users/:id/unlock')
+  @HttpCode(HttpStatus.OK)
+  async unlockUser(
+    @Req() req: any,
+    @Param('id', ParseUUIDPipe) targetUserId: string,
+  ) {
+    return this.adminService.unlockUser(req.user.id, targetUserId);
   }
 }

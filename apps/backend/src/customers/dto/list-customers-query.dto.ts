@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -15,11 +16,18 @@ export class ListCustomersQueryDto {
   @MaxLength(200)
   search?: string;
 
+  // Master can filter by owner ('me' as a special case → currentUser.id).
+  // Non-master users have this overridden to their own id by the service.
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  userId?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(500)
   limit?: number;
 
   @IsOptional()

@@ -2,22 +2,16 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
 :root {
-  --background: #ffffff;
-  --foreground: #0e1f3d;
+  --background: #f0f4ff;
+  --foreground: #022977;
   --panel: rgba(245, 249, 255, 0.96);
-  --surface: #edf4ff;
+  --surface: #ffffff;
   --surface-strong: #dce9ff;
   --surface-dark: #022977;
-  --ink: #0e1f3d;
-  --ink-soft: #5f7396;
-  --ink-muted: #8a9bb8;
+  --ink: #022977;
+  --ink-soft: rgba(2, 41, 119, 0.7);
+  --ink-muted: rgba(2, 41, 119, 0.5);
   --brand-primary: #ffffff;
   --brand-secondary: #022977;
   --brand-secondary-strong: #01215f;
@@ -26,12 +20,12 @@
   --brand-accent-hover: #048fdd;
   --brand-accent-soft: rgba(5, 165, 255, 0.18);
   --brand-highlight: #ff9900;
-  --bg-page: #ffffff;
-  --bg-page-subtle: #eef4ff;
-  --bg-surface: #edf4ff;
+  --bg-page: #f0f4ff;
+  --bg-page-subtle: #f7f8fa;
+  --bg-surface: #ffffff;
   --bg-surface-strong: #dce9ff;
-  --bg-elevated: #fbfdff;
-  --bg-shell: linear-gradient(180deg, #eef4ff 0%, #e3edff 100%);
+  --bg-elevated: #ffffff;
+  --bg-shell: linear-gradient(180deg, #f0f4ff 0%, #e3edff 100%);
   --bg-shell-inner: linear-gradient(
     180deg,
     var(--bg-page-subtle) 0%,
@@ -46,26 +40,26 @@
   );
   --bg-form: linear-gradient(180deg, var(--bg-elevated) 0%, #f7fbff 100%);
   --bg-overlay: rgba(8, 22, 47, 0.42);
-  --text-primary: #0e1f3d;
-  --text-secondary: #5f7396;
-  --text-muted: #8a9bb8;
+  --text-primary: #022977;
+  --text-secondary: rgba(2, 41, 119, 0.7);
+  --text-muted: rgba(2, 41, 119, 0.5);
   --text-inverse: #ffffff;
-  --text-disabled: #a6b5cb;
+  --text-disabled: rgba(2, 41, 119, 0.35);
   --text-link: #05a5ff;
   --text-link-hover: #0400f0;
-  --border: rgba(2, 41, 119, 0.24);
-  --border-strong: rgba(2, 41, 119, 0.34);
-  --border-subtle: rgba(2, 41, 119, 0.18);
+  --border: rgba(2, 41, 119, 0.12);
+  --border-strong: rgba(2, 41, 119, 0.2);
+  --border-subtle: rgba(2, 41, 119, 0.08);
   --shell-border: rgba(2, 41, 119, 0.56);
   --divider: rgba(2, 41, 119, 0.2);
   --focus-ring: rgba(5, 165, 255, 0.18);
   --focus-ring-danger: rgba(194, 65, 12, 0.18);
-  --button-primary: #05a5ff;
-  --button-primary-hover: #048fdd;
+  --button-primary: #022977;
+  --button-primary-hover: #0400f0;
   --button-primary-strong: #0400f0;
   --button-primary-strong-hover: #0300c9;
-  --button-secondary: #022977;
-  --button-secondary-hover: #01215f;
+  --button-secondary: #ff9900;
+  --button-secondary-hover: #cc7a00;
   --button-neutral: #ffffff;
   --button-neutral-hover: #f4f8ff;
   --button-success: #0f9f6e;
@@ -81,10 +75,10 @@
   --menu-border: rgba(2, 41, 119, 0.22);
   --menu-hover: #f4f8ff;
   --menu-active: #eaf6ff;
-  --menu-text: #0e1f3d;
-  --menu-text-muted: #5f7396;
+  --menu-text: #022977;
+  --menu-text-muted: rgba(2, 41, 119, 0.7);
   --sidebar-bg: #022977;
-  --sidebar-bg-soft: linear-gradient(180deg, #f8fbff 0%, #edf4ff 100%);
+  --sidebar-bg-soft: linear-gradient(180deg, #f8fbff 0%, #f0f4ff 100%);
   --sidebar-text: #eaf2ff;
   --sidebar-text-muted: #a9bfe8;
   --sidebar-item-hover: rgba(255, 255, 255, 0.08);
@@ -137,27 +131,27 @@
 }
 
 .dark {
-  --background: #0f172a;
-  --foreground: #e2e8f0;
+  --background: #0b0f1a;
+  --foreground: #f0f4ff;
   --panel: rgba(15, 23, 42, 0.78);
-  --surface: #111827;
+  --surface: #0f1628;
   --surface-strong: #172036;
-  --surface-dark: #0f172a;
-  --ink: #e2e8f0;
-  --ink-soft: #94a3b8;
-  --ink-muted: #7f8ea3;
-  --bg-page: #0f172a;
-  --bg-page-subtle: #111827;
-  --bg-surface: #111827;
+  --surface-dark: #0b0f1a;
+  --ink: #f0f4ff;
+  --ink-soft: #c8d8f0;
+  --ink-muted: rgba(200, 216, 240, 0.6);
+  --bg-page: #0b0f1a;
+  --bg-page-subtle: #0f1628;
+  --bg-surface: #0f1628;
   --bg-surface-strong: #172036;
-  --bg-elevated: #111827;
-  --bg-shell: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+  --bg-elevated: #161d30;
+  --bg-shell: linear-gradient(180deg, #0f1628 0%, #0b0f1a 100%);
   --bg-shell-inner: linear-gradient(
     180deg,
     var(--bg-page-subtle) 0%,
     var(--bg-surface) 100%
   );
-  --bg-panel-soft: linear-gradient(180deg, #111827 0%, var(--bg-surface) 100%);
+  --bg-panel-soft: linear-gradient(180deg, #0f1628 0%, var(--bg-surface) 100%);
   --bg-card-elevated: linear-gradient(180deg, var(--bg-elevated) 0%, #172036 100%);
   --bg-card-elevated-strong: linear-gradient(
     180deg,
@@ -166,32 +160,32 @@
   );
   --bg-form: linear-gradient(180deg, var(--bg-elevated) 0%, #172036 100%);
   --bg-overlay: rgba(2, 8, 23, 0.62);
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #7f8ea3;
+  --text-primary: #f0f4ff;
+  --text-secondary: #c8d8f0;
+  --text-muted: rgba(200, 216, 240, 0.6);
   --text-inverse: #ffffff;
-  --text-disabled: #64748b;
-  --text-link: #3b82f6;
-  --text-link-hover: #60a5fa;
-  --brand-secondary: #e2e8f0;
-  --brand-secondary-strong: #f8fafc;
-  --brand-accent: #3b82f6;
-  --brand-accent-hover: #2563eb;
-  --brand-accent-strong: #2563eb;
-  --brand-accent-soft: rgba(59, 130, 246, 0.2);
+  --text-disabled: rgba(200, 216, 240, 0.35);
+  --text-link: #05a5ff;
+  --text-link-hover: #33b8ff;
+  --brand-secondary: #f0f4ff;
+  --brand-secondary-strong: #ffffff;
+  --brand-accent: #05a5ff;
+  --brand-accent-hover: #33b8ff;
+  --brand-accent-strong: #0400f0;
+  --brand-accent-soft: rgba(5, 165, 255, 0.18);
   --brand-highlight: #ff9900;
   --border: rgba(203, 213, 225, 0.14);
   --border-strong: rgba(226, 232, 240, 0.22);
   --border-subtle: rgba(203, 213, 225, 0.1);
   --divider: rgba(203, 213, 225, 0.14);
   --focus-ring: rgba(59, 130, 246, 0.24);
-  --button-primary: #3b82f6;
-  --button-primary-hover: #2563eb;
-  --button-primary-strong: #2563eb;
-  --button-primary-strong-hover: #1d4ed8;
-  --button-secondary: #172036;
-  --button-secondary-hover: #22304d;
-  --button-neutral: #111827;
+  --button-primary: #05a5ff;
+  --button-primary-hover: #33b8ff;
+  --button-primary-strong: #0400f0;
+  --button-primary-strong-hover: #0300c9;
+  --button-secondary: #ff9900;
+  --button-secondary-hover: #cc7a00;
+  --button-neutral: #0f1628;
   --button-neutral-hover: #172036;
   --button-success: #10b981;
   --button-success-hover: #059669;
@@ -202,18 +196,18 @@
   --button-info: rgba(59, 130, 246, 0.16);
   --button-info-hover: rgba(59, 130, 246, 0.24);
   --button-disabled: #243041;
-  --menu-bg: #111827;
+  --menu-bg: #0f1628;
   --menu-border: rgba(226, 232, 240, 0.24);
   --menu-hover: #172036;
   --menu-active: rgba(59, 130, 246, 0.16);
-  --menu-text: #e2e8f0;
-  --menu-text-muted: #94a3b8;
-  --sidebar-bg: #0f172a;
-  --sidebar-bg-soft: linear-gradient(180deg, #0f172a 0%, #111827 100%);
-  --sidebar-text: #e2e8f0;
-  --sidebar-text-muted: #94a3b8;
+  --menu-text: #f0f4ff;
+  --menu-text-muted: #c8d8f0;
+  --sidebar-bg: #0b0f1a;
+  --sidebar-bg-soft: linear-gradient(180deg, #0b0f1a 0%, #0f1628 100%);
+  --sidebar-text: #f0f4ff;
+  --sidebar-text-muted: #c8d8f0;
   --sidebar-item-hover: rgba(255, 255, 255, 0.06);
-  --sidebar-item-active: #3b82f6;
+  --sidebar-item-active: #05a5ff;
   --topbar-bg: rgba(15, 23, 42, 0.9);
   --topbar-border: rgba(203, 213, 225, 0.22);
   --success-bg: rgba(16, 185, 129, 0.14);
@@ -228,17 +222,17 @@
   --info-bg: rgba(59, 130, 246, 0.16);
   --info-border: rgba(59, 130, 246, 0.24);
   --info-text: #bfdbfe;
-  --table-bg: #111827;
+  --table-bg: #0f1628;
   --table-head-bg: #172036;
   --table-row-hover: #1f2a44;
   --table-row-selected: rgba(59, 130, 246, 0.12);
-  --card-bg: #111827;
+  --card-bg: #0f1628;
   --card-highlight-bg: #172036;
   --card-selected-bg: rgba(59, 130, 246, 0.12);
-  --modal-bg: #111827;
+  --modal-bg: #0f1628;
   --modal-border: rgba(226, 232, 240, 0.24);
   --badge-neutral-bg: rgba(148, 163, 184, 0.12);
-  --badge-neutral-text: #e2e8f0;
+  --badge-neutral-text: #f0f4ff;
   --badge-primary-bg: rgba(59, 130, 246, 0.16);
   --badge-primary-text: #bfdbfe;
   --badge-success-bg: rgba(16, 185, 129, 0.16);
@@ -300,4 +294,754 @@ input {
 ::selection {
   background: rgba(255, 153, 0, 0.22);
   color: var(--text-primary);
+}
+
+/* ============================================
+   VIEW TRANSITIONS — Theme Toggle
+   ============================================
+   Smooth swap between light/dark via the View Transition API.
+   The ThemeToggle (components/ui/theme-toggle.tsx) wraps setTheme
+   in document.startViewTransition() when supported.
+   ============================================ */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.4s;
+}
+
+/* Circular reveal expanding from the toggle position. The legacy ThemeToggle
+   in the login layout sits top-right (right-4 top-4 = ~1rem from each edge).
+   Anchor the reveal at calc(100% - 2.5rem) horizontally and 2.5rem from top. */
+@supports (clip-path: circle()) {
+  ::view-transition-old(root) {
+    clip-path: circle(100%);
+  }
+
+  ::view-transition-new(root) {
+    clip-path: circle(0% at calc(100% - 2.5rem) 2.5rem);
+    animation-name: reveal-circle;
+    animation-duration: 0.5s;
+    animation-timing-function: ease-in-out;
+  }
+
+  @keyframes reveal-circle {
+    from {
+      clip-path: circle(0% at var(--toggle-x, 96%) var(--toggle-y, 3.5%));
+    }
+    to {
+      clip-path: circle(150% at var(--toggle-x, 96%) var(--toggle-y, 3.5%));
+    }
+  }
+}
+
+/* Fallback: simple fade for browsers without clip-path on view-transitions */
+@supports not (clip-path: circle()) {
+  ::view-transition-old(root) {
+    animation: fade-out 0.4s ease-out;
+  }
+
+  ::view-transition-new(root) {
+    animation: fade-in 0.4s ease-in;
+  }
+
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+/* ============================================
+   Dashboard Design System Tokens
+   Fuente: docs/designs/dashboard.html (líneas 8-69)
+   ============================================ */
+
+:root[data-theme="light"] {
+  /* Backgrounds */
+  --bg-page:       #f0f4ff;
+  --bg-chrome:     #ffffff;
+  --bg-card:       #ffffff;
+  --bg-card-soft:  #f7f8fa;
+  --bg-hover:      rgba(2,41,119,0.04);
+  --bg-active:     rgba(2,41,119,0.08);
+  --bg-overlay:    rgba(2,41,119,0.5);
+
+  /* Brand colors */
+  --brand:         #022977;
+  --brand-hover:   #0400f0;
+  --brand-soft:    rgba(2,41,119,0.12);
+  --brand-rgb:     2,41,119;
+  --sky:           #05a5ff;
+  --sky-soft:      rgba(5,165,255,0.16);
+  --purple:        #9333ea;
+  --purple-soft:   rgba(147,51,234,0.14);
+  --slate-soft:    rgba(2,41,119,0.08);
+  --indigo:        #4f46e5;
+  --indigo-soft:   rgba(79,70,229,0.14);
+  --pink:          #ec4899;
+  --pink-soft:     rgba(236,72,153,0.14);
+  --amber:         #ff9900;
+  --amber-soft:    rgba(255,153,0,0.12);
+  --danger-soft:   rgba(194,65,12,0.10);
+  --current-highlight: rgba(2,41,119,0.04);
+
+  /* Text */
+  --text-heading:  #022977;
+  --text-body:     rgba(2,41,119,0.70);
+  --text-label:    rgba(2,41,119,0.50);
+  --text-trust:    rgba(2,41,119,0.40);
+  --text-on-brand: #ffffff;
+
+  /* Borders — bumped from HTML source (0.10/0.16) for better visibility on white */
+  --border-soft:   rgba(2,41,119,0.15);
+  --border-strong: rgba(2,41,119,0.20);
+  --border-divide: rgba(2,41,119,0.06);
+
+  /* Shadows */
+  --shadow-card:   0 1px 2px rgba(2,41,119,0.04), 0 4px 12px rgba(2,41,119,0.04);
+  --shadow-elev:   0 4px 16px rgba(2,41,119,0.10);
+  --shadow-elev-1: 0 2px 6px rgba(2,41,119,0.06);
+
+  /* Status badges */
+  --status-completed: #34c759;
+  --status-sent:      #ffcc00;
+  --status-viewed:    #007aff;
+  --status-draft:     #8e8e93;
+  --status-cancelled: #ff3b30;
+  --status-signed:    #5856d6;
+
+  /* Gradients */
+  --gradient-welcome: linear-gradient(135deg, #022977 0%, #0400f0 100%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Backgrounds */
+  --bg-page:       #0b0f1a;
+  --bg-chrome:     #0f1628;
+  --bg-card:       #161d30;
+  --bg-card-soft:  #161d30;
+  --bg-hover:      rgba(5,165,255,0.08);
+  --bg-active:     rgba(5,165,255,0.14);
+  --bg-overlay:    rgba(0,0,0,0.65);
+
+  /* Brand colors */
+  --brand:         #05a5ff;
+  --brand-hover:   #33b8ff;
+  --brand-soft:    rgba(5,165,255,0.18);
+  --brand-rgb:     5,165,255;
+  --sky:           #05a5ff;
+  --sky-soft:      rgba(5,165,255,0.22);
+  --purple:        #c084fc;
+  --purple-soft:   rgba(192,132,252,0.18);
+  --slate-soft:    rgba(255,255,255,0.06);
+  --indigo:        #818cf8;
+  --indigo-soft:   rgba(129,140,248,0.18);
+  --pink:          #f9a8d4;
+  --pink-soft:     rgba(249,168,212,0.18);
+  --amber:         #ff9900;
+  --amber-soft:    rgba(255,153,0,0.18);
+  --danger-soft:   rgba(239,68,68,0.16);
+  --current-highlight: rgba(5,165,255,0.08);
+
+  /* Text */
+  --text-heading:  #f0f4ff;
+  --text-body:     #c8d8f0;
+  --text-label:    rgba(200,216,240,0.60);
+  --text-trust:    rgba(200,216,240,0.40);
+  --text-on-brand: #00183a;
+
+  /* Borders */
+  --border-soft:   rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.12);
+  --border-divide: rgba(255,255,255,0.04);
+
+  /* Shadows */
+  --shadow-card:   0 1px 2px rgba(0,0,0,0.30), 0 4px 12px rgba(0,0,0,0.30);
+  --shadow-elev:   0 4px 16px rgba(0,0,0,0.40);
+  --shadow-elev-1: 0 2px 6px rgba(0,0,0,0.32);
+
+  /* Status badges */
+  --status-completed: #30d158;
+  --status-sent:      #ffd60a;
+  --status-viewed:    #0a84ff;
+  --status-draft:     #98989d;
+  --status-cancelled: #ff453a;
+  --status-signed:    #5e5ce6;
+
+  /* Gradients */
+  --gradient-welcome: linear-gradient(135deg, #05a5ff 0%, #0291dd 100%);
+}
+
+/* Aliases para compatibilidad temporal con componentes existentes */
+:root {
+  --bg-chrome-alias: var(--bg-chrome);
+  --brand-alias: var(--brand);
+  --sky-alias: var(--sky);
+  --amber-alias: var(--amber);
+
+  /* CustomersPanel V2 token aliases — map to NoaSign design system.
+     These resolve correctly under both light and dark themes because
+     var() is evaluated at use-site, not declaration site. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 28px;
+  --sp-8: 32px;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 14px;
+  --text-lg:   16px;
+  --text-xl:   20px;
+
+  --tx:   var(--text-heading);
+  --tx-2: var(--text-body);
+  --tx-3: var(--text-label);
+
+  --br: var(--border-soft);
+
+  --surface:        var(--bg-card);
+  --surface-raised: var(--bg-card-soft);
+  --surface-hover:  var(--bg-hover);
+
+  --primary:      var(--brand);
+  --primary-soft: var(--brand-soft);
+
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-full: 9999px;
+
+  --shadow-lg: var(--shadow-elev);
+  --shadow-xl: var(--shadow-modal);
+
+  --warning-soft: var(--amber-soft);
+
+  /* MembersPanel V2 token aliases — semantic names mapped to NoaSign tokens.
+     Same theme-resolution semantics as the Customers V2 aliases above. */
+  --text-primary:   var(--text-heading);
+  --text-secondary: var(--text-body);
+  --text-muted:     var(--text-label);
+
+  --tx-border:      var(--border-soft);
+  --tx-hover:       var(--bg-hover);
+
+  --blue:           var(--sky);
+  --blue-soft:      var(--sky-soft);
+
+  --slate:          var(--text-label);
+  /* --slate-soft is defined per-theme below (rgba differs) */
+
+  --green:          var(--success);
+  --green-soft:     var(--success-bg);
+
+  --rose:           var(--danger);
+  --rose-soft:      var(--danger-soft);
+
+  /* LockedUsersPanel V2 aliases — same as rose/rose-soft, different name. */
+  --red:            var(--danger);
+  --red-soft:       var(--danger-soft);
+}
+
+/* Dashboard responsive — hide logo text on mobile (≤480px) */
+@media (max-width: 480px) {
+  .topbar-logo-text {
+    display: none;
+  }
+}
+
+/* ============================================
+   SIDEBAR RESPONSIVE — UNIFIED
+   Desktop + Tablet (>768px): visible and collapsible (same UX)
+   Mobile (<768px): hidden completely (MobileMenu drawer takes over)
+   ============================================ */
+.sidebar-desktop {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .sidebar-desktop {
+    display: none !important;
+  }
+}
+
+/* Scrollbar styling for sidebar */
+.sidebar-desktop::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-desktop::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-desktop::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  border-radius: 3px;
+}
+
+.sidebar-desktop::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ============================================
+   Z-INDEX LAYERS (explicit hierarchy)
+   ============================================ */
+/* Sidebar: base layer */
+.sidebar-desktop {
+  z-index: 10;
+}
+
+/* Topbar: above sidebar so its hamburger isn't covered */
+.topbar {
+  z-index: 100;
+}
+
+/* MobileMenu hamburger button: above topbar contents */
+.mobile-menu-button {
+  z-index: 150;
+  position: relative;
+}
+
+/* Mobile drawer slide-in animation (consumed by MobileMenu) */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Dashboard content padding (responsive) */
+.dashboard-content {
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-content {
+    padding: 12px;
+  }
+}
+
+/* Topbar breadcrumbs — hidden on mobile to reclaim space */
+.topbar-breadcrumbs {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .topbar-breadcrumbs {
+    display: none;
+  }
+}
+
+/* Topbar logo — hidden at all widths. The brand lives in the sidebar
+   (desktop + tablet) and in the MobileMenu drawer (mobile), so the topbar
+   "NS" is redundant. (Removed from mobile per request; was already hidden
+   on desktop/tablet.) */
+.topbar-logo-container {
+  display: none;
+}
+
+/* MobileMenu hamburger button — only visible on mobile (≤768px) */
+.mobile-menu-button {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-button {
+    display: block !important;
+  }
+}
+
+/* Topbar user meta (name + plan beside avatar) — hidden on mobile,
+   only the avatar shows there to save space */
+.topbar-user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+/* Hide on phones (≤700). At 701px+ (tablet + desktop) the name + plan show
+   beside the avatar. 700 (not 767) leaves margin so a 768 tablet still shows
+   it even when the responsive-viewer scrollbar shrinks the effective width. */
+@media (max-width: 700px) {
+  .topbar-user-meta {
+    display: none;
+  }
+}
+
+/* Sidebar collapsed hover tooltip — fixed-positioned so it escapes the
+   sidebar's overflow:hidden. Positioned inline via JS (button rect). */
+.sidebar-tooltip-pop {
+  z-index: 200;
+  background: var(--bg-card);
+  color: var(--text-heading);
+  border: 0.5px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  animation: sidebar-tooltip-fade 0.1s ease-out;
+}
+
+@keyframes sidebar-tooltip-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Skeleton loading — global baseline so the Topbar (and any always-mounted
+   chrome) can use it regardless of which panel CSS is loaded. Mirrors the
+   definitions in the v2 panel CSS files. */
+.skeleton-pulse {
+  background: var(--bg-hover);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-line {
+  border-radius: 6px;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============================================
+   CARD LEGEND — pill-style floating title
+   Title + icon sit in an independent pill (own brand border + solid bg)
+   floating over the card's top-left border, so the card border never
+   slices the text. The pill bg matches the surface behind it: defaults
+   to --bg-card; set --card-legend-bg on the container to override per
+   context (modal, sidebar). Theme-aware via --brand (navy light / sky dark).
+   ============================================ */
+.card-legend {
+  position: relative;
+  /* Soft brand border (brand @ 25%) — theme-aware via --brand. */
+  border: 1.5px solid color-mix(in srgb, var(--brand) 25%, transparent);
+  border-radius: 10px;
+}
+
+.card-legend__label {
+  position: absolute;
+  top: -12px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* Independent pill: own brand border + solid bg so the card border
+     doesn't slice the text. Bg matches the surface behind it — defaults
+     to --bg-card; override --card-legend-bg per context (modal, sidebar). */
+  border: 1.5px solid color-mix(in srgb, var(--brand) 25%, transparent);
+  border-radius: 20px;
+  padding: 2px 10px;
+  background: var(--card-legend-bg, var(--bg-card));
+  white-space: nowrap;
+}
+
+.card-legend__icon {
+  color: var(--brand);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.card-legend__title {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand);
+}
+
+.card-legend__edit {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.card-legend__edit:hover {
+  color: var(--text-primary);
+  background: var(--tx-hover);
+}
+
+/* ============================================
+   DISCARD CHANGES MODAL — global, sits above all other overlays
+   ============================================ */
+.discard-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  /* Above .modal-overlay (1000) and .gep-overlay (1100). */
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: discardOverlayIn 0.15s ease-out;
+}
+
+@keyframes discardOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.discard-modal {
+  background: var(--bg-card, #fff);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border-soft, transparent);
+  animation: discardModalIn 0.18s ease-out;
+}
+
+@keyframes discardModalIn {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.discard-modal__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.discard-modal__desc {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.discard-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.discard-modal__btn {
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  font-family: inherit;
+}
+
+.discard-modal__btn--cancel {
+  background: transparent;
+  color: var(--text-body);
+  border: 1px solid var(--border-strong);
+}
+.discard-modal__btn--cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+}
+
+.discard-modal__btn--confirm {
+  background: var(--danger);
+  color: #fff;
+}
+.discard-modal__btn--confirm:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   ConfirmActionModal — generic confirm dialog (Send / Cancel document).
+   Mirrors .discard-modal styling; adds amber + danger confirm variants.
+   ============================================ */
+.confirm-action-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  /* Above .doc-detail-modal-overlay (400), .gep-overlay (1100). */
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.confirm-action-modal {
+  background: var(--bg-card, #fff);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 440px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.confirm-action-modal__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.confirm-action-modal__desc {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.confirm-action-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-action-modal__btn {
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.confirm-action-modal__btn--cancel {
+  background: transparent;
+  color: var(--text-body);
+  border: 1px solid var(--border-strong);
+}
+.confirm-action-modal__btn--cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+}
+
+.confirm-action-modal__btn--amber {
+  background: var(--amber, #ff9900);
+  color: #fff;
+}
+.confirm-action-modal__btn--amber:hover {
+  opacity: 0.9;
+}
+
+.confirm-action-modal__btn--danger {
+  background: var(--danger);
+  color: #fff;
+}
+.confirm-action-modal__btn--danger:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   GLOBAL btn-danger — solid red baseline.
+   Panel-scoped overrides may still tweak this (see customers-panel.css).
+   ============================================ */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--danger);
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.btn-danger:hover {
+  background: var(--danger-hover, #dc2626);
+  border-color: var(--danger-hover, #dc2626);
+}
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   GLOBAL btn-warning — solid amber. For important
+   but NON-destructive confirmations (e.g. reassign).
+   ============================================ */
+.btn-warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--warning);
+  background: var(--warning);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.btn-warning:hover {
+  background: var(--warning-hover, #e68a00);
+  border-color: var(--warning-hover, #e68a00);
+}
+.btn-warning:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   BACKDROP BLUR — every "*-overlay" gets a subtle blur behind the modal.
+   Lighter touch than the existing 2px on billing modal-layer so it stays
+   theme-agnostic. Browsers without backdrop-filter degrade gracefully.
+   ============================================ */
+.modal-overlay,
+.gep-overlay,
+.discard-modal-overlay,
+[class*="-overlay"] {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }

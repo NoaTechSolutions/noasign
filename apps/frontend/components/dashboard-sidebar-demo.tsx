@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import NextImage from "next/image";
 import Link from "next/link";
@@ -10,40 +10,24 @@ import { useTheme } from "next-themes";
 import {
   ClipboardList,
   AlertTriangle,
-  BadgeCheck,
-  Ban,
-  Briefcase,
   Building2,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
-  CircleHelp,
-  Compass,
+  Contact,
   CreditCard,
   Download,
-  Factory,
   FileJson,
+  FilePlus,
   FileText,
-  Globe,
   LayoutDashboard,
-  Landmark,
+  Lock,
   LogOut,
-  Mail,
   Menu,
-  MoreHorizontal,
-  MapPinned,
-  MapPlus,
-  Pencil,
   Phone,
-  Pin,
   ScanText,
   Search,
-  Send,
-  Settings2,
-  ShieldCheck,
-  SlidersHorizontal,
   UserCog,
-  Undo2,
   UserRound,
   Users,
   WalletCards,
@@ -52,67 +36,150 @@ import {
 import { Sidebar, SidebarBody, SidebarLink } from "./ui/sidebar";
 import { cn } from "@/lib/utils";
 import { MasterUsersPanel } from "./master-users-panel";
-import { DocumentFormRenderer, type DocumentSchema } from "./document-form-renderer";
+import { DocumentWizard, type DocumentSchema } from "./dashboard/panels/v2/documents/wizard";
+import { BillingPanel } from "./dashboard/panels/billing-panel";
+import { DashboardOverviewPanel } from "./dashboard/panels/dashboard-overview-panel";
+import { ProfilePanel } from "./dashboard/panels/profile-panel";
+import { CustomersPanel } from "./dashboard/panels/customers-panel";
+import { DocumentsPanel } from "./dashboard/panels/documents-panel";
+import { LockedUsersPanel } from "./dashboard/panels/locked-users-panel";
+// FASE 3.5 — helpers centralizados (era circular import via monolito).
+import {
+  formatDate,
+  formatUsPhone,
+} from "@/lib/format";
+import { readSessionBoolean, writeSessionBoolean } from "@/lib/session-storage";
+import {
+  CompanyAvatar,
+  CustomerTypeBadge,
+  DetailRow,
+  EditableField,
+  EmptyBlock,
+  StatPill,
+  StatusBadge,
+} from "@/components/dashboard/shared/ui";
+import {
+  getDisplayEmail,
+  getDisplayPhone,
+  type Customer,
+  type CustomerBusiness,
+  type CustomerBusinessFormValues,
+  type CustomerFormValues,
+} from "@/components/dashboard/shared/customer-types";
+import type {
+  Doc,
+  DocDetail,
+  DocumentTypeCatalogItem,
+  StatusFilter,
+} from "@/components/dashboard/shared/document-types";
+import {
+  getDisplayName,
+  getDocumentActions,
+} from "@/components/dashboard/shared/document-utils";
 
-type Doc = {
-  id: string;
-  documentNumber: string;
-  status: string;
-  contractDate: string;
-  createdAt: string;
-  providerDocumentId?: string | null;
-  providerStatus?: string | null;
-  providerLastSyncedAt?: string | null;
-  lastManualReminderAt?: string | null;
-  lastSentRecipientEmail?: string | null;
-  sendAvailableAt?: string | null;
-  sendAvailableInSeconds?: number;
-  canSend?: boolean;
-  resendAvailableAt?: string | null;
-  resendAvailableInSeconds?: number;
-  serverNow?: string | null;
-  canResend?: boolean;
-  billingPeriod?: string | null;
-  sentAt?: string | null;
-  cancelledAt?: string | null;
-  viewedAt?: string | null;
-  signedAt?: string | null;
-  completedAt?: string | null;
-  countedInBilling: boolean;
-  isOverage: boolean;
-  user?: { email: string; role?: string } | null;
-  companyProfile?: { companyName?: string | null } | null;
-  documentType?: { name: string; code: string } | null;
-  formDefinition?: { name: string; key: string } | null;
-  data?: { dataJson: Record<string, unknown> } | null;
+// For BUSINESS customers, CreateDraftDrawer can pre-fill from either the
+// business row (businessName, businessEmail, businessPhone, business
+// address) or the primary-contact section (primaryContactName, etc.). User
+// picks which set via BusinessDataSelectorDialog. PERSONAL customers don't
+// see the picker — they only have one source.
+type CustomerDataSource = "business" | "contact";
+
+// Flattened cross-product of (documentType × formDefinition × signatureTemplate)
+// that a user can pick in the template selector. Each triple maps to a single
+// createDraftDocument payload.
+type DocumentDraftTriple = {
+  documentTypeId: string;
+  documentTypeName: string;
+  formDefinitionId: string;
+  formDefinitionName: string;
+  signatureTemplateId: string;
+  signatureTemplateName: string;
 };
 
-type DocDetail = Doc & {
-  signatureTemplate?: {
-    name: string;
-    templateKey: string;
-    providerTemplateId?: string | null;
-  } | null;
-  data?: { dataJson: Record<string, unknown> } | null;
-  versions?: Array<{ id: string; versionNumber: number; createdAt: string }>;
-};
+function flattenDocumentTypeTriples(
+  documentTypes: DocumentTypeCatalogItem[],
+): DocumentDraftTriple[] {
+  const out: DocumentDraftTriple[] = [];
+  for (const dt of documentTypes) {
+    for (const fd of dt.formDefinitions) {
+      for (const st of dt.signatureTemplates) {
+        out.push({
+          documentTypeId: dt.id,
+          documentTypeName: dt.name,
+          formDefinitionId: fd.id,
+          formDefinitionName: fd.name,
+          signatureTemplateId: st.id,
+          signatureTemplateName: st.name,
+        });
+      }
+    }
+  }
+  return out;
+}
 
-type DocumentTypeCatalogItem = {
+// NOA-268 — TemplateSelectorDialog 2-step UX. Step 1 lets the user pick a
+// FormDefinition (with search + field count); step 2 narrows down to a
+// SignatureTemplate compatible with that FormDef's documentType. If a FormDef
+// has only one compatible SignatureTemplate the modal auto-picks (invisible
+// step). FormDefs with zero compatible templates are filtered out — the user
+// would have nothing to pick on step 2.
+type FormDefOption = {
   id: string;
   name: string;
-  code: string;
-  formDefinitions: Array<{
-    id: string;
-    name: string;
-    schemaJson?: unknown;
-  }>;
-  signatureTemplates: Array<{
-    id: string;
-    name: string;
-    templateKey: string;
-    providerTemplateId?: string | null;
-  }>;
+  documentTypeId: string;
+  documentTypeName: string;
+  fieldCount: number;
+  triples: DocumentDraftTriple[];
 };
+
+// schemaJson can take two shapes today: a flat field array (legacy) or a
+// sectioned object `{sections: [{fields: [...]}]}`. Sum across whichever
+// matches; unknown shapes report 0 rather than throwing.
+function countSchemaFields(schemaJson: unknown): number {
+  if (!schemaJson) return 0;
+  if (Array.isArray(schemaJson)) return schemaJson.length;
+  if (typeof schemaJson === "object" && schemaJson !== null) {
+    const sections = (schemaJson as { sections?: unknown }).sections;
+    if (Array.isArray(sections)) {
+      return sections.reduce<number>((acc, section) => {
+        if (section && typeof section === "object") {
+          const fields = (section as { fields?: unknown }).fields;
+          if (Array.isArray(fields)) return acc + fields.length;
+        }
+        return acc;
+      }, 0);
+    }
+  }
+  return 0;
+}
+
+function buildFormDefOptions(
+  documentTypes: DocumentTypeCatalogItem[],
+): FormDefOption[] {
+  const out: FormDefOption[] = [];
+  for (const dt of documentTypes) {
+    for (const fd of dt.formDefinitions) {
+      const triples: DocumentDraftTriple[] = dt.signatureTemplates.map((st) => ({
+        documentTypeId: dt.id,
+        documentTypeName: dt.name,
+        formDefinitionId: fd.id,
+        formDefinitionName: fd.name,
+        signatureTemplateId: st.id,
+        signatureTemplateName: st.name,
+      }));
+      if (triples.length === 0) continue;
+      out.push({
+        id: fd.id,
+        name: fd.name,
+        documentTypeId: dt.id,
+        documentTypeName: dt.name,
+        fieldCount: countSchemaFields(fd.schemaJson),
+        triples,
+      });
+    }
+  }
+  return out;
+}
 
 type Props = {
   user: {
@@ -203,6 +270,8 @@ type Props = {
     email: string;
     role: string;
     status: string;
+    firstName?: string | null;
+    lastName?: string | null;
     createdAt: string;
     updatedAt: string;
   }> | null;
@@ -222,6 +291,16 @@ type Props = {
   selectedDocumentId: string | null;
   isDocumentDetailLoading: boolean;
   documentActionId: string | null;
+  customers: Customer[] | null;
+  customerDetail: Customer | null;
+  selectedCustomerId: string | null;
+  isCustomerDetailLoading: boolean;
+  customerActionId: string | null;
+  onSelectCustomer: (customerId: string) => void;
+  onCloseCustomerDetail: () => void;
+  onDeleteCustomer: (customerId: string) => Promise<void>;
+  onCreateCustomer: (values: CustomerFormValues) => Promise<void>;
+  onUpdateCustomer: (customerId: string, values: CustomerFormValues) => Promise<void>;
   isLoading: boolean;
   onSelectDocument: (documentId: string) => void;
   onDocumentAction: (
@@ -241,7 +320,15 @@ type Props = {
     signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
+    customerId?: string;
+    userId?: string;
   }) => Promise<DocDetail | void>;
+  // NOA-238 — master picks a target user; we re-fetch the templates via
+  // GET /documents/types?asUserId=<id> to surface only what that user can
+  // pick. Returns the per-user catalog (same shape as documentTypes).
+  onFetchTemplatesAsUser: (
+    targetUserId: string,
+  ) => Promise<DocumentTypeCatalogItem[]>;
   onUpdateMe: (payload: { firstName?: string; lastName?: string; title?: string; phone?: string; addressLine1?: string; addressLine2?: string; city?: string; state?: string; zipCode?: string; avatarUrl?: string }) => Promise<unknown>;
   onUpdateCompanyProfile: (payload: {
     companyName?: string;
@@ -299,25 +386,18 @@ type EditableViewerTabKey = "client" | "project" | "pricing";
 type SectionKey =
   | "dashboard"
   | "documents"
+  | "customers"
   | "users"
   | "accountRequests"
+  | "lockedUsers"
   | "profile"
   | "billing";
-type StatusFilter =
-  | "ALL"
-  | "DRAFT"
-  | "SENT"
-  | "VIEWED"
-  | "SIGNED"
-  | "COMPLETED"
-  | "CANCELLED";
 
 const SECTION_QUERY_KEY = "section";
 const DASHBOARD_SELECTED_DOCUMENT_KEY = "ntssign:dashboard:selected-document-id";
 const DASHBOARD_DOCUMENT_VIEWER_KEY = "ntssign:dashboard:document-viewer";
 const DOCUMENTS_CREATE_DRAWER_KEY = "ntssign:documents:create-draft-open";
 const DOCUMENTS_CREATE_DRAFT_STATE_KEY = "ntssign:documents:create-draft-state";
-const BILLING_PLANS_MODAL_KEY = "ntssign:billing:plans-modal-open";
 
 type PersistedDocumentViewerState = {
   open: boolean;
@@ -333,19 +413,13 @@ type PersistedCreateDraftState = {
   contractDate: string;
 };
 
-type WorkflowAction = {
-  key: "send" | "resend" | "cancel" | "reactivate";
-  label: string;
-  icon: ReactNode;
-  tone: string;
-  disabled?: boolean;
-};
-
 function parseSectionKey(value: string | null): SectionKey {
   if (
     value === "documents" ||
+    value === "customers" ||
     value === "users" ||
     value === "accountRequests" ||
+    value === "lockedUsers" ||
     value === "profile" ||
     value === "billing"
   ) {
@@ -353,16 +427,6 @@ function parseSectionKey(value: string | null): SectionKey {
   }
 
   return "dashboard";
-}
-
-function readSessionBoolean(key: string, fallback = false) {
-  if (typeof window === "undefined") return fallback;
-  return window.sessionStorage.getItem(key) === "true";
-}
-
-function writeSessionBoolean(key: string, value: boolean) {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(key, value ? "true" : "false");
 }
 
 function readSessionJson<T>(key: string): T | null {
@@ -402,6 +466,16 @@ export function DashboardSidebarDemo({
   selectedDocumentId,
   isDocumentDetailLoading,
   documentActionId,
+  customers,
+  customerDetail,
+  selectedCustomerId,
+  isCustomerDetailLoading,
+  customerActionId,
+  onSelectCustomer,
+  onCloseCustomerDetail,
+  onDeleteCustomer,
+  onCreateCustomer,
+  onUpdateCustomer,
   isLoading,
   onSelectDocument,
   onDocumentAction,
@@ -410,6 +484,7 @@ export function DashboardSidebarDemo({
   onPreviewFinalPdf,
   onDownloadFinalPdf,
   onCreateDraft,
+  onFetchTemplatesAsUser,
   onUpdateMe,
   onUpdateCompanyProfile,
   onCreateUser,
@@ -433,10 +508,73 @@ export function DashboardSidebarDemo({
   const [documentViewerInitialEditingTab, setDocumentViewerInitialEditingTab] =
     useState<EditableViewerTabKey | null>(null);
   const [documentSuccessMessage, setDocumentSuccessMessage] = useState("");
+  // NOA-280 — when user clicks Edit on a schema-driven draft, show this
+  // notice instead of opening the legacy viewer-with-edit-tabs (which
+  // doesn't fit schema-driven dataJson). Until NOA-285 ships a proper
+  // schema-driven Edit, the user's recovery path is Cancel + recreate.
+  const [schemaDrivenEditNotice, setSchemaDrivenEditNotice] = useState<{
+    documentId: string;
+    documentNumber: string;
+  } | null>(null);
   const requestedSection = parseSectionKey(searchParams.get(SECTION_QUERY_KEY));
   const [activeSection, setActiveSection] = useState<SectionKey>(requestedSection);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  // When the customer view drawer's "+ New Document" button fires, we stash
+  // the customer id here, close the customer drawer, and switch to the
+  // documents section. DocumentsPanel picks this up and auto-opens its
+  // CreateDraftDrawer with the customer pre-linked; it then clears the value.
+  const [pendingDraftCustomerId, setPendingDraftCustomerId] = useState<
+    string | null
+  >(null);
+  // Template Selector Modal: opens when the user starts a new draft AND there
+  // are multiple (documentType, formDefinition, signatureTemplate) triples
+  // available. Pick one → stash here → auto-open CreateDraftDrawer with
+  // these ids preset instead of auto-picking first.
+  const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [pendingDraftTriple, setPendingDraftTriple] =
+    useState<DocumentDraftTriple | null>(null);
+  // Business Data Selector Modal: shows after the Template Selector for
+  // BUSINESS customers, so the user can pick which data set (business row
+  // or primary contact) gets pre-filled into the form. PERSONAL customers
+  // skip this — they only have one data source.
+  const [businessDataSelectorOpen, setBusinessDataSelectorOpen] =
+    useState(false);
+  const [pendingDataSource, setPendingDataSource] =
+    useState<CustomerDataSource | null>(null);
+  // NOA-239 — after the template is locked in (Documents-section flow with
+  // no customer pre-set), surface a "Use a customer / Create blank" picker.
+  // Skipped when the flow already carries a customer (kebab + customer-view
+  // entry points lock the customer up front).
+  const [customerDataOptionOpen, setCustomerDataOptionOpen] = useState(false);
+  const [customerSelectorOpen, setCustomerSelectorOpen] = useState(false);
+  // NOA-238 — when MASTER starts a Documents-section flow, they first pick
+  // the target user. pendingDraftTargetUserId carries the choice through
+  // the rest of the dialogs; targetUserDocumentTypes caches the templates
+  // re-fetched with ?asUserId=<id> so the Template Selector shows what
+  // the target user would see (not master's superset).
+  const [userSelectorOpen, setUserSelectorOpen] = useState(false);
+  const [pendingDraftTargetUserId, setPendingDraftTargetUserId] = useState<
+    string | null
+  >(null);
+  const [targetUserDocumentTypes, setTargetUserDocumentTypes] = useState<
+    DocumentTypeCatalogItem[] | null
+  >(null);
+  // Whether the current pendingDraftCustomerId came from the in-flow
+  // CustomerSelectDialog (true) vs the kebab / customer-view shortcut
+  // (false). Drives where the BusinessDataSelector "Back" button returns
+  // to: pick-customer-again vs pick-template-again.
+  const [customerPickedViaDialog, setCustomerPickedViaDialog] =
+    useState(false);
+  // CreateDraftDrawer lives here (not inside DocumentsPanel) so opening a
+  // draft from the Customers section doesn't force an activeSection switch
+  // away from Customers — user stays in whatever section they started from.
+  // Lazy initializer restores the drawer's open state across tab reloads
+  // without a setState-in-effect.
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(() =>
+    readSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY),
+  );
+  const [createDrawerVersion, setCreateDrawerVersion] = useState(0);
 
   const isIndividualUser = user?.role !== "MASTER" && user?.accountType === "INDIVIDUAL";
   const displayName = isIndividualUser
@@ -508,7 +646,7 @@ export function DashboardSidebarDemo({
   }, [open]);
 
   useEffect(() => {
-    if (activeSection === "users" || activeSection === "accountRequests") {
+    if (activeSection === "users" || activeSection === "accountRequests" || activeSection === "lockedUsers") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsersMenuOpen(true);
     }
@@ -572,6 +710,7 @@ export function DashboardSidebarDemo({
     { key: "documents" as const, label: "Documents", icon: <FileText className="h-5 w-5 shrink-0" /> },
     { key: "profile" as const, label: "Profile", icon: <UserRound className="h-5 w-5 shrink-0" /> },
     { key: "billing" as const, label: "Billing", icon: <CreditCard className="h-5 w-5 shrink-0" /> },
+    { key: "customers" as const, label: "Clients", icon: <Contact className="h-5 w-5 shrink-0" /> },
   ];
 
   function closeDocumentViewer() {
@@ -589,6 +728,275 @@ export function DashboardSidebarDemo({
     setDocumentViewerInitialEditingTab(options.editingTab ?? null);
     setDocumentViewerOpen(true);
     onSelectDocument(options.documentId);
+  }
+
+  useEffect(() => {
+    writeSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY, createDrawerOpen);
+  }, [createDrawerOpen]);
+
+  // Open the draft drawer cleanly: wipe stale sessionStorage form state,
+  // bump the key (forces remount → fresh useState initializers pick up
+  // presets), then flip open. Inlined in handlers (instead of an auto-open
+  // useEffect) to avoid cascading renders from setState-in-effect.
+  function openCreateDrawerFresh() {
+    removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
+    setCreateDrawerVersion((current) => current + 1);
+    setCreateDrawerOpen(true);
+  }
+
+  // After a triple is locked in, decide which dialog (if any) comes next.
+  // Three cases:
+  //   1. Customer already locked + BUSINESS → BusinessDataSelector
+  //   2. Customer already locked + PERSONAL → straight to drawer
+  //   3. No customer yet (Documents-section flow) → CustomerDataOptionDialog
+  //      (NOA-239 — user picks "Use customer" or "Create blank")
+  function advanceAfterTriple(customerId: string | null) {
+    if (customerId) {
+      const customer = customers?.find((c) => c.id === customerId) ?? null;
+      if (customer && customer.customerType === "BUSINESS") {
+        setBusinessDataSelectorOpen(true);
+        return;
+      }
+      openCreateDrawerFresh();
+      return;
+    }
+    setCustomerDataOptionOpen(true);
+  }
+
+  function handleCustomerDataOption(option: "customer" | "blank") {
+    setCustomerDataOptionOpen(false);
+    if (option === "blank") {
+      // No customer link → drawer opens with empty form.
+      openCreateDrawerFresh();
+      return;
+    }
+    setCustomerSelectorOpen(true);
+  }
+
+  function handleCustomerSelected(customer: Customer) {
+    setCustomerSelectorOpen(false);
+    setPendingDraftCustomerId(customer.id);
+    // Mark this customer as picked-in-flow so the BusinessDataSelector's
+    // Back button can return to the customer picker (vs back to template,
+    // which is what the kebab/customer-view path would want).
+    setCustomerPickedViaDialog(true);
+    if (customer.customerType === "BUSINESS") {
+      setBusinessDataSelectorOpen(true);
+      return;
+    }
+    openCreateDrawerFresh();
+  }
+
+  function cancelCustomerDataOption() {
+    setCustomerDataOptionOpen(false);
+    // Drop the pending triple + master target stash — bailing out of the
+    // flow shouldn't leak the selection into a later unrelated New
+    // Document click.
+    setPendingDraftTriple(null);
+    setPendingDraftTargetUserId(null);
+    setTargetUserDocumentTypes(null);
+  }
+
+  function cancelCustomerSelector() {
+    setCustomerSelectorOpen(false);
+    setPendingDraftTriple(null);
+    setPendingDraftTargetUserId(null);
+    setTargetUserDocumentTypes(null);
+  }
+
+  // Resolve the catalog the active draft flow should use. Master picking
+  // a target user gets the per-user catalog (re-fetched via asUserId);
+  // everything else uses the master/own catalog already in props.
+  const effectiveDocumentTypes = targetUserDocumentTypes ?? documentTypes;
+
+  // Single entry point for "start a new draft" (from customer view, from
+  // Documents "+ New document", anywhere else). Flattens the user's
+  // accessible template catalog into triples; if there's only one, skip the
+  // template modal. Then for BUSINESS customers stop in the data selector
+  // so the user picks business vs primary contact.
+  //
+  // NOA-238: when MASTER starts a Documents-section flow (no customerId),
+  // open UserSelectorDialog first so they pick the target user. The
+  // template / customer dialogs that come next will then use the target
+  // user's perspective.
+  function startNewDraft(customerId?: string) {
+    if (customerId) {
+      onCloseCustomerDetail();
+      setPendingDraftCustomerId(customerId);
+      proceedFromTriplePool(documentTypes, customerId);
+      return;
+    }
+    // No customer pre-set → Documents-section flow. Master gets the user
+    // picker first; everyone else continues with their own catalog.
+    if (user?.role === "MASTER") {
+      setUserSelectorOpen(true);
+      return;
+    }
+    proceedFromTriplePool(documentTypes, null);
+  }
+
+  // Once we know which catalog to use (master's, target user's, or own),
+  // either skip the template modal (single triple) or open it.
+  function proceedFromTriplePool(
+    pool: DocumentTypeCatalogItem[],
+    customerId: string | null,
+  ) {
+    const triples = flattenDocumentTypeTriples(pool);
+    if (triples.length === 0) {
+      // Edge case: no templates available for this perspective. The
+      // "+ New Document" buttons are already disabled in that case, so
+      // hitting this path means the state got out of sync — silent no-op
+      // rather than a bogus modal.
+      return;
+    }
+    if (triples.length === 1) {
+      setPendingDraftTriple(triples[0]);
+      advanceAfterTriple(customerId);
+      return;
+    }
+    setTemplateSelectorOpen(true);
+  }
+
+  async function handleTargetUserSelected(targetUser: {
+    id: string;
+    role: string;
+    email: string;
+  }) {
+    setPendingDraftTargetUserId(targetUser.id);
+    setUserSelectorOpen(false);
+    // Fetch the target user's catalog before opening the Template Selector
+    // so master sees what THAT user can pick (not master's superset).
+    let pool: DocumentTypeCatalogItem[];
+    try {
+      pool = await onFetchTemplatesAsUser(targetUser.id);
+    } catch {
+      // Fall back to master's full catalog if the as-user fetch fails —
+      // less precise but doesn't dead-end the flow.
+      pool = documentTypes;
+    }
+    setTargetUserDocumentTypes(pool);
+    proceedFromTriplePool(pool, null);
+  }
+
+  function cancelUserSelector() {
+    setUserSelectorOpen(false);
+  }
+
+  // Back-navigation handlers. Each closes the current modal and re-opens
+  // the immediately-previous one in the flow. They preserve any state
+  // already captured (template pick, target user, etc.) so the user can
+  // change just one step without redoing everything.
+  function backFromTemplateSelector() {
+    setTemplateSelectorOpen(false);
+    // Master flow: target user was picked first → re-open UserSelector.
+    // Non-master / customer-context: there's no prior step → fall through
+    // to cancel semantics (cleared state to avoid leaking).
+    if (user?.role === "MASTER") {
+      // Drop the cached target catalog so picking a different user
+      // refetches; we still keep the customer if any (kebab path).
+      setTargetUserDocumentTypes(null);
+      setPendingDraftTargetUserId(null);
+      setUserSelectorOpen(true);
+      return;
+    }
+    cancelTemplateSelector();
+  }
+
+  function backFromCustomerDataOption() {
+    setCustomerDataOptionOpen(false);
+    // Re-open the template picker so the user can change templates.
+    // Single-triple cases will see the lone option but the modal still
+    // serves as a confirm step.
+    setTemplateSelectorOpen(true);
+  }
+
+  function backFromCustomerSelector() {
+    setCustomerSelectorOpen(false);
+    setCustomerDataOptionOpen(true);
+  }
+
+  function backFromBusinessDataSelector() {
+    setBusinessDataSelectorOpen(false);
+    if (customerPickedViaDialog) {
+      // Documents-section flow — go back to the customer picker so the
+      // user can pick a different customer if they got the wrong one.
+      setPendingDraftCustomerId(null);
+      setCustomerPickedViaDialog(false);
+      setCustomerSelectorOpen(true);
+      return;
+    }
+    // Customer was pre-set (kebab / customer view) — back goes to the
+    // template picker. Customer stays locked since it was the entry
+    // point.
+    setTemplateSelectorOpen(true);
+  }
+
+  function handleTemplateSelected(triple: DocumentDraftTriple) {
+    setPendingDraftTriple(triple);
+    setTemplateSelectorOpen(false);
+    advanceAfterTriple(pendingDraftCustomerId);
+  }
+
+  function cancelTemplateSelector() {
+    setTemplateSelectorOpen(false);
+    // If the flow was kicked off from a customer, drop the stashed customer
+    // too — otherwise a later unrelated "+ New document" click would pick it
+    // up and incorrectly pre-link. Same goes for the master target user +
+    // its cached catalog.
+    setPendingDraftCustomerId(null);
+    setPendingDraftTargetUserId(null);
+    setTargetUserDocumentTypes(null);
+  }
+
+  function handleDataSourceSelected(source: CustomerDataSource) {
+    setPendingDataSource(source);
+    setBusinessDataSelectorOpen(false);
+    openCreateDrawerFresh();
+  }
+
+  function cancelBusinessDataSelector() {
+    setBusinessDataSelectorOpen(false);
+    // Cancelling here means the user backed out after picking a template
+    // for a customer — drop the whole pending draft state so the next
+    // unrelated New Document click starts fresh.
+    setPendingDraftCustomerId(null);
+    setPendingDraftTriple(null);
+  }
+
+  function closeCreateDrawer() {
+    setCreateDrawerOpen(false);
+    removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
+    // NOA-272 Chunk 3 Bug 1 fix — drop the per-draft sessionId so the next
+    // "New Document" generates a fresh persistKey (no line_items leak across
+    // drafts). Also sweep any orphan noasign:form-arrays:* keys defensively,
+    // in case the renderer's clearPersistedArrays didn't run (race during
+    // unmount, exception path, X→confirm bypassing renderer).
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem("noasign:draft-session-id");
+        for (let i = window.sessionStorage.length - 1; i >= 0; i--) {
+          const key = window.sessionStorage.key(i);
+          if (key && key.startsWith("noasign:form-arrays:")) {
+            window.sessionStorage.removeItem(key);
+          }
+        }
+      } catch {
+        // Storage unavailable — silently degrade.
+      }
+    }
+    setCreateDrawerVersion((current) => current + 1);
+    if (pendingDraftCustomerId) setPendingDraftCustomerId(null);
+    if (pendingDraftTriple) setPendingDraftTriple(null);
+    if (pendingDataSource) setPendingDataSource(null);
+    if (pendingDraftTargetUserId) setPendingDraftTargetUserId(null);
+    if (targetUserDocumentTypes) setTargetUserDocumentTypes(null);
+    if (customerPickedViaDialog) setCustomerPickedViaDialog(false);
+    // Belt-and-suspenders — these dialogs should already be closed by the
+    // time the drawer renders, but if anything went sideways, clear them so
+    // the next entry point starts from a clean slate.
+    if (customerDataOptionOpen) setCustomerDataOptionOpen(false);
+    if (customerSelectorOpen) setCustomerSelectorOpen(false);
+    if (userSelectorOpen) setUserSelectorOpen(false);
   }
 
   async function handleDocumentAction(
@@ -648,7 +1056,7 @@ export function DashboardSidebarDemo({
   }
 
   return (
-    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 backdrop-blur md:flex-row xl:overflow-visible">
+    <div className="relative flex min-h-screen w-full overflow-hidden bg-[color:var(--bg-page)]/70 md:flex-row xl:overflow-visible">
       <Sidebar open={open} setOpen={setOpen}>
         <SidebarBody className="justify-between gap-3 xl:gap-8">
           <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-hidden">
@@ -677,14 +1085,14 @@ export function DashboardSidebarDemo({
                           onClick={() => setUsersMenuOpen((current) => !current)}
                           className={cn(
                             "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]",
-                            (activeSection === "users" || activeSection === "accountRequests") &&
+                            (activeSection === "users" || activeSection === "accountRequests" || activeSection === "lockedUsers") &&
                               "bg-[#bdd4ff] text-[#022977] shadow-[var(--shadow-soft)] dark:bg-[rgba(255,255,255,0.12)] dark:text-[color:var(--menu-text)]",
                           )}
                         >
                           <span
                             className={cn(
                               "flex h-9 w-9 items-center justify-center rounded-xl bg-[#e4efff] text-[#5574a6] transition group-hover:bg-[#bdd4ff] group-hover:text-[#022977] dark:bg-[color:var(--bg-surface)] dark:text-[color:var(--menu-text-muted)] dark:group-hover:bg-[rgba(255,255,255,0.08)] dark:group-hover:text-white",
-                              (activeSection === "users" || activeSection === "accountRequests") &&
+                              (activeSection === "users" || activeSection === "accountRequests" || activeSection === "lockedUsers") &&
                                 "bg-[#9fbeff] text-[#022977] dark:bg-[rgba(255,255,255,0.12)] dark:text-white",
                             )}
                           >
@@ -733,6 +1141,23 @@ export function DashboardSidebarDemo({
                             >
                               <ClipboardList className="h-4 w-4" />
                               <span>Access requests</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateActiveSection("lockedUsers");
+                                if (window.innerWidth < 1280) {
+                                  setOpen(false);
+                                }
+                              }}
+                              className={cn(
+                                "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text-muted)] transition hover:bg-[#d8e6ff] hover:text-[#022977] dark:hover:bg-[rgba(255,255,255,0.08)] dark:hover:text-[color:var(--menu-text)]",
+                                activeSection === "lockedUsers" &&
+                                  "bg-[#bdd4ff] text-[#022977] shadow-[var(--shadow-soft)] dark:bg-[rgba(255,255,255,0.12)] dark:text-[color:var(--menu-text)]",
+                              )}
+                            >
+                              <Lock className="h-4 w-4" />
+                              <span>Locked Users</span>
                             </button>
                           </div>
                         ) : null}
@@ -834,7 +1259,7 @@ export function DashboardSidebarDemo({
                   className="inline-flex items-center gap-3 rounded-2xl px-1 py-1 transition hover:bg-[color:var(--bg-surface)]"
                 >
                   {isIndividualUser ? (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-sm font-semibold text-blue-700 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-sm font-semibold text-[color:var(--brand-secondary)] shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-[color:var(--bg-page)] dark:text-[color:var(--brand-accent)]">
                       {user?.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
@@ -890,7 +1315,7 @@ export function DashboardSidebarDemo({
           </div>
 
           {activeSection === "dashboard" ? (
-            <DashboardOverview
+            <DashboardOverviewPanel
               isLoading={isLoading}
               displayName={displayName}
               planName={usage?.planName}
@@ -927,6 +1352,19 @@ export function DashboardSidebarDemo({
                 });
               }}
               onOpenDocumentEdit={(documentId) => {
+                // NOA-280 — schema-driven drafts intercept Edit and show a
+                // notice modal. The legacy viewer-with-edit-tabs only knows
+                // hardcoded client/project/pricing keys, which produce a
+                // partially-empty Frankenstein form on Laura's invoice
+                // dataJson. Real schema-driven Edit lands in NOA-285.
+                const targetDoc = documents?.find((d) => d.id === documentId);
+                if (targetDoc?.formDefinition) {
+                  setSchemaDrivenEditNotice({
+                    documentId,
+                    documentNumber: targetDoc.documentNumber,
+                  });
+                  return;
+                }
                 openDocumentViewer({
                   documentId,
                   tab: "client",
@@ -935,6 +1373,43 @@ export function DashboardSidebarDemo({
               }}
               onDocumentAction={handleDocumentAction}
               onCreateDraft={onCreateDraft}
+              onStartNewDraft={() => startNewDraft()}
+              canStartNewDraft={
+                user?.role === "MASTER" ||
+                flattenDocumentTypeTriples(documentTypes).length > 0
+              }
+            />
+          ) : null}
+
+          {activeSection === "customers" ? (
+            <CustomersPanel
+              customers={customers}
+              customerDetail={customerDetail}
+              selectedCustomerId={selectedCustomerId}
+              isDetailLoading={isCustomerDetailLoading}
+              customerActionId={customerActionId}
+              isLoading={isLoading}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              onSelectCustomer={onSelectCustomer}
+              onCloseCustomerDetail={onCloseCustomerDetail}
+              onDeleteCustomer={onDeleteCustomer}
+              onCreateCustomer={onCreateCustomer}
+              onUpdateCustomer={onUpdateCustomer}
+              documents={documents}
+              onOpenDocumentView={(documentId) => {
+                openDocumentViewer({
+                  documentId,
+                  tab: "client",
+                  editingTab: null,
+                });
+              }}
+              onPreviewFinalPdf={onPreviewFinalPdf}
+              onDownloadFinalPdf={onDownloadFinalPdf}
+              onStartCustomerDraft={(customerId) => startNewDraft(customerId)}
+              currentUserRole={user?.role ?? null}
+              currentUserId={user?.id ?? null}
+              tenantUsers={users}
             />
           ) : null}
 
@@ -982,6 +1457,10 @@ export function DashboardSidebarDemo({
             />
           ) : null}
 
+          {activeSection === "lockedUsers" && user?.role === "MASTER" ? (
+            <LockedUsersPanel />
+          ) : null}
+
           {activeSection === "billing" ? (
             <BillingPanel
               usage={usage}
@@ -1000,6 +1479,7 @@ export function DashboardSidebarDemo({
         actionInFlight={documentActionId}
         initialActiveTab={documentViewerInitialTab}
         initialEditingTab={documentViewerInitialEditingTab}
+        documentTypes={effectiveDocumentTypes}
         onClose={closeDocumentViewer}
         onAction={handleDocumentAction}
         onUpdateDraft={onUpdateDraft}
@@ -1007,8 +1487,115 @@ export function DashboardSidebarDemo({
         onPreviewFinalPdf={onPreviewFinalPdf}
         onDownloadFinalPdf={onDownloadFinalPdf}
       />
+      {schemaDrivenEditNotice ? (
+        <SchemaDrivenEditNotice
+          documentNumber={schemaDrivenEditNotice.documentNumber}
+          onClose={() => setSchemaDrivenEditNotice(null)}
+          onCancelDraft={async () => {
+            const id = schemaDrivenEditNotice.documentId;
+            setSchemaDrivenEditNotice(null);
+            await handleDocumentAction(id, "cancel");
+          }}
+        />
+      ) : null}
+      {templateSelectorOpen ? (
+        <TemplateSelectorDialog
+          formDefOptions={buildFormDefOptions(effectiveDocumentTypes)}
+          onCancel={cancelTemplateSelector}
+          onPick={handleTemplateSelected}
+          onBack={
+            user?.role === "MASTER" ? backFromTemplateSelector : undefined
+          }
+        />
+      ) : null}
+      {businessDataSelectorOpen && pendingDraftCustomerId ? (() => {
+        const customer = customers?.find(
+          (c) => c.id === pendingDraftCustomerId,
+        );
+        if (!customer) return null;
+        return (
+          <BusinessDataSelectorDialog
+            customer={customer}
+            onCancel={cancelBusinessDataSelector}
+            onPick={handleDataSourceSelected}
+            onBack={backFromBusinessDataSelector}
+          />
+        );
+      })() : null}
+      {userSelectorOpen ? (
+        <UserSelectorDialog
+          users={users ?? []}
+          currentUserId={user?.id ?? null}
+          onCancel={cancelUserSelector}
+          onPick={(u) => void handleTargetUserSelected(u)}
+          onCreateBlank={() => {
+            // No target userId — master uses their own catalog (which is
+            // already in props.documentTypes); document.userId defaults to
+            // master.id at the backend.
+            setUserSelectorOpen(false);
+            proceedFromTriplePool(documentTypes, null);
+          }}
+        />
+      ) : null}
+      {customerDataOptionOpen ? (
+        <CustomerDataOptionDialog
+          onCancel={cancelCustomerDataOption}
+          onPick={handleCustomerDataOption}
+          onBack={backFromCustomerDataOption}
+        />
+      ) : null}
+      {customerSelectorOpen ? (
+        <CustomerSelectDialog
+          // Master acting on behalf of a target user: scope the picker to
+          // that user's customers (matches what the target user would see
+          // and ensures the resulting document is linkable to a customer
+          // they own).
+          customers={(() => {
+            const all = customers ?? [];
+            if (pendingDraftTargetUserId) {
+              return all.filter((c) => c.userId === pendingDraftTargetUserId);
+            }
+            return all;
+          })()}
+          emptyHint={
+            pendingDraftTargetUserId
+              ? "This user has no saved clients yet."
+              : undefined
+          }
+          onCancel={cancelCustomerSelector}
+          onPick={handleCustomerSelected}
+          onBack={backFromCustomerSelector}
+        />
+      ) : null}
+      <CreateDraftDrawer
+        key={createDrawerVersion}
+        open={createDrawerOpen}
+        documentTypes={documentTypes}
+        companyProfile={companyProfile}
+        presetCustomer={
+          pendingDraftCustomerId
+            ? customers?.find((c) => c.id === pendingDraftCustomerId) ?? null
+            : null
+        }
+        presetDataSource={pendingDataSource}
+        presetDocumentTypeId={pendingDraftTriple?.documentTypeId ?? null}
+        presetFormDefinitionId={pendingDraftTriple?.formDefinitionId ?? null}
+        presetSignatureTemplateId={
+          pendingDraftTriple?.signatureTemplateId ?? null
+        }
+        presetTargetUserId={pendingDraftTargetUserId}
+        onClose={closeCreateDrawer}
+        onCreateDraft={onCreateDraft}
+        onOpenDocumentView={(documentId) => {
+          openDocumentViewer({
+            documentId,
+            tab: "client",
+            editingTab: null,
+          });
+        }}
+      />
       {documentSuccessMessage ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+        <div className="fixed inset-0 z-[70] flex items-start justify-center md:items-center bg-black/60 backdrop-blur p-4 pt-20 md:pt-0">
           <button
             type="button"
             aria-label="Close document success popup"
@@ -1043,687 +1630,839 @@ export function DashboardSidebarDemo({
   );
 }
 
-function DashboardOverview({
-  isLoading,
-  displayName,
-  planName,
-  billingPeriod,
-  monthlySummary,
-  stats,
-  topStates,
+// NOA-238 — first step of the master Documents-section flow. Master picks
+// the target user the draft will belong to (Document.userId on submit).
+// The rest of the flow then operates from that user's perspective:
+// templates re-fetched with ?asUserId=, customer picker filtered to the
+// target user's customers.
+function UserSelectorDialog({
+  users,
+  currentUserId,
+  onCancel,
+  onPick,
+  onCreateBlank,
 }: {
-  isLoading: boolean;
-  displayName: string;
-  planName?: string | null;
-  billingPeriod?: string | null;
-  monthlySummary?: Props["monthlySummary"];
-  stats: ReturnType<typeof buildContractStats>;
-  topStates: Array<{ label: string; value: number; tone: "slate" | "blue" | "cyan" | "green" | "forest" | "rose" }>;
+  users: NonNullable<Props["users"]>;
+  currentUserId: string | null;
+  onCancel: () => void;
+  onPick: (user: { id: string; role: string; email: string }) => void;
+  // "Create blank" — bypass user selection. Master proceeds with their own
+  // template catalog and the resulting Document.userId defaults to master.id.
+  onCreateBlank: () => void;
 }) {
-  const { resolvedTheme } = useTheme();
-  const progressStates = [
-    { label: "Draft", value: stats.draft, tone: "bg-slate-400" },
-    { label: "Sent", value: stats.sent, tone: "bg-[#2563eb]" },
-    { label: "Viewed", value: stats.viewed, tone: "bg-cyan-500" },
-    { label: "Signed", value: stats.signed, tone: "bg-emerald-500" },
-    { label: "Completed", value: stats.completed, tone: "bg-green-700" },
-    { label: "Cancelled", value: stats.cancelled, tone: "bg-rose-500" },
-  ] as const;
+  const [view, setView] = useState<"options" | "list">("options");
+  const [query, setQuery] = useState("");
 
-  const isDarkTheme = resolvedTheme !== "light";
-  const heroCardClassName = isDarkTheme
-    ? "rounded-[1.9rem] border border-white/10 bg-[linear-gradient(135deg,#0b1220_0%,#111827_40%,#1d4ed8_100%)] p-5 text-white shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8"
-    : "rounded-[1.9rem] border border-[#b7cbf3] bg-[linear-gradient(135deg,#ffffff_0%,#f7fbff_38%,#edf4ff_100%)] p-5 text-[#022977] shadow-[0_24px_70px_rgba(36,76,144,0.10)] md:p-8";
-  const activityCardClassName = isDarkTheme
-    ? "rounded-[1.9rem] border border-white/10 bg-slate-900/90 p-4 shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6"
-    : "rounded-[1.9rem] border border-[#b7cbf3] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-[0_18px_44px_rgba(36,76,144,0.06)] md:p-6";
-  const monthlyOverviewClassName = isDarkTheme
-    ? "rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,#111827_0%,#0f172a_100%)] p-5"
-    : "rounded-[1.6rem] border border-[#c8d8f6] bg-[linear-gradient(180deg,#ffffff_0%,#f6faff_100%)] p-5";
-  const statusBreakdownClassName = isDarkTheme
-    ? "rounded-[1.6rem] border border-white/10 bg-white/5 p-5"
-    : "rounded-[1.6rem] border border-[#c8d8f6] bg-[#f7faff] p-5";
-
-  return (
-    <>
-      <section className={heroCardClassName}>
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className={cn("text-xs font-semibold uppercase tracking-[0.28em]", isDarkTheme ? "text-white/65" : "text-[#476ca8]")}>NTSsign</div>
-            <h1 className={cn("mt-3 text-3xl font-semibold tracking-[-0.05em] md:text-5xl", isDarkTheme ? "text-white" : "text-[#022977]")}>{isLoading ? "Welcome" : "Welcome back"}</h1>
-            <p className={cn("mt-3 text-base md:text-lg", isDarkTheme ? "text-white/88" : "text-[#4c6798]")}>{isLoading ? "Loading user..." : displayName}</p>
-            <div className={cn("mt-3 text-xs font-medium uppercase tracking-[0.24em]", isDarkTheme ? "text-white/55" : "text-[#6c86b3]")}>Built by NoaTechSolutions</div>
-          </div>
-          <div className={cn("inline-flex items-center gap-3 rounded-full px-4 py-3 backdrop-blur", isDarkTheme ? "border border-white/14 bg-white/10 text-white shadow-none" : "border border-[#b7cbf3] bg-white text-[#022977] shadow-[0_10px_30px_rgba(36,76,144,0.08)]")}>
-            <span className={cn("text-xs font-semibold uppercase tracking-[0.24em]", isDarkTheme ? "text-white/60" : "text-[#6c86b3]")}>Current plan</span>
-            <span className={cn("rounded-full px-4 py-2 text-sm font-semibold text-white", isDarkTheme ? "bg-[#2563eb] shadow-[0_10px_24px_rgba(37,99,235,0.32)]" : "bg-[#2563eb] shadow-[0_10px_24px_rgba(37,99,235,0.24)]")}>{isLoading ? "Loading..." : planName ?? "-"}</span>
-          </div>
-        </div>
-      </section>
-
-      <section className={activityCardClassName}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className={cn("text-xs font-semibold uppercase tracking-[0.24em]", isDarkTheme ? "text-slate-400" : "text-[#6c86b3]")}>Current month</div>
-            <h2 className={cn("mt-2 text-2xl font-semibold tracking-[-0.04em]", isDarkTheme ? "text-white" : "text-[#022977]")}>Contract activity</h2>
-            <p className={cn("mt-2 max-w-2xl text-sm leading-6", isDarkTheme ? "text-slate-400" : "text-[#4c6798]")}>This dashboard only shows contracts from {billingPeriod ?? "the current month"}.</p>
-          </div>
-          <div className={cn("rounded-full px-4 py-2 text-sm font-medium", isDarkTheme ? "border border-white/10 bg-white/5 text-slate-300" : "border border-[#b7cbf3] bg-[#edf4ff] text-[#4c6798]")}>{isLoading ? "Loading..." : `${stats.total} contracts this month`}</div>
-        </div>
-
-        <div className="mt-6 grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
-          <div className="grid gap-4">
-            <div className={monthlyOverviewClassName}>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Monthly overview</div>
-                  <div className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">{isLoading ? "Loading..." : `${stats.total} contracts`}</div>
-                </div>
-                <DonutChart stats={stats} billingPeriod={billingPeriod ?? undefined} />
-              </div>
-              <div className="mt-5 grid gap-3">
-                <MiniMetric label="Sent this month" value={isLoading ? "..." : String(monthlySummary?.documentsSent ?? stats.sent)} />
-                <MiniMetric label="Billing counted" value={isLoading ? "..." : String(monthlySummary?.documentsSent ?? 0)} />
-                <MiniMetric label="Overage docs" value={isLoading ? "..." : String(monthlySummary?.overageDocuments ?? 0)} />
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              {topStates.map((state) => <StatusCard key={state.label} label={state.label} value={state.value} detail={statusDetail(state.label)} tone={state.tone} />)}
-            </div>
-          </div>
-
-          <div className={statusBreakdownClassName}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-medium text-slate-500 dark:text-slate-400">Status distribution</div>
-                <div className="mt-1 text-xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Current month breakdown</div>
-              </div>
-              <div className={cn("rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]", isDarkTheme ? "bg-slate-950 text-slate-400" : "bg-white text-[#6c86b3]")}>Live</div>
-            </div>
-            <div className="mt-6 space-y-4">
-              {progressStates.map((state) => <ChartRow key={state.label} label={state.label} value={state.value} total={stats.total} color={state.tone} />)}
-            </div>
-          </div>
-        </div>
-      </section>
-    </>
+  const eligibleUsers = useMemo(() => {
+    return users.filter((u) => u.status === "ACTIVE");
+  }, [users]);
+  const me = useMemo(
+    () => eligibleUsers.find((u) => u.id === currentUserId) ?? null,
+    [eligibleUsers, currentUserId],
   );
-}
-
-type MasterSortKey = "user" | "company" | "client" | "document" | "status" | "created";
-type UserSortKey = "client" | "document" | "date" | "status";
-type SortKey = MasterSortKey | UserSortKey;
-type SortDirection = "asc" | "desc";
-
-function SortHeader({
-  label,
-  columnKey,
-  align = "left",
-  sortKey,
-  sortDirection,
-  onToggleSort,
-}: {
-  label: string;
-  columnKey: SortKey;
-  align?: "left" | "right";
-  sortKey: SortKey;
-  sortDirection: SortDirection;
-  onToggleSort: (key: SortKey) => void;
-}) {
-  const isActive = sortKey === columnKey;
-
-  return (
-    <button
-      type="button"
-      onClick={() => onToggleSort(columnKey)}
-      className={cn(
-        "inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] transition hover:text-slate-700 dark:hover:text-slate-200",
-        align === "right" && "ml-auto",
-        isActive ? "text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400",
-      )}
-    >
-      <span>{label}</span>
-      <span
-        className={cn(
-          "text-[10px] tracking-normal",
-          isActive ? "opacity-100" : "opacity-45",
-        )}
-      >
-        {isActive ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}
-      </span>
-    </button>
-  );
-}
-
-function DocumentsPanel(props: {
-  documents: Doc[] | null;
-  allDocuments: Doc[];
-  documentTypes: DocumentTypeCatalogItem[];
-  companyProfile: Props["companyProfile"];
-  usage: Props["usage"];
-  documentDetail: DocDetail | null;
-  selectedDocumentId: string | null;
-  currentUserRole: string | null;
-  isLoading: boolean;
-  isDetailLoading: boolean;
-  documentActionId: string | null;
-  searchQuery: string;
-  statusFilter: StatusFilter;
-  onSearchQueryChange: (value: string) => void;
-  onStatusFilterChange: (value: StatusFilter) => void;
-  onSelectDocument: (documentId: string) => void;
-  onOpenDocumentView: (documentId: string) => void;
-  onOpenDocumentEdit: (documentId: string) => void;
-  onDocumentAction: (
-    documentId: string,
-    action: "send" | "resend" | "cancel" | "reactivate",
-  ) => Promise<void>;
-  onCreateDraft: (payload: {
-    documentTypeId: string;
-    formDefinitionId: string;
-    signatureTemplateId: string;
-    contractDate: string;
-    dataJson: Record<string, unknown>;
-  }) => Promise<DocDetail | void>;
-}) {
-
-  const [pageSize, setPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
-  const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
-  const [createDrawerVersion, setCreateDrawerVersion] = useState(0);
-  const [sortKey, setSortKey] = useState<SortKey>("created");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const pageSizeMenuRef = useRef<HTMLDivElement | null>(null);
-  const filterMenuRef = useRef<HTMLDivElement | null>(null);
-  const sortedDocuments = useMemo(() => {
-    const items = [...(props.documents ?? [])];
-
-    const compareText = (left: string, right: string) =>
-      left.localeCompare(right, undefined, { sensitivity: "base", numeric: true });
-
-    const compareDate = (left: string | null | undefined, right: string | null | undefined) =>
-      new Date(left ?? 0).getTime() - new Date(right ?? 0).getTime();
-
-    items.sort((left, right) => {
-      let result = 0;
-
-      switch (sortKey) {
-        case "user":
-          result = compareText(getDisplayName(left.user?.email), getDisplayName(right.user?.email));
-          break;
-        case "company":
-          result = compareText(left.companyProfile?.companyName ?? "", right.companyProfile?.companyName ?? "");
-          break;
-        case "client":
-          result = compareText(getFinalCustomerName(left), getFinalCustomerName(right));
-          break;
-        case "document":
-          result = compareText(left.documentNumber, right.documentNumber);
-          break;
-        case "status":
-          result = compareText(left.status, right.status);
-          break;
-        case "date":
-          result = compareDate(left.contractDate, right.contractDate);
-          break;
-        case "created":
-          result = compareDate(left.createdAt, right.createdAt);
-          break;
-        default:
-          result = 0;
-      }
-
-      return sortDirection === "asc" ? result : result * -1;
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return eligibleUsers;
+    return eligibleUsers.filter((u) => {
+      const fullName = [u.firstName, u.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return (
+        u.email.toLowerCase().includes(q) ||
+        fullName.includes(q) ||
+        u.role.toLowerCase().includes(q)
+      );
     });
+  }, [eligibleUsers, query]);
 
-    return items;
-  }, [props.documents, sortDirection, sortKey]);
-  const totalDocuments = sortedDocuments.length;
-  const totalPages = Math.max(1, Math.ceil(totalDocuments / pageSize));
-  const safePage = Math.min(currentPage, totalPages);
-  const pageStart = totalDocuments === 0 ? 0 : (safePage - 1) * pageSize;
-  const pageEnd = Math.min(pageStart + pageSize, totalDocuments);
-  const paginatedDocuments = useMemo(
-    () => sortedDocuments.slice(pageStart, pageEnd),
-    [pageEnd, pageStart, sortedDocuments],
-  );
-
-  function toggleSort(nextKey: SortKey) {
-    setCurrentPage(1);
-    if (sortKey === nextKey) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSortKey(nextKey);
-    setSortDirection(nextKey === "created" || nextKey === "date" ? "desc" : "asc");
-  }
-
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
   useEffect(() => {
-    if (!pageSizeMenuOpen) return;
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!pageSizeMenuRef.current?.contains(event.target as Node)) {
-        setPageSizeMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.body.style.overflow = prev;
     };
-  }, [pageSizeMenuOpen]);
-
-  useEffect(() => {
-    if (!filterMenuOpen) return;
-
-    function handlePointerDown(event: MouseEvent | TouchEvent | PointerEvent) {
-      if (!filterMenuRef.current?.contains(event.target as Node)) {
-        setFilterMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
-    };
-  }, [filterMenuOpen]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCreateDrawerOpen(readSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY));
   }, []);
 
-  useEffect(() => {
-    writeSessionBoolean(DOCUMENTS_CREATE_DRAWER_KEY, createDrawerOpen);
-  }, [createDrawerOpen]);
-
-  function openCreateDrawer() {
-    setCreateDrawerOpen(true);
-  }
-
-  function closeCreateDrawer() {
-    setCreateDrawerOpen(false);
-    removeSessionValue(DOCUMENTS_CREATE_DRAFT_STATE_KEY);
-    setCreateDrawerVersion((current) => current + 1);
-  }
-
   return (
-    <section className="grid gap-4">
-      <div className="rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
+    >
+      <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5 dark:border-white/10">
           <div>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Documents workspace</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Review documents, apply filters and manage lifecycle actions.
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              New document
+            </div>
+            <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+              {view === "options" ? "How do you want to start?" : "Pick a user"}
+            </h2>
+            <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              {view === "options"
+                ? "Create blank, create for yourself, or pick another user to draft on behalf of."
+                : "Select the user this document will belong to. The next steps use that user's templates and clients."}
             </p>
           </div>
-          <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setMobileStatsOpen((current) => !current)}
-            className="inline-flex h-11 items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5 md:hidden"
+            onClick={onCancel}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] transition hover:border-[color:var(--danger-border)] hover:bg-[color:var(--danger-bg)] hover:text-[color:var(--danger-text)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:border-[color:var(--danger-border)] dark:hover:bg-[color:var(--danger-bg)] dark:hover:text-[color:var(--danger-text)]"
           >
-            <span>Workspace metrics</span>
-            <ChevronRight className={cn("h-4 w-4 text-slate-400 transition-transform dark:text-slate-500", mobileStatsOpen && "rotate-90")} />
+            <X className="h-4 w-4" />
           </button>
-          </div>
-          <div className={cn("grid grid-cols-2 gap-3 md:grid-cols-4", mobileStatsOpen ? "grid" : "hidden md:grid")}>
-            <StatPill label="Total" value={String(props.allDocuments.length)} />
-            <StatPill label="Draft" value={String(props.allDocuments.filter((item) => item.status === "DRAFT").length)} />
-            <StatPill label="In progress" value={String(props.allDocuments.filter((item) => ["SENT", "VIEWED", "SIGNED"].includes(item.status)).length)} />
-            <StatPill label="Billing counted" value={props.usage?.isUnlimited ? `${props.usage.documentsUsed} counted` : `${props.usage?.documentsUsed ?? 0} of ${props.usage?.monthlyDocLimit ?? 0}`} />
-          </div>
         </div>
-        <div className="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={props.searchQuery} onChange={(event) => {
-              setCurrentPage(1);
-              props.onSearchQueryChange(event.target.value);
-            }} placeholder="Search by number, status or type" className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 caret-blue-600 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white dark:caret-blue-300 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:bg-slate-900 dark:focus:text-white" />
-          </div>
-          <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-3 md:contents">
-            <div ref={filterMenuRef} className="relative">
+
+        {view === "options" ? (
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="grid gap-3">
               <button
                 type="button"
-                onClick={() => setFilterMenuOpen((current) => !current)}
-                className="inline-flex h-12 w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/5 md:w-auto"
+                onClick={onCreateBlank}
+                className="group flex w-full items-start gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-highlight)] hover:bg-[color:var(--warning-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-highlight)] dark:hover:bg-[color:var(--warning-bg)]"
               >
-                <span className="inline-flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4" />
-                  <span>Filter</span>
-                </span>
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                  {props.statusFilter === "ALL" ? "All" : props.statusFilter.toLowerCase()}
-                </span>
-              </button>
-              {filterMenuOpen ? (
-                <div className="absolute left-0 top-[calc(100%+0.35rem)] z-20 min-w-44 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
-                  {(["ALL", "DRAFT", "SENT", "VIEWED", "SIGNED", "COMPLETED", "CANCELLED"] as const).map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => {
-                        setCurrentPage(1);
-                        props.onStatusFilterChange(option);
-                        setFilterMenuOpen(false);
-                      }}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
-                        props.statusFilter === option
-                          ? "bg-blue-600 text-white"
-                          : "text-slate-700 hover:bg-white/80 dark:text-slate-200 dark:hover:bg-white/8",
-                      )}
-                    >
-                      <span>{option === "ALL" ? "All" : option.toLowerCase()}</span>
-                      {props.statusFilter === option ? <span className="text-[10px] uppercase tracking-[0.18em] opacity-80">On</span> : null}
-                    </button>
-                  ))}
+                <FilePlus className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning-text)] dark:text-[color:var(--warning-text)]" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+                    Create blank
+                  </div>
+                  <div className="mt-0.5 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                    Skip ownership assignment. Document is owned by you and can
+                    be reassigned later.
+                  </div>
                 </div>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              onClick={openCreateDrawer}
-              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 md:w-auto"
-            >
-              New document
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="overflow-visible rounded-[1.8rem] border border-slate-200 bg-white shadow-[0_16px_40px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_18px_40px_rgba(2,6,23,0.35)]">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Results</div>
-            <div className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{props.isLoading ? "Loading..." : `${totalDocuments} contracts`}</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div ref={pageSizeMenuRef} className="relative flex items-center gap-2">
-            <label className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:block">
-              Rows
-            </label>
-            <button
-              type="button"
-              onClick={() => setPageSizeMenuOpen((current) => !current)}
-              className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition hover:border-slate-300 hover:bg-white focus:border-blue-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-            >
-              <span>{pageSize}</span>
-              <ChevronsUpDown className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-            </button>
-            {pageSizeMenuOpen ? (
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-28 rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-slate-900 dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
-                {[10, 20, 30].map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => {
-                      setPageSize(size);
-                      setCurrentPage(1);
-                      setPageSizeMenuOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
-                      pageSize === size
-                        ? "bg-blue-600 text-white"
-                        : "text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-white/8",
-                    )}
-                  >
-                    <span>{size}</span>
-                    <span className="text-[11px] uppercase tracking-[0.18em] opacity-70">Rows</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (me) {
+                    onPick({ id: me.id, role: me.role, email: me.email });
+                  } else {
+                    // Master not in the tenantUsers list (edge case) — fall
+                    // back to the blank path; document.userId still defaults
+                    // to master.id at the backend.
+                    onCreateBlank();
+                  }
+                }}
+                className="group flex w-full items-start gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
+              >
+                <UserRound className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+                    Create for me
+                  </div>
+                  <div className="mt-0.5 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                    Use my own templates and clients. The document is owned
+                    by me.
+                  </div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                className="group flex w-full items-start gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--success-border)] hover:bg-[color:var(--success-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--success-border)] dark:hover:bg-[color:var(--success-bg)]"
+              >
+                <Users className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--success)] dark:text-[color:var(--success-text)]" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+                    Select user
+                  </div>
+                  <div className="mt-0.5 text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                    Draft on behalf of a teammate. Their templates and
+                    clients will be used.
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
-        </div>
-
-        {props.isLoading ? (
-          <div className="p-5">
-            <EmptyBlock text="Loading documents..." />
-          </div>
-        ) : props.documents && props.documents.length > 0 ? (
+        ) : (
           <>
-            {props.currentUserRole === "MASTER" ? (
-              <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
-                <SortHeader label="User" columnKey="user" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <SortHeader label="Company" columnKey="company" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <SortHeader label="Client" columnKey="client" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <SortHeader label="Document" columnKey="document" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <SortHeader label="Created" columnKey="created" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <div className="text-right">Actions</div>
+            <div className="border-b border-[color:var(--border)] px-6 py-4 dark:border-white/10">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by name, email or role"
+                  className="h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] pl-11 pr-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:caret-[color:var(--brand-accent)] dark:placeholder:text-[color:var(--text-muted)] dark:focus:border-[color:var(--brand-accent)] dark:focus:bg-[color:var(--bg-elevated)]"
+                />
               </div>
-            ) : (
-              <div className="hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3 dark:border-white/10 dark:bg-white/[0.03] md:grid">
-                <SortHeader label="Client" columnKey="client" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <SortHeader label="Document" columnKey="document" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <SortHeader label="Date" columnKey="date" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <SortHeader label="Status" columnKey="status" sortKey={sortKey} sortDirection={sortDirection} onToggleSort={toggleSort} />
-                <div className="text-right">Actions</div>
-              </div>
-            )}
-
-            <div className="divide-y divide-slate-200 dark:divide-white/10 md:hidden">
-              {paginatedDocuments.map((document) => (
-                <div
-                  key={`${document.id}-mobile`}
-                  className={cn(
-                    "px-4 py-3 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]",
-                    props.selectedDocumentId === document.id && "bg-blue-50/60 dark:bg-blue-500/10",
-                  )}
-                >
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                        {props.currentUserRole === "MASTER"
-                          ? getDisplayName(document.user?.email)
-                          : getFinalCustomerName(document)}
-                      </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {filtered.length === 0 ? (
+                <EmptyBlock
+                  text={
+                    eligibleUsers.length === 0
+                      ? "No active users in this tenant."
+                      : `No users matching "${query}".`
+                  }
+                />
+              ) : (
+                <div className="grid gap-2">
+                  {filtered.map((u) => {
+                    const fullName = [u.firstName, u.lastName]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim();
+                    const label = fullName || u.email;
+                    const isMe = u.id === currentUserId;
+                    return (
                       <button
+                        key={u.id}
                         type="button"
-                        onClick={() => props.onSelectDocument(document.id)}
-                        className="mt-1 block text-left"
+                        onClick={() =>
+                          onPick({ id: u.id, role: u.role, email: u.email })
+                        }
+                        className="group flex w-full items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-3 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
                       >
-                        <div className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-                          {document.documentNumber}
+                        <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[color:var(--brand-accent-strong)] ring-1 ring-[color:var(--border)] transition group-hover:bg-[color:var(--button-primary)] group-hover:text-white group-hover:ring-[color:var(--brand-accent-strong)] dark:bg-white/10 dark:text-[color:var(--brand-accent)] dark:ring-white/10 dark:group-hover:bg-[color:var(--brand-accent)] dark:group-hover:text-white">
+                          <UserRound className="h-4 w-4" />
                         </div>
-                        <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-                          {props.currentUserRole === "MASTER"
-                            ? getFinalCustomerName(document)
-                            : document.documentType?.name ?? "Untyped document"}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+                              {label}
+                            </div>
+                            {isMe ? (
+                              <span className="rounded-full bg-[color:var(--badge-primary-bg)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--brand-secondary)] dark:bg-[color:var(--brand-accent-soft)] dark:text-[color:var(--brand-accent)]">
+                                Me
+                              </span>
+                            ) : null}
+                            <span className="rounded-full bg-[color:var(--bg-surface-strong)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-secondary)] dark:bg-white/10 dark:text-[color:var(--text-secondary)]">
+                              {u.role.toLowerCase()}
+                            </span>
+                          </div>
+                          <div className="truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                            {u.email}
+                          </div>
                         </div>
                       </button>
-                    </div>
-                    <div className="flex justify-end">
-                      <DocumentListActions
-                        document={document}
-                        actionInFlight={props.documentActionId === document.id}
-                        onView={() => props.onOpenDocumentView(document.id)}
-                        onEdit={() => props.onOpenDocumentEdit(document.id)}
-                        onAction={props.onDocumentAction}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-[112px_minmax(0,1fr)] items-center gap-3">
-                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      {formatDate(document.contractDate)}
-                    </div>
-                    <div className="flex justify-start">
-                      <StatusBadge status={document.status} />
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
-              ))}
+              )}
             </div>
+          </>
+        )}
 
-              <div className="hidden divide-y divide-slate-200 dark:divide-white/10 md:block">
-                {paginatedDocuments.map((document) => (
-                  <div key={document.id} className={cn("px-4 py-4 transition hover:bg-slate-50/80 dark:hover:bg-white/[0.03]", props.selectedDocumentId === document.id && "bg-blue-50/60 dark:bg-blue-500/10")}>
-                    {props.currentUserRole === "MASTER" ? (
-                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_120px_128px_64px] md:items-center">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getDisplayName(document.user?.email)}</div>
-                          {document.user?.email ? (
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.user.email}</div>
-                          ) : null}
-                        </div>
+        <div className="flex items-center justify-between border-t border-[color:var(--border)] px-6 py-4 dark:border-white/10">
+          {view === "list" ? (
+            <button
+              type="button"
+              onClick={() => setView("options")}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{document.companyProfile?.companyName ?? "No company"}</div>
-                        </div>
+// Step that comes after the template is locked in for a Documents-section
+// draft (no customer pre-set). User picks whether to attach an existing
+// customer or start blank. Skipped entirely when the flow already carries a
+// customer (kebab "Create Document" / customer view "+ New Document").
+function CustomerDataOptionDialog({
+  onCancel,
+  onPick,
+  onBack,
+}: {
+  onCancel: () => void;
+  onPick: (option: "customer" | "blank") => void;
+  onBack?: () => void;
+}) {
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getFinalCustomerName(document)}</div>
-                        </div>
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
+    >
+      <div className="relative w-full max-w-lg rounded-[1.8rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+          New document
+        </div>
+        <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+          Use a client or start blank?
+        </h2>
+        <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+          Linking a client pre-fills the form fields. You can also start
+          blank and fill the data manually.
+        </p>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onPick("customer")}
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
+          >
+            <Contact className="h-5 w-5 text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]" />
+            <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+              Use a client
+            </div>
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              Pre-fill from one of your saved clients.
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => onPick("blank")}
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-highlight)] hover:bg-[color:var(--warning-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-highlight)] dark:hover:bg-[color:var(--warning-bg)]"
+          >
+            <FilePlus className="h-5 w-5 text-[color:var(--warning-text)] dark:text-[color:var(--warning-text)]" />
+            <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+              Create blank
+            </div>
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              Skip pre-fill and type the data yourself.
+            </div>
+          </button>
+        </div>
+        <div className="mt-5 flex items-center justify-between">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-                        <div className="min-w-0">
-                          <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
-                              {document.isOverage ? (
-                                <InlineBadge
-                                  tone="rose"
-                                  title="This document exceeded the documents included in your current monthly plan and may generate overage billing."
-                                >
-                                  Overage
-                                </InlineBadge>
-                              ) : null}
-                            </div>
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
-                          </button>
-                        </div>
+// Customer picker shown after the user opted into "Use a customer". Search
+// box matches name / email / phone (and the BUSINESS-side equivalents); the
+// chip filter narrows by customer type. Cards render type badge + name +
+// most-relevant email/phone snippet.
+function CustomerSelectDialog({
+  customers,
+  onCancel,
+  onPick,
+  onBack,
+  emptyHint,
+}: {
+  customers: Customer[];
+  onCancel: () => void;
+  onPick: (customer: Customer) => void;
+  onBack?: () => void;
+  // Override copy when the source list is empty (e.g. master picked a user
+  // who has no customers yet → "User X has no saved customers" beats the
+  // generic "No customers saved").
+  emptyHint?: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "PERSONAL" | "BUSINESS">(
+    "ALL",
+  );
 
-                        <div className="flex items-center">
-                          <StatusBadge status={document.status} />
-                        </div>
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return customers.filter((c) => {
+      if (typeFilter !== "ALL" && c.customerType !== typeFilter) return false;
+      if (!q) return true;
+      const hay = [
+        c.fullName,
+        c.email,
+        c.phone,
+        c.business?.businessName,
+        c.business?.businessEmail,
+        c.business?.businessPhone,
+        c.business?.primaryContactName,
+        c.business?.primaryContactEmail,
+        c.business?.primaryContactPhone,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [customers, query, typeFilter]);
 
-                        <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(document.createdAt)}</div>
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
-                        <div className="flex justify-start lg:justify-end">
-                          <DocumentListActions
-                            document={document}
-                            actionInFlight={props.documentActionId === document.id}
-                            onView={() => props.onOpenDocumentView(document.id)}
-                            onEdit={() => props.onOpenDocumentEdit(document.id)}
-                            onAction={props.onDocumentAction}
-                          />
-                        </div>
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
+    >
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5 dark:border-white/10">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              New document
+            </div>
+            <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+              Choose a client
+            </h2>
+            <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              Search by name, email or phone, or filter by client type.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] transition hover:border-[color:var(--danger-border)] hover:bg-[color:var(--danger-bg)] hover:text-[color:var(--danger-text)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:border-[color:var(--danger-border)] dark:hover:bg-[color:var(--danger-bg)] dark:hover:text-[color:var(--danger-text)]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3 border-b border-[color:var(--border)] px-6 py-4 dark:border-white/10">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, email or phone"
+              className="h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] pl-11 pr-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:caret-[color:var(--brand-accent)] dark:placeholder:text-[color:var(--text-muted)] dark:focus:border-[color:var(--brand-accent)] dark:focus:bg-[color:var(--bg-elevated)]"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            {(["ALL", "PERSONAL", "BUSINESS"] as const).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setTypeFilter(opt)}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] transition",
+                  typeFilter === opt
+                    ? "bg-[color:var(--button-primary)] text-white"
+                    : "bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-surface-strong)] dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:bg-white/10",
+                )}
+              >
+                {opt === "ALL" ? "All" : opt === "PERSONAL" ? "Personal" : "Business"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {filtered.length === 0 ? (
+            <EmptyBlock
+              text={
+                customers.length === 0
+                  ? emptyHint ?? "No clients saved yet."
+                  : `No clients matching "${query}".`
+              }
+            />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {filtered.map((c) => {
+                const email = getDisplayEmail(c);
+                const phone = getDisplayPhone(c);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => onPick(c)}
+                    className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
+                  >
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <div className="min-w-0 truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+                        {c.fullName}
                       </div>
-                    ) : (
-                      <div className="grid gap-3 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1.1fr)_112px_120px_64px] md:items-center">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{getFinalCustomerName(document)}</div>
-                          {getFinalCustomerEmail(document) ? (
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 lg:hidden">
-                              {getFinalCustomerEmail(document)}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className="min-w-0">
-                          <button type="button" onClick={() => props.onSelectDocument(document.id)} className="text-left">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-slate-950 dark:text-white">{document.documentNumber}</span>
-                              {document.isOverage ? (
-                                <InlineBadge
-                                  tone="rose"
-                                  title="This document exceeded the documents included in your current monthly plan and may generate overage billing."
-                                >
-                                  Overage
-                                </InlineBadge>
-                              ) : null}
-                            </div>
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{document.documentType?.name ?? "Untyped document"}</div>
-                          </button>
-                        </div>
-
-                        <div className="text-sm text-slate-600 dark:text-slate-300">{formatDate(document.contractDate)}</div>
-
-                        <div className="flex items-center">
-                          <StatusBadge status={document.status} />
-                        </div>
-
-                        <div className="flex justify-start lg:justify-end">
-                          <DocumentListActions
-                            document={document}
-                            actionInFlight={props.documentActionId === document.id}
-                            onView={() => props.onOpenDocumentView(document.id)}
-                            onEdit={() => props.onOpenDocumentEdit(document.id)}
-                            onAction={props.onDocumentAction}
-                          />
-                        </div>
+                      <CustomerTypeBadge type={c.customerType} />
+                    </div>
+                    {email ? (
+                      <div className="truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                        {email}
                       </div>
-                    )}
-                  </div>
-                ))}
+                    ) : null}
+                    {phone ? (
+                      <div className="truncate text-[11px] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                        {formatUsPhone(phone)}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between border-t border-[color:var(--border)] px-6 py-4 dark:border-white/10">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BusinessDataSelectorDialog({
+  customer,
+  onCancel,
+  onPick,
+  onBack,
+}: {
+  customer: Customer;
+  onCancel: () => void;
+  onPick: (source: CustomerDataSource) => void;
+  onBack?: () => void;
+}) {
+  const b = customer.business;
+  const businessSubtitle = [
+    b?.businessEmail || b?.businessPhone || null,
+  ]
+    .filter(Boolean)
+    .join(" · ") || "—";
+  const contactSubtitle =
+    [
+      b?.primaryContactName || null,
+      b?.primaryContactEmail || b?.primaryContactPhone || null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "—";
+
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
+    >
+      <div className="relative w-full max-w-lg rounded-[1.8rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+          Pre-fill source
+        </div>
+        <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+          Use which data?
+        </h2>
+        <p className="mt-1 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+          {customer.fullName} has both a business profile and a primary
+          contact. Pick which one fills the document.
+        </p>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onPick("business")}
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-highlight)] hover:bg-[color:var(--warning-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-highlight)] dark:hover:bg-[color:var(--warning-bg)]"
+          >
+            <Building2 className="h-5 w-5 text-[color:var(--warning-text)] dark:text-[color:var(--warning-text)]" />
+            <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+              Business
+            </div>
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              {b?.businessName ?? customer.fullName}
+            </div>
+            <div className="text-[11px] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              {businessSubtitle}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => onPick("contact")}
+            className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
+          >
+            <UserRound className="h-5 w-5 text-[color:var(--brand-accent-strong)] dark:text-[color:var(--brand-accent)]" />
+            <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+              Primary contact
+            </div>
+            <div className="text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              {b?.primaryContactName || "No contact saved"}
+            </div>
+            <div className="text-[11px] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              {contactSubtitle}
+            </div>
+          </button>
+        </div>
+        <div className="mt-5 flex items-center justify-between">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TemplateSelectorDialog({
+  formDefOptions,
+  onCancel,
+  onPick,
+  onBack,
+}: {
+  formDefOptions: FormDefOption[];
+  onCancel: () => void;
+  onPick: (triple: DocumentDraftTriple) => void;
+  onBack?: () => void;
+}) {
+  // Skip step 1 entirely if there's only one FormDef option — keeps UX
+  // identical to the legacy single-step modal for users with one form
+  // available (e.g. regular users with a single UserDocumentConfig).
+  const [selectedFormDefId, setSelectedFormDefId] = useState<string | null>(
+    formDefOptions.length === 1 ? formDefOptions[0].id : null,
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const selectedFormDef = useMemo(
+    () => formDefOptions.find((f) => f.id === selectedFormDefId) ?? null,
+    [formDefOptions, selectedFormDefId],
+  );
+
+  const filteredFormDefs = useMemo(() => {
+    const sorted = [...formDefOptions].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        f.documentTypeName.toLowerCase().includes(q),
+    );
+  }, [formDefOptions, searchQuery]);
+
+  // Lock body scroll while open. Click on the backdrop does NOT close —
+  // closing requires the X button or an explicit action.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  // Auto-pick the triple when the chosen FormDef has only one compatible
+  // SignatureTemplate (invisible step 2 per spec).
+  const handleFormDefClick = (option: FormDefOption) => {
+    if (option.triples.length === 1) {
+      onPick(option.triples[0]);
+      return;
+    }
+    setSelectedFormDefId(option.id);
+  };
+
+  // Back routes step 2 → step 1 when there's >1 FormDef to go back to,
+  // otherwise to the outer flow's onBack (e.g. master returning to
+  // UserSelectorDialog). null hides the Back button.
+  const backAction = (() => {
+    if (selectedFormDef && formDefOptions.length > 1) {
+      return () => setSelectedFormDefId(null);
+    }
+    if (onBack) return onBack;
+    return null;
+  })();
+
+  const isStep2 = selectedFormDef !== null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
+    >
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-6 py-5 dark:border-white/10">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              New document
+            </div>
+            <h2 className="mt-1 text-xl font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+              {isStep2 ? "Choose a signature template" : "Choose a form"}
+            </h2>
+            <p className="mt-1 truncate text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+              {isStep2
+                ? `Form: ${selectedFormDef!.name} · ${selectedFormDef!.documentTypeName}`
+                : "Pick the form you want to start from. You can search by name or document type."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--border)] bg-white text-[color:var(--text-secondary)] transition hover:border-[color:var(--danger-border)] hover:bg-[color:var(--danger-bg)] hover:text-[color:var(--danger-text)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:border-[color:var(--danger-border)] dark:hover:bg-[color:var(--danger-bg)] dark:hover:text-[color:var(--danger-text)]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {!isStep2 ? (
+          <>
+            <div className="border-b border-[color:var(--border)] px-6 py-4 dark:border-white/10">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by form or document type"
+                  className="h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] pl-11 pr-4 text-sm text-[color:var(--text-primary)] caret-[color:var(--brand-accent)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--brand-accent)] focus:bg-white dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:caret-[color:var(--brand-accent)] dark:placeholder:text-[color:var(--text-muted)] dark:focus:border-[color:var(--brand-accent)] dark:focus:bg-[color:var(--bg-elevated)]"
+                />
               </div>
-            <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-slate-500 dark:text-slate-400">
-                Showing <span className="font-semibold text-slate-900 dark:text-white">{pageStart + 1}</span>
-                {" "}-{" "}
-                <span className="font-semibold text-slate-900 dark:text-white">{pageEnd}</span>
-                {" "}of{" "}
-                <span className="font-semibold text-slate-900 dark:text-white">{totalDocuments}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  disabled={safePage === 1}
-                  className={cn(
-                    "rounded-xl border px-3 py-2 text-sm font-medium transition",
-                    safePage === 1
-                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
-                  )}
-                >
-                  Previous
-                </button>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">
-                  {safePage} / {totalPages}
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {filteredFormDefs.length === 0 ? (
+                <div className="px-6 py-5">
+                  <EmptyBlock
+                    text={
+                      formDefOptions.length === 0
+                        ? "No forms available."
+                        : `No forms matching "${searchQuery}".`
+                    }
+                  />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                  disabled={safePage === totalPages}
-                  className={cn(
-                    "rounded-xl border px-3 py-2 text-sm font-medium transition",
-                    safePage === totalPages
-                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10",
-                  )}
-                >
-                  Next
-                </button>
-              </div>
+              ) : (
+                <ul className="divide-y divide-[color:var(--divider)] dark:divide-white/10">
+                  {filteredFormDefs.map((option) => (
+                    <li key={option.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleFormDefClick(option)}
+                        className="group flex w-full items-center gap-3 px-6 py-3 text-left transition hover:bg-[color:var(--bg-surface)] dark:hover:bg-[color:var(--bg-surface-strong)]/60"
+                      >
+                        <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[color:var(--bg-surface)] text-[color:var(--brand-accent-strong)] transition group-hover:bg-[color:var(--button-primary)] group-hover:text-white dark:bg-white/5 dark:text-[color:var(--brand-accent)] dark:group-hover:bg-[color:var(--brand-accent)] dark:group-hover:text-white">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+                            {option.name}
+                          </div>
+                          <div className="truncate text-xs text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                            {option.documentTypeName} · {option.fieldCount}{" "}
+                            {option.fieldCount === 1 ? "field" : "fields"}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-hover:text-[color:var(--brand-accent)] dark:text-[color:var(--text-muted)]" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </>
         ) : (
-          <div className="p-5">
-            <EmptyBlock text="No documents matched the current filters." />
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="grid gap-3 md:grid-cols-2">
+              {selectedFormDef!.triples.map((t) => (
+                <button
+                  key={`${t.formDefinitionId}:${t.signatureTemplateId}`}
+                  type="button"
+                  onClick={() => onPick(t)}
+                  className="group flex flex-col items-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-4 text-left transition hover:border-[color:var(--brand-accent)] hover:bg-[color:var(--badge-primary-bg)] dark:border-white/10 dark:bg-white/5 dark:hover:border-[color:var(--brand-accent)] dark:hover:bg-[color:var(--brand-accent-soft)]"
+                >
+                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[color:var(--brand-accent-strong)] ring-1 ring-[color:var(--border)] transition group-hover:bg-[color:var(--button-primary)] group-hover:text-white group-hover:ring-[color:var(--brand-accent-strong)] dark:bg-white/10 dark:text-[color:var(--brand-accent)] dark:ring-white/10 dark:group-hover:bg-[color:var(--brand-accent)] dark:group-hover:text-white">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="text-sm font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+                    {t.signatureTemplateName}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
+
+        <div className="flex items-center justify-between border-t border-[color:var(--border)] px-6 py-4 dark:border-white/10">
+          {backAction ? (
+            <button
+              type="button"
+              onClick={backAction}
+              className="inline-flex h-10 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-10 items-center rounded-2xl border border-[color:var(--border)] bg-white px-5 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
-      <CreateDraftDrawer
-        key={createDrawerVersion}
-        open={createDrawerOpen}
-        documentTypes={props.documentTypes}
-        companyProfile={props.companyProfile}
-        onClose={closeCreateDrawer}
-        onCreateDraft={props.onCreateDraft}
-        onOpenDocumentView={(documentId) => props.onOpenDocumentView(documentId)}
-      />
-    </section>
+    </div>
   );
 }
 
@@ -1737,11 +2476,11 @@ function PlaceholderPanel({
   rows: Array<[string, string]>;
 }) {
   return (
-    <section className="rounded-[1.9rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
-      <h2 className="text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
+    <section className="rounded-[1.9rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
+      <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
         {title}
       </h2>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
         {description}
       </p>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -1805,7 +2544,7 @@ function ForcePasswordChangeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[80] flex items-start justify-center md:items-center bg-black/60 p-4 pt-20 md:pt-0 backdrop-blur">
       <div className="w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
           Security
@@ -1865,1337 +2604,16 @@ function ForcePasswordChangeModal({
   );
 }
 
-function BillingPanel({
-  usage,
-  monthlySummary,
-  billingHistory,
-}: {
-  usage: Props["usage"];
-  monthlySummary: Props["monthlySummary"];
-  billingHistory: Props["billingHistory"];
-}) {
-  const [plansModalOpen, setPlansModalOpen] = useState(false);
-  const currentPlan = usage?.planName ?? monthlySummary?.planName ?? "LAUNCH";
-  const documentsUsed = usage?.documentsUsed ?? 0;
-  const monthlyLimit = usage?.monthlyDocLimit ?? monthlySummary?.monthlyDocLimit ?? 0;
-  const remaining = usage?.remainingDocuments;
-  const overageDocuments = usage?.overageDocuments ?? monthlySummary?.overageDocuments ?? 0;
-  const overagePrice = Number(usage?.overagePrice ?? monthlySummary?.overagePrice ?? 0);
-  const nextInvoiceOverage = overageDocuments * overagePrice;
-  const usagePercent = usage?.isUnlimited || monthlyLimit <= 0 ? 0 : Math.min((documentsUsed / monthlyLimit) * 100, 100);
-  const maxHistoryValue = Math.max(...billingHistory.map((item) => item.documentsSent), 1);
-  const currentMonthSummary = billingHistory[billingHistory.length - 1] ?? null;
-  const previousMonthSummary = billingHistory[billingHistory.length - 2] ?? null;
-  const compareMaxValue = Math.max(
-    currentMonthSummary?.documentsSent ?? 0,
-    previousMonthSummary?.documentsSent ?? 0,
-    1,
-  );
-  const planCards = [
-    {
-      name: "STARTER",
-      displayName: "Starter",
-      price: "$19/mo",
-      annualPrice: "$16/mo annual",
-      limit: "5 docs / month",
-      description: "For solo operators with one main workflow.",
-      isMostPopular: false,
-      accent: "border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-white",
-    },
-    {
-      name: "LAUNCH",
-      displayName: "Launch",
-      price: "$39/mo",
-      annualPrice: "$32/mo annual",
-      limit: "15 docs / month",
-      description: "For small teams that send contracts regularly.",
-      isMostPopular: true,
-      accent: "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100",
-    },
-    {
-      name: "PRO",
-      displayName: "Pro",
-      price: "$89/mo",
-      annualPrice: "$74/mo annual",
-      limit: "50 docs / month",
-      description: "For growing businesses that need branding and analytics.",
-      isMostPopular: false,
-      accent: "border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100",
-    },
-    {
-      name: "SCALE",
-      displayName: "Scale",
-      price: "$229/mo",
-      annualPrice: "$190/mo annual",
-      limit: "150 docs / month",
-      description: "For high-volume teams that need priority support.",
-      isMostPopular: false,
-      accent: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100",
-    },
-  ];
-  const currentPlanDisplay = planCards.find((p) => p.name === currentPlan)?.displayName ?? currentPlan;
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPlansModalOpen(readSessionBoolean(BILLING_PLANS_MODAL_KEY));
-  }, []);
-
-  useEffect(() => {
-    writeSessionBoolean(BILLING_PLANS_MODAL_KEY, plansModalOpen);
-  }, [plansModalOpen]);
-
-  return (
-    <section className="grid gap-4">
-      <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef5ff_40%,#dbeafe_100%)] p-5 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-600/70 dark:text-white/65">Billing</div>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">Understand your plan in seconds</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700 dark:text-white/88 md:text-base">
-              See how many documents you used this month, how close you are to your limit, and what would be charged on your next payment if you go over.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <div className="rounded-[1.35rem] border border-white/70 bg-white/90 px-4 py-3 shadow-[0_12px_30px_rgba(37,99,235,0.10)] dark:border-white/10 dark:bg-white/10 dark:shadow-none">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/60">Used this month</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{documentsUsed}</div>
-              </div>
-              <div className="rounded-[1.35rem] border border-white/70 bg-white/90 px-4 py-3 shadow-[0_12px_30px_rgba(37,99,235,0.10)] dark:border-white/10 dark:bg-white/10 dark:shadow-none">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/60">Still available</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{remaining === null ? "Unlimited" : remaining}</div>
-              </div>
-              <div className="rounded-[1.35rem] border border-white/70 bg-white/90 px-4 py-3 shadow-[0_12px_30px_rgba(37,99,235,0.10)] dark:border-white/10 dark:bg-white/10 dark:shadow-none">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/60">Next extra charge</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{formatCurrency(nextInvoiceOverage)}</div>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-start gap-3 xl:items-end">
-            <div className="inline-flex items-center gap-3 rounded-full border border-blue-100 bg-white/90 px-4 py-3 text-slate-900 shadow-[0_10px_30px_rgba(37,99,235,0.10)] backdrop-blur dark:border-white/14 dark:bg-white/10 dark:text-white dark:shadow-none">
-              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/60">Current plan</span>
-              <span className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">{currentPlanDisplay}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setPlansModalOpen(true)}
-              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
-            >
-              Need more documents?
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="grid gap-4">
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Current month</div>
-                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
-                  {usage?.billingPeriod ? `Usage for ${usage.billingPeriod}` : "Usage overview"}
-                </h3>
-              </div>
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                {usage?.isUnlimited ? "Unlimited plan" : `${documentsUsed} of ${monthlyLimit} docs used`}
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <StatPill label="Documents used" value={String(documentsUsed)} />
-              <StatPill label="Remaining" value={remaining === null ? "Unlimited" : String(remaining)} />
-              <StatPill label="Overage docs" value={String(overageDocuments)} />
-              <StatPill label="Next invoice overage" value={formatCurrency(nextInvoiceOverage)} />
-            </div>
-
-            <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium text-slate-600 dark:text-slate-300">Plan usage progress</div>
-                <div className="text-sm font-semibold text-slate-950 dark:text-white">
-                  {usage?.isUnlimited ? "Unlimited" : `${Math.round(usagePercent)}%`}
-                </div>
-              </div>
-              <div className="mt-4 h-4 rounded-full bg-white dark:bg-slate-950/70">
-                <div
-                  className={cn(
-                    "h-4 rounded-full transition-all",
-                    overageDocuments > 0 ? "bg-rose-500" : usagePercent > 75 ? "bg-amber-500" : "bg-[#2563eb]",
-                  )}
-                  style={{ width: `${usage?.isUnlimited ? 100 : Math.max(usagePercent, documentsUsed > 0 ? 10 : 0)}%` }}
-                />
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <MiniMetric label="Monthly limit" value={usage?.isUnlimited ? "Unlimited" : String(monthlyLimit)} />
-                <MiniMetric label="Per overage doc" value={formatCurrency(overagePrice)} />
-                <MiniMetric label="Charge next cycle" value={formatCurrency(nextInvoiceOverage)} />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">3-month trend</div>
-                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Documents used recently</h3>
-              </div>
-              <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">Live data</div>
-            </div>
-            <div className="mt-6 grid gap-4">
-              {billingHistory.map((item) => (
-                <BillingHistoryRow
-                  key={item.month}
-                  month={item.month}
-                  documentsSent={item.documentsSent}
-                  overageDocuments={item.overageDocuments}
-                  maxValue={maxHistoryValue}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-4">
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Month vs month</div>
-                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Current month compared to last month</h3>
-              </div>
-              <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:bg-white/[0.04] dark:text-slate-300">Comparison</div>
-            </div>
-            <div className="mt-6 grid gap-5">
-              {previousMonthSummary ? (
-                <>
-                  <MonthCompareBar
-                    label={formatBillingMonthLabel(previousMonthSummary.month)}
-                    documentsSent={previousMonthSummary.documentsSent}
-                    overageDocuments={previousMonthSummary.overageDocuments}
-                    maxValue={compareMaxValue}
-                    tone="slate"
-                  />
-                  <MonthCompareBar
-                    label={formatBillingMonthLabel(currentMonthSummary?.month)}
-                    documentsSent={currentMonthSummary?.documentsSent ?? documentsUsed}
-                    overageDocuments={currentMonthSummary?.overageDocuments ?? overageDocuments}
-                    maxValue={compareMaxValue}
-                    tone="blue"
-                  />
-                </>
-              ) : (
-                <EmptyBlock text="A comparison chart will appear once at least two billing months are available." />
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-[1.8rem] border border-slate-200 bg-slate-50 p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Overage visibility</div>
-            <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">What happens next</h3>
-            <div className="mt-5 grid gap-3">
-              <DetailRow icon={<CreditCard className="h-4 w-4" />} label="Current plan" value={currentPlanDisplay} />
-              <DetailRow icon={<FileText className="h-4 w-4" />} label="Docs above plan" value={String(overageDocuments)} />
-              <DetailRow icon={<WalletCards className="h-4 w-4" />} label="Price per extra doc" value={formatCurrency(overagePrice)} />
-              <DetailRow icon={<WalletCards className="h-4 w-4" />} label="Estimated next charge" value={formatCurrency(nextInvoiceOverage)} />
-            </div>
-            <div className={cn(
-              "mt-5 rounded-[1.35rem] border p-4 text-sm",
-              overageDocuments > 0
-                ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-                : "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100",
-            )}>
-              {overageDocuments > 0
-                ? `You are currently ${overageDocuments} document(s) above your monthly plan. This estimated overage will be included on the next invoice.`
-                : "You are still within plan limits for the current billing month."}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {plansModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
-          <button type="button" aria-label="Close plans modal" onClick={() => setPlansModalOpen(false)} className="absolute inset-0" />
-          <div className="relative z-10 w-full max-w-4xl rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-900 md:p-7">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Need more documents?</div>
-                <h3 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">Upgrade your plan before you hit the limit</h3>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                  Your current plan is <span className="font-semibold text-slate-900 dark:text-white">{currentPlanDisplay}</span>. Compare the next plans and choose the one that fits your monthly document volume.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPlansModalOpen(false)}
-                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {planCards.map((plan) => (
-                <div
-                  key={plan.name}
-                  className={cn(
-                    "relative rounded-[1.6rem] border p-5",
-                    plan.accent,
-                    plan.name === currentPlan && "ring-2 ring-[#2563eb]/30",
-                  )}
-                >
-                  {plan.isMostPopular && plan.name !== currentPlan && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span className="rounded-full bg-[#2563eb] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white shadow-[0_4px_12px_rgba(37,99,235,0.35)]">
-                        Most popular
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.2em] opacity-70">
-                        {plan.name === currentPlan ? "Current plan" : "Available plan"}
-                      </div>
-                      <div className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{plan.displayName}</div>
-                    </div>
-                    <span className={cn(
-                      "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
-                      plan.name === currentPlan ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950" : "bg-[#2563eb] text-white",
-                    )}>
-                      {plan.name === currentPlan ? "Current" : "Upgrade"}
-                    </span>
-                  </div>
-                  <div className="mt-3">
-                    <span className="text-xl font-bold tracking-[-0.03em]">{plan.price}</span>
-                    <span className="ml-2 text-xs opacity-55">{plan.annualPrice}</span>
-                  </div>
-                  <div className="mt-2 text-sm font-medium opacity-75">{plan.limit}</div>
-                  <div className="mt-4 rounded-[1.2rem] bg-white/70 p-3 text-sm shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] dark:bg-slate-950/40 dark:shadow-none">
-                    {plan.description}
-                  </div>
-                  <button
-                    type="button"
-                    className={cn(
-                      "mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold transition",
-                      plan.name === currentPlan
-                        ? "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400"
-                        : "bg-[#2563eb] text-white hover:bg-blue-700",
-                    )}
-                  >
-                    {plan.name === currentPlan ? "You are on this plan" : `Choose ${plan.displayName}`}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function ProfilePanel({
-  user,
-  companyProfile,
-  usage,
-  currentUserRole,
-  onUpdateMe,
-  onUpdateCompanyProfile,
-  navGuardRef,
-}: {
-  user: Props["user"];
-  companyProfile: Props["companyProfile"];
-  usage: Props["usage"];
-  currentUserRole: string | null;
-  onUpdateMe: Props["onUpdateMe"];
-  onUpdateCompanyProfile: Props["onUpdateCompanyProfile"];
-  navGuardRef: MutableRefObject<((onGo: () => void) => void) | null>;
-}) {
-  const companyName = companyProfile?.companyName ?? "Company not defined";
-  const contactName = [companyProfile?.contactFirstName, companyProfile?.contactLastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  const primaryContact = contactName || companyProfile?.contactEmail || "Contact not defined";
-  const location = [companyProfile?.city, companyProfile?.state, companyProfile?.country]
-    .filter(Boolean)
-    .join(", ");
-  const primaryContactAddress = joinDefined(
-    [companyProfile?.contactAddressLine1, companyProfile?.contactAddressLine2],
-    ", ",
-  );
-  const logoFallback = getCompanyInitials(companyProfile?.companyName);
-  const logoInputRef = useRef<HTMLInputElement | null>(null);
-  const [isEditingCompanyDetails, setIsEditingCompanyDetails] = useState(false);
-  const [isEditingInsurance, setIsEditingInsurance] = useState(false);
-  const [isEditingPrimaryContact, setIsEditingPrimaryContact] = useState(false);
-  const [isCompanyDetailsOpen, setIsCompanyDetailsOpen] = useState(true);
-  const [isInsuranceOpen, setIsInsuranceOpen] = useState(false);
-  const [isPrimaryContactOpen, setIsPrimaryContactOpen] = useState(
-    currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL",
-  );
-  const [isSavingCompanyDetails, setIsSavingCompanyDetails] = useState(false);
-  const [isSavingInsurance, setIsSavingInsurance] = useState(false);
-  const [isSavingPrimaryContact, setIsSavingPrimaryContact] = useState(false);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [profileErrorMessage, setProfileErrorMessage] = useState("");
-  const [profileSuccessMessage, setProfileSuccessMessage] = useState("");
-  const [companyDetailsForm, setCompanyDetailsForm] = useState({
-    companyName: "",
-    legalName: "",
-    industry: "",
-    licenseNumber: "",
-    phone: "",
-    phone2: "",
-    email: "",
-    website: "",
-    addressLine1: "",
-    addressLine2: "",
-    state: "",
-    city: "",
-    zipCode: "",
-  });
-  const [insuranceForm, setInsuranceForm] = useState({
-    insuranceName: "",
-    insurancePhone: "",
-    insurancePolicyNumber: "",
-  });
-  const [primaryContactForm, setPrimaryContactForm] = useState({
-    contactFullName: "",
-    contactTitle: "",
-    contactEmail: "",
-    contactPhone: "",
-    contactAddressLine1: "",
-    contactAddressLine2: "",
-    contactState: "",
-    contactCity: "",
-    contactZipCode: "",
-  });
-  const [userProfileForm, setUserProfileForm] = useState({
-    fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
-    title: user?.title ?? "",
-    phone: user?.phone ?? "",
-    addressLine1: user?.addressLine1 ?? "",
-    addressLine2: user?.addressLine2 ?? "",
-    city: user?.city ?? "",
-    state: user?.state ?? "",
-    zipCode: user?.zipCode ?? "",
-  });
-  const [isEditingUserProfile, setIsEditingUserProfile] = useState(false);
-  const [isSavingUserProfile, setIsSavingUserProfile] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
-  const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    setUserProfileForm({
-      fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
-      title: user?.title ?? "",
-      phone: formatUsPhone(user?.phone ?? ""),
-      addressLine1: user?.addressLine1 ?? "",
-      addressLine2: user?.addressLine2 ?? "",
-      city: user?.city ?? "",
-      state: user?.state ?? "",
-      zipCode: user?.zipCode ?? "",
-    });
-  }, [user?.firstName, user?.lastName, user?.title, user?.phone, user?.addressLine1, user?.addressLine2, user?.city, user?.state, user?.zipCode]);
-
-  useEffect(() => {
-    if (currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL") {
-      setIsPrimaryContactOpen(true);
-    }
-  }, [currentUserRole, user?.accountType]);
-
-  useEffect(() => {
-    setCompanyDetailsForm({
-      companyName: companyProfile?.companyName ?? "",
-      legalName: companyProfile?.legalName ?? "",
-      industry: companyProfile?.industry ?? "",
-      licenseNumber: companyProfile?.licenseNumber ?? "",
-      phone: formatUsPhone(companyProfile?.phone ?? ""),
-      phone2: formatUsPhone(companyProfile?.phone2 ?? ""),
-      email: companyProfile?.email ?? "",
-      website: companyProfile?.website ?? "",
-      addressLine1: companyProfile?.addressLine1 ?? "",
-      addressLine2: companyProfile?.addressLine2 ?? "",
-      state: companyProfile?.state ?? "",
-      city: companyProfile?.city ?? "",
-      zipCode: companyProfile?.zipCode ?? "",
-    });
-    setInsuranceForm({
-      insuranceName: companyProfile?.insuranceName ?? "",
-      insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""),
-      insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "",
-    });
-    setPrimaryContactForm({
-      contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
-        .filter(Boolean)
-        .join(" ")
-        .trim(),
-      contactTitle: companyProfile?.contactTitle ?? "",
-      contactEmail: companyProfile?.contactEmail ?? "",
-      contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
-      contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
-      contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
-      contactState: companyProfile?.contactState ?? "",
-      contactCity: companyProfile?.contactCity ?? "",
-      contactZipCode: companyProfile?.contactZipCode ?? "",
-    });
-  }, [companyProfile]);
-
-  useEffect(() => {
-    navGuardRef.current = (onGo: () => void) => {
-      const isEditing = isEditingUserProfile || isEditingCompanyDetails || isEditingInsurance || isEditingPrimaryContact;
-      if (!isEditing) {
-        onGo();
-        return;
-      }
-
-      let dirty = false;
-      if (isEditingUserProfile) {
-        dirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
-      } else if (isEditingCompanyDetails) {
-        dirty = Object.keys(buildChangedProfilePayload(
-          { companyName: companyProfile?.companyName ?? "", legalName: companyProfile?.legalName ?? "", industry: companyProfile?.industry ?? "", licenseNumber: companyProfile?.licenseNumber ?? "", phone: formatUsPhone(companyProfile?.phone ?? ""), phone2: formatUsPhone(companyProfile?.phone2 ?? ""), email: companyProfile?.email ?? "", website: companyProfile?.website ?? "", addressLine1: companyProfile?.addressLine1 ?? "", state: companyProfile?.state ?? "", city: companyProfile?.city ?? "", zipCode: companyProfile?.zipCode ?? "" },
-          companyDetailsForm,
-        )).length > 0;
-      } else if (isEditingInsurance) {
-        dirty = Object.keys(buildChangedProfilePayload(
-          { insuranceName: companyProfile?.insuranceName ?? "", insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""), insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "" },
-          { insuranceName: insuranceForm.insuranceName, insurancePhone: formatUsPhone(insuranceForm.insurancePhone), insurancePolicyNumber: insuranceForm.insurancePolicyNumber },
-        )).length > 0;
-      } else if (isEditingPrimaryContact) {
-        dirty = Object.keys(buildChangedProfilePayload(
-          { contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName].filter(Boolean).join(" ").trim(), contactTitle: companyProfile?.contactTitle ?? "", contactEmail: companyProfile?.contactEmail ?? "", contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""), contactAddressLine1: companyProfile?.contactAddressLine1 ?? "", contactState: companyProfile?.contactState ?? "", contactCity: companyProfile?.contactCity ?? "", contactZipCode: companyProfile?.contactZipCode ?? "" },
-          primaryContactForm,
-        )).length > 0;
-      }
-
-      if (!dirty) {
-        setIsEditingUserProfile(false);
-        setIsEditingCompanyDetails(false);
-        setIsEditingInsurance(false);
-        setIsEditingPrimaryContact(false);
-        onGo();
-        return;
-      }
-
-      setConfirmDialog({
-        title: "Unsaved changes",
-        message: "You have unsaved changes. Are you sure you want to leave without saving?",
-        onConfirm: () => {
-          setIsEditingUserProfile(false);
-          setIsEditingCompanyDetails(false);
-          setIsEditingInsurance(false);
-          setIsEditingPrimaryContact(false);
-          setConfirmDialog(null);
-          onGo();
-        },
-      });
-    };
-    return () => {
-      navGuardRef.current = null;
-    };
-  }, [isEditingUserProfile, isEditingCompanyDetails, isEditingInsurance, isEditingPrimaryContact, userProfileForm, companyDetailsForm, insuranceForm, primaryContactForm, companyProfile, user, navGuardRef]);
-
-  async function saveCompanyDetails() {
-    if (companyDetailsForm.email.trim() && !isValidEmail(companyDetailsForm.email)) {
-      setProfileErrorMessage("Enter a valid company email address");
-      return;
-    }
-
-    const payload = buildChangedProfilePayload(
-      {
-        companyName: companyProfile?.companyName ?? "",
-        legalName: companyProfile?.legalName ?? "",
-        industry: companyProfile?.industry ?? "",
-        licenseNumber: companyProfile?.licenseNumber ?? "",
-        phone: formatUsPhone(companyProfile?.phone ?? ""),
-        phone2: formatUsPhone(companyProfile?.phone2 ?? ""),
-        email: companyProfile?.email ?? "",
-        website: companyProfile?.website ?? "",
-        addressLine1: companyProfile?.addressLine1 ?? "",
-        addressLine2: companyProfile?.addressLine2 ?? "",
-        state: companyProfile?.state ?? "",
-        city: companyProfile?.city ?? "",
-        zipCode: companyProfile?.zipCode ?? "",
-      },
-      {
-        ...companyDetailsForm,
-        phone: formatUsPhone(companyDetailsForm.phone),
-        phone2: formatUsPhone(companyDetailsForm.phone2),
-      },
-    );
-
-    if (Object.keys(payload).length === 0) {
-      setIsEditingCompanyDetails(false);
-      return;
-    }
-
-    setIsSavingCompanyDetails(true);
-    try {
-      await onUpdateCompanyProfile(payload);
-      setIsEditingCompanyDetails(false);
-      setProfileSuccessMessage("Changes saved successfully");
-    } finally {
-      setIsSavingCompanyDetails(false);
-    }
-  }
-
-  async function saveInsurance() {
-    const payload = buildChangedProfilePayload(
-      {
-        insuranceName: companyProfile?.insuranceName ?? "",
-        insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""),
-        insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "",
-      },
-      {
-        insuranceName: insuranceForm.insuranceName,
-        insurancePhone: formatUsPhone(insuranceForm.insurancePhone),
-        insurancePolicyNumber: insuranceForm.insurancePolicyNumber,
-      },
-    );
-
-    if (Object.keys(payload).length === 0) {
-      setIsEditingInsurance(false);
-      return;
-    }
-
-    setIsSavingInsurance(true);
-    try {
-      await onUpdateCompanyProfile(payload);
-      setIsEditingInsurance(false);
-      setProfileSuccessMessage("Changes saved successfully");
-    } finally {
-      setIsSavingInsurance(false);
-    }
-  }
-
-  async function handleAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      event.target.value = "";
-      return;
-    }
-
-    const maxFileSizeBytes = 3 * 1024 * 1024;
-    if (file.size > maxFileSizeBytes) {
-      event.target.value = "";
-      return;
-    }
-
-    setIsUploadingAvatar(true);
-    try {
-      const avatarUrl = await resizeImageFileSquare(file, 512);
-      await onUpdateMe({ avatarUrl });
-      setProfileSuccessMessage("Changes saved successfully");
-    } finally {
-      setIsUploadingAvatar(false);
-      event.target.value = "";
-    }
-  }
-
-  function getUserProfileOriginal() {
-    return {
-      fullName: [user?.firstName, user?.lastName].filter(Boolean).join(" "),
-      title: user?.title ?? "",
-      phone: user?.phone ?? "",
-      addressLine1: user?.addressLine1 ?? "",
-      addressLine2: user?.addressLine2 ?? "",
-      city: user?.city ?? "",
-      state: user?.state ?? "",
-      zipCode: user?.zipCode ?? "",
-    };
-  }
-
-  async function saveUserProfile() {
-    const changed = buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm);
-    if (Object.keys(changed).length === 0) {
-      setIsEditingUserProfile(false);
-      return;
-    }
-
-    const { firstName, lastName } = splitFullName(userProfileForm.fullName);
-
-    setIsSavingUserProfile(true);
-    try {
-      await onUpdateMe({
-        firstName: firstName || undefined,
-        lastName: lastName || undefined,
-        title: userProfileForm.title.trim() || undefined,
-        phone: userProfileForm.phone.trim() || undefined,
-        addressLine1: userProfileForm.addressLine1.trim() || undefined,
-        addressLine2: userProfileForm.addressLine2.trim() || undefined,
-        city: userProfileForm.city.trim() || undefined,
-        state: userProfileForm.state.trim() || undefined,
-        zipCode: userProfileForm.zipCode.trim() || undefined,
-      });
-      setIsEditingUserProfile(false);
-      setProfileSuccessMessage("Changes saved successfully");
-    } finally {
-      setIsSavingUserProfile(false);
-    }
-  }
-
-  async function savePrimaryContact() {
-    const { firstName, lastName } = splitFullName(primaryContactForm.contactFullName);
-
-    if (primaryContactForm.contactEmail.trim() && !isValidEmail(primaryContactForm.contactEmail)) {
-      setProfileErrorMessage("Enter a valid primary contact email address");
-      return;
-    }
-
-    const payload = buildChangedProfilePayload(
-      {
-        contactFirstName: companyProfile?.contactFirstName ?? "",
-        contactLastName: companyProfile?.contactLastName ?? "",
-        contactTitle: companyProfile?.contactTitle ?? "",
-        contactEmail: companyProfile?.contactEmail ?? "",
-        contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
-        contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
-        contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
-        contactState: companyProfile?.contactState ?? "",
-        contactCity: companyProfile?.contactCity ?? "",
-        contactZipCode: companyProfile?.contactZipCode ?? "",
-      },
-      {
-        contactFirstName: firstName,
-        contactLastName: lastName,
-        contactTitle: primaryContactForm.contactTitle,
-        contactEmail: primaryContactForm.contactEmail,
-        contactPhone: formatUsPhone(primaryContactForm.contactPhone),
-        contactAddressLine1: primaryContactForm.contactAddressLine1,
-        contactAddressLine2: primaryContactForm.contactAddressLine2,
-        contactState: primaryContactForm.contactState,
-        contactCity: primaryContactForm.contactCity,
-        contactZipCode: primaryContactForm.contactZipCode,
-      },
-    );
-
-    if (Object.keys(payload).length === 0) {
-      setIsEditingPrimaryContact(false);
-      return;
-    }
-
-    setIsSavingPrimaryContact(true);
-    try {
-      await onUpdateCompanyProfile(payload);
-      setIsEditingPrimaryContact(false);
-      setProfileSuccessMessage("Changes saved successfully");
-    } finally {
-      setIsSavingPrimaryContact(false);
-    }
-  }
-
-  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      event.target.value = "";
-      return;
-    }
-
-    // Keep uploads lightweight enough to store in the existing logoUrl string field.
-    const maxFileSizeBytes = 3 * 1024 * 1024;
-    if (file.size > maxFileSizeBytes) {
-      event.target.value = "";
-      return;
-    }
-
-    setIsUploadingLogo(true);
-
-    try {
-      const logoUrl = await resizeImageFile(file, 512);
-      await onUpdateCompanyProfile({ logoUrl });
-      setProfileSuccessMessage("Changes saved successfully");
-    } finally {
-      setIsUploadingLogo(false);
-      event.target.value = "";
-    }
-  }
-
-  function toggleCompanyDetailsOpen() {
-    setIsCompanyDetailsOpen((current) => {
-      const next = !current;
-      if (!next) {
-        setIsEditingCompanyDetails(false);
-      }
-      return next;
-    });
-  }
-
-  function toggleInsuranceOpen() {
-    setIsInsuranceOpen((current) => {
-      const next = !current;
-      if (!next) {
-        setIsEditingInsurance(false);
-      }
-      return next;
-    });
-  }
-
-  function togglePrimaryContactOpen() {
-    setIsPrimaryContactOpen((current) => {
-      const next = !current;
-      if (!next) {
-        setIsEditingPrimaryContact(false);
-      }
-      return next;
-    });
-  }
-
-  if (currentUserRole !== "MASTER" && user?.accountType === "INDIVIDUAL") {
-    const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
-    const initials = (() => {
-      if (user.firstName && user.lastName) {
-        return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-      }
-      if (user.firstName) {
-        return user.firstName.slice(0, 2).toUpperCase();
-      }
-      return user.email.slice(0, 2).toUpperCase();
-    })();
-
-    return (
-      <section className="grid gap-4">
-        {/* Error / success popups — identical to MASTER */}
-        {profileErrorMessage ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
-            <button type="button" aria-label="Close error popup" className="absolute inset-0" onClick={() => setProfileErrorMessage("")} />
-            <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--danger-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
-              <div className="text-lg font-semibold text-[color:var(--text-primary)]">Validation error</div>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{profileErrorMessage}</p>
-              <div className="mt-5 flex justify-end">
-                <button type="button" onClick={() => setProfileErrorMessage("")} className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]">Close</button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-        {profileSuccessMessage ? (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
-            <button type="button" aria-label="Close success popup" className="absolute inset-0" onClick={() => setProfileSuccessMessage("")} />
-            <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--success-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
-              <div className="text-lg font-semibold text-[color:var(--text-primary)]">Saved</div>
-              <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">{profileSuccessMessage}</p>
-              <div className="mt-5 flex justify-end">
-                <button type="button" onClick={() => setProfileSuccessMessage("")} className="rounded-xl bg-[color:var(--button-success)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-success-hover)]">Close</button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Hero — same gradient/layout as MASTER, avatar circle with edit button */}
-        <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
-              <div className="relative h-24 w-24 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
-                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
-                  {user.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={user.avatarUrl} alt={displayName} className="h-full w-full object-cover" />
-                  ) : (
-                    <span>{initials}</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => userAvatarInputRef.current?.click()}
-                  disabled={isUploadingAvatar}
-                  className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-950"
-                  aria-label="Upload profile picture"
-                  title="Upload profile picture"
-                >
-                  {isUploadingAvatar ? (
-                    <span className="text-[10px] font-semibold">...</span>
-                  ) : (
-                    <Pencil className="h-4 w-4" />
-                  )}
-                </button>
-                <input
-                  ref={userAvatarInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(event) => void handleAvatarUpload(event)}
-                />
-              </div>
-              <div className="text-center sm:text-left">
-                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
-                  {displayName}
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-white/88">{user.email}</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-                  <ProfileChip label={user.role} />
-                  {user.accountType ? <ProfileChip label={user.accountType.charAt(0) + user.accountType.slice(1).toLowerCase()} /> : null}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Personal info — same card, edit button and all fields identical to MASTER Primary Contact */}
-        <div className="grid gap-4">
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={togglePrimaryContactOpen}
-                className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                aria-expanded={isPrimaryContactOpen}
-              >
-                <ChevronRight className={cn("h-4 w-4 transition-transform", isPrimaryContactOpen && "rotate-90")} />
-                <span>Personal info</span>
-              </button>
-              {isPrimaryContactOpen ? (
-                <ProfileEditActions
-                  isEditing={isEditingUserProfile}
-                  isSaving={isSavingUserProfile}
-                  onEdit={() => setIsEditingUserProfile(true)}
-                  onCancel={() => {
-                    const isDirty = Object.keys(buildChangedProfilePayload(getUserProfileOriginal(), userProfileForm)).length > 0;
-                    if (!isDirty) { setIsEditingUserProfile(false); setUserProfileForm(getUserProfileOriginal()); return; }
-                    setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingUserProfile(false); setUserProfileForm(getUserProfileOriginal()); } });
-                  }}
-                  onSave={() => void saveUserProfile()}
-                />
-              ) : null}
-            </div>
-            {isPrimaryContactOpen ? (isEditingUserProfile ? (
-              <div className="mt-4 grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={userProfileForm.fullName} onChange={(value) => setUserProfileForm((c) => ({ ...c, fullName: toTitleCase(value.replace(/\d/g, "")) }))} />
-                  <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={userProfileForm.title} onChange={(value) => setUserProfileForm((c) => ({ ...c, title: toTitleCase(value) }))} />
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} onChange={() => {}} disabled={true} />
-                  <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={userProfileForm.phone} onChange={(value) => setUserProfileForm((c) => ({ ...c, phone: formatUsPhone(value) }))} />
-                </div>
-                <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={userProfileForm.addressLine1} onChange={(value) => setUserProfileForm((c) => ({ ...c, addressLine1: value }))} />
-                <div className="grid gap-3 md:grid-cols-3">
-                  <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={userProfileForm.city} onChange={(value) => setUserProfileForm((c) => ({ ...c, city: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
-                  <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={userProfileForm.state} onChange={(value) => setUserProfileForm((c) => ({ ...c, state: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
-                  <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP code" value={userProfileForm.zipCode} onChange={(value) => setUserProfileForm((c) => ({ ...c, zipCode: value }))} />
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={[user.firstName, user.lastName].filter(Boolean).join(" ")} />
-                  <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={user.title} />
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={user.email} />
-                  <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(user.phone ?? "")} />
-                </div>
-                <DetailRow icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={user.addressLine1} />
-                {user.addressLine2 ? <DetailRow icon={<MapPinned className="h-4 w-4" />} label="Address line 2" value={user.addressLine2} /> : null}
-                <div className="grid gap-3 md:grid-cols-3">
-                  <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={user.state} />
-                  <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={user.city} />
-                  <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={user.zipCode} />
-                </div>
-              </div>
-            )) : null}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // Only MASTER gets the full company profile render below
-
-  return (
-    <section className="grid gap-4">
-      {profileErrorMessage ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
-          <button
-            type="button"
-            aria-label="Close error popup"
-            className="absolute inset-0"
-            onClick={() => setProfileErrorMessage("")}
-          />
-          <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--danger-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
-            <div className="text-lg font-semibold text-[color:var(--text-primary)]">Validation error</div>
-            <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">
-              {profileErrorMessage}
-            </p>
-            <div className="mt-5 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setProfileErrorMessage("")}
-                className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {profileSuccessMessage ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
-          <button
-            type="button"
-            aria-label="Close success popup"
-            className="absolute inset-0"
-            onClick={() => setProfileSuccessMessage("")}
-          />
-          <div className="relative z-[71] w-full max-w-sm rounded-[1.75rem] border border-[color:var(--success-border)] bg-[color:var(--bg-elevated)] p-6 shadow-[var(--shadow-modal)]">
-            <div className="text-lg font-semibold text-[color:var(--text-primary)]">Saved</div>
-            <p className="mt-2 text-sm leading-6 text-[color:var(--text-secondary)]">
-              {profileSuccessMessage}
-            </p>
-            <div className="mt-5 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setProfileSuccessMessage("")}
-                className="rounded-xl bg-[color:var(--button-success)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-success-hover)]"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      <div className="rounded-[1.9rem] border border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eef4ff_42%,#dbeafe_100%)] p-6 shadow-[0_24px_70px_rgba(36,76,144,0.14)] dark:border-white/10 dark:bg-[linear-gradient(135deg,#0b1220_0%,#111827_42%,#1d4ed8_100%)] dark:shadow-[0_24px_70px_rgba(16,37,56,0.22)] md:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start md:gap-5">
-            <div className="relative h-24 w-24 shrink-0 sm:h-20 sm:w-20 md:h-24 md:w-24">
-              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white text-2xl font-semibold text-blue-700 shadow-[0_18px_40px_rgba(37,99,235,0.18)] dark:border-white/10 dark:bg-slate-950 dark:text-blue-200 sm:h-20 sm:w-20 sm:text-xl md:h-24 md:w-24 md:text-2xl">
-                {companyProfile?.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={companyProfile.logoUrl}
-                    alt={`${companyName} logo`}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span>{logoFallback}</span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => logoInputRef.current?.click()}
-                disabled={isUploadingLogo}
-                className="absolute -bottom-2 -right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.30)] transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-950"
-                aria-label="Upload company logo"
-                title="Upload logo"
-              >
-                {isUploadingLogo ? (
-                  <span className="text-[10px] font-semibold">...</span>
-                ) : (
-                  <Pencil className="h-4 w-4" />
-                )}
-              </button>
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                capture="environment"
-                className="hidden"
-                onChange={(event) => void handleLogoUpload(event)}
-              />
-            </div>
-            <div className="text-center sm:text-left">
-              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white md:text-5xl">
-                {companyName}
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-700 dark:text-white/88 md:text-base">
-                {companyProfile?.email ?? ""}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <ProfileChip label={companyProfile?.industry ?? "Industry not defined"} />
-                <ProfileChip label={location || "Location not defined"} />
-                <ProfileChip label={primaryContact} />
-              </div>
-            </div>
-          </div>
-          <div className="inline-flex items-center gap-3 rounded-full border border-blue-100 bg-white/90 px-4 py-3 text-slate-900 shadow-[0_10px_30px_rgba(37,99,235,0.10)] backdrop-blur dark:border-white/14 dark:bg-white/10 dark:text-white dark:shadow-none">
-            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-white/60">Current plan</span>
-            <span className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">
-              {usage?.planName ?? companyProfile?.planName ?? "-"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4">
-        <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={toggleCompanyDetailsOpen}
-              className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-              aria-expanded={isCompanyDetailsOpen}
-            >
-              <ChevronRight className={cn("h-4 w-4 transition-transform", isCompanyDetailsOpen && "rotate-90")} />
-              <span>Company details</span>
-            </button>
-            {isCompanyDetailsOpen ? (
-              <ProfileEditActions
-                isEditing={isEditingCompanyDetails}
-                isSaving={isSavingCompanyDetails}
-                onEdit={() => setIsEditingCompanyDetails(true)}
-                onCancel={() => {
-                  const original = {
-                    companyName: companyProfile?.companyName ?? "",
-                    legalName: companyProfile?.legalName ?? "",
-                    industry: companyProfile?.industry ?? "",
-                    licenseNumber: companyProfile?.licenseNumber ?? "",
-                    phone: formatUsPhone(companyProfile?.phone ?? ""),
-                    phone2: formatUsPhone(companyProfile?.phone2 ?? ""),
-                    email: companyProfile?.email ?? "",
-                    website: companyProfile?.website ?? "",
-                    addressLine1: companyProfile?.addressLine1 ?? "",
-                    addressLine2: companyProfile?.addressLine2 ?? "",
-                    state: companyProfile?.state ?? "",
-                    city: companyProfile?.city ?? "",
-                    zipCode: companyProfile?.zipCode ?? "",
-                  };
-                  const isDirty = Object.keys(buildChangedProfilePayload(original, companyDetailsForm)).length > 0;
-                  if (!isDirty) { setIsEditingCompanyDetails(false); setCompanyDetailsForm(original); return; }
-                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingCompanyDetails(false); setCompanyDetailsForm(original); } });
-                }}
-                onSave={() => void saveCompanyDetails()}
-              />
-            ) : null}
-          </div>
-          {isCompanyDetailsOpen ? (isEditingCompanyDetails ? (
-            <div className="mt-5 grid gap-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyDetailsForm.companyName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, companyName: toTitleCase(value) }))} />
-                <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyDetailsForm.legalName} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, legalName: toTitleCase(value) }))} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Factory className="h-4 w-4" />} label="Industry" value={companyDetailsForm.industry} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, industry: value }))} />
-                <EditableField icon={<FileText className="h-4 w-4" />} label="License number" value={companyDetailsForm.licenseNumber} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, licenseNumber: value }))} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={companyDetailsForm.phone} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, phone: formatUsPhone(value) }))} />
-                <EditableField icon={<Phone className="h-4 w-4" />} label="Fax" value={companyDetailsForm.phone2} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, phone2: formatUsPhone(value) }))} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Mail className="h-4 w-4" />} label="Company email" value={companyDetailsForm.email} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, email: value }))} />
-                <EditableField icon={<Globe className="h-4 w-4" />} label="Website" value={companyDetailsForm.website} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, website: value }))} />
-              </div>
-              <EditableField icon={<MapPlus className="h-4 w-4" />} label="Address line 1" value={companyDetailsForm.addressLine1} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, addressLine1: value }))} />
-              <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={companyDetailsForm.city} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, city: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
-                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={companyDetailsForm.state} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, state: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
-                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyDetailsForm.zipCode} onChange={(value) => setCompanyDetailsForm((current) => ({ ...current, zipCode: value.replace(/\D/g, "") }))} />
-              </div>
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Building2 className="h-4 w-4" />} label="Company name" value={companyName} />
-                <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Legal name" value={companyProfile?.legalName ?? ""} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Factory className="h-4 w-4" />} label="Industry" value={companyProfile?.industry ?? ""} />
-                <DetailRow icon={<FileText className="h-4 w-4" />} label="License number" value={companyProfile?.licenseNumber ?? ""} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.phone ?? "")} />
-                <DetailRow icon={<Phone className="h-4 w-4" />} label="Fax" value={formatUsPhone(companyProfile?.phone2 ?? "")} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Mail className="h-4 w-4" />} label="Company email" value={companyProfile?.email ?? ""} />
-                <DetailRow icon={<Globe className="h-4 w-4" />} label="Website" value={companyProfile?.website ?? ""} />
-              </div>
-              <DetailRow
-                icon={<MapPlus className="h-4 w-4" />}
-                label="Address line 1"
-                value={companyProfile?.addressLine1 ?? ""}
-              />
-              {companyProfile?.addressLine2?.trim() ? (
-                <DetailRow
-                  icon={<MapPinned className="h-4 w-4" />}
-                  label="Address line 2"
-                  value={companyProfile.addressLine2}
-                />
-              ) : null}
-              <div className="grid gap-3 md:grid-cols-3">
-                <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.city ?? ""} />
-                <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.state ?? ""} />
-                <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP" value={companyProfile?.zipCode ?? ""} />
-              </div>
-            </div>
-          )) : null}
-        </div>
-
-        <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)] md:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={toggleInsuranceOpen}
-              className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-              aria-expanded={isInsuranceOpen}
-            >
-              <ChevronRight className={cn("h-4 w-4 transition-transform", isInsuranceOpen && "rotate-90")} />
-              <span>Insurance</span>
-            </button>
-            {isInsuranceOpen ? (
-              <ProfileEditActions
-                isEditing={isEditingInsurance}
-                isSaving={isSavingInsurance}
-                onEdit={() => setIsEditingInsurance(true)}
-                onCancel={() => {
-                  const original = {
-                    insuranceName: companyProfile?.insuranceName ?? "",
-                    insurancePhone: formatUsPhone(companyProfile?.insurancePhone ?? ""),
-                    insurancePolicyNumber: companyProfile?.insurancePolicyNumber ?? "",
-                  };
-                  const current = {
-                    insuranceName: insuranceForm.insuranceName,
-                    insurancePhone: formatUsPhone(insuranceForm.insurancePhone),
-                    insurancePolicyNumber: insuranceForm.insurancePolicyNumber,
-                  };
-                  const isDirty = Object.keys(buildChangedProfilePayload(original, current)).length > 0;
-                  if (!isDirty) { setIsEditingInsurance(false); setInsuranceForm(original); return; }
-                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingInsurance(false); setInsuranceForm(original); } });
-                }}
-                onSave={() => void saveInsurance()}
-              />
-            ) : null}
-          </div>
-          {isInsuranceOpen ? (isEditingInsurance ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <EditableField icon={<ShieldCheck className="h-4 w-4" />} label="Insurance name" value={insuranceForm.insuranceName} onChange={(value) => setInsuranceForm((current) => ({ ...current, insuranceName: toTitleCase(value) }))} />
-              <EditableField icon={<Phone className="h-4 w-4" />} label="Insurance phone" value={insuranceForm.insurancePhone} onChange={(value) => setInsuranceForm((current) => ({ ...current, insurancePhone: formatUsPhone(value) }))} />
-              <EditableField icon={<FileText className="h-4 w-4" />} label="Policy number" value={insuranceForm.insurancePolicyNumber} onChange={(value) => setInsuranceForm((current) => ({ ...current, insurancePolicyNumber: value }))} />
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <DetailRow icon={<ShieldCheck className="h-4 w-4" />} label="Insurance name" value={companyProfile?.insuranceName ?? ""} />
-              <DetailRow icon={<Phone className="h-4 w-4" />} label="Insurance phone" value={formatUsPhone(companyProfile?.insurancePhone ?? "")} />
-              <DetailRow icon={<FileText className="h-4 w-4" />} label="Policy number" value={companyProfile?.insurancePolicyNumber ?? ""} />
-            </div>
-          )) : null}
-        </div>
-
-        <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={togglePrimaryContactOpen}
-              className="inline-flex items-center gap-2 rounded-full text-left text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-              aria-expanded={isPrimaryContactOpen}
-            >
-              <ChevronRight className={cn("h-4 w-4 transition-transform", isPrimaryContactOpen && "rotate-90")} />
-              <span>Primary contact</span>
-            </button>
-            {isPrimaryContactOpen ? (
-              <ProfileEditActions
-                isEditing={isEditingPrimaryContact}
-                isSaving={isSavingPrimaryContact}
-                onEdit={() => setIsEditingPrimaryContact(true)}
-                onCancel={() => {
-                  const original = {
-                    contactFullName: [companyProfile?.contactFirstName, companyProfile?.contactLastName]
-                      .filter(Boolean)
-                      .join(" ")
-                      .trim(),
-                    contactTitle: companyProfile?.contactTitle ?? "",
-                    contactEmail: companyProfile?.contactEmail ?? "",
-                    contactPhone: formatUsPhone(companyProfile?.contactPhone ?? ""),
-                    contactAddressLine1: companyProfile?.contactAddressLine1 ?? "",
-                    contactAddressLine2: companyProfile?.contactAddressLine2 ?? "",
-                    contactState: companyProfile?.contactState ?? "",
-                    contactCity: companyProfile?.contactCity ?? "",
-                    contactZipCode: companyProfile?.contactZipCode ?? "",
-                  };
-                  const isDirty = Object.keys(buildChangedProfilePayload(original, primaryContactForm)).length > 0;
-                  if (!isDirty) { setIsEditingPrimaryContact(false); setPrimaryContactForm(original); return; }
-                  setConfirmDialog({ title: "Unsaved changes", message: "You have unsaved changes. Are you sure you want to cancel?", onConfirm: () => { setConfirmDialog(null); setIsEditingPrimaryContact(false); setPrimaryContactForm(original); } });
-                }}
-                onSave={() => void savePrimaryContact()}
-              />
-            ) : null}
-          </div>
-          {isPrimaryContactOpen ? (isEditingPrimaryContact ? (
-            <div className="mt-4 grid gap-3">
-              <EditableField icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={primaryContactForm.contactFullName} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactFullName: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
-              <EditableField icon={<Briefcase className="h-4 w-4" />} label="Title" value={primaryContactForm.contactTitle} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactTitle: toTitleCase(value) }))} />
-              <div className="grid gap-3 md:grid-cols-2">
-                <EditableField icon={<Mail className="h-4 w-4" />} label="Email" value={primaryContactForm.contactEmail} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactEmail: value }))} />
-                <EditableField icon={<Phone className="h-4 w-4" />} label="Phone" value={primaryContactForm.contactPhone} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactPhone: formatUsPhone(value) }))} />
-              </div>
-              <EditableField icon={<MapPinned className="h-4 w-4" />} label="Address line 1" value={primaryContactForm.contactAddressLine1} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactAddressLine1: value }))} />
-              <div className="grid gap-3 md:grid-cols-3">
-                <EditableField icon={<Compass className="h-4 w-4" />} label="City" value={primaryContactForm.contactCity} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactCity: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
-                <EditableField icon={<Landmark className="h-4 w-4" />} label="State" value={primaryContactForm.contactState} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactState: toTitleCase(value.replace(/[0-9]/g, "")) }))} />
-                <EditableField icon={<Pin className="h-4 w-4" />} label="ZIP code" value={primaryContactForm.contactZipCode} onChange={(value) => setPrimaryContactForm((current) => ({ ...current, contactZipCode: value.replace(/\D/g, "") }))} />
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<BadgeCheck className="h-4 w-4" />} label="Full name" value={contactName || ""} />
-                <DetailRow icon={<Briefcase className="h-4 w-4" />} label="Title" value={companyProfile?.contactTitle ?? ""} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DetailRow icon={<Mail className="h-4 w-4" />} label="Email" value={companyProfile?.contactEmail ?? ""} />
-                <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={formatUsPhone(companyProfile?.contactPhone ?? "")} />
-              </div>
-              <DetailRow
-                icon={<MapPlus className="h-4 w-4" />}
-                label="Address line 1"
-                value={companyProfile?.contactAddressLine1 ?? ""}
-              />
-              {companyProfile?.contactAddressLine2?.trim() ? (
-                <DetailRow
-                  icon={<MapPinned className="h-4 w-4" />}
-                  label="Address line 2"
-                  value={companyProfile.contactAddressLine2}
-                />
-              ) : null}
-              <div className="grid gap-3 md:grid-cols-3">
-                <DetailRow icon={<Compass className="h-4 w-4" />} label="City" value={companyProfile?.contactCity ?? ""} />
-                <DetailRow icon={<Landmark className="h-4 w-4" />} label="State" value={companyProfile?.contactState ?? ""} />
-                <DetailRow icon={<Pin className="h-4 w-4" />} label="ZIP code" value={companyProfile?.contactZipCode ?? ""} />
-              </div>
-            </div>
-          )) : null}
-        </div>
-      </div>
-      {confirmDialog ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
-            <div className="text-lg font-semibold text-slate-950 dark:text-white">{confirmDialog.title}</div>
-            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{confirmDialog.message}</p>
-            <div className="mt-5 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmDialog(null)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
-              >
-                No
-              </button>
-              <button
-                type="button"
-                onClick={confirmDialog.onConfirm}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
-              >
-                Yes
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 function CreateDraftDrawer({
   open,
   documentTypes,
   companyProfile,
+  presetCustomer,
+  presetDataSource,
+  presetDocumentTypeId,
+  presetFormDefinitionId,
+  presetSignatureTemplateId,
+  presetTargetUserId,
   onClose,
   onCreateDraft,
   onOpenDocumentView,
@@ -3203,6 +2621,15 @@ function CreateDraftDrawer({
   open: boolean;
   documentTypes: DocumentTypeCatalogItem[];
   companyProfile: Props["companyProfile"];
+  presetCustomer: Customer | null;
+  presetDataSource: CustomerDataSource | null;
+  presetDocumentTypeId: string | null;
+  presetFormDefinitionId: string | null;
+  presetSignatureTemplateId: string | null;
+  // NOA-238 — when set, the resulting Document.userId is this id (master
+  // assigning to a target user). Empty string handled client-side; null
+  // means no override (caller becomes owner).
+  presetTargetUserId: string | null;
   onClose: () => void;
   onCreateDraft: (payload: {
     documentTypeId: string;
@@ -3210,6 +2637,8 @@ function CreateDraftDrawer({
     signatureTemplateId: string;
     contractDate: string;
     dataJson: Record<string, unknown>;
+    customerId?: string;
+    userId?: string;
   }) => Promise<DocDetail | void>;
   onOpenDocumentView: (documentId: string) => void;
 }) {
@@ -3217,10 +2646,45 @@ function CreateDraftDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
-  const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState("");
-  const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  // Initialize from presets (set by TemplateSelectorDialog). Empty string when
+  // no preset → user must pick explicitly via the Setup dropdowns (no more
+  // silent auto-pick-first).
+  const [selectedDocumentTypeId, setSelectedDocumentTypeId] = useState(
+    presetDocumentTypeId ?? "",
+  );
+  const [selectedFormDefinitionId, setSelectedFormDefinitionId] = useState(
+    presetFormDefinitionId ?? "",
+  );
+  const [selectedTemplateId, setSelectedTemplateId] = useState(
+    presetSignatureTemplateId ?? "",
+  );
   const [contractDate, setContractDate] = useState("");
+
+  // NOA-272 Chunk 3 Bug 1 fix — per-draft session id stored in sessionStorage.
+  // Each fresh "New Document" generates a unique id; closeCreateDrawer
+  // (parent) clears it on save success / confirmed cancel / X-confirm,
+  // forcing the next mount to generate a new id. The id is part of the
+  // arrays persistKey so two drafts with the same documentType+formDef
+  // never share their line_items state. Refresh during the same edit
+  // session preserves the id (sessionStorage survives F5), so arrays
+  // restoration still works.
+  const [sessionId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    const KEY = "noasign:draft-session-id";
+    try {
+      let sid = window.sessionStorage.getItem(KEY);
+      if (!sid) {
+        sid =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        window.sessionStorage.setItem(KEY, sid);
+      }
+      return sid;
+    } catch {
+      return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -3231,11 +2695,24 @@ function CreateDraftDrawer({
     if (!persistedState) return;
 
     setIsSetupOpen(persistedState.isSetupOpen ?? false);
-    setSelectedDocumentTypeId(persistedState.selectedDocumentTypeId ?? "");
-    setSelectedFormDefinitionId(persistedState.selectedFormDefinitionId ?? "");
-    setSelectedTemplateId(persistedState.selectedTemplateId ?? "");
+    // Don't overwrite presets with stale sessionStorage state. Presets always
+    // win — they represent a deliberate choice from the Template Selector.
+    if (!presetDocumentTypeId) {
+      setSelectedDocumentTypeId(persistedState.selectedDocumentTypeId ?? "");
+    }
+    if (!presetFormDefinitionId) {
+      setSelectedFormDefinitionId(persistedState.selectedFormDefinitionId ?? "");
+    }
+    if (!presetSignatureTemplateId) {
+      setSelectedTemplateId(persistedState.selectedTemplateId ?? "");
+    }
     setContractDate(persistedState.contractDate ?? "");
-  }, [open]);
+  }, [
+    open,
+    presetDocumentTypeId,
+    presetFormDefinitionId,
+    presetSignatureTemplateId,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -3256,11 +2733,9 @@ function CreateDraftDrawer({
     setContractDate((current) => current || toDateInputValue(new Date().toISOString()));
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const firstType = documentTypes[0] ?? null;
-    setSelectedDocumentTypeId((current) => current || firstType?.id || "");
-  }, [documentTypes, open]);
+  // Auto-select-first effects removed in favor of the Template Selector
+  // Modal. Legacy path (opened without preset) leaves the fields empty and
+  // requires the user to pick from the Setup dropdowns.
 
   useEffect(() => {
     if (!selectedDocumentType) {
@@ -3268,13 +2743,154 @@ function CreateDraftDrawer({
       setSelectedTemplateId("");
       return;
     }
-    setSelectedFormDefinitionId(
-      (current) => current || selectedDocumentType.formDefinitions[0]?.id || "",
-    );
-    setSelectedTemplateId(
-      (current) => current || selectedDocumentType.signatureTemplates[0]?.id || "",
-    );
+    // When documentType changes, keep the formDef / sigTemplate only if they
+    // still belong to the new type (true for Template Selector presets).
+    // Otherwise: auto-pick when the new type has only one option — the
+    // Form / Template dropdown is hidden in that case (NOA-270 visibility
+    // fix), so leaving it empty would strand canSubmit at false with no
+    // way to recover. With multiple options, leave empty so the user picks
+    // explicitly via the (visible) dropdown.
+    setSelectedFormDefinitionId((current) => {
+      if (selectedDocumentType.formDefinitions.some((f) => f.id === current)) {
+        return current;
+      }
+      if (selectedDocumentType.formDefinitions.length === 1) {
+        return selectedDocumentType.formDefinitions[0].id;
+      }
+      return "";
+    });
+    setSelectedTemplateId((current) => {
+      if (selectedDocumentType.signatureTemplates.some((s) => s.id === current)) {
+        return current;
+      }
+      if (selectedDocumentType.signatureTemplates.length === 1) {
+        return selectedDocumentType.signatureTemplates[0].id;
+      }
+      return "";
+    });
   }, [selectedDocumentType]);
+
+  // When a customer is preset (entry from Customers section), pre-populate
+  // form fields. Schemas across templates use multiple naming conventions
+  // for the same data ("name" vs "customer_name", "address" vs
+  // "customer_address_line_1", etc.) — emit every plausible key. The
+  // renderer ignores keys that don't exist in the schema, so over-supplying
+  // is harmless and avoids per-template wiring.
+  //
+  // For BUSINESS customers the source is chosen up front in the Business
+  // Data Selector: 'business' uses the business row, 'contact' uses the
+  // primary contact section. PERSONAL customers always use customer.* fields.
+  const customerInitialValues = useMemo<
+    Record<string, string> | undefined
+  >(() => {
+    if (!presetCustomer) return undefined;
+    const c = presetCustomer;
+    const b = c.business;
+    const isBusiness = c.customerType === "BUSINESS";
+    const useContact = isBusiness && presetDataSource === "contact";
+
+    // Resolve each field from the chosen source. PERSONAL falls through to
+    // the customer's own fields. BUSINESS + 'business' uses the business
+    // row. BUSINESS + 'contact' uses the primary contact section.
+    const name = useContact
+      ? b?.primaryContactName ?? ""
+      : c.fullName;
+    const email = useContact
+      ? b?.primaryContactEmail ?? ""
+      : isBusiness
+        ? b?.businessEmail ?? ""
+        : c.email ?? "";
+    const phone = formatUsPhone(
+      useContact
+        ? b?.primaryContactPhone ?? ""
+        : isBusiness
+          ? b?.businessPhone ?? ""
+          : c.phone ?? "",
+    );
+    const addressLine1 = useContact
+      ? b?.primaryContactAddressLine1 ?? ""
+      : isBusiness
+        ? b?.businessAddressLine1 ?? ""
+        : c.addressLine1 ?? "";
+    const addressLine2 = useContact
+      ? ""
+      : isBusiness
+        ? b?.businessAddressLine2 ?? ""
+        : c.addressLine2 ?? "";
+    const city = useContact
+      ? b?.primaryContactCity ?? ""
+      : isBusiness
+        ? b?.businessCity ?? ""
+        : c.city ?? "";
+    const state = useContact
+      ? b?.primaryContactState ?? ""
+      : isBusiness
+        ? b?.businessState ?? ""
+        : c.state ?? "";
+    const zip = useContact
+      ? b?.primaryContactZipCode ?? ""
+      : isBusiness
+        ? b?.businessZipCode ?? ""
+        : c.zipCode ?? "";
+    const title = useContact ? b?.primaryContactTitle ?? "" : "";
+    const businessName = b?.businessName ?? "";
+    const licenseNumber = b?.licenseNumber ?? "";
+
+    // Split full name into first/last so schemas with separate name fields
+    // (e.g. Laura's invoice) can prefill correctly. First token is first
+    // name, the rest joins as last name — handles "Maria José Rodriguez" as
+    // first="Maria", last="José Rodriguez". For BUSINESS the personal name
+    // fields are typically hidden (hideWhen: 'isBusiness') so the awkward
+    // split of e.g. "Constructora San Martin SAC" into first/last doesn't
+    // surface.
+    const [firstName = "", ...nameRest] = (name || "").trim().split(/\s+/);
+    const lastName = nameRest.join(" ");
+    const contactPerson = b?.primaryContactName ?? "";
+
+    return {
+      // Unprefixed keys (most common in NTSsign customer-facing schemas)
+      name,
+      full_name: name,
+      first_name: firstName,
+      last_name: lastName,
+      title,
+      email,
+      phone,
+      address: addressLine1,
+      address_line_1: addressLine1,
+      address_line_2: addressLine2,
+      city,
+      state,
+      zip,
+      zip_code: zip,
+      notes: c.notes ?? "",
+      contact_person: contactPerson,
+      // Prefixed keys (alternate convention)
+      customer_name: name,
+      customer_full_name: name,
+      customer_first_name: firstName,
+      customer_last_name: lastName,
+      customer_title: title,
+      customer_email: email,
+      customer_phone: phone,
+      customer_address: addressLine1,
+      customer_address_line_1: addressLine1,
+      customer_address_line_2: addressLine2,
+      customer_city: city,
+      customer_state: state,
+      customer_zip: zip,
+      customer_zip_code: zip,
+      customer_notes: c.notes ?? "",
+      customer_contact_person: contactPerson,
+      // Business-row fields stay available regardless of source — the
+      // license number and business legal name belong to the company even
+      // when the contact's personal data fills the "customer" block.
+      business_name: businessName,
+      customer_business_name: businessName,
+      license_number: licenseNumber,
+      customer_license_number: licenseNumber,
+    };
+  }, [presetCustomer, presetDataSource]);
 
   useEffect(() => {
     if (!open) return;
@@ -3361,6 +2977,9 @@ function CreateDraftDrawer({
         signatureTemplateId: selectedTemplateId,
         contractDate,
         dataJson: finalDataJson,
+        ...(presetCustomer ? { customerId: presetCustomer.id } : {}),
+        // NOA-238 — master assigning the draft to a target user.
+        ...(presetTargetUserId ? { userId: presetTargetUserId } : {}),
       });
 
       onClose();
@@ -3378,28 +2997,28 @@ function CreateDraftDrawer({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex min-h-screen items-start justify-center bg-slate-950/45 p-2 pt-1 backdrop-blur-sm md:items-center md:p-4">
+    <div className="fixed inset-0 z-50 flex min-h-screen items-start justify-center bg-black/60 p-2 pt-1 backdrop-blur md:items-center md:p-4">
       <button type="button" aria-label="Close draft creator" onClick={requestClose} className="absolute inset-0" />
       <aside
         ref={drawerScrollRef}
-        className="relative z-10 flex max-h-[98vh] w-full max-w-[90vw] flex-col overflow-y-auto rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 md:h-[96vh] md:max-h-[96vh] md:max-w-[96vw]"
+        className="relative z-10 flex max-h-[98vh] w-full max-w-[90vw] flex-col overflow-y-auto rounded-[2rem] border border-[color:var(--border)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[color:var(--bg-page)] md:h-[96vh] md:max-h-[96vh] md:max-w-[96vw]"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 dark:border-white/10">
+        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] px-5 py-5 dark:border-white/10">
           <div className="min-w-0">
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Create draft</div>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">New document</h2>
-            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">Create a draft, then continue editing it in the document viewer.</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Create draft</div>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">New document</h2>
+            <div className="mt-2 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Create a draft, then continue editing it in the document viewer.</div>
           </div>
           <button
             type="button"
             onClick={requestClose}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] transition hover:bg-[color:var(--badge-danger-bg)] dark:border-[color:var(--danger-border)] dark:bg-[color:var(--danger-bg)] dark:text-[color:var(--danger-text)] dark:hover:bg-[color:var(--badge-danger-bg)]"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
+        <div className="border-b border-[color:var(--border)] px-5 py-4 dark:border-white/10">
           <div className="rounded-[1.8rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-5">
             <div className="flex items-center justify-between gap-3">
               <button
@@ -3414,38 +3033,53 @@ function CreateDraftDrawer({
             </div>
             {isSetupOpen ? (
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <SelectField
+                {/* NOA-270 — editable for all users. Options filtered to types
+                    with at least 1 FormDefinition (defensive; backend already
+                    scopes the catalog to the user's UserDocumentConfigs for
+                    non-MASTER roles via getDocumentTypes(userId)).
+                    NOA-277 — uses PopoverSelectField for non-native dropdown
+                    styling consistent with the rows-per-page pattern. */}
+                <PopoverSelectField
                   label="Document type"
                   value={selectedDocumentTypeId}
                   onChange={setSelectedDocumentTypeId}
                   icon={<FileText className="h-4 w-4" />}
-                  disabled
-                  options={documentTypes.map((item) => ({ value: item.id, label: item.name }))}
+                  options={documentTypes
+                    .filter((item) => (item.formDefinitions ?? []).length > 0)
+                    .map((item) => ({ value: item.id, label: item.name }))}
                 />
                 <EditableField
                   icon={<ScanText className="h-4 w-4" />}
-                  label="Contract date"
+                  label="Document date"
                   type="date"
                   value={contractDate}
                   onChange={setContractDate}
-                  disabled
                 />
-                <SelectField
-                  label="Form"
-                  value={selectedFormDefinitionId}
-                  onChange={setSelectedFormDefinitionId}
-                  icon={<FileJson className="h-4 w-4" />}
-                  disabled
-                  options={(selectedDocumentType?.formDefinitions ?? []).map((item) => ({ value: item.id, label: item.name }))}
-                />
-                <SelectField
-                  label="Template"
-                  value={selectedTemplateId}
-                  onChange={setSelectedTemplateId}
-                  icon={<LayoutDashboard className="h-4 w-4" />}
-                  disabled
-                  options={(selectedDocumentType?.signatureTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
-                />
+                {/* NOA-270 — only render Form selector when there's a real
+                    choice. With a single FormDefinition the auto-pick from
+                    TemplateSelectorDialog already locked it in; showing a
+                    disabled dropdown with one option is just visual noise. */}
+                {(selectedDocumentType?.formDefinitions ?? []).length > 1 ? (
+                  <SelectField
+                    label="Form"
+                    value={selectedFormDefinitionId}
+                    onChange={setSelectedFormDefinitionId}
+                    icon={<FileJson className="h-4 w-4" />}
+                    disabled
+                    options={(selectedDocumentType?.formDefinitions ?? []).map((item) => ({ value: item.id, label: item.name }))}
+                  />
+                ) : null}
+                {/* Same rule for SignatureTemplate. */}
+                {(selectedDocumentType?.signatureTemplates ?? []).length > 1 ? (
+                  <SelectField
+                    label="Template"
+                    value={selectedTemplateId}
+                    onChange={setSelectedTemplateId}
+                    icon={<LayoutDashboard className="h-4 w-4" />}
+                    disabled
+                    options={(selectedDocumentType?.signatureTemplates ?? []).map((item) => ({ value: item.id, label: item.name }))}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -3463,12 +3097,52 @@ function CreateDraftDrawer({
               </div>
             );
           }
+          // NOA-270 — when a BUSINESS customer is preset, flip any
+          // `isBusiness` toggle in the schema so the business-specific
+          // fields (showWhen) appear and personal fields (hideWhen) hide.
+          // Convention-based: any toggle whose key === "isBusiness" is
+          // driven by customer.customerType. Other toggles fall back to
+          // schema defaults.
+          let initialToggles: Record<string, boolean> | undefined;
+          if (presetCustomer) {
+            const isBusiness = presetCustomer.customerType === "BUSINESS";
+            const overrides: Record<string, boolean> = {};
+            for (const section of schema.sections) {
+              for (const toggle of section.toggles ?? []) {
+                if (toggle.key === "isBusiness") {
+                  overrides[`${section.key}:${toggle.key}`] = isBusiness;
+                }
+              }
+            }
+            if (Object.keys(overrides).length > 0) {
+              initialToggles = overrides;
+            }
+          }
+          // NOA-272 Chunk 3 — sessionStorage key for dynamic_array persistence.
+          // Scoped by documentType + formDefinition + per-draft sessionId so
+          // distinct drafts can never collide (Bug 1 fix). When sessionId is
+          // missing (SSR / sessionStorage unavailable), persistence is
+          // disabled. Refresh keeps the same sessionId (sessionStorage
+          // survives F5) so restoration after refresh works (Bug 2 scope).
+          const persistKey =
+            sessionId && selectedDocumentType?.code && selectedFormDefinitionId
+              ? `noasign:form-arrays:${selectedDocumentType.code}:${selectedFormDefinitionId}:${sessionId}`
+              : undefined;
+          // NOA-272 Chunk 3 Bug 3 fix — pass `onClose` (not `requestClose`)
+          // as the renderer's onCancel. The renderer already shows its own
+          // confirm dialog for dirty state (incluye arrays); routing back to
+          // requestClose would surface a SECOND confirm from the drawer.
+          // The drawer's own confirm via requestClose still applies to its
+          // X button + backdrop click (paths that bypass the renderer).
           return (
-            <DocumentFormRenderer
+            <DocumentWizard
               schema={schema}
               onSubmit={handleRendererSubmit}
-              onCancel={requestClose}
+              onCancel={onClose}
               isSubmitting={isSubmitting}
+              initialValues={customerInitialValues}
+              initialToggles={initialToggles}
+              persistKey={persistKey}
               canSubmit={
                 !!selectedDocumentTypeId &&
                 !!selectedFormDefinitionId &&
@@ -3481,17 +3155,17 @@ function CreateDraftDrawer({
 
       </aside>
       {confirmCloseOpen ? (
-        <div className="absolute inset-0 z-[60] flex min-h-full items-center justify-center bg-slate-950/30 p-4">
-          <div className="w-full max-w-sm -translate-y-[50%] rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950 md:translate-y-0">
-            <div className="text-lg font-semibold text-slate-950 dark:text-white">Cancel draft?</div>
-            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+        <div className="absolute inset-0 z-[60] flex min-h-full items-center justify-center bg-black/60 backdrop-blur p-4">
+          <div className="w-full max-w-sm -translate-y-[50%] rounded-[1.75rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[color:var(--bg-page)] md:translate-y-0">
+            <div className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">Cancel draft?</div>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
               If you close this popup now, the information entered here will be discarded.
             </p>
             <div className="mt-5 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setConfirmCloseOpen(false)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/10"
+                className="rounded-xl border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-page-subtle)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
               >
                 No
               </button>
@@ -3501,7 +3175,7 @@ function CreateDraftDrawer({
                   setConfirmCloseOpen(false);
                   onClose();
                 }}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700"
+                className="rounded-xl bg-[color:var(--button-danger)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[color:var(--button-danger-hover)]"
               >
                 Yes
               </button>
@@ -3521,6 +3195,7 @@ function DocumentViewer({
   actionInFlight,
   initialActiveTab,
   initialEditingTab,
+  documentTypes,
   onClose,
   onAction,
   onUpdateDraft,
@@ -3534,6 +3209,10 @@ function DocumentViewer({
   actionInFlight: string | null;
   initialActiveTab: ViewerTabKey;
   initialEditingTab: EditableViewerTabKey | null;
+  /** NOA-280 — needed to look up the schema for the document's
+   *  formDefinition so the viewer can render schema-driven instead of the
+   *  legacy hardcoded client/project/pricing extractors. */
+  documentTypes: DocumentTypeCatalogItem[];
   onClose: () => void;
   onAction: (
     documentId: string,
@@ -3578,6 +3257,105 @@ function DocumentViewer({
   const clientEntries = useMemo(() => getClientEntries(document), [document]);
   const projectEntries = useMemo(() => getProjectEntries(document), [document]);
   const pricingEntries = useMemo(() => getPricingEntries(document), [document]);
+
+  // NOA-280 — schema-driven viewer. Look up the document's FormDefinition
+  // schema from the documentTypes catalog (already loaded by the parent).
+  // Match by documentType.code + formDefinition.name; the backend's
+  // /documents/:id response only includes formDefinition.{name, key}, not
+  // schemaJson, so the lookup keeps us off the backend critical path.
+  const schemaForDoc = useMemo<DocumentSchema | undefined>(() => {
+    if (!document?.documentType?.code || !document?.formDefinition?.name) return undefined;
+    const docType = documentTypes.find((dt) => dt.code === document.documentType?.code);
+    if (!docType) return undefined;
+    const formDef = docType.formDefinitions.find(
+      (fd) => fd.name === document.formDefinition?.name,
+    );
+    return formDef?.schemaJson as DocumentSchema | undefined;
+  }, [document, documentTypes]);
+
+  const schemaSectionKeys = useMemo(
+    () => schemaForDoc?.sections.map((s) => s.key) ?? [],
+    [schemaForDoc],
+  );
+
+  // NOA-280 — deduce toggle state from saved dataJson presence. The renderer
+  // never persists toggle state in dataJson today; for the readOnly viewer
+  // we infer isBusiness from whether business_name has a value (only set
+  // when the customer was a business at submit time).
+  // TODO: NOA-283 — replace with _toggles key from dataJson once toggle
+  // persistence is implemented.
+  // Workaround: deducir de presencia de business_name
+  const deducedToggles = useMemo<Record<string, boolean> | undefined>(() => {
+    if (!schemaForDoc || !document?.data?.dataJson) return undefined;
+    const dataJson = document.data.dataJson as Record<string, unknown>;
+    const overrides: Record<string, boolean> = {};
+    for (const section of schemaForDoc.sections) {
+      for (const toggle of section.toggles ?? []) {
+        if (toggle.key === "isBusiness") {
+          const businessName = dataJson.business_name;
+          overrides[`${section.key}:${toggle.key}`] =
+            typeof businessName === "string" && businessName.trim().length > 0;
+        }
+      }
+    }
+    return Object.keys(overrides).length > 0 ? overrides : undefined;
+  }, [schemaForDoc, document]);
+
+  // NOA-280 — deserialize the saved dataJson's flat-key bracket-notation
+  // (line_items[0].description, line_items[0].qty, ...) back into the
+  // nested arrays state shape the renderer expects. Mirror image of the
+  // submit-time flatten in handleSubmit.
+  const deserializedArrays = useMemo<
+    Record<string, Array<Record<string, string>>> | undefined
+  >(() => {
+    if (!schemaForDoc || !document?.data?.dataJson) return undefined;
+    const dataJson = document.data.dataJson as Record<string, unknown>;
+    const result: Record<string, Array<Record<string, string>>> = {};
+    for (const section of schemaForDoc.sections) {
+      for (const field of section.fields) {
+        if (field.type !== "dynamic_array") continue;
+        const arrayKey = field.key;
+        const itemFields = field.itemFields ?? [];
+        const indexPattern = new RegExp(
+          `^${arrayKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\[(\\d+)\\]\\.`,
+        );
+        let maxIdx = -1;
+        for (const key of Object.keys(dataJson)) {
+          const match = key.match(indexPattern);
+          if (match) maxIdx = Math.max(maxIdx, parseInt(match[1]!, 10));
+        }
+        const items: Array<Record<string, string>> = [];
+        for (let i = 0; i <= maxIdx; i++) {
+          const item: Record<string, string> = {};
+          for (const itemField of itemFields) {
+            const val = dataJson[`${arrayKey}[${i}].${itemField.key}`];
+            item[itemField.key] =
+              typeof val === "string" ? val : val == null ? "" : String(val);
+          }
+          items.push(item);
+        }
+        if (items.length > 0) result[arrayKey] = items;
+      }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }, [schemaForDoc, document]);
+
+  // NOA-280 — coerce dataJson scalar values to strings for the renderer's
+  // initialValues prop (renderer fields all hold strings; numbers/booleans
+  // get stringified, dynamic_array flat keys are skipped because they're
+  // rebuilt into nested form via deserializedArrays above).
+  const stringifiedInitialValues = useMemo<Record<string, string> | undefined>(() => {
+    if (!document?.data?.dataJson) return undefined;
+    const dataJson = document.data.dataJson as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(dataJson)) {
+      // Skip flat-key array entries — they're handled by deserializedArrays.
+      if (k.includes("[") && k.includes("].")) continue;
+      if (typeof v === "string") out[k] = v;
+      else if (v != null) out[k] = String(v);
+    }
+    return out;
+  }, [document]);
   const hasPdfStage = document?.status === "SIGNED" || document?.status === "COMPLETED";
   const isDraft = document?.status === "DRAFT";
   const canDownloadPdf = hasPdfStage && Boolean(document?.providerDocumentId);
@@ -3768,9 +3546,17 @@ function DocumentViewer({
     setEditingTab(null);
   }
 
-  async function handleTabChange(nextTab: typeof activeTab) {
+  function handleTabChange(nextTab: typeof activeTab) {
+    // NOA-280 — block tab switching while a legacy edit is active. The user
+    // must Save or Cancel from the TabEditorToolbar explicitly. Previously
+    // we auto-called saveEditingTab() here, which silently PATCH'd partial
+    // edits to the backend whenever the user navigated away — surprising
+    // behavior, especially for schema-driven docs where the edit form is
+    // partially populated (Frankenstein form, see NOA-285).
+    // TODO: NOA-285 — when schema-driven Edit reuses CreateDraftDrawer,
+    // this guard becomes obsolete. Remove with saveEditingTab cleanup.
     if (editingTab && nextTab !== editingTab) {
-      await saveEditingTab();
+      return;
     }
     setActiveTab(nextTab);
   }
@@ -3784,27 +3570,27 @@ function DocumentViewer({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur p-4">
       <button type="button" aria-label="Close document viewer" onClick={onClose} className="absolute inset-0" />
-      <aside className="relative z-10 flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-slate-950">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 md:gap-4 md:px-5 md:py-5 dark:border-white/10">
+      <aside className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.8rem] border border-[color:var(--border)] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[color:var(--bg-page)]">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-4 md:gap-4 md:px-5 md:py-5 dark:border-white/10">
           <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Document view</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">Document view</div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-lg font-semibold tracking-[-0.04em] text-slate-950 md:text-2xl dark:text-white">
+                <h2 className="truncate text-lg font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] md:text-2xl dark:text-[color:var(--text-primary)]">
                   {isLoading ? "Loading..." : document?.documentNumber ?? "Document detail"}
                 </h2>
                 {document ? <StatusBadge status={document.status} /> : null}
               </div>
-              <div className="mt-1 text-xs text-slate-500 md:mt-2 md:text-sm dark:text-slate-400">
+              <div className="mt-1 text-xs text-[color:var(--text-muted)] md:mt-2 md:text-sm dark:text-[color:var(--text-muted)]">
                 {isLoading ? "Preparing detail..." : document?.documentType?.name ?? "Contract"}
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-white md:h-10 md:w-10 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] transition hover:bg-white md:h-10 md:w-10 dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-secondary)] dark:hover:bg-white/10"
             >
               <X className="h-4 w-4" />
             </button>
@@ -3851,29 +3637,52 @@ function DocumentViewer({
           ) : null}
         </div>
 
-        <div className="border-b border-slate-200 px-5 py-3 dark:border-white/10">
+        <div className="border-b border-[color:var(--border)] px-5 py-3 dark:border-white/10">
           <div className="flex flex-wrap gap-2">
-            {[
-              { key: "client", label: "Client" },
-              { key: "project", label: "Project" },
-              { key: "pricing", label: "Pricing" },
-              { key: "timeline", label: "Timeline" },
-              ...(hasPdfStage ? [{ key: "pdf", label: "Final PDF" }] : []),
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => void handleTabChange(tab.key as typeof activeTab)}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
-                  activeTab === tab.key
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:bg-white/10",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {/* NOA-280 — tabs derived from the document's FormDefinition
+                schema (Beneficiary, Services, etc. for Laura's invoice)
+                instead of the legacy hardcoded client/project/pricing
+                tabs. Timeline + Final PDF stay as viewer-specific tabs.
+                If schema lookup failed (e.g. doc from a deleted form),
+                fall back to legacy tabs so old documents still render. */}
+            {(schemaForDoc
+              ? [
+                  ...schemaForDoc.sections.map((s) => ({ key: s.key, label: s.label })),
+                  { key: "timeline", label: "Timeline" },
+                  ...(hasPdfStage ? [{ key: "pdf", label: "Final PDF" }] : []),
+                ]
+              : [
+                  { key: "client", label: "Client" },
+                  { key: "project", label: "Project" },
+                  { key: "pricing", label: "Pricing" },
+                  { key: "timeline", label: "Timeline" },
+                  ...(hasPdfStage ? [{ key: "pdf", label: "Final PDF" }] : []),
+                ]
+            ).map((tab) => {
+              // NOA-280 — lock non-active tabs while a legacy edit is in
+              // progress. Pairs with handleTabChange's guard to force the
+              // user to Save or Cancel via the TabEditorToolbar.
+              const isLocked = Boolean(editingTab) && tab.key !== editingTab;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => handleTabChange(tab.key as typeof activeTab)}
+                  disabled={isLocked}
+                  aria-disabled={isLocked}
+                  title={isLocked ? "Save or cancel current edit first" : undefined}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition",
+                    activeTab === tab.key
+                      ? "border-[color:var(--brand-accent-strong)] bg-[color:var(--button-primary)] text-white"
+                      : "border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-secondary)] dark:hover:bg-white/10",
+                    isLocked && "cursor-not-allowed opacity-50 hover:bg-[color:var(--bg-page-subtle)] dark:hover:bg-white/[0.04]",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -3882,6 +3691,37 @@ function DocumentViewer({
             <EmptyBlock text="Loading document detail..." />
           ) : !document ? (
             <EmptyBlock text="Select a document to inspect its detail." />
+          ) : schemaForDoc && schemaSectionKeys.includes(activeTab as string) ? (
+            // NOA-280 — schema-driven render of the active section. Build a
+            // single-section sub-schema and hand it to DocumentWizard
+            // in readOnly mode. Hydrated from the saved dataJson:
+            // - flat scalar fields → initialValues
+            // - dynamic_array flat keys → deserialized into nested arrays
+            // - isBusiness toggle → deduced from business_name presence
+            //   (workaround for NOA-283).
+            (() => {
+              const sectionDef = schemaForDoc.sections.find((s) => s.key === activeTab);
+              if (!sectionDef) {
+                return <EmptyBlock text="Section not found in schema." />;
+              }
+              const subSchema: DocumentSchema = { sections: [sectionDef] };
+              return (
+                <DocumentWizard
+                  // Force remount per (doc, section) — the renderer's useState
+                  // lazy init reads initialArrays once on mount; without a key,
+                  // React reuses the instance across tab switches and the array
+                  // state from the first-visited section sticks (NOA-280 bug).
+                  key={`viewer-section-${document?.id ?? "none"}-${activeTab}`}
+                  schema={subSchema}
+                  initialValues={stringifiedInitialValues}
+                  initialToggles={deducedToggles}
+                  initialArrays={deserializedArrays}
+                  readOnly
+                  onSubmit={() => Promise.resolve()}
+                  onCancel={onClose}
+                />
+              );
+            })()
           ) : activeTab === "client" ? (
             clientProfile.name || clientProfile.email || clientProfile.phone || clientProfile.address || clientProfile.city || clientProfile.state || clientProfile.zip ? (
               <div className="grid gap-4">
@@ -3898,7 +3738,7 @@ function DocumentViewer({
                   {editingTab === "client" ? (
                     <EditableField
                       icon={<UserRound className="h-4 w-4" />}
-                      label="Customer name"
+                      label="Client name"
                       value={clientProfile.nameKey ? draftFields[clientProfile.nameKey] ?? clientProfile.name : clientProfile.name}
                       onChange={(nextValue) => {
                         if (!clientProfile.nameKey) return;
@@ -3906,7 +3746,7 @@ function DocumentViewer({
                       }}
                     />
                   ) : (
-                    <DetailRow icon={<UserRound className="h-4 w-4" />} label="Customer name" value={clientProfile.name || "Not provided"} />
+                    <DetailRow icon={<UserRound className="h-4 w-4" />} label="Client name" value={clientProfile.name || "Not provided"} />
                   )}
 
                   <div className="grid gap-3 md:grid-cols-2">
@@ -4160,17 +4000,17 @@ function DocumentViewer({
           ) : activeTab === "timeline" ? (
             <div className="grid gap-3">
               {buildTimeline(document).map((item) => (
-                <div key={item.label} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-white/10 dark:bg-white/[0.04]">
-                  <span className="text-slate-500 dark:text-slate-400">{item.label}</span>
-                  <span className="font-medium text-slate-900 dark:text-white">{item.value}</span>
+                <div key={item.label} className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 py-3 text-sm dark:border-white/10 dark:bg-white/[0.04]">
+                  <span className="text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">{item.label}</span>
+                  <span className="font-medium text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{item.value}</span>
                 </div>
               ))}
             </div>
           ) : (
             <div className="grid gap-4">
-              <div className="rounded-[1.6rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-12 text-center dark:border-white/10 dark:bg-white/[0.04]">
-                <div className="text-lg font-semibold text-slate-900 dark:text-white">Final signed PDF</div>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              <div className="rounded-[1.6rem] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--bg-page-subtle)] px-5 py-12 text-center dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">Final signed PDF</div>
+                <p className="mt-2 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
                   Download the signed PDF once the signature provider confirms the document as completed.
                 </p>
                 <button
@@ -4178,7 +4018,7 @@ function DocumentViewer({
                   onClick={() => void openPdfPreview()}
                   disabled={!document || actionInFlight === document.id}
                   className={cn(
-                    "mt-5 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/10",
+                    "mt-5 inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-white px-4 py-3 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-surface)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
                     (!document || actionInFlight === document.id) && "cursor-not-allowed opacity-60",
                   )}
                 >
@@ -4191,7 +4031,7 @@ function DocumentViewer({
                     onClick={() => void onDownloadFinalPdf(document.id)}
                     disabled={actionInFlight === document.id}
                     className={cn(
-                      "mt-3 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:hover:bg-white/10",
+                      "mt-3 inline-flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-white px-4 py-3 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[color:var(--bg-surface)] dark:border-white/10 dark:bg-white/[0.04] dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
                       actionInFlight === document.id && "cursor-not-allowed opacity-60",
                     )}
                   >
@@ -4207,12 +4047,12 @@ function DocumentViewer({
       </aside>
 
       {isPdfPreviewOpen && pdfPreviewUrl ? (
-        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950 shadow-[0_28px_80px_rgba(10,18,32,0.55)]">
+        <div className="absolute inset-0 z-[70] flex items-start justify-center md:items-center bg-black/60 p-4 backdrop-blur">
+          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[color:var(--bg-page)] shadow-[0_28px_80px_rgba(10,18,32,0.55)]">
             <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
               <div>
                 <div className="text-sm font-semibold text-white">Signed PDF preview</div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-[color:var(--text-muted)]">
                   {document?.documentNumber ?? "Document"}
                 </div>
               </div>
@@ -4230,13 +4070,13 @@ function DocumentViewer({
                 <button
                   type="button"
                   onClick={closePdfPreview}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[color:var(--text-primary)] transition hover:bg-white/10"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
-            <div className="min-h-0 flex-1 bg-slate-900">
+            <div className="min-h-0 flex-1 bg-[color:var(--bg-elevated)]">
               <iframe
                 title="Signed PDF preview"
                 src={pdfPreviewUrl}
@@ -4289,152 +4129,98 @@ function InfoCard({
   );
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"><div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">{label}</div><div className="mt-3 text-sm font-medium leading-5 text-[color:var(--text-primary)]">{value}</div></div>;
-}
-
-function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value?: string | null }) {
-  return <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4"><div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]"><span className="text-[color:var(--text-muted)]">{icon}</span>{label}</div><div className="mt-3 text-sm font-medium leading-5 text-[color:var(--text-primary)]">{value}</div></div>;
-}
-
-function ProfileChip({ label }: { label: string }) {
-  return (
-    <div className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg-elevated)]/88 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--text-secondary)] shadow-[var(--shadow-soft)]">
-      {label}
-    </div>
-  );
-}
-
-function CompanyAvatar({
-  companyName,
-  logoUrl,
-  className,
-}: {
-  companyName?: string | null;
-  logoUrl?: string | null;
-  className?: string;
-}) {
-  const fallback = getCompanyInitials(companyName);
-
-  return (
-    <div className={cn("flex items-center justify-center overflow-hidden bg-[color:var(--brand-secondary)] font-semibold text-white", className)}>
-      {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt={`${companyName ?? "Company"} logo`} className="h-full w-full object-cover" />
-      ) : (
-        <span>{fallback}</span>
-      )}
-    </div>
-  );
-}
-
-function ProfileEditActions({
-  isEditing,
-  isSaving,
-  onEdit,
-  onCancel,
-  onSave,
-}: {
-  isEditing: boolean;
-  isSaving: boolean;
-  onEdit: () => void;
-  onCancel: () => void;
-  onSave: () => void;
-}) {
-  if (!isEditing) {
-    return (
-      <button
-        type="button"
-        onClick={onEdit}
-        className="rounded-full border border-transparent bg-[color:var(--button-primary)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--button-primary-hover)]"
-      >
-        Edit
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={isSaving}
-        className="rounded-full border border-[color:var(--border)] bg-[color:var(--button-neutral-hover)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral)] disabled:opacity-60"
-      >
-        Cancel
-      </button>
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={isSaving}
-        className="rounded-full bg-[color:var(--button-success)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[color:var(--button-success-hover)] disabled:opacity-60"
-      >
-        {isSaving ? "Saving..." : "Save"}
-      </button>
-    </div>
-  );
-}
-
-function EditableField({
-  icon,
+// NOA-277 — drop-in replacement for SelectField that uses a custom popover
+// (button + absolute-positioned panel) instead of native <select>. Same API,
+// same outer card chrome — only the dropdown UI changes. Mirrors the
+// "rows per page" pattern from DocumentsPanel pagination so the design
+// system stays consistent and the OS-native dropdown style is gone.
+//
+// Currently used only for "Document type" in the CreateDraftDrawer setup
+// card. SelectField is still used elsewhere (Form / Template selectors,
+// hidden when only one option exists). Other call sites can migrate
+// incrementally without breaking anything.
+function PopoverSelectField({
   label,
   value,
   onChange,
-  type = "text",
-  placeholder,
+  options,
+  icon,
   disabled = false,
-  min,
-  error,
 }: {
-  icon?: ReactNode;
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "date" | "textarea";
-  placeholder?: string;
+  options: Array<{ value: string; label: string }>;
+  icon?: ReactNode;
   disabled?: boolean;
-  min?: string;
-  error?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label ?? "Select";
+
   return (
     <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
-        {icon ? <span className="text-[color:var(--text-muted)]">{icon}</span> : null}
+        <span className="text-[color:var(--text-muted)]">
+          {icon ?? <FileJson className="h-4 w-4" />}
+        </span>
         {label}
       </div>
-      {type === "textarea" ? (
-        <textarea
-          value={value}
-          placeholder={placeholder}
+      <div ref={menuRef} className="relative mt-3">
+        <button
+          type="button"
+          onClick={() => !disabled && setOpen((current) => !current)}
           disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
           className={cn(
-            "mt-3 min-h-28 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
-            error && "border-[color:var(--danger-border)] focus:border-[color:var(--button-danger)]",
-            disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
+            "inline-flex h-11 w-full items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 text-sm font-medium text-[color:var(--text-secondary)] outline-none transition hover:border-[color:var(--border-strong)] hover:bg-white focus:border-[color:var(--brand-accent)] dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10",
+            disabled && "cursor-not-allowed opacity-60 hover:border-[color:var(--border)] hover:bg-[color:var(--bg-page-subtle)] dark:hover:bg-white/5",
           )}
-        />
-      ) : (
-        <input
-          type={type}
-          value={value}
-          placeholder={placeholder}
-          disabled={disabled}
-          min={type === "date" ? min : undefined}
-          onChange={(event) => onChange(event.target.value)}
-          className={cn(
-            "mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--brand-accent)]",
-            error && "border-[color:var(--danger-border)] focus:border-[color:var(--button-danger)]",
-            disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] text-[color:var(--text-secondary)] opacity-80",
-          )}
-        />
-      )}
-      {error ? (
-        <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[color:var(--danger-text)]">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      ) : null}
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]" />
+        </button>
+        {open && !disabled ? (
+          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 max-h-60 overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)] dark:shadow-[0_18px_40px_rgba(2,6,23,0.4)]">
+            {options.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
+                No options
+              </div>
+            ) : (
+              options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition",
+                    option.value === value
+                      ? "bg-[color:var(--button-primary)] text-white"
+                      : "text-[color:var(--text-secondary)] hover:bg-white dark:text-[color:var(--text-primary)] dark:hover:bg-white/[0.08]",
+                  )}
+                >
+                  <span className="truncate">{option.label}</span>
+                </button>
+              ))
+            )}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -4590,160 +4376,68 @@ function TabEditorToolbar({
   );
 }
 
-function EmptyBlock({ text }: { text: string }) {
-  return <div className="rounded-[1.5rem] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--bg-surface)] px-5 py-8 text-center text-sm text-[color:var(--text-secondary)]">{text}</div>;
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const tones: Record<string, string> = {
-    DRAFT: "bg-[color:var(--badge-neutral-bg)] text-[color:var(--badge-neutral-text)]",
-    SENT: "bg-[color:var(--badge-primary-bg)] text-[color:var(--badge-primary-text)]",
-    VIEWED: "bg-[color:var(--info-bg)] text-[color:var(--info-text)]",
-    SIGNED: "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
-    COMPLETED: "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
-    CANCELLED: "bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]",
-  };
-  return <span className={cn("rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]", tones[status] ?? "bg-[color:var(--badge-neutral-bg)] text-[color:var(--badge-neutral-text)]")}>{status}</span>;
-}
-
-function InlineBadge({
-  children,
-  tone,
-  title,
+// NOA-280 — shown when user clicks Edit on a schema-driven draft. The
+// legacy edit flow doesn't fit schema-driven dataJson, so until NOA-285
+// ships a real schema-driven Edit, the recovery path is Cancel + recreate.
+function SchemaDrivenEditNotice({
+  documentNumber,
+  onClose,
+  onCancelDraft,
 }: {
-  children: ReactNode;
-  tone: "blue" | "rose";
-  title?: string;
+  documentNumber: string;
+  onClose: () => void;
+  onCancelDraft: () => Promise<void> | void;
 }) {
-  const styles = { blue: "bg-[color:var(--badge-primary-bg)] text-[color:var(--badge-primary-text)]", rose: "bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]" };
-  return (
-    <span
-      title={title}
-      className={cn(
-        "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]",
-        styles[tone],
-      )}
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="schema-edit-notice-title"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur p-4"
     >
-      {children}
-    </span>
-  );
-}
-
-function DocumentListActions({
-  document: rowDocument,
-  actionInFlight,
-  onView,
-  onEdit,
-  onAction,
-}: {
-  document: Doc;
-  actionInFlight: boolean;
-  onView: () => void;
-  onEdit: () => void;
-  onAction: (
-    documentId: string,
-    action: "send" | "resend" | "cancel" | "reactivate",
-  ) => Promise<void>;
-}) {
-  const [open, setOpen] = useState(false);
-  const [openUpward, setOpenUpward] = useState(false);
-  const workflowActions = getDocumentActions(rowDocument);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-    };
-  }, [open]);
-
-  return (
-    <div ref={menuRef} className="relative">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          if (!open && buttonRef.current) {
-            const rect = buttonRef.current.getBoundingClientRect();
-            const estimatedMenuHeight = 180;
-            setOpenUpward(window.innerHeight - rect.bottom < estimatedMenuHeight);
-          }
-          setOpen((current) => !current);
-        }}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)] transition hover:bg-[color:var(--button-neutral-hover)] hover:text-[color:var(--text-primary)]"
-        aria-label="Open document actions"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
-
-      {open ? (
-        <div
-          className={cn(
-            "absolute right-0 z-20 min-w-44 rounded-2xl border border-[color:var(--menu-border)] bg-[color:var(--menu-bg)] p-2 shadow-[var(--shadow-dropdown)]",
-            openUpward ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]",
-          )}
-          onClick={(event) => event.stopPropagation()}
-        >
+      <button type="button" aria-label="Close notice" onClick={onClose} className="absolute inset-0" />
+      <div className="relative z-10 w-full max-w-md rounded-[1.8rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]">
+        <h2 id="schema-edit-notice-title" className="text-lg font-semibold text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
+          Edit not available yet
+        </h2>
+        <p className="mt-2 text-sm text-[color:var(--text-secondary)] dark:text-[color:var(--text-secondary)]">
+          We&apos;re redesigning the edit experience for this document type to give you a better workflow. For now, to modify draft <span className="font-medium text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">{documentNumber}</span>, please cancel it and create a new one with the updated information.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             type="button"
-            onClick={() => {
-              onView();
-              setOpen(false);
-            }}
-            className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"
+            onClick={onClose}
+            disabled={isCancelling}
+            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-page-subtle)] px-4 py-2 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-[color:var(--text-primary)] dark:hover:bg-white/10"
           >
-            View
+            Close
           </button>
-
-          {rowDocument.status === "DRAFT" ? (
-            <button
-              type="button"
-              onClick={() => {
-                onEdit();
-                setOpen(false);
-              }}
-              className="mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium text-[color:var(--brand-accent-strong)] transition hover:bg-[color:var(--badge-primary-bg)]"
-            >
-              Edit
-            </button>
-          ) : null}
-
-          {workflowActions.map((action) => (
-            <button
-              key={action.key}
-              type="button"
-              onClick={() => {
-                if (action.disabled) {
-                  return;
-                }
-                void onAction(rowDocument.id, action.key);
-                setOpen(false);
-              }}
-              disabled={action.disabled || actionInFlight}
-              className={cn(
-                "mt-1 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-medium transition",
-                action.tone,
-                (action.disabled || actionInFlight) &&
-                  "cursor-not-allowed opacity-60",
-              )}
-            >
-              {action.label}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={async () => {
+              if (isCancelling) return;
+              setIsCancelling(true);
+              try {
+                await onCancelDraft();
+              } finally {
+                setIsCancelling(false);
+              }
+            }}
+            disabled={isCancelling}
+            className="rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-2 text-sm font-semibold text-[color:var(--danger-text)] transition hover:bg-[color:var(--badge-danger-bg)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[color:var(--danger-border)] dark:bg-[color:var(--danger-bg)] dark:text-[color:var(--danger-text)] dark:hover:bg-[color:var(--badge-danger-bg)]"
+          >
+            {isCancelling ? "Cancelling..." : "Cancel draft"}
+          </button>
         </div>
-      ) : null}
-    </div>
+      </div>
+    </div>,
+    window.document.body,
   );
 }
 
@@ -4757,7 +4451,7 @@ function Logo() {
   const logoShellClass =
     isDarkTheme
       ? "border-white/10 bg-white"
-      : "border-slate-200 bg-[#022977]";
+      : "border-[color:var(--border)] bg-[#022977]";
 
   return (
     <Link href="/dashboard" className="relative z-20 mx-auto flex w-full flex-col items-center justify-center gap-2 py-1 text-center text-sm font-normal text-[color:var(--text-primary)]">
@@ -4795,7 +4489,7 @@ function LogoIcon() {
   const logoShellClass =
     isDarkTheme
       ? "border-white/10 bg-white"
-      : "border-slate-200 bg-[#022977]";
+      : "border-[color:var(--border)] bg-[#022977]";
 
   return (
     <Link href="/dashboard" className="relative z-20 mx-auto flex items-center justify-center py-1 text-sm font-normal text-[color:var(--text-primary)]">
@@ -4813,120 +4507,6 @@ function LogoIcon() {
   );
 }
 
-function DonutChart({ stats, billingPeriod }: { stats: ReturnType<typeof buildContractStats>; billingPeriod?: string }) {
-  const total = Math.max(stats.total, 1);
-  const segments = [{ value: stats.draft, color: "#8a9bb8" }, { value: stats.sent, color: "#05a5ff" }, { value: stats.viewed, color: "#0400f0" }, { value: stats.signed, color: "#0f9f6e" }, { value: stats.completed, color: "#022977" }, { value: stats.cancelled, color: "#c2410c" }];
-  let cumulative = 0;
-  return (
-    <div className="relative h-28 w-28 shrink-0">
-      <svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
-        <circle cx="60" cy="60" r="42" fill="none" stroke="rgba(2,41,119,0.12)" strokeWidth="12" />
-        {segments.map((segment, index) => {
-          const fraction = segment.value / total;
-          const dash = fraction * 264;
-          const gap = 264 - dash;
-          const offset = -cumulative * 264;
-          cumulative += fraction;
-          if (segment.value === 0) return null;
-          return <circle key={`segment-${index}`} cx="60" cy="60" r="42" fill="none" stroke={segment.color} strokeWidth="12" strokeLinecap="round" strokeDasharray={`${dash} ${gap}`} strokeDashoffset={offset} />;
-        })}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">{formatBillingMonthShort(billingPeriod)}</div>
-        <div className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)]">{stats.total}</div>
-      </div>
-    </div>
-  );
-}
-
-function ChartRow({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
-  const width = total > 0 ? Math.max((value / total) * 100, value > 0 ? 8 : 0) : 0;
-  return <div className="grid gap-2"><div className="flex items-center justify-between gap-4 text-sm"><span className="font-medium text-[color:var(--text-secondary)]">{label}</span><span className="font-semibold text-[color:var(--text-primary)]">{value}</span></div><div className="h-3 rounded-full bg-[color:var(--bg-elevated)]"><div className={cn("h-3 rounded-full transition-all", color)} style={{ width: `${width}%` }} /></div></div>;
-}
-
-function BillingHistoryRow({
-  month,
-  documentsSent,
-  overageDocuments,
-  maxValue,
-}: {
-  month: string;
-  documentsSent: number;
-  overageDocuments: number;
-  maxValue: number;
-}) {
-  const width = Math.max((documentsSent / maxValue) * 100, documentsSent > 0 ? 10 : 0);
-
-  return (
-    <div className="grid gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-sm font-semibold text-[color:var(--text-primary)]">{formatBillingMonthLabel(month)}</div>
-          <div className="text-xs text-[color:var(--text-secondary)]">
-            {overageDocuments > 0 ? `${overageDocuments} overage doc(s)` : "Within plan limit"}
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-lg font-semibold text-[color:var(--text-primary)]">{documentsSent}</div>
-          <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-secondary)]">docs</div>
-        </div>
-      </div>
-      <div className="h-3 rounded-full bg-[color:var(--bg-surface)]">
-        <div
-          className={cn("h-3 rounded-full transition-all", overageDocuments > 0 ? "bg-[color:var(--button-danger)]" : "bg-[color:var(--brand-accent)]")}
-          style={{ width: `${width}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function MonthCompareBar({
-  label,
-  documentsSent,
-  overageDocuments,
-  maxValue,
-  tone,
-}: {
-  label?: string | null;
-  documentsSent: number;
-  overageDocuments: number;
-  maxValue: number;
-  tone: "slate" | "blue";
-}) {
-  const width = Math.max((documentsSent / maxValue) * 100, documentsSent > 0 ? 10 : 0);
-  const color = tone === "blue" ? "bg-[color:var(--brand-accent)]" : "bg-[color:var(--text-muted)]";
-
-  return (
-    <div className="rounded-[1.4rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-sm font-semibold text-[color:var(--text-primary)]">{label ?? "Current month"}</div>
-          <div className="mt-1 text-xs text-[color:var(--text-secondary)]">
-            {overageDocuments > 0 ? `${overageDocuments} overage doc(s)` : "No overage"}
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)]">{documentsSent}</div>
-          <div className="text-xs uppercase tracking-[0.18em] text-[color:var(--text-secondary)]">docs</div>
-        </div>
-      </div>
-      <div className="mt-4 h-4 rounded-full bg-[color:var(--bg-elevated)]">
-        <div className={cn("h-4 rounded-full transition-all", color)} style={{ width: `${width}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function StatusCard({ label, value, detail, tone }: { label: string; value: number; detail: string; tone: "slate" | "blue" | "cyan" | "green" | "forest" | "rose" }) {
-  const tones = { slate: "bg-[color:var(--badge-neutral-bg)] border-[color:var(--border)] text-[color:var(--text-primary)]", blue: "bg-[color:var(--badge-primary-bg)] border-[color:var(--info-border)] text-[color:var(--badge-primary-text)]", cyan: "bg-[color:var(--info-bg)] border-[color:var(--info-border)] text-[color:var(--info-text)]", green: "bg-[color:var(--success-bg)] border-[color:var(--success-border)] text-[color:var(--success-text)]", forest: "bg-[color:var(--success-bg)] border-[color:var(--success-border)] text-[color:var(--success-text)]", rose: "bg-[color:var(--danger-bg)] border-[color:var(--danger-border)] text-[color:var(--danger-text)]" };
-  return <div className={cn("rounded-[1.5rem] border p-4", tones[tone])}><div className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">{label}</div><div className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</div><div className="mt-2 text-sm opacity-80">{detail}</div></div>;
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return <div className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 py-3"><span className="text-sm text-[color:var(--text-secondary)]">{label}</span><span className="text-sm font-semibold text-[color:var(--text-primary)]">{value}</span></div>;
-}
-
 function AccountMenuButton({
   label,
   icon,
@@ -4939,7 +4519,7 @@ function AccountMenuButton({
   return <button type="button" onClick={onClick} className="flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium text-[color:var(--menu-text)] transition hover:bg-[color:var(--menu-hover)]"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[color:var(--bg-surface)] text-[color:var(--text-secondary)]">{icon}</span><span>{label}</span></button>;
 }
 
-function buildContractStats(documents: Doc[] | null) {
+export function buildContractStats(documents: Doc[] | null) {
   const stats = { draft: 0, sent: 0, viewed: 0, signed: 0, completed: 0, cancelled: 0, total: 0 };
   for (const document of documents ?? []) {
     stats.total += 1;
@@ -4963,56 +4543,12 @@ function filterCurrentMonthDocuments(documents: Doc[] | null, billingPeriod?: st
   });
 }
 
-function statusDetail(label: string) {
-  if (label === "Draft") return "Ready to edit";
-  if (label === "Sent") return "Awaiting recipient action";
-  if (label === "Viewed") return "Opened by recipient";
-  if (label === "Signed") return "Signed, pending completion";
-  if (label === "Completed") return "Finished contracts";
-  return "Closed or cancelled";
-}
-
-function getDisplayName(email?: string | null) {
-  if (!email) return "User";
-  const localPart = email.split("@")[0] ?? "";
-  const cleaned = localPart.replace(/[._-]+/g, " ").replace(/\d+/g, " ").trim();
-  if (!cleaned) return email;
-  return cleaned.replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function getFinalCustomerName(document: Doc) {
-  const data = document.data?.dataJson ?? {};
-  const candidates = [
-    data.customer_name,
-    data.client_name,
-    data.customer_full_name,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return "Final customer not provided";
-}
-
-function getFinalCustomerEmail(document: Doc) {
-  const data = document.data?.dataJson ?? {};
-  const candidates = [
-    data.customer_email,
-    data.client_email,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return null;
-}
-
+// TODO: NOA-284 — getClientProfile / getProjectProfile / getPricingEntries
+// (and the related getClientEntries / getProjectEntries) are legacy
+// extractors that read hardcoded keys from dataJson. They stay as fallback
+// for pre-schema-driven docs. Remove after telemetry confirms zero usage
+// (i.e. all live docs are bound to a FormDefinition the viewer can resolve
+// via documentTypes catalog).
 function getClientProfile(document: DocDetail | null) {
   const data = document?.data?.dataJson ?? {};
 
@@ -5202,37 +4738,6 @@ function toDateInputValue(value?: string | null) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function formatBillingMonthShort(billingPeriod?: string) {
-  if (!billingPeriod) return "Mon";
-  const [year, month] = billingPeriod.split("-");
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  if (Number.isNaN(date.getTime())) return "Mon";
-  return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date);
-}
-
-function formatBillingMonthLabel(billingPeriod?: string) {
-  if (!billingPeriod) return "Unknown month";
-  const [year, month] = billingPeriod.split("-");
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  if (Number.isNaN(date.getTime())) return billingPeriod;
-  return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(date);
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "Not available";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 function sectionEyebrow(section: SectionKey) {
   if (section === "users") return "Users";
   if (section === "accountRequests") return "Users";
@@ -5262,6 +4767,10 @@ function breadcrumbItems(section: SectionKey) {
 
   if (section === "documents") {
     return ["Workspace", "Documents"];
+  }
+
+  if (section === "customers") {
+    return ["Workspace", "Clients"];
   }
 
   if (section === "profile") {
@@ -5314,265 +4823,22 @@ function DashboardBreadcrumb({
   );
 }
 
-function joinDefined(values: Array<string | null | undefined>, separator: string) {
-  return values.filter((value): value is string => Boolean(value && value.trim())).join(separator);
-}
-
-function buildChangedProfilePayload(
-  original: Record<string, string>,
-  current: Record<string, string>,
-) {
-  return Object.fromEntries(
-    Object.entries(current).filter(([key, value]) => {
-      const normalizedCurrent = value.trim();
-      const normalizedOriginal = (original[key] ?? "").trim();
-      return normalizedCurrent !== normalizedOriginal;
-    }),
-  );
-}
-
-function splitFullName(fullName: string) {
-  const normalized = fullName.trim().replace(/\s+/g, " ");
-
-  if (!normalized) {
-    return { firstName: "", lastName: "" };
-  }
-
-  const parts = normalized.split(" ");
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: "" };
-  }
-
-  return {
-    firstName: parts.slice(0, -1).join(" "),
-    lastName: parts[parts.length - 1] ?? "",
-  };
-}
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
-function formatUsPhone(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-
-  if (digits.length <= 3) {
-    return digits;
-  }
-
-  if (digits.length <= 6) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  }
-
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
-
-function formatCurrencyInput(value: string) {
-  const normalized = value.replace(/[^\d.]/g, "");
-  if (!normalized) return "";
-
-  const [wholePart = "", ...decimalParts] = normalized.split(".");
-  const whole = wholePart.replace(/^0+(?=\d)/, "") || wholePart || "0";
-  const joinedDecimal = decimalParts.join("").slice(0, 2);
-
-  if (normalized.includes(".")) {
-    return `${whole}.${joinedDecimal}`;
-  }
-
-  return whole;
-}
-
-function toTitleCase(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function getCompanyInitials(companyName?: string | null) {
-  if (!companyName) return "NS";
-  const words = companyName
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (words.length === 0) return "NS";
-  return words.map((word) => word[0]?.toUpperCase() ?? "").join("");
-}
-
-async function resizeImageFile(file: File, maxDimension: number) {
-  const source = await readFileAsDataUrl(file);
-  const image = await loadImageElement(source);
-  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
-  const width = Math.max(1, Math.round(image.width * scale));
-  const height = Math.max(1, Math.round(image.height * scale));
-  const canvas = document.createElement("canvas");
-
-  canvas.width = width;
-  canvas.height = height;
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return source;
-  }
-
-  context.drawImage(image, 0, 0, width, height);
-  return canvas.toDataURL("image/webp", 0.88);
-}
-
-async function resizeImageFileSquare(file: File, size: number) {
-  const source = await readFileAsDataUrl(file);
-  const image = await loadImageElement(source);
-
-  // Center-crop to square, then scale to target size
-  const cropSize = Math.min(image.width, image.height);
-  const srcX = Math.floor((image.width - cropSize) / 2);
-  const srcY = Math.floor((image.height - cropSize) / 2);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return source;
-  }
-
-  context.drawImage(image, srcX, srcY, cropSize, cropSize, 0, 0, size, size);
-  return canvas.toDataURL("image/webp", 0.88);
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-    reader.onerror = () => reject(reader.error ?? new Error("Unable to read image file"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImageElement(source: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Unable to load image preview"));
-    image.src = source;
-  });
-}
-
-function getDocumentActions(
-  document?: Pick<
-    Doc,
-    "status" | "canSend" | "sendAvailableInSeconds" | "canResend" | "resendAvailableInSeconds"
-  > | null,
-  options?: {
-    showCountdownWhenBlocked?: boolean;
-    sendCountdownSeconds?: number;
-    resendCountdownSeconds?: number;
-    canSendOverride?: boolean;
-    canResendOverride?: boolean;
-  },
-): WorkflowAction[] {
-  const status = document?.status;
-  const sendCooldownSeconds =
-    options?.sendCountdownSeconds ??
-    document?.sendAvailableInSeconds ??
-    0;
-  const resendCooldownSeconds =
-    options?.resendCountdownSeconds ??
-    document?.resendAvailableInSeconds ??
-    0;
-
-  if (status === "DRAFT") {
-    const actions: WorkflowAction[] = [];
-    const canSend = options?.canSendOverride ?? document?.canSend ?? true;
-
-    if (canSend) {
-      actions.push({
-        key: "send",
-        label: "Send document",
-        icon: <Send className="h-4 w-4" />,
-        tone: "bg-[color:var(--button-primary)] text-white hover:bg-[color:var(--button-primary-hover)]",
-      });
-    } else if (options?.showCountdownWhenBlocked) {
-      actions.push({
-        key: "send",
-        label: `Send again in ${formatCountdownLabel(sendCooldownSeconds)}`,
-        icon: <Send className="h-4 w-4" />,
-        tone: "bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)]",
-        disabled: true,
-      });
-    }
-
-    actions.push({
-      key: "cancel",
-      label: "Cancel draft",
-      icon: <Ban className="h-4 w-4" />,
-      tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]",
-    });
-
-    return actions;
-  }
-
-  if (status === "SENT" || status === "VIEWED") {
-    const canResend =
-      options?.canResendOverride ?? document?.canResend ?? true;
-    const actions: WorkflowAction[] = [];
-
-    if (canResend) {
-      actions.push({
-        key: "resend",
-        label: "Resend document",
-        icon: <Mail className="h-4 w-4" />,
-        tone: "bg-[color:var(--button-neutral)] text-[color:var(--text-primary)] hover:bg-[color:var(--button-neutral-hover)]",
-      });
-    } else if (options?.showCountdownWhenBlocked) {
-      actions.push({
-        key: "resend",
-        label: `Resend in ${formatCountdownLabel(resendCooldownSeconds)}`,
-        icon: <Mail className="h-4 w-4" />,
-        tone: "bg-[color:var(--button-neutral)] text-[color:var(--text-secondary)]",
-        disabled: true,
-      });
-    }
-
-    actions.push({
-      key: "cancel",
-      label: "Cancel document",
-      icon: <Ban className="h-4 w-4" />,
-      tone: "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:bg-[color:var(--badge-danger-bg)]",
-    });
-
-    return actions;
-  }
-
-  if (status === "CANCELLED") {
-    return [
-      {
-        key: "reactivate",
-        label: "Reactivate draft",
-        icon: <Undo2 className="h-4 w-4" />,
-        tone: "bg-[color:var(--success-bg)] text-[color:var(--success-text)] hover:bg-[color:var(--badge-success-bg)]",
-      },
-    ];
-  }
-
-  return [];
-}
-
-function formatCountdownLabel(totalSeconds: number) {
-  const safeSeconds = Math.max(0, Math.ceil(totalSeconds));
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const seconds = safeSeconds % 60;
-
-  return [hours, minutes, seconds]
-    .map((value) => String(value).padStart(2, "0"))
-    .join(":");
-}
-
 function buildTimeline(document: DocDetail) {
-  return [{ label: "Created", value: formatDate(document.createdAt) }, { label: "Sent", value: formatDate(document.sentAt) }, { label: "Viewed", value: formatDate(document.viewedAt) }, { label: "Signed", value: formatDate(document.signedAt) }, { label: "Completed", value: formatDate(document.completedAt) }, { label: "Cancelled", value: formatDate(document.cancelledAt) }];
+  // NOA-281 — only include states that actually happened (have a real
+  // timestamp). Previously we returned all 6 entries unconditionally and
+  // `formatDate(null)` rendered "Not available", which added visual noise
+  // and looked like a failure. Now: a DRAFT only shows "Created"; a SENT
+  // doc shows "Created" + "Sent"; a CANCELLED doc shows whatever happened
+  // before cancellation plus "Cancelled". Order stays chronological by
+  // the natural flow of the array entries below.
+  const entries: Array<{ label: string; value: string }> = [];
+  if (document.createdAt) entries.push({ label: "Created", value: formatDate(document.createdAt) });
+  if (document.sentAt) entries.push({ label: "Sent", value: formatDate(document.sentAt) });
+  if (document.viewedAt) entries.push({ label: "Viewed", value: formatDate(document.viewedAt) });
+  if (document.signedAt) entries.push({ label: "Signed", value: formatDate(document.signedAt) });
+  if (document.completedAt) entries.push({ label: "Completed", value: formatDate(document.completedAt) });
+  if (document.cancelledAt) entries.push({ label: "Cancelled", value: formatDate(document.cancelledAt) });
+  return entries;
 }
 
 

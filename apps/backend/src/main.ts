@@ -3,6 +3,7 @@ import './instrument';
 
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 
@@ -30,16 +31,17 @@ function validateRequiredEnv() {
 async function bootstrap() {
   validateRequiredEnv();
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+  app.useBodyParser('json', { limit: '2mb' });
+  app.useBodyParser('urlencoded', { limit: '2mb', extended: true });
   const expressApp = app.getHttpAdapter().getInstance();
 
   expressApp.disable('x-powered-by');
   expressApp.set('trust proxy', normalizeTrustProxy(process.env.TRUST_PROXY));
 
   app.use(createSecurityHeadersMiddleware());
-  app.use(createAuthRateLimitMiddleware());
 
   app.enableCors({
     origin: buildCorsOriginHandler(),
@@ -47,6 +49,8 @@ async function bootstrap() {
     methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
+
+  app.use(createAuthRateLimitMiddleware());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -181,6 +185,7 @@ function createAuthRateLimitMiddleware() {
       res.status(429).json({
         message: 'Too many requests. Please try again later.',
         statusCode: 429,
+        retryAfter: retryAfterSeconds,
       });
       return;
     }
