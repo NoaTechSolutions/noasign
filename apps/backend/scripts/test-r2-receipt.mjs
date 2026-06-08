@@ -57,13 +57,21 @@ try {
   const id = document.id;
   console.log(`  receipt id: ${id}`);
 
-  console.log('→ DocumentFile row (provider R2)');
-  const file = await prisma.documentFile.findFirst({
-    where: { documentId: id, fileType: 'RECEIPT' },
-  });
-  check('DocumentFile exists', !!file);
-  check('provider = R2', file?.provider === 'R2', file?.provider);
-  check('storageUrl is a receipts/ key', !!file?.storageUrl?.startsWith('receipts/'), file?.storageUrl);
+  // The local PrismaClient only reaches the LOCAL DB. For a remote target
+  // (staging) we can't query its DB — the 302→presigned→PDF chain below proves
+  // the DocumentFile + upload happened regardless.
+  const isLocal = /127\.0\.0\.1|localhost/.test(baseUrl);
+  if (isLocal) {
+    console.log('→ DocumentFile row (provider R2)');
+    const file = await prisma.documentFile.findFirst({
+      where: { documentId: id, fileType: 'RECEIPT' },
+    });
+    check('DocumentFile exists', !!file);
+    check('provider = R2', file?.provider === 'R2', file?.provider);
+    check('storageUrl is a receipts/ key', !!file?.storageUrl?.startsWith('receipts/'), file?.storageUrl);
+  } else {
+    console.log('→ DocumentFile DB check skipped (remote target — no DB access)');
+  }
 
   console.log('→ GET /documents/receipt/:id/pdf (expect 302 → presigned)');
   const pdfRes = await req('GET', `/documents/receipt/${id}/pdf`, { redirect: 'manual' });
