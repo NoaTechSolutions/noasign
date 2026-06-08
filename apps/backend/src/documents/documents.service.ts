@@ -7,11 +7,17 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
-import { DocumentStatus, Prisma } from '@prisma/client';
+import {
+  DocumentFileType,
+  DocumentStatus,
+  Prisma,
+  StorageProvider,
+} from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { Response } from 'express';
 import type { WebhookEventPayload } from 'resend';
 import { EmailService } from '../email/email.service';
+import { R2Service } from '../storage/r2.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignatureProviderService } from '../signature-provider/signature-provider.service';
 import { CreateDraftDocumentDto } from './dto/create-draft-document.dto';
@@ -102,7 +108,55 @@ export class DocumentsService {
     @Inject(forwardRef(() => SignatureProviderService))
     private readonly signatureProviderService: SignatureProviderService,
     private readonly emailService: EmailService,
+    private readonly r2: R2Service,
   ) {}
+
+  // Deterministic R2 object key for a contract's signed PDF (one per document).
+  private contractR2Key(
+    companyProfileId: string | null,
+    documentId: string,
+  ): string {
+    return `signed/${companyProfileId ?? 'no-tenant'}/${documentId}.pdf`;
+  }
+
+  /**
+   * Ensure the signed PDF is cached in R2 and return its object key (or null if
+   * R2 is disabled / the doc has no provider id). Downloads from BoldSign only
+   * once (first call) — subsequent calls reuse the stored DocumentFile. Used by
+   * the COMPLETED sync (eager warm) and streamFinalPdf (lazy on-read + backfill).
+   */
+  private async ensureContractPdfInR2(document: {
+    id: string;
+    companyProfileId: string | null;
+    providerDocumentId: string | null;
+    documentNumber: string;
+  }): Promise<string | null> {
+    if (!this.r2.isConfigured() || !document.providerDocumentId) {
+      return null;
+    }
+    const existing = await this.prisma.documentFile.findFirst({
+      where: { documentId: document.id, fileType: DocumentFileType.SIGNED_PDF },
+    });
+    if (existing) {
+      return existing.storageUrl;
+    }
+    const key = this.contractR2Key(document.companyProfileId, document.id);
+    const pdf = await this.signatureProviderService.downloadDocumentPdf(
+      document.providerDocumentId,
+    );
+    await this.r2.putObject(key, pdf.buffer, pdf.contentType ?? 'application/pdf');
+    await this.prisma.documentFile.create({
+      data: {
+        documentId: document.id,
+        fileType: DocumentFileType.SIGNED_PDF,
+        provider: StorageProvider.R2,
+        storageUrl: key,
+        fileName: `${document.documentNumber}.pdf`,
+        mimeType: 'application/pdf',
+      },
+    });
+    return key;
+  }
 
   private getCurrentBillingPeriod(date = new Date()): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -1563,11 +1617,32 @@ export class DocumentsService {
       );
     }
 
+    const safeFileName = `${document.documentNumber}.pdf`;
+
+    // With R2: cache the signed PDF (lazy backfill for pre-R2 docs) and
+    // 302-redirect to a short-lived presigned URL (attachment download).
+    if (this.r2.isConfigured()) {
+      const key = await this.ensureContractPdfInR2({
+        id: document.id,
+        companyProfileId: document.companyProfileId,
+        providerDocumentId: document.providerDocumentId,
+        documentNumber: document.documentNumber,
+      });
+      if (key) {
+        const url = await this.r2.getPresignedDownloadUrl(
+          key,
+          300,
+          safeFileName,
+        );
+        res.redirect(302, url);
+        return;
+      }
+    }
+
+    // Fallback (R2 disabled): stream straight from BoldSign (legacy).
     const pdf = await this.signatureProviderService.downloadDocumentPdf(
       document.providerDocumentId,
     );
-    const safeFileName = `${document.documentNumber}.pdf`;
-
     res.setHeader('Content-Type', pdf.contentType ?? 'application/pdf');
     res.setHeader(
       'Content-Disposition',
@@ -1869,6 +1944,19 @@ export class DocumentsService {
         providerLastSyncedAt: occurredAt,
       },
     });
+
+    // Eagerly cache the signed PDF in R2 (best-effort, non-blocking). Lazy
+    // on-read (streamFinalPdf) is the safety net if this is skipped or fails.
+    void this.ensureContractPdfInR2({
+      id: document.id,
+      companyProfileId: document.companyProfileId,
+      providerDocumentId: document.providerDocumentId,
+      documentNumber: document.documentNumber,
+    }).catch((err) =>
+      this.logger.warn(
+        `[R2] Eager signed-PDF cache failed for ${document.id}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
 
     // Send confirmation email to the signer with the signed PDF attached.
     // If BoldSign hasn't generated the PDF yet after all retries, send a

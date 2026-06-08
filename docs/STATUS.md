@@ -39,7 +39,7 @@ BoldSign (signatures), Resend (email), Cloudflare (DNS/SSL/R2). See
 | Item | Status | Doc |
 |------|--------|-----|
 | **FASE 2 → prod** | pending: owner creates prod Resend webhook + `RESEND_WEBHOOK_SECRET` in prod VM `.env`, then merge `develop`→`main` | [email-delivery-and-bounces.md](architecture/email-delivery-and-bounces.md) |
-| **PDF storage in R2** | approved approach, not implemented | [pdf-storage-r2.md](architecture/pdf-storage-r2.md) |
+| **PDF storage in R2** | receipts done + e2e local ✅; contracts wired (pending real COMPLETED doc); staging/prod buckets pending owner | [pdf-storage-r2.md](architecture/pdf-storage-r2.md) |
 | Schema-driven forms admin panel (NOA-53) | ⏸️ paused (onboarding via DB scripts) | [pending.md](architecture/pending.md) |
 | B2B API foundation (NOA-17…) | backlog | [pending.md](architecture/pending.md) |
 

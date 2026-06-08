@@ -1,7 +1,15 @@
 # PDF storage in Cloudflare R2 (plan)
 
-**Status: APPROVED approach, NOT yet implemented.** This is the design of record;
-update it as implementation lands.
+**Status: IN PROGRESS (local).**
+- ✅ Receipts: persisted to R2 on create + served via 302→presigned + lazy
+  backfill on read + cache-invalidation on edit. **E2E verified local**
+  (`scripts/test-r2-receipt.mjs`).
+- ✅ Contracts: wired — eager cache on COMPLETED (best-effort) + lazy on-read in
+  `streamFinalPdf` (302→presigned, attachment). Not yet e2e-verified (needs a
+  real BoldSign-COMPLETED doc; same R2Service round-trip is proven).
+- ⬜ Staging/prod: owner creates `ntssign-docs-staging/-prod` buckets + creds.
+
+This is the design of record; keep it current as implementation lands.
 
 Persist generated receipt PDFs and signed contract PDFs in **Cloudflare R2** for:
 download from history, retention by plan, audit, and future features.

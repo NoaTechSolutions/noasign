@@ -55,6 +55,8 @@ enum DocumentFileType {
   PREVIEW
   SIGNED_PDF
   ATTACHMENT
+  // Generated payment-receipt PDF persisted to R2 (DIRECT_PDF docs).
+  RECEIPT
 }
 
 enum GenerationMode {

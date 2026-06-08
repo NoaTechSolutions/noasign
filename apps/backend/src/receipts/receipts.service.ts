@@ -4,10 +4,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DocumentStatus, Prisma } from '@prisma/client';
+import {
+  DocumentFileType,
+  DocumentStatus,
+  Prisma,
+  StorageProvider,
+} from '@prisma/client';
 import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { R2Service } from '../storage/r2.service';
 import { ReceiptPdfService, ReceiptTemplateLike } from './receipt-pdf.service';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
 import { UpdateReceiptDto } from './dto/update-receipt.dto';
@@ -43,7 +49,46 @@ export class ReceiptsService {
     private readonly prisma: PrismaService,
     private readonly receiptPdf: ReceiptPdfService,
     private readonly email: EmailService,
+    private readonly r2: R2Service,
   ) {}
+
+  // Deterministic R2 object key for a receipt's PDF (one per document; a resend
+  // or edit overwrites the same key so R2 always holds the current version).
+  private receiptR2Key(companyProfileId: string, documentId: string): string {
+    return `receipts/${companyProfileId}/${documentId}.pdf`;
+  }
+
+  // Upload the generated PDF to R2 and record it as a DocumentFile. No-op when
+  // R2 is not configured (storage disabled) — the on-the-fly fallback still works.
+  private async persistReceiptToR2(
+    documentId: string,
+    companyProfileId: string,
+    buffer: Buffer,
+    fileName: string,
+  ): Promise<void> {
+    if (!this.r2.isConfigured()) return;
+    const key = this.receiptR2Key(companyProfileId, documentId);
+    await this.r2.putObject(key, buffer, 'application/pdf');
+    const existing = await this.prisma.documentFile.findFirst({
+      where: { documentId, fileType: DocumentFileType.RECEIPT },
+    });
+    const data = {
+      provider: StorageProvider.R2,
+      storageUrl: key,
+      fileName,
+      mimeType: 'application/pdf',
+    };
+    if (existing) {
+      await this.prisma.documentFile.update({
+        where: { id: existing.id },
+        data,
+      });
+    } else {
+      await this.prisma.documentFile.create({
+        data: { documentId, fileType: DocumentFileType.RECEIPT, ...data },
+      });
+    }
+  }
 
   /**
    * Generate a receipt PDF from the tenant's ReceiptTemplate, persist it as a
@@ -151,6 +196,21 @@ export class ReceiptsService {
         data: { create: { dataJson } },
       },
     });
+
+    // Persist the generated PDF to R2 for history/download (every receipt,
+    // sent or not). Best-effort: a storage failure must not fail receipt creation.
+    try {
+      await this.persistReceiptToR2(
+        document.id,
+        companyProfileId,
+        pdfBuffer,
+        `${receiptNumber}.pdf`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[ReceiptsService] R2 persist failed for ${receiptNumber}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
 
     if (!send) {
       return { document, receiptNumber, pdf: pdfBuffer };
@@ -303,7 +363,12 @@ export class ReceiptsService {
     return this.receiptPdf.generate(template, pdfData);
   }
 
-  /** Regenerate a stored receipt's PDF on the fly and stream it inline. */
+  /**
+   * Serve a receipt's PDF. With R2 configured: ensure the PDF is in R2 (lazy
+   * backfill for receipts created before R2) and 302-redirect to a short-lived
+   * presigned URL (no filename → inline, so the iframe preview keeps working).
+   * Without R2: fall back to regenerating and streaming inline (legacy).
+   */
   async streamReceiptPdf(
     userId: string,
     documentId: string,
@@ -313,6 +378,32 @@ export class ReceiptsService {
     if (!document.receiptTemplate) {
       throw new BadRequestException('Receipt template not found');
     }
+
+    if (this.r2.isConfigured() && document.companyProfileId) {
+      const existing = await this.prisma.documentFile.findFirst({
+        where: { documentId: document.id, fileType: DocumentFileType.RECEIPT },
+      });
+      if (!existing) {
+        // Lazy backfill: regenerate once and upload.
+        const buffer = await this.regenerateReceiptPdf(
+          document.receiptTemplate as unknown as ReceiptTemplateLike,
+          this.asObject(document.data?.dataJson),
+          document.documentNumber,
+        );
+        await this.persistReceiptToR2(
+          document.id,
+          document.companyProfileId,
+          buffer,
+          `${document.documentNumber}.pdf`,
+        );
+      }
+      const key = this.receiptR2Key(document.companyProfileId, document.id);
+      const url = await this.r2.getPresignedDownloadUrl(key, 300);
+      res.redirect(302, url);
+      return;
+    }
+
+    // Fallback (R2 disabled): regenerate on the fly and stream inline.
     const pdfBuffer = await this.regenerateReceiptPdf(
       document.receiptTemplate as unknown as ReceiptTemplateLike,
       this.asObject(document.data?.dataJson),
@@ -474,6 +565,13 @@ export class ReceiptsService {
       },
       include: { data: true },
     });
+
+    // The data (and thus the rendered PDF) changed — drop the cached R2 copy so
+    // the next view/send regenerates and re-uploads the current version.
+    await this.prisma.documentFile.deleteMany({
+      where: { documentId: document.id, fileType: DocumentFileType.RECEIPT },
+    });
+
     return { document: updated };
   }
 
