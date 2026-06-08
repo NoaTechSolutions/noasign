@@ -34,7 +34,9 @@ jobs:
           bash scripts/backup-postgres-to-r2.sh
           echo "--- Verify the .dump landed in R2 ---"
           cd apps/backend
-          val() { grep -E "^$1=" .env | head -1 | cut -d= -f2-; }
+          # grep -m1 (NOT `grep | head`): head closes the pipe early, grep gets
+          # SIGPIPE, and pipefail+set -e would kill the script silently.
+          val() { grep -m1 -E "^$1=" .env | cut -d= -f2-; }
           AWS_ACCESS_KEY_ID="$(val R2_ACCESS_KEY_ID)" \
           AWS_SECRET_ACCESS_KEY="$(val R2_SECRET_ACCESS_KEY)" \
           AWS_DEFAULT_REGION=auto \
@@ -52,9 +54,26 @@ jobs:
         run: |
           set -euo pipefail
           cd ~/apps/ntssign/apps/backend
-          DB="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d= -f2-)"
+          # grep -m1 (NOT `grep | head`): avoids SIGPIPE killing the script under
+          # pipefail before psql even runs.
+          DB="$(grep -m1 '^DATABASE_URL=' .env | cut -d= -f2-)"
           echo "--- Orphan customers (createdByUserId NULL AND no MASTER in tenant) ---"
-          psql "$DB" -c "SELECT count(*) AS orphan_customers FROM \"customers\" c WHERE c.\"createdByUserId\" IS NULL AND NOT EXISTS (SELECT 1 FROM \"users\" u WHERE u.\"companyProfileId\" = c.\"companyProfileId\" AND u.\"role\" = 'MASTER');"
+          # Defensive: if prod's April schema has no customers table yet (the
+          # module arrives with the pending migrations), report 0 instead of
+          # erroring — 0 customers = 0 orphans = the NOT NULL backfill runs on
+          # an empty/created table, which is safe.
+          psql "$DB" -v ON_ERROR_STOP=1 -c "
+            SELECT CASE
+              WHEN to_regclass('public.customers') IS NULL THEN 0
+              ELSE (
+                SELECT count(*) FROM \"customers\" c
+                WHERE c.\"createdByUserId\" IS NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM \"users\" u
+                    WHERE u.\"companyProfileId\" = c.\"companyProfileId\"
+                      AND u.\"role\" = 'MASTER')
+              )
+            END AS orphan_customers;"
           echo "GATE: orphan_customers = 0 → safe to migrate. > 0 → STOP and fix before the release."
 
   # 3) Write the 5 new env vars (from GitHub Secrets) into the prod .env + reload.
