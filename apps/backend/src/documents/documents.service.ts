@@ -1623,8 +1623,10 @@ export class DocumentsService {
 
     const safeFileName = `${document.documentNumber}.pdf`;
 
-    // With R2: cache the signed PDF (lazy backfill for pre-R2 docs) and
-    // 302-redirect to a short-lived presigned URL (attachment download).
+    // With R2: cache the signed PDF (lazy backfill for pre-R2 docs) and stream
+    // the bytes through the backend (same-origin). NOT a 302 to a presigned R2
+    // URL — R2 sends no CORS headers, so the in-app viewer's blob fetch that
+    // follows the redirect is blocked → blank PDF.
     if (this.r2.isConfigured()) {
       const key = await this.ensureContractPdfInR2({
         id: document.id,
@@ -1633,12 +1635,13 @@ export class DocumentsService {
         documentNumber: document.documentNumber,
       });
       if (key) {
-        const url = await this.r2.getPresignedDownloadUrl(
-          key,
-          300,
-          safeFileName,
+        const buffer = await this.r2.getObject(key);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${safeFileName}"`,
         );
-        res.redirect(302, url);
+        res.send(buffer);
         return;
       }
     }

@@ -73,16 +73,14 @@ try {
     console.log('→ DocumentFile DB check skipped (remote target — no DB access)');
   }
 
-  console.log('→ GET /documents/receipt/:id/pdf (expect 302 → presigned)');
-  const pdfRes = await req('GET', `/documents/receipt/${id}/pdf`, { redirect: 'manual' });
-  check('302 redirect', pdfRes.status === 302, `got ${pdfRes.status}`);
-  const loc = pdfRes.headers.get('location');
-  check('Location is r2.cloudflarestorage.com presigned', !!loc && loc.includes('r2.cloudflarestorage.com') && loc.includes('X-Amz-Signature'));
-
-  console.log('→ Follow presigned URL → download PDF');
-  const dl = await fetch(loc);
-  const buf = Buffer.from(await dl.arrayBuffer());
-  check('presigned GET 200', dl.status === 200, `got ${dl.status}`);
+  // The endpoint streams the R2-stored bytes through the backend (same-origin)
+  // so the in-app iframe viewer can read them — NOT a 302 to a presigned R2 URL
+  // (R2 has no CORS, which would blank the viewer's blob fetch).
+  console.log('→ GET /documents/receipt/:id/pdf (expect 200 streamed PDF)');
+  const pdfRes = await req('GET', `/documents/receipt/${id}/pdf`);
+  const buf = Buffer.from(await pdfRes.arrayBuffer());
+  check('200 OK', pdfRes.status === 200, `got ${pdfRes.status}`);
+  check('content-type application/pdf', (pdfRes.headers.get('content-type') || '').includes('application/pdf'));
   check('body is a PDF (%PDF header)', buf.subarray(0, 4).toString() === '%PDF', `${buf.length} bytes`);
 
   console.log(`\n${ok ? '✅ R2 RECEIPT E2E PASSED' : '❌ R2 RECEIPT E2E FAILED'}`);

@@ -82,6 +82,16 @@ export class R2Service {
     this.logger.log(`[R2Service] Uploaded ${key} (${body.length} bytes)`);
   }
 
+  /** Download an object's bytes from R2 (e.g. to overlay a watermark on it). */
+  async getObject(key: string): Promise<Buffer> {
+    const client = this.requireClient();
+    const res = await client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    const bytes = await res.Body!.transformToByteArray();
+    return Buffer.from(bytes);
+  }
+
   /**
    * Generate a short-lived presigned GET URL for `key`. The caller MUST have
    * already authorized the requester (tenant scope) before issuing this.
