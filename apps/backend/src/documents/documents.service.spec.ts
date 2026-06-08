@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { DocumentStatus } from '@prisma/client';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignatureProviderService } from '../signature-provider/signature-provider.service';
 import { EmailService } from '../email/email.service';
+import { R2Service } from '../storage/r2.service';
 
 const prismaMock = {
   documentType: {
@@ -30,6 +31,9 @@ const prismaMock = {
   },
   documentVersion: {
     create: jest.fn(),
+  },
+  userDocumentConfig: {
+    findFirst: jest.fn(),
   },
 };
 
@@ -74,6 +78,14 @@ describe('DocumentsService', () => {
               .fn()
               .mockResolvedValue({ id: 'test-email-id' }),
             sendSignedConfirmation: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: R2Service,
+          useValue: {
+            isConfigured: jest.fn().mockReturnValue(false),
+            getObject: jest.fn(),
+            putObject: jest.fn(),
           },
         },
       ],
@@ -630,6 +642,10 @@ describe('DocumentsService', () => {
       documentTypeId: 'type-1',
     });
     prismaMock.document.findFirst.mockResolvedValue(null);
+    // Per-tenant numbering scopes the max to (companyProfileId, type).
+    prismaMock.document.findMany.mockResolvedValue([]);
+    // Cross-tenant guard: the user is configured for this form/template.
+    prismaMock.userDocumentConfig.findFirst.mockResolvedValue({ id: 'cfg-1' });
     prismaMock.document.create.mockResolvedValue({
       id: 'doc-new',
       documentNumber: 'CON-000001',
@@ -695,6 +711,86 @@ describe('DocumentsService', () => {
         dataJson: {},
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('createDraftDocument rejects a form/template the user is not configured for (cross-tenant guard)', async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({
+      id: 'type-1',
+      code: 'CON',
+      name: 'Contract',
+    });
+    prismaMock.formDefinition.findUnique.mockResolvedValue({
+      id: 'form-1',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+      id: 'tpl-1',
+      documentTypeId: 'type-1',
+    });
+    // No UserDocumentConfig for this user/form/template → must be rejected.
+    prismaMock.userDocumentConfig.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.createDraftDocument('user-1', {
+        documentTypeId: 'type-1',
+        formDefinitionId: 'form-1',
+        signatureTemplateId: 'tpl-1',
+        contractDate: '2026-04-01',
+        dataJson: {},
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+  });
+
+  it('createDraftDocument scopes the correlativo to the tenant', async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({
+      id: 'type-1',
+      code: 'CON',
+      name: 'Contract',
+    });
+    prismaMock.formDefinition.findUnique.mockResolvedValue({
+      id: 'form-1',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+      id: 'tpl-1',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.userDocumentConfig.findFirst.mockResolvedValue({ id: 'cfg-1' });
+    // Tenant already has CON-000002 → next must be CON-000003 within the tenant.
+    prismaMock.document.findMany.mockResolvedValue([
+      { documentNumber: 'CON-000002' },
+    ]);
+    prismaMock.document.findFirst.mockResolvedValue(null);
+    prismaMock.document.create.mockResolvedValue({
+      id: 'doc-new',
+      documentNumber: 'CON-000003',
+      status: DocumentStatus.DRAFT,
+      countedInBilling: false,
+      isOverage: false,
+      billingPeriod: null,
+    });
+    prismaMock.documentVersion.create.mockResolvedValue({});
+
+    await service.createDraftDocument('user-1', {
+      documentTypeId: 'type-1',
+      formDefinitionId: 'form-1',
+      signatureTemplateId: 'tpl-1',
+      contractDate: '2026-04-01',
+      dataJson: {},
+    });
+
+    // The max lookup is scoped to the caller's company.
+    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ companyProfileId: 'company-1' }),
+      }),
+    );
+    expect(prismaMock.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ documentNumber: 'CON-000003' }),
+      }),
+    );
   });
 
   it('resendDocument blocks resend when cooldown is active', async () => {
