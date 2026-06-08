@@ -11,6 +11,7 @@ on:
         type: choice
         required: true
         options:
+          - schema-diag
           - backup
           - orphan-check
           - set-env
@@ -20,6 +21,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 0) Read-only ground-truth diagnostic of the REAL prod schema. NO set -e and
+  #    every query has `|| true`, so it prints ALL output even if one query fails.
+  schema-diag:
+    if: github.event.inputs.step == 'schema-diag'
+    name: Prod schema diagnostic (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Dump real prod schema state
+        run: |
+          cd ~/apps/ntssign/apps/backend
+          echo "=== DATABASE_URL present in .env? (count, value not shown) ==="
+          grep -cE '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env || true
+          # Lenient extraction (tolerate leading spaces / spaces around '=' / quotes),
+          # like the backup script's loader. No set -e so we always see output.
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL from .env"; exit 1; fi
+          echo "=== (a) Applied migrations on prod ==="
+          psql "$DB" -c "SELECT migration_name FROM \"_prisma_migrations\" ORDER BY finished_at;" || echo "(query a failed)"
+          echo "=== (b) customers columns (no rows = table does not exist) ==="
+          psql "$DB" -c "SELECT column_name FROM information_schema.columns WHERE table_name='customers' ORDER BY ordinal_position;" || echo "(query b failed)"
+          echo "=== (c) customers row count ==="
+          psql "$DB" -c "SELECT count(*) AS customers_rows FROM \"customers\";" || echo "(no customers table / query c failed)"
+          echo "=== (d) createdByUserId backfill readiness (only meaningful if customers exists) ==="
+          psql "$DB" -c "SELECT to_regclass('public.customers') AS customers_table;" || true
+
   # 1) Fresh prod DB backup → R2, before the release.
   backup:
     if: github.event.inputs.step == 'backup'
@@ -52,11 +79,12 @@ jobs:
     steps:
       - name: Count orphan customers
         run: |
-          set -euo pipefail
           cd ~/apps/ntssign/apps/backend
-          # grep -m1 (NOT `grep | head`): avoids SIGPIPE killing the script under
-          # pipefail before psql even runs.
-          DB="$(grep -m1 '^DATABASE_URL=' .env | cut -d= -f2-)"
+          # Lenient DB extraction (tolerate leading spaces / spaces around '=' /
+          # quotes) — a strict '^DATABASE_URL=' grep that misses the line would
+          # exit 1 and (under set -e) kill the script before psql. No set -e here.
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL from .env"; exit 1; fi
           echo "--- Orphan customers (createdByUserId NULL AND no MASTER in tenant) ---"
           # Defensive: if prod's April schema has no customers table yet (the
           # module arrives with the pending migrations), report 0 instead of
