@@ -671,7 +671,7 @@ export class DocumentsService {
 
   private async generateDocumentNumber(
     documentTypeId: string,
-    companyProfileId: string,
+    userId: string,
   ): Promise<string> {
     const documentType = await this.prisma.documentType.findUnique({
       where: { id: documentTypeId },
@@ -681,9 +681,10 @@ export class DocumentsService {
       throw new NotFoundException('Document type not found');
     }
 
-    // Correlativo is PER TENANT: the max is scoped to (companyProfileId,
-    // documentTypeId), so each company numbers its own documents from 000001.
-    // Uniqueness is the composite @@unique([companyProfileId, documentTypeId,
+    // Correlativo is PER USER: the max is scoped to (userId, documentTypeId), so
+    // each user numbers their own documents from 000001 — a master creating with
+    // another user's global form gets a number from THEIR OWN sequence, not the
+    // form owner's. Uniqueness is the composite @@unique([userId, documentTypeId,
     // documentNumber]). Take the NUMERIC max of same-prefix rows: a plain
     // string-sort "latest" breaks when dev/seed data mixes other formats (e.g.
     // "SEED-LOCAL-PERSONAL-…-3"), which would be picked as latest and then
@@ -691,7 +692,7 @@ export class DocumentsService {
     const prefix = `${documentType.code}-`;
     const existing = await this.prisma.document.findMany({
       where: {
-        companyProfileId,
+        userId,
         documentTypeId,
         documentNumber: { startsWith: prefix },
       },
@@ -789,33 +790,11 @@ export class DocumentsService {
       ownerUserId = target.id;
     }
 
-    // Cross-tenant guard: the form + signature template must be a combo the
-    // OWNER user is actually configured for (UserDocumentConfig). Without this,
-    // a MASTER — who sees ALL global forms/templates via getDocumentTypes —
-    // could create a document with another tenant's form (the bug where an
-    // admin used WorldPaver's contract form). Receipts use a separate path
-    // (createReceipt), so this only governs BoldSign documents.
-    const ownerConfig = await this.prisma.userDocumentConfig.findFirst({
-      where: {
-        userId: ownerUserId,
-        documentTypeId: body.documentTypeId,
-        formDefinitionId: body.formDefinitionId,
-        signatureTemplateId,
-        isActive: true,
-      },
-      select: { id: true },
-    });
-    if (!ownerConfig) {
-      throw new ForbiddenException(
-        'This form/template is not configured for this user',
-      );
-    }
-
     const document = await this.prisma.document.create({
       data: {
         documentNumber: await this.generateDocumentNumber(
           body.documentTypeId,
-          user.companyProfileId,
+          ownerUserId,
         ),
         userId: ownerUserId,
         companyProfileId: user.companyProfileId,
