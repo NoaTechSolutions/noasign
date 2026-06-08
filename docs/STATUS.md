@@ -31,6 +31,11 @@ BoldSign (signatures), Resend (email), Cloudflare (DNS/SSL/R2). See
   `53ea3f4`). → [email-delivery-and-bounces.md](architecture/email-delivery-and-bounces.md)
 - **Payment receipts** — template-driven PDF generation, create/send/resend UI,
   resend cooldown v2, detail view.
+- **Receipt reissue + void (2c)** — reissue/void a SENT receipt, derived VOID
+  state, full-page VOID watermark, Actions submenu. On staging.
+- **Mobile pass** — react-pdf canvas PDF viewer (replaces iframe), document
+  actions as a bottom sheet, shared `SubSheetHeader` back-nav for all sub-sheets.
+  On staging. → [mobile-bottom-sheet-pattern.md](architecture/mobile-bottom-sheet-pattern.md)
 
 ---
 

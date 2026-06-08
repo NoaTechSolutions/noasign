@@ -1493,6 +1493,30 @@
   background: var(--bg-card);
 }
 
+/* Canvas PDF viewer (pdf.js / react-pdf) — scrollable multipage, responsive. */
+.doc-pdf-canvas {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--tx-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.doc-pdf-canvas__page {
+  box-shadow: var(--shadow-md);
+  border-radius: 2px;
+  overflow: hidden;
+}
+/* Safety net so a page never overflows its container width. */
+.doc-pdf-canvas canvas {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
 /* Timeline */
 .doc-timeline {
   display: flex;

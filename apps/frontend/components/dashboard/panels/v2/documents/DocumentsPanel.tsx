@@ -24,6 +24,10 @@ import type {
   DocumentDetail,
 } from './types';
 import { BACKEND_ACTIONS, isReceiptDoc, isVoidedReceipt } from './types';
+// Reuse the Clients bottom-sheet styles (card-actions-*) for the mobile document
+// card's Actions sheet — same pattern, no duplication. customer-card-* rules
+// target customer elements only, so they don't affect documents.
+import '../customers/customers-panel.css';
 import type {
   CustomerOption,
   DocumentTypeOption,

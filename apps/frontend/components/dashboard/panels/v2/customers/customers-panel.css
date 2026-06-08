@@ -770,6 +770,31 @@
   color: var(--tx-2);
   padding: var(--sp-2) var(--sp-3);
 }
+/* Shared sub-sheet header: back arrow + title (SubSheetHeader). */
+.card-actions-sheet__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--sp-2) var(--sp-3);
+}
+.card-actions-sheet__header .card-actions-sheet__title {
+  padding: 0;
+}
+.card-actions-sheet__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin-left: -4px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--tx-2);
+  cursor: pointer;
+}
+.card-actions-sheet__back:hover {
+  background: var(--tx-hover);
+}
 .card-actions-item {
   width: 100%;
   display: flex;

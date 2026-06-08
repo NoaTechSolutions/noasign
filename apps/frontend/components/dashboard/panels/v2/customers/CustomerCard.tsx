@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { SubSheetHeader } from '@/components/dashboard/shared/SubSheetHeader';
 import type { Customer } from './types';
 
 interface CustomerCardProps {
@@ -193,7 +194,7 @@ export function CustomerCard({
       {statusSheetOpen && typeof document !== 'undefined' && createPortal(
         <div className="card-actions-overlay" onClick={() => setStatusSheetOpen(false)}>
           <div className="card-actions-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="card-actions-sheet__title">Change status</div>
+            <SubSheetHeader title="Change status" onBack={() => setStatusSheetOpen(false)} />
             {statusOptions.map((opt) => (
               <button
                 key={opt.value}

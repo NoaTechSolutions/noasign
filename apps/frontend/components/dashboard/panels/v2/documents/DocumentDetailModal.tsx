@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { X, User, FileText, Calendar, FileSignature, DollarSign, MapPin, Wrench, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useBlockScroll } from '@/lib/use-block-scroll';
@@ -22,6 +23,12 @@ import { getStatusBadgeClass, getStatusLabel } from './types';
 import { FINANCE_COLORS, FinanceCard } from './finance-cards';
 import { CurrencyInput } from './CurrencyInput';
 import { forceTwoDecimals } from './currency';
+
+// Canvas PDF viewer (pdf.js). Client-only — never SSR pdf.js.
+const PdfCanvasViewer = dynamic(() => import('./PdfCanvasViewer'), {
+  ssr: false,
+  loading: () => <div className="doc-detail-modal__hint">Loading PDF…</div>,
+});
 
 interface DocumentDetailModalProps {
   documentId: string;
@@ -1177,11 +1184,21 @@ function PdfTab({
       {loading ? (
         <div className="doc-detail-modal__hint">Loading PDF…</div>
       ) : url ? (
-        <iframe className="doc-detail-modal__pdf" title="Signed PDF" src={url} />
+        <PdfCanvasViewer url={url} />
       ) : (
         <div className="doc-detail-modal__hint">PDF not available yet.</div>
       )}
       <div className="doc-detail-pdf-actions">
+        {url ? (
+          <a
+            className="btn-secondary"
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open in new tab
+          </a>
+        ) : null}
         <button type="button" className="btn-warning" onClick={onDownload}>
           Download PDF
         </button>

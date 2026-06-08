@@ -23,6 +23,7 @@
 | [architecture/overview.md](architecture/overview.md) | System architecture, module map, data flow, technology decisions |
 | [architecture/email-delivery-and-bounces.md](architecture/email-delivery-and-bounces.md) | Resend email + async bounce webhooks (SEND_FAILED), per-env config |
 | [architecture/pdf-storage-r2.md](architecture/pdf-storage-r2.md) | PDF persistence in Cloudflare R2 (approved plan, not yet implemented) |
+| [architecture/mobile-bottom-sheet-pattern.md](architecture/mobile-bottom-sheet-pattern.md) | **Standard** mobile bottom-sheet + SubSheetHeader back-nav; react-pdf viewer |
 | [architecture/schema-driven-forms.md](architecture/schema-driven-forms.md) | How dynamic forms work (FormDefinition + SignatureTemplate) |
 | [architecture/b2b-integration.md](architecture/b2b-integration.md) | API key auth, outbound webhooks, B2B integration design |
 | [architecture/pending.md](architecture/pending.md) | Architectural items pending implementation |
