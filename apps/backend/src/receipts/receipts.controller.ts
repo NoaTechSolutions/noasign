@@ -51,6 +51,27 @@ export class ReceiptsController {
     await this.receiptsService.streamReceiptPdf(req.user.id, id, res);
   }
 
+  // Reissue a SENT receipt: creates a NEW receipt with corrected data + next
+  // number, sends it, and voids the original (2c). Body = corrected receipt data.
+  @Post(':id/reissue')
+  async reissueReceipt(
+    @Req() req: { user: { id: string } },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: CreateReceiptDto,
+  ) {
+    const { document, receiptNumber } =
+      await this.receiptsService.reissueReceipt(req.user.id, id, body);
+    const failed = document.status === DocumentStatus.SEND_FAILED;
+    return {
+      message: failed
+        ? 'Receipt reissued, but the email could not be sent'
+        : 'Receipt reissued',
+      receiptNumber,
+      document,
+      sendError: document.sendError ?? null,
+    };
+  }
+
   @Post(':id/resend')
   async resendReceipt(
     @Req() req: { user: { id: string } },

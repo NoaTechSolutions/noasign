@@ -86,6 +86,10 @@ const documentDetailInclude = {
   companyProfile: true,
   // select (not `true`) so the password hash never reaches the serialized detail.
   user: { select: { id: true, email: true, firstName: true, lastName: true } },
+  // Receipt reissue (2c) traceability: the original this one corrects, and the
+  // receipt(s) that superseded this one. Lightweight selects (id + number).
+  supersedes: { select: { id: true, documentNumber: true } },
+  supersededBy: { select: { id: true, documentNumber: true } },
 } satisfies Prisma.DocumentInclude;
 
 const publicDocumentInclude = {

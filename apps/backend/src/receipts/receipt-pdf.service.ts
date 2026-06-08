@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PDFDocument, PDFFont, rgb } from 'pdf-lib';
+import { degrees, PDFDocument, PDFFont, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -52,6 +52,7 @@ export class ReceiptPdfService {
   async generate(
     template: ReceiptTemplateLike,
     data: Record<string, string | number>,
+    opts?: { watermark?: string },
   ): Promise<Buffer> {
     const baseBytes = fs.readFileSync(
       path.resolve(process.cwd(), template.basePdfPath),
@@ -120,6 +121,23 @@ export class ReceiptPdfService {
         size,
         font,
         color: this.hexToRgb(m.color),
+      });
+    }
+
+    // Optional watermark (e.g. "VOID" on a reissued/voided receipt) — a big,
+    // semi-transparent red diagonal stamp drawn over the receipt so any download
+    // of a voided receipt is unmistakably marked.
+    if (opts?.watermark) {
+      const wmFont = await getFont('Montserrat-Black');
+      const { width, height } = page.getSize();
+      page.drawText(opts.watermark, {
+        x: width * 0.12,
+        y: height * 0.34,
+        size: Math.min(width, height) * 0.3,
+        font: wmFont,
+        color: rgb(0.86, 0.12, 0.12),
+        rotate: degrees(38),
+        opacity: 0.32,
       });
     }
 

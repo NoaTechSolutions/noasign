@@ -457,6 +457,14 @@ model Document {
   sendCount       Int       @default(0)
   lastAttemptAt   DateTime?
 
+  // Receipt reissue (2c): a SENT receipt is never edited; a correction creates a
+  // NEW receipt that supersedes the original. supersedesId points from the new
+  // receipt to the original; supersededAt marks the original as voided (its
+  // status stays SENT — the accounting truth is preserved). "Reissued by" is the
+  // back-relation supersededBy.
+  supersedesId    String?
+  supersededAt    DateTime?
+
   countedInBilling Boolean @default(false)
   isOverage        Boolean @default(false)
   billingPeriod    String?
@@ -474,6 +482,8 @@ model Document {
   data              DocumentData?
   versions          DocumentVersion[]
   files             DocumentFile[]
+  supersedes        Document?  @relation("ReceiptReissue", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy      Document[] @relation("ReceiptReissue")
 
   @@index([userId])
   @@index([companyProfileId])
@@ -484,6 +494,7 @@ model Document {
   @@index([providerDocumentId])
   // FASE 2: bounce webhooks look up the document by the Resend message id.
   @@index([providerEmailId])
+  @@index([supersedesId])
   @@map("documents")
 }
 

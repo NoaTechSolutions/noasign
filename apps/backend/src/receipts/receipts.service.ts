@@ -95,7 +95,11 @@ export class ReceiptsService {
    * PAYMENT_RECEIPT Document, and (optionally) email it. Returns the document +
    * the correlative receipt number + the generated PDF buffer.
    */
-  async createReceipt(userId: string, dto: CreateReceiptDto) {
+  async createReceipt(
+    userId: string,
+    dto: CreateReceiptDto,
+    opts?: { supersedesId?: string },
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user?.companyProfileId) {
       throw new BadRequestException('User has no company profile');
@@ -193,6 +197,8 @@ export class ReceiptsService {
         contractDate: new Date(),
         countedInBilling: false,
         isOverage: false,
+        // Reissue (2c): link the new receipt to the original it corrects.
+        supersedesId: opts?.supersedesId ?? null,
         data: { create: { dataJson } },
       },
     });
@@ -347,6 +353,7 @@ export class ReceiptsService {
     template: ReceiptTemplateLike,
     dataJson: Record<string, unknown>,
     fallbackNumber: string,
+    opts?: { watermark?: string },
   ): Promise<Buffer> {
     const pdfData = this.buildPdfData({
       receipt_number: this.readStr(dataJson.receipt_number, fallbackNumber),
@@ -360,7 +367,7 @@ export class ReceiptsService {
       other_label: this.readStr(dataJson.other_label),
       payment_method: this.readStr(dataJson.payment_method),
     });
-    return this.receiptPdf.generate(template, pdfData);
+    return this.receiptPdf.generate(template, pdfData, opts);
   }
 
   /**
@@ -379,6 +386,9 @@ export class ReceiptsService {
       throw new BadRequestException('Receipt template not found');
     }
 
+    // Voided (reissued) receipts render with a VOID watermark.
+    const watermark = document.supersededAt ? 'VOID' : undefined;
+
     if (this.r2.isConfigured() && document.companyProfileId) {
       const existing = await this.prisma.documentFile.findFirst({
         where: { documentId: document.id, fileType: DocumentFileType.RECEIPT },
@@ -389,6 +399,7 @@ export class ReceiptsService {
           document.receiptTemplate as unknown as ReceiptTemplateLike,
           this.asObject(document.data?.dataJson),
           document.documentNumber,
+          { watermark },
         );
         await this.persistReceiptToR2(
           document.id,
@@ -408,6 +419,7 @@ export class ReceiptsService {
       document.receiptTemplate as unknown as ReceiptTemplateLike,
       this.asObject(document.data?.dataJson),
       document.documentNumber,
+      { watermark },
     );
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
@@ -512,6 +524,82 @@ export class ReceiptsService {
         },
       });
       return { document: failed, sendError: reason };
+    }
+  }
+
+  /**
+   * Reissue (2c): a SENT receipt is never edited — a correction creates a NEW
+   * receipt (next number) with the corrected data, sends it, links it to the
+   * original (supersedesId), and voids the original (supersededAt + a VOID
+   * watermark on its stored PDF). The original stays SENT and fully downloadable
+   * — the accounting record is preserved, now visibly voided.
+   */
+  async reissueReceipt(
+    userId: string,
+    originalId: string,
+    dto: CreateReceiptDto,
+  ) {
+    const original = await this.loadReceiptForUser(userId, originalId);
+    if (original.status !== DocumentStatus.SENT) {
+      throw new BadRequestException('Only sent receipts can be reissued');
+    }
+    if (original.supersededAt) {
+      throw new BadRequestException('This receipt was already reissued');
+    }
+    // Reissue always sends the corrected copy, so a recipient is required up
+    // front (the DTO only conditionally requires it when send === true).
+    if (!dto.recipientEmail) {
+      throw new BadRequestException(
+        'recipientEmail is required to reissue a receipt',
+      );
+    }
+
+    // Create + send the corrected receipt, linked to the original.
+    const result = await this.createReceipt(
+      userId,
+      { ...dto, send: true },
+      { supersedesId: originalId },
+    );
+
+    // Void the original: mark superseded + re-stamp its R2 PDF with VOID.
+    await this.voidOriginalReceipt(original);
+
+    return result;
+  }
+
+  // Mark the original receipt superseded and overwrite its stored PDF with a
+  // VOID-watermarked version so every later download is unmistakably voided. The
+  // accounting data (dataJson, number, row) is preserved — only the rendered PDF
+  // gains the stamp. When R2 is disabled the streamReceiptPdf fallback applies
+  // the watermark on the fly (driven by supersededAt), so this re-stamp is a no-op.
+  private async voidOriginalReceipt(original: {
+    id: string;
+    companyProfileId: string | null;
+    documentNumber: string;
+    receiptTemplate: unknown;
+    data?: { dataJson?: Prisma.JsonValue } | null;
+  }): Promise<void> {
+    await this.prisma.document.update({
+      where: { id: original.id },
+      data: { supersededAt: new Date() },
+    });
+    if (
+      this.r2.isConfigured() &&
+      original.receiptTemplate &&
+      original.companyProfileId
+    ) {
+      const buffer = await this.regenerateReceiptPdf(
+        original.receiptTemplate as unknown as ReceiptTemplateLike,
+        this.asObject(original.data?.dataJson),
+        original.documentNumber,
+        { watermark: 'VOID' },
+      );
+      await this.persistReceiptToR2(
+        original.id,
+        original.companyProfileId,
+        buffer,
+        `${original.documentNumber}.pdf`,
+      );
     }
   }
 
