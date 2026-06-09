@@ -31,7 +31,7 @@ const USERS = [
   {
     key: 'MASTER',
     email: 'master@staging.ntssign.com',
-    password: process.env.STAGING_MASTER_PASSWORD || 't2H3412mhyIUA9!',
+    password: 'MasterStg2026!',
     role: 'MASTER',
     firstName: 'Staging',
     lastName: 'Master',
@@ -39,7 +39,7 @@ const USERS = [
   {
     key: 'PERSONAL',
     email: 'personal@staging.ntssign.com',
-    password: process.env.STAGING_PERSONAL_PASSWORD || 'PGSLHv7c2k7TA9!',
+    password: 'PersonalStg2026!',
     role: 'USER',
     firstName: 'Personal',
     lastName: 'Tester',
@@ -47,7 +47,7 @@ const USERS = [
   {
     key: 'BUSINESS',
     email: 'business@staging.ntssign.com',
-    password: process.env.STAGING_BUSINESS_PASSWORD || '3GwozT9BDgL6A9!',
+    password: 'BusinessStg2026!',
     role: 'USER',
     firstName: 'Business',
     lastName: 'Tester',
@@ -230,6 +230,14 @@ async function main() {
     });
     custCreated++;
   }
+
+  // Single-superadmin cleanup: master@staging.ntssign.com is the only MASTER.
+  // Demote the stray .test master so there is exactly one superadmin on staging.
+  const demoted = await prisma.user.updateMany({
+    where: { email: 'master@ntssign.test', role: 'MASTER' },
+    data: { role: 'USER' },
+  });
+  console.log(`Demoted stray masters (master@ntssign.test): ${demoted.count}`);
 
   console.log('=== STAGING SEED DONE ===');
   console.log(`Company: ${company.companyName} (${company.id})`);
