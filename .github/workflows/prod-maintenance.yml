@@ -18,12 +18,57 @@ on:
           - post-deploy-check
           - receipts-readiness
           - precheck-migrations
+          - verify-correlativo
 
 concurrency:
   group: prod-maintenance
   cancel-in-progress: false
 
 jobs:
+  # 7) Read-only: after the per-user migration, show every CONSTRUCTION_CONTRACT
+  #    with its owner (userId/email/company) + each user's current max, so we can
+  #    confirm WorldPaver's 000001/000002 are intact and compute each user's next.
+  verify-correlativo:
+    if: github.event.inputs.step == 'verify-correlativo'
+    name: Verify correlativo ownership (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Show contracts by owner + per-user max
+        run: |
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL"; exit 1; fi
+          DATABASE_URL="$DB" node -e '
+            const { PrismaClient } = require("@prisma/client");
+            const p = new PrismaClient();
+            (async () => {
+              const docs = await p.document.findMany({
+                where: { documentType: { code: "CONSTRUCTION_CONTRACT" } },
+                select: { documentNumber: true, status: true, userId: true, user: { select: { email: true } }, companyProfile: { select: { companyName: true } } },
+                orderBy: { documentNumber: "asc" },
+              });
+              console.log("=== CONSTRUCTION_CONTRACT documents (by number) ===");
+              for (const d of docs) {
+                console.log(`${d.documentNumber} | ${d.status} | user=${d.user && d.user.email} (${d.userId}) | company=${d.companyProfile && d.companyProfile.companyName}`);
+              }
+              // Per-user current max → next = max+1 (the per-user correlativo).
+              const byUser = {};
+              for (const d of docs) {
+                const m = /(\d+)$/.exec(d.documentNumber); if (!m) continue;
+                const n = parseInt(m[1], 10);
+                const k = (d.user && d.user.email) || d.userId;
+                if (!byUser[k] || n > byUser[k]) byUser[k] = n;
+              }
+              console.log("=== per-user max → next ===");
+              for (const [email, max] of Object.entries(byUser)) {
+                console.log(`${email}: max=${String(max).padStart(6,"0")} -> next=${String(max+1).padStart(6,"0")}`);
+              }
+              await p.$disconnect();
+            })().catch(e => { console.error("ERR", e.message); process.exit(1); });
+          '
+
   # 6) Read-only: confirm the per-tenant and per-user correlativo migrations
   #    won't violate their unique indexes (no duplicate (scope, type, number)).
   #    Logically impossible (numbers were globally unique) — confirm before migrating.
