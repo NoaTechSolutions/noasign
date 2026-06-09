@@ -20,6 +20,9 @@ export interface DocumentTypeOption {
     name: string;
     templateKey: string;
   }>;
+  // Receipts (DIRECT_PDF): the tenant template to use. For the superadmin flow
+  // it's the SELECTED user's template (borrowed), surfaced by getDocumentTypes.
+  receiptTemplateId?: string;
 }
 
 export interface CustomerOption {

@@ -236,7 +236,40 @@ type DocumentTypeCatalogItem = {
     templateKey: string;
     providerTemplateId?: string | null;
   }>;
+  // Receipts (DIRECT_PDF): the tenant ReceiptTemplate to use; for the superadmin
+  // asUserId flow it's the selected user's template.
+  receiptTemplateId?: string;
 };
+
+type SelectableUser = {
+  id: string;
+  name: string;
+  email: string;
+  companyName: string | null;
+};
+
+// Catalog (API) -> the V2 modal's option shape. Shared by the initial load and
+// the superadmin asUserId refetch so both carry receiptTemplateId + form keys.
+function mapCatalogToV2(dt: DocumentTypeCatalogItem): V2DocumentTypeOption {
+  return {
+    id: dt.id,
+    name: dt.name,
+    code: dt.code,
+    generationMode: dt.generationMode,
+    formDefinitions: dt.formDefinitions.map((fd) => ({
+      id: fd.id,
+      name: fd.name,
+      key: fd.key,
+      schemaJson: (fd as { schemaJson?: unknown }).schemaJson,
+    })),
+    signatureTemplates: dt.signatureTemplates.map((tpl) => ({
+      id: tpl.id,
+      name: tpl.name,
+      templateKey: tpl.templateKey,
+    })),
+    receiptTemplateId: dt.receiptTemplateId,
+  };
+}
 
 type CustomerBusiness = {
   id: string;
@@ -432,6 +465,11 @@ function DashboardPageInner() {
   const [billingHistory, setBillingHistory] = useState<MonthlySummary[]>([]);
   const [documents, setDocuments] = useState<DashboardDocument[] | null>(null);
   const [managedUsers, setManagedUsers] = useState<ManagedUser[] | null>(null);
+  // Superadmin flow: all users across all tenants (MASTER only) for the
+  // "create for user" template-source selector. undefined until loaded / non-master.
+  const [selectableUsers, setSelectableUsers] = useState<
+    SelectableUser[] | undefined
+  >(undefined);
   const [accountRequests, setAccountRequests] = useState<AccountRequest[] | null>(null);
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeCatalogItem[]>([]);
   const [documentDetail, setDocumentDetail] = useState<DocumentDetail | null>(null);
@@ -474,6 +512,14 @@ function DashboardPageInner() {
 
       const [[me, currentUsage, summary, myDocuments, customersResponse], staticResult] =
         await Promise.all([dynamicRequests, staticRequests]);
+
+      // Superadmin flow: load the cross-tenant user list for MASTER only
+      // (the endpoint 403s otherwise). Best-effort — never blocks the workspace.
+      if (me.role === "MASTER") {
+        apiRequest<SelectableUser[]>("/documents/selectable-users")
+          .then(setSelectableUsers)
+          .catch(() => setSelectableUsers(undefined));
+      }
 
       if (staticResult) {
         const [profile, availableDocumentTypes, summaryHistory] = staticResult;
@@ -1203,6 +1249,16 @@ function DashboardPageInner() {
     );
   }
 
+  // Superadmin flow: fetch the catalog AS a selected user (any tenant) and map
+  // it to the V2 modal shape (carries receiptTemplateId + form keys). The
+  // created document still belongs to the master — no userId is sent on create.
+  async function handleFetchTypesAsUser(
+    targetUserId: string,
+  ): Promise<V2DocumentTypeOption[]> {
+    const raw = await handleFetchTemplatesAsUser(targetUserId);
+    return raw.map(mapCatalogToV2);
+  }
+
   async function handleCreateDraft(payload: {
     documentTypeId: string;
     formDefinitionId: string;
@@ -1890,23 +1946,8 @@ function DashboardPageInner() {
     // V2 DocumentTypes adapter — runtime payload includes schemaJson on each
     // formDefinition even though DocumentTypeCatalogItem doesn't declare it.
     // Casting through preserves the shape the wizard needs.
-    const documentsV2Types: V2DocumentTypeOption[] = documentTypes.map((dt) => ({
-      id: dt.id,
-      name: dt.name,
-      code: dt.code,
-      generationMode: dt.generationMode,
-      formDefinitions: dt.formDefinitions.map((fd) => ({
-        id: fd.id,
-        name: fd.name,
-        key: fd.key,
-        schemaJson: (fd as { schemaJson?: unknown }).schemaJson,
-      })),
-      signatureTemplates: dt.signatureTemplates.map((tpl) => ({
-        id: tpl.id,
-        name: tpl.name,
-        templateKey: tpl.templateKey,
-      })),
-    }));
+    const documentsV2Types: V2DocumentTypeOption[] =
+      documentTypes.map(mapCatalogToV2);
 
     const documentsV2Customers: V2CustomerOption[] = (customers ?? []).map((c) => ({
       id: c.id,
@@ -1962,6 +2003,7 @@ function DashboardPageInner() {
         payment_total?: number;
         received_by?: string;
         send: boolean;
+        receiptTemplateId?: string;
       }) => {
         if (payload.send) {
           // Optimistic: the form already closed; show the progress toast and
@@ -2176,6 +2218,8 @@ function DashboardPageInner() {
           onVoidReceipt={documentsV2.onVoidReceipt}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
+          selectableUsers={selectableUsers}
+          onFetchTypesAsUser={handleFetchTypesAsUser}
         />
       ) : (
         <div

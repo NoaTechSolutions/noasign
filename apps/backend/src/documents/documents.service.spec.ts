@@ -32,6 +32,12 @@ const prismaMock = {
   documentVersion: {
     create: jest.fn(),
   },
+  userDocumentConfig: {
+    findMany: jest.fn(),
+  },
+  receiptTemplate: {
+    findMany: jest.fn(),
+  },
 };
 
 const signatureProviderServiceMock = {
@@ -93,6 +99,46 @@ describe('DocumentsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('getDocumentTypes (asUserId) borrows a cross-tenant target user’s receipt template', async () => {
+    // caller = MASTER (company-1); target = USER in a DIFFERENT tenant (company-2).
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({ role: 'MASTER', companyProfileId: 'company-1' })
+      .mockResolvedValueOnce({
+        id: 'user-2',
+        role: 'USER',
+        companyProfileId: 'company-2',
+      });
+    prismaMock.userDocumentConfig.findMany.mockResolvedValue([]);
+    prismaMock.receiptTemplate.findMany.mockResolvedValue([{ id: 'rt-borrow' }]);
+    prismaMock.documentType.findMany.mockResolvedValue([
+      {
+        id: 'dt-rec',
+        name: 'Receipt',
+        code: 'PAYMENT_RECEIPT',
+        generationMode: 'DIRECT_PDF',
+        formDefinitions: [{ id: 'f1', name: 'Form', schemaJson: {} }],
+      },
+    ]);
+
+    const result = await service.getDocumentTypes('user-1', 'user-2');
+
+    // Target resolved WITHOUT a same-tenant constraint (cross-tenant for MASTER).
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user-2' },
+      select: { id: true, role: true, companyProfileId: true },
+    });
+    // Receipt template fetched for the TARGET's tenant and exposed for borrowing.
+    expect(prismaMock.receiptTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ companyProfileId: 'company-2' }),
+      }),
+    );
+    const receipt = result.find((t) => t.code === 'PAYMENT_RECEIPT') as
+      | { receiptTemplateId?: string }
+      | undefined;
+    expect(receipt?.receiptTemplateId).toBe('rt-borrow');
   });
 
   it('getDocumentTypes includes active form definitions and signature templates', async () => {

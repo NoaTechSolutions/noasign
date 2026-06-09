@@ -9,7 +9,10 @@ import { DocumentsTable } from './DocumentsTable';
 import { DocumentsCards } from './DocumentsCards';
 import { DocumentDetailModal } from './DocumentDetailModal';
 import { DocumentsEmptyState } from './DocumentsEmptyState';
-import { DocumentCreationModal } from './DocumentCreationModal';
+import {
+  DocumentCreationModal,
+  type SelectableUser,
+} from './DocumentCreationModal';
 import type {
   CreateReceiptPayload,
   ReceiptCreateResult,
@@ -54,6 +57,9 @@ export interface DocumentsPanelProps {
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
   defaultReceivedBy?: string;
+  // Superadmin flow: MASTER picks any user (all tenants) to borrow templates.
+  selectableUsers?: SelectableUser[];
+  onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
   onEditDocument: (docId: string) => void;
   onDocumentAction: (docId: string, action: BackendDocumentAction) => Promise<void>;
   onSyncStatus: (docId: string) => Promise<void>;
@@ -107,6 +113,8 @@ export function DocumentsPanel({
   onCreateDraft,
   onCreateReceipt,
   defaultReceivedBy,
+  selectableUsers,
+  onFetchTypesAsUser,
   onEditDocument,
   onDocumentAction,
   onSyncStatus,
@@ -475,6 +483,8 @@ export function DocumentsPanel({
           customers={customers}
           sessionId={sessionId}
           isMaster={isMaster}
+          selectableUsers={selectableUsers}
+          onFetchTypesAsUser={onFetchTypesAsUser}
           onClose={() => setShowCreateModal(false)}
           onCreate={onCreateDraft}
           onCreateReceipt={onCreateReceipt}

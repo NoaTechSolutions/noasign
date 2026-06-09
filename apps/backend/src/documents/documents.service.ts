@@ -487,6 +487,40 @@ export class DocumentsService {
     };
   }
 
+  // Superadmin flow: list EVERY user across ALL tenants so a MASTER can pick
+  // whose forms/templates to borrow. Gated to MASTER (tightens to a real
+  // superadmin role with the parked refactor).
+  async getSelectableUsers(userId: string) {
+    const caller = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!caller) throw new NotFoundException('User not found');
+    if (caller.role !== 'MASTER') {
+      throw new ForbiddenException(
+        'Only master users can list users across tenants',
+      );
+    }
+    const users = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        companyProfile: { select: { companyName: true } },
+      },
+      orderBy: { email: 'asc' },
+    });
+    return users.map((u) => ({
+      id: u.id,
+      name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email,
+      email: u.email,
+      role: u.role,
+      companyName: u.companyProfile?.companyName ?? null,
+    }));
+  }
+
   async getDocumentTypes(userId: string, asUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -502,23 +536,27 @@ export class DocumentsService {
     // before swapping perspective.
     let effectiveUserId = userId;
     let effectiveRole = user.role;
+    let effectiveCompanyProfileId = user.companyProfileId;
     if (asUserId && asUserId !== userId) {
       if (user.role !== 'MASTER') {
         throw new ForbiddenException(
           'Only master users can request templates as another user',
         );
       }
-      const target = await this.prisma.user.findFirst({
-        where: { id: asUserId, companyProfileId: user.companyProfileId },
-        select: { id: true, role: true },
+      // Superadmin flow: a MASTER may select a user in ANY tenant to borrow their
+      // forms/templates (the document still becomes the master's, with the
+      // master's correlativo). Gated to MASTER — tightens to a superadmin role
+      // with the parked refactor.
+      const target = await this.prisma.user.findUnique({
+        where: { id: asUserId },
+        select: { id: true, role: true, companyProfileId: true },
       });
       if (!target) {
-        throw new BadRequestException(
-          'Target user not found in the current tenant',
-        );
+        throw new BadRequestException('Target user not found');
       }
       effectiveUserId = target.id;
       effectiveRole = target.role;
+      effectiveCompanyProfileId = target.companyProfileId;
     }
 
     if (effectiveRole === 'MASTER') {
@@ -567,6 +605,7 @@ export class DocumentsService {
           name: string;
           providerTemplateId: string | null;
         }>;
+        receiptTemplateId?: string;
       }
     >();
 
@@ -630,9 +669,10 @@ export class DocumentsService {
     // Receipts (DIRECT_PDF) are available company-wide: any non-master user
     // whose company has an active ReceiptTemplate can create them — no per-user
     // UserDocumentConfig is needed (unlike BoldSign types).
-    if (user.companyProfileId) {
+    if (effectiveCompanyProfileId) {
       const receiptTemplates = await this.prisma.receiptTemplate.findMany({
-        where: { companyProfileId: user.companyProfileId, isActive: true },
+        where: { companyProfileId: effectiveCompanyProfileId, isActive: true },
+        orderBy: { createdAt: 'desc' },
         select: { id: true },
       });
       if (receiptTemplates.length > 0) {
@@ -659,6 +699,9 @@ export class DocumentsService {
               schemaJson: fd.schemaJson,
             })),
             signatureTemplates: [],
+            // The (effective user's) tenant template to borrow — the frontend
+            // passes it to createReceipt for the superadmin flow.
+            receiptTemplateId: receiptTemplates[0].id,
           });
         }
       }

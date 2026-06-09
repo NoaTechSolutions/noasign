@@ -28,11 +28,23 @@ interface CreateDraftPayload {
   customerId?: string;
 }
 
+export interface SelectableUser {
+  id: string;
+  name: string;
+  email: string;
+  companyName: string | null;
+}
+
 interface DocumentCreationModalProps {
   documentTypes: DocumentTypeOption[];
   customers: CustomerOption[];
   sessionId?: string;
   isMaster?: boolean;
+  // Superadmin flow: a MASTER may pick any user (all tenants) to borrow their
+  // forms/templates; onFetchTypesAsUser refetches the catalog as that user. The
+  // created document still belongs to the master (the borrow is template-only).
+  selectableUsers?: SelectableUser[];
+  onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
   onClose: () => void;
   onCreate: (payload: CreateDraftPayload) => Promise<void>;
   // DIRECT_PDF types (receipts) hand off to the receipt form instead of the
@@ -80,6 +92,8 @@ export function DocumentCreationModal({
   customers,
   sessionId,
   isMaster = false,
+  selectableUsers,
+  onFetchTypesAsUser,
   onClose,
   onCreate,
   onCreateReceipt,
@@ -97,6 +111,39 @@ export function DocumentCreationModal({
   // Wizard's unsaved-changes state, lifted up so backdrop/Escape/X can gate close.
   const [wizardDirty, setWizardDirty] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
+
+  // Superadmin flow: when a MASTER picks a user, refetch the catalog as that
+  // user (asUserId) and use it instead of the master's own types. The created
+  // document still belongs to the master (no userId is sent on create).
+  const [asUserId, setAsUserId] = useState('');
+  const [overrideTypes, setOverrideTypes] = useState<
+    DocumentTypeOption[] | null
+  >(null);
+  const [loadingTypes, setLoadingTypes] = useState(false);
+  const effectiveTypes = overrideTypes ?? documentTypes;
+
+  async function handleAsUserChange(userId: string) {
+    setAsUserId(userId);
+    setSetup({
+      documentTypeId: '',
+      formDefinitionId: '',
+      signatureTemplateId: '',
+      contractDate: todayIso(),
+      customerId: '',
+    });
+    if (!userId || !onFetchTypesAsUser) {
+      setOverrideTypes(null);
+      return;
+    }
+    setLoadingTypes(true);
+    try {
+      setOverrideTypes(await onFetchTypesAsUser(userId));
+    } catch {
+      setOverrideTypes([]);
+    } finally {
+      setLoadingTypes(false);
+    }
+  }
 
   useBlockScroll();
   useBeforeUnload(wizardDirty);
@@ -119,7 +166,7 @@ export function DocumentCreationModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [handleRequestClose, showDiscard]);
 
-  const selectedDocType = documentTypes.find((d) => d.id === setup.documentTypeId);
+  const selectedDocType = effectiveTypes.find((d) => d.id === setup.documentTypeId);
   const selectedFormDef = selectedDocType?.formDefinitions.find(
     (f) => f.id === setup.formDefinitionId,
   );
@@ -227,8 +274,34 @@ export function DocumentCreationModal({
         </header>
 
         <div className="docs-v2-creation-modal__body">
+          {isMaster && selectableUsers && selectableUsers.length > 0 ? (
+            <div className="docs-v2-setup-card">
+              <div className="docs-v2-setup-card__row">
+                <label className="docs-v2-setup-card__field">
+                  <span className="docs-v2-setup-card__label">
+                    Create for user (template source)
+                  </span>
+                  <select
+                    className="docs-v2-setup-card__input"
+                    value={asUserId}
+                    onChange={(e) => void handleAsUserChange(e.target.value)}
+                    disabled={isSubmitting || loadingTypes}
+                  >
+                    <option value="">— Use my own templates —</option>
+                    {selectableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} · {u.email}
+                        {u.companyName ? ` (${u.companyName})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          ) : null}
+
           <DocumentSetupCard
-            documentTypes={documentTypes}
+            documentTypes={effectiveTypes}
             customers={customers}
             value={setup}
             onChange={setSetup}
@@ -241,6 +314,7 @@ export function DocumentCreationModal({
               defaultReceivedBy={defaultReceivedBy ?? ''}
               prefillClient={selectedCustomer?.fullName}
               prefillEmail={selectedCustomer?.email ?? undefined}
+              receiptTemplateId={selectedDocType?.receiptTemplateId}
               onCreate={onCreateReceipt!}
               onClose={onClose}
             />
