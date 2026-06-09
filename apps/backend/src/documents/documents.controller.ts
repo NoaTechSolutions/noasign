@@ -30,6 +30,13 @@ export class DocumentsController {
     return this.documentsService.getDocumentTypes(req.user.id, asUserId);
   }
 
+  // Superadmin flow: a MASTER lists every user (all tenants) to pick whose
+  // forms/templates to borrow when creating a document.
+  @Get('selectable-users')
+  async getSelectableUsers(@Req() req: any) {
+    return this.documentsService.getSelectableUsers(req.user.id);
+  }
+
   @Post('draft')
   async createDraftDocument(
     @Req() req: any,

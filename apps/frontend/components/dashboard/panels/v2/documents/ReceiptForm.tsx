@@ -29,6 +29,9 @@ export interface CreateReceiptPayload {
   payment_total?: number;
   received_by?: string;
   send: boolean;
+  // Superadmin flow: borrow the selected user's receipt template (the doc still
+  // becomes the creator's). Omitted for normal users (their company template).
+  receiptTemplateId?: string;
 }
 
 // Outcome of a create attempt — lets the form tell an honest "sent" from a
@@ -73,6 +76,9 @@ interface ReceiptFormProps {
   // Pre-fill from the client picked in the setup card (shared with contracts).
   prefillClient?: string;
   prefillEmail?: string;
+  // Superadmin flow: the selected user's receipt template to borrow (threaded
+  // into the create payload). Undefined for the normal company-template path.
+  receiptTemplateId?: string;
   onCreate: (payload: CreateReceiptPayload) => Promise<ReceiptCreateResult>;
   // Closes the host modal (Cancel + after a successful create / on send).
   onClose: () => void;
@@ -85,6 +91,7 @@ export function ReceiptForm({
   defaultReceivedBy,
   prefillClient,
   prefillEmail,
+  receiptTemplateId,
   onCreate,
   onClose,
 }: ReceiptFormProps) {
@@ -169,6 +176,7 @@ export function ReceiptForm({
       payment_total: multiPayment ? Number(paymentTotal) : 1,
       received_by: receivedBy.trim() || undefined,
       send,
+      receiptTemplateId,
     });
   }
 

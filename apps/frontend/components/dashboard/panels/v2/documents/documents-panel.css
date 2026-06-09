@@ -213,6 +213,16 @@
     width: 100%;
     justify-content: center;
   }
+
+  /* Stat cards: fixed 2×2 grid on phones (auto-fit would stack to 1 column
+     under ~400px), with the content centered in each card. */
+  .documents-v2-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .documents-v2-stat-pill {
+    text-align: center;
+  }
 }
 
 /* ===== STATUS BADGES ===== */

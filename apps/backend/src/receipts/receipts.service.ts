@@ -121,14 +121,28 @@ export class ReceiptsService {
     if (!formDefinition) {
       throw new NotFoundException('No active receipt form definition');
     }
-    const template = await this.prisma.receiptTemplate.findFirst({
-      where: { companyProfileId, isActive: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (!template) {
-      throw new NotFoundException(
-        'No receipt template configured for this company',
-      );
+    // Superadmin flow: a MASTER may borrow another user's design by passing that
+    // user's receiptTemplateId (any tenant). The document stays the creator's
+    // (userId + the per-tenant REC- counter below both use the creator). Other
+    // callers always get their own company's template.
+    let template;
+    if (dto.receiptTemplateId && user.role === 'MASTER') {
+      template = await this.prisma.receiptTemplate.findFirst({
+        where: { id: dto.receiptTemplateId, isActive: true },
+      });
+      if (!template) {
+        throw new NotFoundException('Selected receipt template not found');
+      }
+    } else {
+      template = await this.prisma.receiptTemplate.findFirst({
+        where: { companyProfileId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!template) {
+        throw new NotFoundException(
+          'No receipt template configured for this company',
+        );
+      }
     }
 
     const year = new Date().getFullYear();
@@ -179,6 +193,7 @@ export class ReceiptsService {
     const documentNumber = await this.generateReceiptDocumentNumber(
       docType.id,
       docType.code,
+      userId,
     );
 
     // FASE 1 — honest send state: the receipt is ALWAYS created as DRAFT first.
@@ -733,15 +748,18 @@ export class ReceiptsService {
     });
   }
 
-  // Internal, globally-unique Document number (decoupled from the per-tenant
-  // receipt number so two tenants never collide on the global unique index).
+  // Internal Document number, scoped PER USER (same as contracts) so a master
+  // borrowing another user's template gets a number from THEIR OWN sequence —
+  // it never consumes the form owner's. Matches @@unique([userId, documentTypeId,
+  // documentNumber]); the per-tenant REC- number stays separate.
   private async generateReceiptDocumentNumber(
     documentTypeId: string,
     code: string,
+    userId: string,
   ): Promise<string> {
     const prefix = `${code}-`;
     const existing = await this.prisma.document.findMany({
-      where: { documentTypeId, documentNumber: { startsWith: prefix } },
+      where: { userId, documentTypeId, documentNumber: { startsWith: prefix } },
       select: { documentNumber: true },
     });
     let max = 0;
