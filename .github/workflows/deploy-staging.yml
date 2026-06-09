@@ -86,12 +86,13 @@ jobs:
           node prisma/seed.js
           echo "--- Seeding staging test users + customers ---"
           node scripts/dev-helpers/_seed-staging-test-users.js
-          # Receipts: PAYMENT_RECEIPT type + form + World Pavers ReceiptTemplate.
-          # Runs AFTER the user seed so the World Pavers company exists (the
-          # ReceiptTemplate is company-scoped). Non-master users see Receipt
-          # company-wide (getDocumentTypes), so no per-user config is needed.
-          echo "--- Seeding PAYMENT_RECEIPT + World Pavers ReceiptTemplate ---"
-          node scripts/dev-helpers/_seed-payment-receipt.js
+          # Receipts: the PAYMENT_RECEIPT type + form come from the data migration
+          # (20260609130000, applied by `prisma migrate deploy` above). Here we only
+          # wire the per-tenant ReceiptTemplate for the World Pavers staging company.
+          # Runs AFTER the user seed so the company exists. Non-master users see
+          # Receipt company-wide (getDocumentTypes), so no per-user config is needed.
+          echo "--- Seeding World Pavers ReceiptTemplate ---"
+          node scripts/dev-helpers/_seed-receipt-template.js 7aaad16a-6d76-4c36-97c7-b9ce3e45b801
 
       - name: Deploy frontend
         timeout-minutes: 20
