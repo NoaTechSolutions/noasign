@@ -21,17 +21,74 @@ on:
           - verify-correlativo
           - seed-receipt-template
           - release-precheck
+          - set-tenant-plan
       company_id:
-        description: 'companyProfileId for seed-receipt-template (e.g. World Pavers CO a6150399-...)'
+        description: 'companyProfileId for seed-receipt-template / set-tenant-plan (e.g. a6150399-...)'
         type: string
         required: false
         default: ''
+      plan:
+        description: 'set-tenant-plan: target plan'
+        type: choice
+        required: false
+        default: PRO_UNLIMITED
+        options:
+          - LAUNCH
+          - SCALE
+          - PRO_UNLIMITED
+      dry_run:
+        description: 'set-tenant-plan: true = diagnose only (no write)'
+        type: boolean
+        required: false
+        default: true
 
 concurrency:
   group: prod-maintenance
   cancel-in-progress: false
 
 jobs:
+  # 10) Set a tenant's billing plan (planName + isUnlimited). dry_run=true only
+  #     diagnoses (prints current plan + the worldpaversco usage). Touches ONLY
+  #     the CompanyProfile plan fields — never documents/numbers.
+  set-tenant-plan:
+    if: github.event.inputs.step == 'set-tenant-plan'
+    name: Set tenant plan (diagnose / write)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Diagnose + optionally set plan
+        env:
+          CID: ${{ github.event.inputs.company_id }}
+          PLAN: ${{ github.event.inputs.plan }}
+          DRY: ${{ github.event.inputs.dry_run }}
+        run: |
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: no DATABASE_URL"; exit 1; fi
+          if [ -z "${CID:-}" ]; then echo "ERROR: company_id input required"; exit 1; fi
+          DATABASE_URL="$DB" CID="$CID" PLAN="${PLAN:-PRO_UNLIMITED}" DRY="${DRY:-true}" node -e '
+            const { PrismaClient } = require("@prisma/client");
+            const p = new PrismaClient();
+            const cid = process.env.CID, plan = process.env.PLAN, dry = process.env.DRY !== "false";
+            (async () => {
+              const c = await p.companyProfile.findUnique({ where: { id: cid }, select: { id:true, companyName:true, planName:true, monthlyDocLimit:true, isUnlimited:true, overagePrice:true } });
+              if (!c) { console.error("Company not found:", cid); process.exit(1); }
+              console.log("=== BEFORE ===", JSON.stringify(c));
+              // Usage of worldpaversco THIS billing period (per-user, non-master).
+              const period = new Date().toISOString().slice(0,7);
+              const wp = await p.user.findUnique({ where: { email: "worldpaversco@gmail.com" }, select: { id:true, role:true } });
+              if (wp) {
+                const used = await p.document.count({ where: { userId: wp.id, countedInBilling: true, billingPeriod: period } });
+                console.log("worldpaversco usage:", JSON.stringify({ role: wp.role, billingPeriod: period, countedDocsUsed: used, monthlyDocLimit: c.monthlyDocLimit, isUnlimited: c.isUnlimited, remaining: c.isUnlimited ? "UNLIMITED" : Math.max(c.monthlyDocLimit - used, 0) }));
+              }
+              if (dry) { console.log("=== DRY-RUN — no changes written ==="); await p.$disconnect(); return; }
+              const updated = await p.companyProfile.update({ where: { id: cid }, data: { planName: plan, isUnlimited: plan === "PRO_UNLIMITED" }, select: { planName:true, isUnlimited:true, monthlyDocLimit:true } });
+              console.log("=== AFTER (plan fields only) ===", JSON.stringify(updated));
+              await p.$disconnect();
+            })().catch((e) => { console.error("ERR", e.message); process.exit(1); });
+          '
+
   # 9) Read-only pre/post-release check for the superadmin + per-user receipt fix.
   release-precheck:
     if: github.event.inputs.step == 'release-precheck'
