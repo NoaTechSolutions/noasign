@@ -17,12 +17,33 @@ on:
           - set-env
           - post-deploy-check
           - receipts-readiness
+          - precheck-migrations
 
 concurrency:
   group: prod-maintenance
   cancel-in-progress: false
 
 jobs:
+  # 6) Read-only: confirm the per-tenant and per-user correlativo migrations
+  #    won't violate their unique indexes (no duplicate (scope, type, number)).
+  #    Logically impossible (numbers were globally unique) — confirm before migrating.
+  precheck-migrations:
+    if: github.event.inputs.step == 'precheck-migrations'
+    name: Pre-check correlativo uniqueness (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Check for duplicate (scope, type, number)
+        run: |
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL"; exit 1; fi
+          echo "=== per-TENANT dups (migration 20260609000000) — expect 0 ==="
+          psql "$DB" -c "SELECT count(*) AS per_tenant_dups FROM (SELECT 1 FROM \"documents\" GROUP BY \"companyProfileId\", \"documentTypeId\", \"documentNumber\" HAVING count(*) > 1) t;" || echo "(query failed)"
+          echo "=== per-USER dups (migration 20260609120000) — expect 0 ==="
+          psql "$DB" -c "SELECT count(*) AS per_user_dups FROM (SELECT 1 FROM \"documents\" GROUP BY \"userId\", \"documentTypeId\", \"documentNumber\" HAVING count(*) > 1) t;" || echo "(query failed)"
+          echo "GATE: both 0 → both unique migrations are safe to apply."
+
   # 5) Read-only: can these users create receipts? Reports their tenants/roles,
   #    whether the PAYMENT_RECEIPT type+form exist, and each tenant's receipt
   #    templates + the users' doc configs. Uses Prisma (exact field names).
