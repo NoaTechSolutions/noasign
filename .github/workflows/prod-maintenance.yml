@@ -20,6 +20,7 @@ on:
           - precheck-migrations
           - verify-correlativo
           - seed-receipt-template
+          - release-precheck
       company_id:
         description: 'companyProfileId for seed-receipt-template (e.g. World Pavers CO a6150399-...)'
         type: string
@@ -31,6 +32,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 9) Read-only pre/post-release check for the superadmin + per-user receipt fix.
+  release-precheck:
+    if: github.event.inputs.step == 'release-precheck'
+    name: Release pre/post-check (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Report contracts/receipts numbering + single superadmin
+        run: |
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL"; exit 1; fi
+          DATABASE_URL="$DB" node -e '
+            const { PrismaClient } = require("@prisma/client");
+            const p = new PrismaClient();
+            const pad = (n) => String(n).padStart(6, "0");
+            const numOf = (s, code) => parseInt(s.slice((code + "-").length), 10);
+            (async () => {
+              const u = await p.user.findUnique({ where: { email: "worldpaversco@gmail.com" }, select: { id: true, companyProfileId: true } });
+              console.log("worldpaversco:", JSON.stringify(u));
+              const contracts = await p.document.findMany({ where: { userId: u.id, documentType: { code: "CONSTRUCTION_CONTRACT" } }, select: { documentNumber: true } });
+              const cNums = contracts.map((d) => numOf(d.documentNumber, "CONSTRUCTION_CONTRACT")).filter((n) => !isNaN(n));
+              console.log("CONTRACTS of worldpaversco:", contracts.map((d) => d.documentNumber).sort().join(", ") || "(none)");
+              console.log("  -> next per-user contract:", "CONSTRUCTION_CONTRACT-" + pad(Math.max(0, ...cNums) + 1));
+              const receipts = await p.document.findMany({ where: { userId: u.id, documentType: { code: "PAYMENT_RECEIPT" } }, select: { documentNumber: true } });
+              const rNums = receipts.map((d) => numOf(d.documentNumber, "PAYMENT_RECEIPT")).filter((n) => !isNaN(n));
+              console.log("RECEIPTS of worldpaversco: count =", receipts.length);
+              console.log("  -> next per-user receipt documentNumber:", "PAYMENT_RECEIPT-" + pad(Math.max(0, ...rNums) + 1));
+              const rc = await p.receiptCounter.findFirst({ where: { companyProfileId: u.companyProfileId, year: 2026 }, select: { lastNumber: true } });
+              console.log("receiptCounter (tenant a6150399, 2026):", rc ? rc.lastNumber : "ABSENT -> first REC-2026-0001");
+              const totalReceipts = await p.document.count({ where: { documentType: { code: "PAYMENT_RECEIPT" } } });
+              console.log("SANITY total PAYMENT_RECEIPT (all tenants):", totalReceipts);
+              const masters = await p.user.findMany({ where: { role: "MASTER" }, select: { email: true } });
+              console.log("MASTERS in prod:", masters.length, "->", masters.map((m) => m.email).join(", "));
+              await p.$disconnect();
+            })().catch((e) => { console.error("ERR", e.message); process.exit(1); });
+          '
+
   # 8) WRITE: create/update a tenant's ReceiptTemplate (per-tenant onboarding).
   #    Requires the company_id input. The PAYMENT_RECEIPT type+form come from the
   #    data migration (must already be deployed). Idempotent (upsert by company+name).
