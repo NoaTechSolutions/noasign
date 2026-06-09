@@ -671,6 +671,7 @@ export class DocumentsService {
 
   private async generateDocumentNumber(
     documentTypeId: string,
+    userId: string,
   ): Promise<string> {
     const documentType = await this.prisma.documentType.findUnique({
       where: { id: documentTypeId },
@@ -680,16 +681,21 @@ export class DocumentsService {
       throw new NotFoundException('Document type not found');
     }
 
-    // documentNumber is GLOBALLY @unique, so numbering stays global per type
-    // (NOT scoped per tenant — scoping the max to one tenant would generate
-    // numbers that collide with other tenants on the global constraint).
-    // Fetch only same-prefix rows and take the NUMERIC max: a plain string-sort
-    // "latest" breaks when dev/seed data mixes other formats (e.g.
+    // Correlativo is PER USER: the max is scoped to (userId, documentTypeId), so
+    // each user numbers their own documents from 000001 — a master creating with
+    // another user's global form gets a number from THEIR OWN sequence, not the
+    // form owner's. Uniqueness is the composite @@unique([userId, documentTypeId,
+    // documentNumber]). Take the NUMERIC max of same-prefix rows: a plain
+    // string-sort "latest" breaks when dev/seed data mixes other formats (e.g.
     // "SEED-LOCAL-PERSONAL-…-3"), which would be picked as latest and then
     // collide on the unique constraint.
     const prefix = `${documentType.code}-`;
     const existing = await this.prisma.document.findMany({
-      where: { documentTypeId, documentNumber: { startsWith: prefix } },
+      where: {
+        userId,
+        documentTypeId,
+        documentNumber: { startsWith: prefix },
+      },
       select: { documentNumber: true },
     });
     const maxNumber = existing.reduce((max, doc) => {
@@ -786,7 +792,10 @@ export class DocumentsService {
 
     const document = await this.prisma.document.create({
       data: {
-        documentNumber: await this.generateDocumentNumber(body.documentTypeId),
+        documentNumber: await this.generateDocumentNumber(
+          body.documentTypeId,
+          ownerUserId,
+        ),
         userId: ownerUserId,
         companyProfileId: user.companyProfileId,
         customerId: body.customerId ?? null,

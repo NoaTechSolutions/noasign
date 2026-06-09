@@ -416,7 +416,10 @@ model UserDocumentConfig {
 
 model Document {
   id                   String         @id @default(uuid())
-  documentNumber       String         @unique
+  // Correlativo scoped PER USER (not global, not per tenant): the visible number
+  // restarts at 000001 for each user. Uniqueness is enforced by the composite
+  // @@unique([userId, documentTypeId, documentNumber]) below.
+  documentNumber       String
   userId               String
   companyProfileId     String?
   customerId           String?
@@ -495,6 +498,9 @@ model Document {
   // FASE 2: bounce webhooks look up the document by the Resend message id.
   @@index([providerEmailId])
   @@index([supersedesId])
+  // Per-user correlativo: the same number can exist across users, but is unique
+  // within (user, type). Replaces the old global @unique on documentNumber.
+  @@unique([userId, documentTypeId, documentNumber])
   @@map("documents")
 }
 

@@ -22,7 +22,7 @@
 | [STATUS.md](STATUS.md) | **Living project status snapshot** — environments, shipped, in-progress, ops gaps |
 | [architecture/overview.md](architecture/overview.md) | System architecture, module map, data flow, technology decisions |
 | [architecture/email-delivery-and-bounces.md](architecture/email-delivery-and-bounces.md) | Resend email + async bounce webhooks (SEND_FAILED), per-env config |
-| [architecture/pdf-storage-r2.md](architecture/pdf-storage-r2.md) | PDF persistence in Cloudflare R2 (approved plan, not yet implemented) |
+| [architecture/pdf-storage-r2.md](architecture/pdf-storage-r2.md) | PDF persistence in Cloudflare R2 (implemented, live in prod) |
 | [architecture/mobile-bottom-sheet-pattern.md](architecture/mobile-bottom-sheet-pattern.md) | **Standard** mobile bottom-sheet + SubSheetHeader back-nav; react-pdf viewer |
 | [architecture/schema-driven-forms.md](architecture/schema-driven-forms.md) | How dynamic forms work (FormDefinition + SignatureTemplate) |
 | [architecture/b2b-integration.md](architecture/b2b-integration.md) | API key auth, outbound webhooks, B2B integration design |
@@ -31,6 +31,7 @@
 | [deployment/production.md](deployment/production.md) | Production deploy guide, Oracle Cloud, nginx, SSL, pm2 |
 | [deployment/staging.md](deployment/staging.md) | Staging environment setup and deploy process |
 | [deployment/backups.md](deployment/backups.md) | Prod DB backup → R2, restore procedure, retention, staging |
+| [deployment/prod-release-runbook.md](deployment/prod-release-runbook.md) | Step-by-step prod release runbook (backup → checks → merge → verify); reusable |
 | [deployment/github-actions.md](deployment/github-actions.md) | CI/CD pipeline setup, GitHub Actions, environment secrets |
 
 ---

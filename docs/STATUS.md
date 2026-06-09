@@ -23,6 +23,10 @@ BoldSign (signatures), Resend (email), Cloudflare (DNS/SSL/R2). See
 
 ## Recently shipped
 
+- **🚀 Major prod release (2026-06-08)** — `develop`→`main` (PR #49): 18 additive
+  migrations, all items below now **live in prod** (api/app.ntssign.com). Prod was
+  7 weeks behind; verified post-deploy (migrations, 401/200/200/403, WorldPaver
+  intact). Runbook: [deployment/prod-release-runbook.md](deployment/prod-release-runbook.md).
 - **Honest send state (FASE 1)** — receipts flip to `SEND_FAILED` (not phantom
   `SENT`) on synchronous send failure. → [email-delivery-and-bounces.md](architecture/email-delivery-and-bounces.md)
 - **Async bounce detection (FASE 2)** — Resend webhook (`POST /webhooks/resend`)
@@ -32,10 +36,10 @@ BoldSign (signatures), Resend (email), Cloudflare (DNS/SSL/R2). See
 - **Payment receipts** — template-driven PDF generation, create/send/resend UI,
   resend cooldown v2, detail view.
 - **Receipt reissue + void (2c)** — reissue/void a SENT receipt, derived VOID
-  state, full-page VOID watermark, Actions submenu. On staging.
+  state, full-page VOID watermark, Actions submenu. Live in prod.
 - **Mobile pass** — react-pdf canvas PDF viewer (replaces iframe), document
   actions as a bottom sheet, shared `SubSheetHeader` back-nav for all sub-sheets.
-  On staging. → [mobile-bottom-sheet-pattern.md](architecture/mobile-bottom-sheet-pattern.md)
+  Live in prod. → [mobile-bottom-sheet-pattern.md](architecture/mobile-bottom-sheet-pattern.md)
 
 ---
 
@@ -43,9 +47,10 @@ BoldSign (signatures), Resend (email), Cloudflare (DNS/SSL/R2). See
 
 | Item | Status | Doc |
 |------|--------|-----|
-| **FASE 2 → prod** | pending: owner creates prod Resend webhook + `RESEND_WEBHOOK_SECRET` in prod VM `.env`, then merge `develop`→`main` | [email-delivery-and-bounces.md](architecture/email-delivery-and-bounces.md) |
-| **PDF storage in R2** | receipts done + e2e local ✅ + staging ✅; contracts wired (pending real COMPLETED doc); prod bucket pending owner | [pdf-storage-r2.md](architecture/pdf-storage-r2.md) |
-| **Receipt reissue (2c)** | ✅ DONE local (backend + frontend), owner-approved; committed local (NOT pushed — goes to staging with 2b). Reissue + direct Void, derived VOID state, full-page watermark over the stored PDF, Actions submenu | [pdf-storage-r2.md](architecture/pdf-storage-r2.md) |
+| **FASE 2 (bounce webhooks)** | ✅ DONE — **live in prod** (Resend prod webhook + `RESEND_WEBHOOK_SECRET` set via `prod-maintenance` set-env) | [email-delivery-and-bounces.md](architecture/email-delivery-and-bounces.md) |
+| **PDF storage in R2** | ✅ DONE — **live in prod** (`ntssign-docs-prod` bucket + `R2_DOCS_*` set); receipts + contracts | [pdf-storage-r2.md](architecture/pdf-storage-r2.md) |
+| **Receipt reissue + void (2c)** | ✅ DONE — **live in prod** | [pdf-storage-r2.md](architecture/pdf-storage-r2.md) |
+| **Enable receipts for prod tenants** (NTSolutions + WorldPaver) | planned — via normal pipeline (local→staging→prod). Needs: seed PAYMENT_RECEIPT type+form on prod (MISSING), ReceiptTemplate per tenant (WPC reuses `wpc_receipt.pdf`; NTSolutions needs a base PDF design). No admin panel → script. | — |
 | Schema-driven forms admin panel (NOA-53) | ⏸️ paused (onboarding via DB scripts) | [pending.md](architecture/pending.md) |
 | B2B API foundation (NOA-17…) | backlog | [pending.md](architecture/pending.md) |
 

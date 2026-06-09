@@ -5,6 +5,7 @@ import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignatureProviderService } from '../signature-provider/signature-provider.service';
 import { EmailService } from '../email/email.service';
+import { R2Service } from '../storage/r2.service';
 
 const prismaMock = {
   documentType: {
@@ -74,6 +75,14 @@ describe('DocumentsService', () => {
               .fn()
               .mockResolvedValue({ id: 'test-email-id' }),
             sendSignedConfirmation: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: R2Service,
+          useValue: {
+            isConfigured: jest.fn().mockReturnValue(false),
+            getObject: jest.fn(),
+            putObject: jest.fn(),
           },
         },
       ],
@@ -630,6 +639,8 @@ describe('DocumentsService', () => {
       documentTypeId: 'type-1',
     });
     prismaMock.document.findFirst.mockResolvedValue(null);
+    // Per-user numbering scopes the max to (userId, type).
+    prismaMock.document.findMany.mockResolvedValue([]);
     prismaMock.document.create.mockResolvedValue({
       id: 'doc-new',
       documentNumber: 'CON-000001',
@@ -695,6 +706,104 @@ describe('DocumentsService', () => {
         dataJson: {},
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('createDraftDocument scopes the correlativo per user', async () => {
+    prismaMock.documentType.findUnique.mockResolvedValue({
+      id: 'type-1',
+      code: 'CON',
+      name: 'Contract',
+    });
+    prismaMock.formDefinition.findUnique.mockResolvedValue({
+      id: 'form-1',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+      id: 'tpl-1',
+      documentTypeId: 'type-1',
+    });
+    // This user already has CON-000002 → next must be CON-000003 for this user.
+    prismaMock.document.findMany.mockResolvedValue([
+      { documentNumber: 'CON-000002' },
+    ]);
+    prismaMock.document.findFirst.mockResolvedValue(null);
+    prismaMock.document.create.mockResolvedValue({
+      id: 'doc-new',
+      documentNumber: 'CON-000003',
+      status: DocumentStatus.DRAFT,
+      countedInBilling: false,
+      isOverage: false,
+      billingPeriod: null,
+    });
+    prismaMock.documentVersion.create.mockResolvedValue({});
+
+    await service.createDraftDocument('user-1', {
+      documentTypeId: 'type-1',
+      formDefinitionId: 'form-1',
+      signatureTemplateId: 'tpl-1',
+      contractDate: '2026-04-01',
+      dataJson: {},
+    });
+
+    // The max lookup is scoped to the creator's userId (not the tenant).
+    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: 'user-1' }),
+      }),
+    );
+    expect(prismaMock.document.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ documentNumber: 'CON-000003' }),
+      }),
+    );
+  });
+
+  it('createDraftDocument: a master using another user’s global form gets a number from their OWN sequence', async () => {
+    // The bug case: a master creates with a global form owned by another user.
+    // No guard blocks it, and the number must come from the master's own
+    // sequence — not the form owner's. The master (user-1) has no docs yet, so
+    // the next number is CON-000001 regardless of how many the form owner has.
+    prismaMock.documentType.findUnique.mockResolvedValue({
+      id: 'type-1',
+      code: 'CON',
+      name: 'Contract',
+    });
+    prismaMock.formDefinition.findUnique.mockResolvedValue({
+      id: 'form-owned-by-someone-else',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+      id: 'tpl-owned-by-someone-else',
+      documentTypeId: 'type-1',
+    });
+    prismaMock.document.findMany.mockResolvedValue([]); // master owns no CON docs
+    prismaMock.document.findFirst.mockResolvedValue(null);
+    prismaMock.document.create.mockResolvedValue({
+      id: 'doc-new',
+      documentNumber: 'CON-000001',
+      status: DocumentStatus.DRAFT,
+      countedInBilling: false,
+      isOverage: false,
+      billingPeriod: null,
+    });
+    prismaMock.documentVersion.create.mockResolvedValue({});
+
+    const result = await service.createDraftDocument('user-1', {
+      documentTypeId: 'type-1',
+      formDefinitionId: 'form-owned-by-someone-else',
+      signatureTemplateId: 'tpl-owned-by-someone-else',
+      contractDate: '2026-04-01',
+      dataJson: {},
+    });
+
+    // Number scoped to the master (user-1) — NOT a guard rejection, NOT the form
+    // owner's sequence.
+    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: 'user-1' }),
+      }),
+    );
+    expect(result.document.documentNumber).toBe('CON-000001');
   });
 
   it('resendDocument blocks resend when cooldown is active', async () => {
