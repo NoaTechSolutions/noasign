@@ -40,6 +40,49 @@ describe('scrubString', () => {
   });
 });
 
+describe('scrubString — PII in free text (v1.1)', () => {
+  it('redacts emails', () => {
+    expect(scrubString('login failed for jane.doe@test.com here')).toBe(
+      `login failed for ${REDACTED} here`,
+    );
+  });
+
+  it('redacts DNI — dotted and bare 7-8 digits', () => {
+    expect(scrubString('dni 12.345.678 ok')).toBe(`dni ${REDACTED} ok`);
+    expect(scrubString('dni 12345678 ok')).toBe(`dni ${REDACTED} ok`);
+    expect(scrubString('dni 1234567 ok')).toBe(`dni ${REDACTED} ok`);
+  });
+
+  it('redacts CUIT/CUIL — dashed and bare 11 digits', () => {
+    expect(scrubString('cuit 20-12345678-9 end')).toBe(`cuit ${REDACTED} end`);
+    expect(scrubString('cuit 20123456789 end')).toBe(`cuit ${REDACTED} end`);
+  });
+
+  it('redacts phone numbers — international and grouped', () => {
+    const intl = scrubString('call +54 9 11 2345-6789 now');
+    expect(intl).toContain(REDACTED);
+    expect(intl).not.toContain('2345');
+    expect(scrubString('tel 11-2345-6789')).toBe(`tel ${REDACTED}`);
+  });
+
+  it('does NOT over-redact short numbers, years or normal text', () => {
+    expect(scrubString('opened 3 docs in 2026')).toBe('opened 3 docs in 2026');
+    expect(scrubString('status 404 on page 2')).toBe('status 404 on page 2');
+    expect(scrubString('order #15 shipped')).toBe('order #15 shipped');
+  });
+
+  it('redacts PII embedded in an exception message via scrubEvent', () => {
+    const event = scrubEvent({
+      message: 'signup failed for jane@test.com (dni 12345678)',
+      exception: { values: [{ value: 'duplicate cuit 20-12345678-9' }] },
+    });
+    expect(event.message).not.toContain('jane@test.com');
+    expect(event.message).not.toContain('12345678');
+    expect(event.message).toContain(REDACTED);
+    expect(event.exception?.values?.[0]?.value).not.toContain('20-12345678-9');
+  });
+});
+
 describe('scrubEvent', () => {
   it('redacts Authorization and Cookie headers', () => {
     const event = scrubEvent({

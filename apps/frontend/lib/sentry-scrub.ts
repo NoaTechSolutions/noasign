@@ -54,12 +54,29 @@ const TOKEN_PATTERNS: RegExp[] = [
   /\b[A-Fa-f0-9]{32,}\b/g, // long hex API keys / hashes
 ];
 
+// PII embedded in FREE TEXT (error messages, exception values, breadcrumbs,
+// string values). Key-based redaction only catches structured data; these catch
+// PII pasted into a message string. Kept to DISTINCTIVE formats to avoid
+// scrubbing useful debug info. NOTE: the bare-digit DNI/CUIT rules are the most
+// aggressive and CAN over-redact plain numbers (e.g. an 8-digit id) — included
+// on purpose per the v1.1 "PII in messages" decision. Order matters: dashed/
+// dotted/grouped forms run BEFORE the bare-digit fallbacks.
+const PII_PATTERNS: RegExp[] = [
+  /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, // email
+  /\b\d{2}-\d{8}-\d\b/g, // CUIT/CUIL dashed (20-12345678-9)
+  /\b\d{1,3}\.\d{3}\.\d{3}\b/g, // DNI dotted (12.345.678)
+  /\+\d[\d\s().-]{7,}\d/g, // intl phone (+54 9 11 2345-6789)
+  /\b\d{2,4}[\s-]\d{3,4}[\s-]\d{4}\b/g, // grouped phone (11-2345-6789)
+  /\b\d{11}\b/g, // bare CUIT-length digits
+  /\b\d{7,8}\b/g, // bare DNI digits
+];
+
 const MAX_DEPTH = 8;
 
-/** Redact token-shaped substrings inside a free-text string. */
+/** Redact token- and PII-shaped substrings inside a free-text string. */
 export function scrubString(input: string): string {
   let out = input;
-  for (const pattern of TOKEN_PATTERNS) {
+  for (const pattern of [...TOKEN_PATTERNS, ...PII_PATTERNS]) {
     out = out.replace(pattern, REDACTED);
   }
   return out;
