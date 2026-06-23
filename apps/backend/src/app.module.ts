@@ -12,6 +12,8 @@ import { AdminModule } from './admin/admin.module';
 import { ContactModule } from './contact/contact.module';
 import { CustomersModule } from './customers/customers.module';
 import { ReceiptsModule } from './receipts/receipts.module';
+// TEMPORARY — Sentry scrub e2e harness (inert in prod). Remove before prod.
+import { DebugSentryModule } from './observability/debug-sentry.module';
 
 @Module({
   imports: [
@@ -29,6 +31,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
     ContactModule,
     CustomersModule,
     ReceiptsModule,
+    DebugSentryModule, // TEMPORARY — remove before prod
   ],
   providers: [
     {
