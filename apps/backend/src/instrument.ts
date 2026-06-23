@@ -2,8 +2,18 @@
 // bootstrap are captured. This file is imported as the first line of main.ts.
 // If SENTRY_DSN is not set (local dev without Sentry), init is skipped and the
 // Sentry SDK becomes a no-op — zero impact on the running process.
+//
+// This file runs BEFORE NestJS ConfigModule loads the .env, so it cannot rely on
+// it and must not depend on how the process launcher (pm2) delivers env. We load
+// the SAME cwd-based .env that ConfigModule uses, but here — before Sentry.init
+// reads process.env. dotenv does NOT override vars already present, so it is safe
+// whether or not pm2 already injected them. This also makes the PROD backend
+// robust once SENTRY_* are set there.
+import { config as loadEnv } from 'dotenv';
 import * as Sentry from '@sentry/nestjs';
 import { scrubEvent } from './observability/sentry-scrub';
+
+loadEnv();
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
