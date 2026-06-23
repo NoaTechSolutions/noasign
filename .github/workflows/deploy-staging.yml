@@ -98,6 +98,8 @@ jobs:
         timeout-minutes: 20
         env:
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          # Build-time tag so staging errors never mix with prod. NOT a secret.
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: staging
         run: |
           set -e
           export NVM_DIR="$HOME/.nvm"
