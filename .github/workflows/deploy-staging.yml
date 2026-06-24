@@ -95,7 +95,10 @@ jobs:
           node scripts/dev-helpers/_seed-receipt-template.js 7aaad16a-6d76-4c36-97c7-b9ce3e45b801
 
       - name: Deploy frontend
-        timeout-minutes: 20
+        # 40min (was 20): on a swap-bound VM the 512MB-capped front build hits
+        # exactly 20min intermittently. This build bakes the Sentry DSN, so a
+        # mid-build timeout would ship a DSN-less bundle. Headroom, not a fix.
+        timeout-minutes: 40
         env:
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
           # Build-time tag so staging errors never mix with prod. NOT a secret.

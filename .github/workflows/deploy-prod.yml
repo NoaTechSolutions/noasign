@@ -49,7 +49,10 @@ jobs:
           echo "--- Backend deploy complete ---"
 
       - name: Deploy frontend
-        timeout-minutes: 20
+        # 40min (was 20): on a swap-bound VM the 512MB-capped front build hits
+        # exactly 20min intermittently. This build bakes the Sentry DSN, so a
+        # mid-build timeout would ship a DSN-less bundle. Headroom, not a fix.
+        timeout-minutes: 40
         env:
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
           # Build-time tag so prod errors never mix with staging. NOT a secret.
