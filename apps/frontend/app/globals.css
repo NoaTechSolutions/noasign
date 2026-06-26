@@ -20,6 +20,8 @@
   --brand-accent-hover: #048fdd;
   --brand-accent-soft: rgba(5, 165, 255, 0.18);
   --brand-highlight: #ff9900;
+  /* Success accent (e.g. send-success toast). Same in light/dark. */
+  --color-success: #22c55e;
   --bg-page: #f0f4ff;
   --bg-page-subtle: #f7f8fa;
   --bg-surface: #ffffff;

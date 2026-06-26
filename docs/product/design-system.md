@@ -15,6 +15,7 @@
 | `--color-sky` | `#05a5ff` | Color primario dark — botones, links, iconos activos |
 | `--color-amber` | `#ff9900` | Acento — botón secundario, badges, separadores, palabra clave en hero |
 | `--color-amber-hover` | `#cc7a00` | Hover del botón secundario/amber |
+| `--color-success` | `#22c55e` | Éxito — check del send-toast, estados OK. Mismo en light/dark |
 
 ### Fondos light mode
 
