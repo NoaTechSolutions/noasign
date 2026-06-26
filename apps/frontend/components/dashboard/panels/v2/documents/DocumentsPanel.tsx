@@ -481,6 +481,7 @@ export function DocumentsPanel({
           onReissueReceipt={onReissueReceipt}
           autoOpenReissue={reissueOnOpen}
           onFetchReceiptPdf={onFetchReceiptPdf}
+          isMaster={isMaster}
         />
       ) : null}
 

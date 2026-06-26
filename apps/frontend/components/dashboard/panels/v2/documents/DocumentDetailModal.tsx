@@ -60,6 +60,9 @@ interface DocumentDetailModalProps {
   // Auto-open the reissue form on mount (when opened via the kebab "Reissue").
   autoOpenReissue?: boolean;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
+  // Manual "Sync status" (BoldSign provider pull) is a fallback to the webhook;
+  // restricted to MASTER (support/admin) so regular users don't see it in prod.
+  isMaster?: boolean;
 }
 
 // Editable field groups (per card) — drives both readOnly display and the
@@ -266,6 +269,7 @@ export function DocumentDetailModal({
   onReissueReceipt,
   autoOpenReissue = false,
   onFetchReceiptPdf,
+  isMaster = false,
 }: DocumentDetailModalProps) {
   const [detail, setDetail] = useState<DocumentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1239,9 +1243,11 @@ function DetailFooter({
       );
       right = (
         <>
-          <button type="button" className="btn-secondary" onClick={() => onAction('sync')}>
-            Sync
-          </button>
+          {isMaster ? (
+            <button type="button" className="btn-secondary" onClick={() => onAction('sync')}>
+              Sync
+            </button>
+          ) : null}
           <button type="button" className="btn-warning" onClick={() => onAction('resend')}>
             Resend
           </button>
@@ -1249,11 +1255,12 @@ function DetailFooter({
       );
       break;
     case 'SIGNED':
-      right = (
+      // Manual sync is a MASTER-only fallback to the BoldSign webhook.
+      right = isMaster ? (
         <button type="button" className="btn-secondary" onClick={() => onAction('sync')}>
           Sync status
         </button>
-      );
+      ) : null;
       break;
     case 'COMPLETED':
       right = (
