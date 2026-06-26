@@ -690,7 +690,7 @@ export function DocumentDetailModal({
             {/* Footer actions — hidden on the PDF tab so its single Download
                 button isn't duplicated by the footer's (COMPLETED) Download. */}
             {activeTab !== 'pdf' && !isVoidedReceipt && (
-              <DetailFooter status={status} onAction={runAction} />
+              <DetailFooter status={status} onAction={runAction} isMaster={isMaster} />
             )}
           </>
         )}
@@ -1214,9 +1214,11 @@ function PdfTab({
 function DetailFooter({
   status,
   onAction,
+  isMaster = false,
 }: {
   status: string;
   onAction: (action: V2DocumentAction) => void;
+  isMaster?: boolean;
 }) {
   let left: React.ReactNode = null;
   let right: React.ReactNode = null;
