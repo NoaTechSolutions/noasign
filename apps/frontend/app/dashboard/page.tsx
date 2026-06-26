@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import toast from "react-hot-toast";
-import { ReceiptSendToast } from "../../components/dashboard/panels/v2/documents/ReceiptSendToast";
+import { SendToast } from "../../components/dashboard/panels/v2/documents/SendToast";
 import { API_URL, apiRequest } from "../../lib/api";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
@@ -927,24 +927,48 @@ function DashboardPageInner() {
 
   async function handleDocumentAction(documentId: string, action: DocumentAction) {
     setDocumentActionId(documentId);
-    setError("");
-    let actionSucceeded = false;
 
-    try {
+    // POST the action + refresh workspace/detail. Shared by all actions.
+    const runAction = async () => {
       await apiRequest<DocumentActionResponse>(`/documents/${documentId}/${action}`, {
         method: "POST",
       });
-      actionSucceeded = true;
-
       const { nextSelectedId } = await loadWorkspace(selectedDocumentId);
       const detailTarget =
         documentId === selectedDocumentId ? documentId : nextSelectedId;
-
       if (detailTarget) {
         await loadDocumentDetail(detailTarget);
       } else {
         setDocumentDetail(null);
       }
+    };
+
+    // send/resend surface the SendToast (parity with receipts) — success + error
+    // live in the toast, NOT the inline error banner. The POST throws on failure
+    // (no SEND_FAILED status for contracts), so the toast's catch handles errors.
+    if (action === "send" || action === "resend") {
+      runSendWithToast(
+        async () => {
+          try {
+            await runAction();
+            return { status: "SENT", sendError: null };
+          } finally {
+            setDocumentActionId(null);
+          }
+        },
+        action === "send"
+          ? { loading: "Sending document…", success: "Document sent for signature" }
+          : { loading: "Resending document…", success: "Document resent for signature" },
+      );
+      return;
+    }
+
+    // cancel / reactivate keep the inline error banner.
+    setError("");
+    let actionSucceeded = false;
+    try {
+      await runAction();
+      actionSucceeded = true;
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -1112,14 +1136,18 @@ function DashboardPageInner() {
   // Optimistic send: show a top-right toast with an animated bar that resolves
   // to the REAL result (SENT → success; SEND_FAILED / cooldown 400 → error with
   // the reason). The caller has already closed the popup. Fire-and-forget.
-  function runReceiptSendWithToast(
+  // Shared send/resend toast orchestrator for receipts AND contracts. `send`
+  // resolves with { status, sendError } (status "SEND_FAILED" → error state) or
+  // throws (network/unknown → error state). Copy is per-flow.
+  function runSendWithToast(
     send: () => Promise<{ status: string; sendError: string | null }>,
+    copy: { loading: string; success: string },
   ): void {
-    const id = `rcpt-send-${Date.now()}-${Math.random()
+    const id = `send-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2, 7)}`;
     toast.custom(
-      () => <ReceiptSendToast state="loading" message="Sending receipt…" />,
+      () => <SendToast state="loading" message={copy.loading} />,
       { id, duration: Infinity },
     );
     send()
@@ -1127,12 +1155,12 @@ function DashboardPageInner() {
         const failed = res.status === "SEND_FAILED";
         toast.custom(
           () => (
-            <ReceiptSendToast
+            <SendToast
               state={failed ? "error" : "success"}
               message={
                 failed
                   ? `Could not send: ${res.sendError ?? "unknown error"}`
-                  : "Receipt sent successfully"
+                  : copy.success
               }
               onDismiss={() => toast.dismiss(id)}
             />
@@ -1143,11 +1171,9 @@ function DashboardPageInner() {
       .catch((e: unknown) => {
         toast.custom(
           () => (
-            <ReceiptSendToast
+            <SendToast
               state="error"
-              message={
-                e instanceof Error ? e.message : "Could not send the receipt"
-              }
+              message={`Could not send: ${e instanceof Error ? e.message : "unknown error"}`}
               onDismiss={() => toast.dismiss(id)}
             />
           ),
@@ -1159,18 +1185,21 @@ function DashboardPageInner() {
   // Resend/retry from the kebab. The backend handles the 24h cooldown (bypassed
   // on email change) and returns a clear message on 400 — surfaced in the toast.
   async function handleResendReceipt(documentId: string): Promise<void> {
-    runReceiptSendWithToast(async () => {
-      const res = await apiRequest<{
-        message: string;
-        document: { status: string };
-        sendError: string | null;
-      }>(`/documents/receipt/${documentId}/resend`, { method: "POST" });
-      await loadWorkspace();
-      return {
-        status: res.document?.status ?? "SENT",
-        sendError: res.sendError ?? null,
-      };
-    });
+    runSendWithToast(
+      async () => {
+        const res = await apiRequest<{
+          message: string;
+          document: { status: string };
+          sendError: string | null;
+        }>(`/documents/receipt/${documentId}/resend`, { method: "POST" });
+        await loadWorkspace();
+        return {
+          status: res.document?.status ?? "SENT",
+          sendError: res.sendError ?? null,
+        };
+      },
+      { loading: "Sending receipt…", success: "Receipt sent successfully" },
+    );
   }
 
   async function handleUpdateReceipt(
@@ -2016,18 +2045,21 @@ function DashboardPageInner() {
         if (payload.send) {
           // Optimistic: the form already closed; show the progress toast and
           // resolve it with the REAL SENT / SEND_FAILED result.
-          runReceiptSendWithToast(async () => {
-            const res = await apiRequest<{
-              message: string;
-              document: { status: string };
-              sendError: string | null;
-            }>("/documents/receipt", { method: "POST", body: payload });
-            await loadWorkspace();
-            return {
-              status: res.document?.status ?? "SENT",
-              sendError: res.sendError ?? null,
-            };
-          });
+          runSendWithToast(
+            async () => {
+              const res = await apiRequest<{
+                message: string;
+                document: { status: string };
+                sendError: string | null;
+              }>("/documents/receipt", { method: "POST", body: payload });
+              await loadWorkspace();
+              return {
+                status: res.document?.status ?? "SENT",
+                sendError: res.sendError ?? null,
+              };
+            },
+            { loading: "Sending receipt…", success: "Receipt sent successfully" },
+          );
           return { status: "SENT", sendError: null };
         }
         // Draft — no email, simple toast.
