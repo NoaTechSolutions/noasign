@@ -190,6 +190,23 @@ export function DocumentsPanel({
     }
   });
 
+  // Entrance animation for freshly-inserted rows: diff the document ids across
+  // renders and flag only the genuinely new ones. The first populated render is
+  // skipped (prev empty) so the whole table doesn't animate on initial load.
+  const seenDocIdsRef = useRef<Set<string> | null>(null);
+  const [newDocIds, setNewDocIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const currentIds = documents.map((d) => d.id);
+    const prev = seenDocIdsRef.current;
+    seenDocIdsRef.current = new Set(currentIds);
+    if (!prev) return; // first population — don't animate existing rows
+    const added = currentIds.filter((id) => !prev.has(id));
+    if (added.length === 0) return;
+    setNewDocIds(new Set(added));
+    const t = setTimeout(() => setNewDocIds(new Set()), 400);
+    return () => clearTimeout(t);
+  }, [documents]);
+
   // Persist filters + search in the URL via replaceState (NOT the Next router,
   // so it never re-runs the page's data effects). Empty/"all" values are removed.
   useEffect(() => {
@@ -432,6 +449,7 @@ export function DocumentsPanel({
             availableTypes={availableTypes}
             onQuickFilterStatus={setStatusFilter}
             onQuickFilterType={setTypeFilter}
+            newIds={newDocIds}
           />
           <DocumentsCards
             documents={pageItems}

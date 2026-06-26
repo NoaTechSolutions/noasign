@@ -23,6 +23,8 @@ interface DocumentTableRowProps {
   selected: boolean;
   onSelect: (docId: string) => void;
   onAction: (action: V2DocumentAction, docId: string) => void | Promise<void>;
+  // Plays the fade/slide-in entrance once when the row was just inserted.
+  isNew?: boolean;
 }
 
 export function DocumentTableRow({
@@ -30,6 +32,7 @@ export function DocumentTableRow({
   selected,
   onSelect,
   onAction,
+  isNew = false,
 }: DocumentTableRowProps) {
   const { open: menuOpen, toggle, close, style: menuStyle, triggerRef, menuRef } = useDropdownPosition();
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -67,7 +70,7 @@ export function DocumentTableRow({
 
   return (
     <tr
-      className={`documents-v2-row${selected ? ' documents-v2-row--selected' : ''}`}
+      className={`documents-v2-row${selected ? ' documents-v2-row--selected' : ''}${isNew ? ' docs-v2-row-in' : ''}`}
       onClick={() => onSelect(document.id)}
     >
       {/* 1. Document = number (primary) + client (secondary), two-line + truncate */}

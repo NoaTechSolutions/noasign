@@ -17,6 +17,8 @@ interface DocumentsTableProps {
   availableTypes?: string[];
   onQuickFilterStatus?: (value: StatusFilter) => void;
   onQuickFilterType?: (value: string) => void;
+  // Ids of rows just inserted — they play the entrance animation once.
+  newIds?: Set<string>;
 }
 
 // Skeleton row matching the 5 columns so there's no layout jump.
@@ -117,6 +119,7 @@ export function DocumentsTable({
   availableTypes = [],
   onQuickFilterStatus,
   onQuickFilterType,
+  newIds,
 }: DocumentsTableProps) {
   const statusOptions = STATUS_FILTER_OPTIONS.map((o) => ({
     value: o.value,
@@ -171,6 +174,7 @@ export function DocumentsTable({
                   selected={doc.id === selectedId}
                   onSelect={onSelect}
                   onAction={onAction}
+                  isNew={newIds?.has(doc.id) ?? false}
                 />
               ))}
         </tbody>
