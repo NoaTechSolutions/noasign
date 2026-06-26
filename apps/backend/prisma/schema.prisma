@@ -74,6 +74,11 @@ enum PlanName {
   LAUNCH
   SCALE
   PRO_UNLIMITED
+  // Model C (additive — legacy values above are intentionally NOT remapped):
+  STARTER
+  PRO
+  PAY_PER_CONTRACT
+  RECEIPTS_ONLY
 }
 
 model CompanyProfile {
@@ -114,6 +119,14 @@ model CompanyProfile {
   monthlyDocLimit Int      @default(5)
   overagePrice    Decimal  @default(5.00) @db.Decimal(10, 2)
   isUnlimited     Boolean  @default(false)
+
+  // Model C — per-tenant receipt billing (separate from contract limits above).
+  // Seeded from PLAN_DEFAULTS when a plan is assigned; enforcement reads these
+  // fields directly so manual overrides survive.
+  monthlyReceiptLimit Int     @default(0)
+  receiptsUnlimited   Boolean @default(false)
+  receiptOveragePrice Decimal @default(0.25) @db.Decimal(10, 2)
+  contractsEnabled    Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -471,6 +484,12 @@ model Document {
   countedInBilling Boolean @default(false)
   isOverage        Boolean @default(false)
   billingPeriod    String?
+
+  // Model C — receipt billing dimension, separate from countedInBilling so the
+  // contract and receipt quotas never cross-contaminate. Reuses billingPeriod.
+  // Set on the first successful SEND of a non-reissue receipt (decisions B + C).
+  countedAsReceipt Boolean @default(false)
+  isReceiptOverage Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
