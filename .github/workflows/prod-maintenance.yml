@@ -17,12 +17,61 @@ on:
           - set-env
           - post-deploy-check
           - receipts-readiness
+          - set-tenant-plan
+      company_id:
+        description: 'set-tenant-plan: CompanyProfile.id to update'
+        type: string
+        required: false
+      plan:
+        description: 'set-tenant-plan: plan to assign (seeds receipt fields)'
+        type: choice
+        required: false
+        default: RECEIPTS_ONLY
+        options:
+          - STARTER
+          - LAUNCH
+          - PRO
+          - SCALE
+          - PRO_UNLIMITED
+          - PAY_PER_CONTRACT
+          - RECEIPTS_ONLY
+      dry_run:
+        description: 'set-tenant-plan: preview only (uncheck to apply)'
+        type: boolean
+        required: false
+        default: true
 
 concurrency:
   group: prod-maintenance
   cancel-in-progress: false
 
 jobs:
+  # 6) Assign a plan to a tenant + seed its receipt-billing fields from
+  #    PLAN_DEFAULTS (single source of truth). DRY_RUN by default. Only plan +
+  #    receipt fields change; contract overrides (monthlyDocLimit/isUnlimited)
+  #    are preserved.
+  set-tenant-plan:
+    if: github.event.inputs.step == 'set-tenant-plan'
+    name: Set tenant plan + receipt fields
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Apply plan via PLAN_DEFAULTS (dry-run unless dry_run=false)
+        env:
+          COMPANY_ID: ${{ github.event.inputs.company_id }}
+          PLAN: ${{ github.event.inputs.plan }}
+          # inputs are strings: 'true' (dry-run, default) / 'false' (apply).
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          if [ -z "${COMPANY_ID:-}" ]; then echo "ERROR: company_id input is required"; exit 1; fi
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL from .env"; exit 1; fi
+          DATABASE_URL="$DB" node scripts/set-tenant-plan.js
+          echo "GATE: review BEFORE/WILL SET above. Re-run with dry_run unchecked to apply."
+
   # 5) Read-only: can these users create receipts? Reports their tenants/roles,
   #    whether the PAYMENT_RECEIPT type+form exist, and each tenant's receipt
   #    templates + the users' doc configs. Uses Prisma (exact field names).
