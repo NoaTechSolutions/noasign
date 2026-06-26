@@ -12,6 +12,9 @@
 //   PLAN        (required)  a PlanName (STARTER/LAUNCH/PRO/SCALE/PRO_UNLIMITED/
 //                           PAY_PER_CONTRACT/RECEIPTS_ONLY)
 //   DRY_RUN     ('true' default) — read-only preview unless explicitly 'false'
+//   MONTHLY_RECEIPT_LIMIT (optional) — override the plan's receipt limit (e.g. 2
+//                          for fast overage testing). A per-tenant override; the
+//                          rest of the receipt fields still come from PLAN_DEFAULTS.
 //
 // Run from apps/backend with DATABASE_URL set (the prod-maintenance step does
 // this). Idempotent.
@@ -62,9 +65,16 @@ async function main() {
     });
     if (!before) throw new Error(`CompanyProfile ${companyId} not found`);
 
+    // Optional per-tenant override of the receipt limit (e.g. 2 for fast overage
+    // testing on staging). Falls back to the plan default when unset/invalid.
+    const limitOverride = Number(process.env.MONTHLY_RECEIPT_LIMIT);
+    const monthlyReceiptLimit = Number.isFinite(limitOverride)
+      ? limitOverride
+      : defaults.monthlyReceiptLimit;
+
     const next = {
       planName: plan,
-      monthlyReceiptLimit: defaults.monthlyReceiptLimit,
+      monthlyReceiptLimit,
       receiptsUnlimited: defaults.receiptsUnlimited,
       receiptOveragePrice: defaults.receiptOveragePrice,
       contractsEnabled: defaults.contractsEnabled,
