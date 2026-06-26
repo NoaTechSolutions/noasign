@@ -79,6 +79,13 @@ interface ReceiptFormProps {
   // Superadmin flow: the selected user's receipt template to borrow (threaded
   // into the create payload). Undefined for the normal company-template path.
   receiptTemplateId?: string;
+  // Model C — receipt quota for this tenant (remaining=null when unlimited).
+  // Drives the quota/overage hint above the actions. Optional: omit to hide.
+  receiptQuota?: {
+    remaining: number | null;
+    unlimited: boolean;
+    overagePrice: number;
+  };
   onCreate: (payload: CreateReceiptPayload) => Promise<ReceiptCreateResult>;
   // Closes the host modal (Cancel + after a successful create / on send).
   onClose: () => void;
@@ -92,6 +99,7 @@ export function ReceiptForm({
   prefillClient,
   prefillEmail,
   receiptTemplateId,
+  receiptQuota,
   onCreate,
   onClose,
 }: ReceiptFormProps) {
@@ -366,6 +374,17 @@ export function ReceiptForm({
         <div className="docs-v2-creation-modal__error" role="alert">
           {error}
         </div>
+      ) : null}
+
+      {/* Model C — receipt quota hint (separate from the contract limit). */}
+      {receiptQuota ? (
+        <p className="receipt-quota-hint">
+          {receiptQuota.unlimited || receiptQuota.remaining === null
+            ? 'Unlimited receipts on your plan.'
+            : receiptQuota.remaining > 0
+              ? `${receiptQuota.remaining} receipt${receiptQuota.remaining === 1 ? '' : 's'} left this month.`
+              : `Monthly receipts used up — each new receipt is billed at $${receiptQuota.overagePrice.toFixed(2)} (overage).`}
+        </p>
       ) : null}
 
       <footer className="receipt-modal__footer">

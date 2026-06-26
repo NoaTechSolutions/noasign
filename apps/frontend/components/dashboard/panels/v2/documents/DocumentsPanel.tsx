@@ -57,6 +57,12 @@ export interface DocumentsPanelProps {
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
   defaultReceivedBy?: string;
+  // Model C — receipt quota, forwarded to the receipt form's quota/overage hint.
+  receiptQuota?: {
+    remaining: number | null;
+    unlimited: boolean;
+    overagePrice: number;
+  };
   // Superadmin flow: MASTER picks any user (all tenants) to borrow templates.
   selectableUsers?: SelectableUser[];
   onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
@@ -113,6 +119,7 @@ export function DocumentsPanel({
   onCreateDraft,
   onCreateReceipt,
   defaultReceivedBy,
+  receiptQuota,
   selectableUsers,
   onFetchTypesAsUser,
   onEditDocument,
@@ -489,6 +496,7 @@ export function DocumentsPanel({
           onCreate={onCreateDraft}
           onCreateReceipt={onCreateReceipt}
           defaultReceivedBy={defaultReceivedBy}
+          receiptQuota={receiptQuota}
         />
       ) : null}
 

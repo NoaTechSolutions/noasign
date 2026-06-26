@@ -109,6 +109,14 @@ type CurrentUsage = {
   documentsUsed: number;
   remainingDocuments: number | null;
   overageDocuments: number;
+  // Model C — receipt billing dimension (separate from contracts).
+  contractsEnabled: boolean;
+  monthlyReceiptLimit: number;
+  receiptsUnlimited: boolean;
+  receiptOveragePrice: number;
+  receiptsUsed: number;
+  remainingReceipts: number | null;
+  receiptOverageDocuments: number;
 };
 
 type MonthlySummary = {
@@ -2220,6 +2228,17 @@ function DashboardPageInner() {
           isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={handleFetchTypesAsUser}
+          receiptQuota={
+            usage
+              ? {
+                  remaining: usage.receiptsUnlimited
+                    ? null
+                    : usage.remainingReceipts,
+                  unlimited: usage.receiptsUnlimited,
+                  overagePrice: usage.receiptOveragePrice,
+                }
+              : undefined
+          }
         />
       ) : (
         <div

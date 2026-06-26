@@ -53,6 +53,12 @@ interface DocumentCreationModalProps {
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
   defaultReceivedBy?: string;
+  // Model C — receipt quota for the receipt form's quota/overage hint.
+  receiptQuota?: {
+    remaining: number | null;
+    unlimited: boolean;
+    overagePrice: number;
+  };
 }
 
 function todayIso(): string {
@@ -98,6 +104,7 @@ export function DocumentCreationModal({
   onCreate,
   onCreateReceipt,
   defaultReceivedBy,
+  receiptQuota,
 }: DocumentCreationModalProps) {
   const [setup, setSetup] = useState<DocumentSetupValue>({
     documentTypeId: '',
@@ -315,6 +322,7 @@ export function DocumentCreationModal({
               prefillClient={selectedCustomer?.fullName}
               prefillEmail={selectedCustomer?.email ?? undefined}
               receiptTemplateId={selectedDocType?.receiptTemplateId}
+              receiptQuota={receiptQuota}
               onCreate={onCreateReceipt!}
               onClose={onClose}
             />
