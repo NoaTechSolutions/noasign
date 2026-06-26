@@ -1315,6 +1315,9 @@ function DashboardPageInner() {
 
       await loadWorkspace(response.document.id);
       await loadDocumentDetail(response.document.id);
+      // Parity with the receipt draft flow — confirm the save. Errors stay in
+      // the creation modal's inline banner (no duplicate toast).
+      toast.success("Draft saved");
       return response.document;
     } catch (createError) {
       setError(
