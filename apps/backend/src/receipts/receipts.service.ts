@@ -90,6 +90,38 @@ export class ReceiptsService {
     }
   }
 
+  private getBillingPeriod(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  /**
+   * Model C — receipt billing fields to stamp on a receipt's FIRST successful
+   * send. Receipt quota is a per-tenant monthly pool. MASTERs and
+   * receiptsUnlimited tenants never hit overage. Reissues never count (callers
+   * guard on supersedesId before calling this), so this only resolves the
+   * billingPeriod + whether the receipt lands in overage.
+   */
+  private async getReceiptBillingState(
+    companyProfileId: string,
+    isMaster: boolean,
+  ): Promise<{ billingPeriod: string; isReceiptOverage: boolean }> {
+    const billingPeriod = this.getBillingPeriod();
+    const profile = await this.prisma.companyProfile.findUnique({
+      where: { id: companyProfileId },
+      select: { receiptsUnlimited: true, monthlyReceiptLimit: true },
+    });
+    const receiptsUnlimited = isMaster || (profile?.receiptsUnlimited ?? false);
+    if (receiptsUnlimited) return { billingPeriod, isReceiptOverage: false };
+    const used = await this.prisma.document.count({
+      where: { companyProfileId, countedAsReceipt: true, billingPeriod },
+    });
+    return {
+      billingPeriod,
+      isReceiptOverage: used >= (profile?.monthlyReceiptLimit ?? 0),
+    };
+  }
+
   /**
    * Generate a receipt PDF from the tenant's ReceiptTemplate, persist it as a
    * PAYMENT_RECEIPT Document, and (optionally) email it. Returns the document +
@@ -256,6 +288,14 @@ export class ReceiptsService {
         pdfBuffer,
       });
 
+      // Model C — count the receipt toward the tenant's monthly quota on its
+      // first successful send. Reissues never count (decision C).
+      const billing = opts?.supersedesId
+        ? null
+        : await this.getReceiptBillingState(
+            companyProfileId,
+            user.role === 'MASTER',
+          );
       const sent = await this.prisma.document.update({
         where: { id: document.id },
         data: {
@@ -267,6 +307,13 @@ export class ReceiptsService {
           lastAttemptAt: new Date(),
           providerEmailId: providerEmailId || null,
           sendError: null,
+          ...(billing
+            ? {
+                countedAsReceipt: true,
+                billingPeriod: billing.billingPeriod,
+                isReceiptOverage: billing.isReceiptOverage,
+              }
+            : {}),
         },
       });
       return { document: sent, receiptNumber, pdf: pdfBuffer };
@@ -518,6 +565,29 @@ export class ReceiptsService {
         companyName: document.companyProfile?.companyName ?? 'NTSsign',
         pdfBuffer,
       });
+      // Model C — count on the FIRST successful send (covers a DRAFT sent from
+      // the kebab, and a SEND_FAILED first send that now succeeds). Guards keep
+      // it from double-counting (countedAsReceipt) or counting a reissue.
+      let receiptBilling: Prisma.DocumentUpdateInput | null = null;
+      if (
+        !document.countedAsReceipt &&
+        !document.supersedesId &&
+        document.companyProfileId
+      ) {
+        const owner = await this.prisma.user.findUnique({
+          where: { id: document.userId },
+          select: { role: true },
+        });
+        const state = await this.getReceiptBillingState(
+          document.companyProfileId,
+          owner?.role === 'MASTER',
+        );
+        receiptBilling = {
+          countedAsReceipt: true,
+          billingPeriod: state.billingPeriod,
+          isReceiptOverage: state.isReceiptOverage,
+        };
+      }
       const sent = await this.prisma.document.update({
         where: { id: document.id },
         data: {
@@ -528,6 +598,7 @@ export class ReceiptsService {
           lastAttemptAt: new Date(),
           providerEmailId: providerEmailId || null,
           sendError: null,
+          ...(receiptBilling ?? {}),
         },
       });
       return { document: sent };

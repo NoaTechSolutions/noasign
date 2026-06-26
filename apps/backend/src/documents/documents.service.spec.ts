@@ -38,6 +38,9 @@ const prismaMock = {
   receiptTemplate: {
     findMany: jest.fn(),
   },
+  companyProfile: {
+    findUnique: jest.fn(),
+  },
 };
 
 const signatureProviderServiceMock = {
@@ -61,6 +64,10 @@ describe('DocumentsService', () => {
       id: 'user-1',
       role: 'MASTER',
       companyProfileId: 'company-1',
+    });
+    // Model C — default tenant allows contracts unless a test overrides it.
+    prismaMock.companyProfile.findUnique.mockResolvedValue({
+      contractsEnabled: true,
     });
 
     const module: TestingModule = await Test.createTestingModule({

@@ -588,6 +588,19 @@ export class DocumentsService {
       },
     });
 
+    // Model C — a RECEIPTS_ONLY tenant (contractsEnabled=false) cannot use
+    // BoldSign/contract types; only receipts (added further down). Masters are
+    // cross-tenant superadmins and exit via the early return above, so this
+    // only affects regular tenant users.
+    const tenantContractsEnabled = effectiveCompanyProfileId
+      ? (
+          await this.prisma.companyProfile.findUnique({
+            where: { id: effectiveCompanyProfileId },
+            select: { contractsEnabled: true },
+          })
+        )?.contractsEnabled ?? true
+      : true;
+
     const typeMap = new Map<
       string,
       {
@@ -613,6 +626,14 @@ export class DocumentsService {
       if (
         !config.formDefinition.isActive ||
         !config.signatureTemplate.isActive
+      ) {
+        continue;
+      }
+
+      // RECEIPTS_ONLY: hide contract (BoldSign) types.
+      if (
+        !tenantContractsEnabled &&
+        config.documentType.generationMode === 'BOLDSIGN'
       ) {
         continue;
       }
@@ -791,6 +812,18 @@ export class DocumentsService {
     if (signatureTemplate.documentTypeId !== body.documentTypeId) {
       throw new BadRequestException(
         'Signature template does not belong to the selected document type',
+      );
+    }
+
+    // Model C — RECEIPTS_ONLY tenants (contractsEnabled=false) cannot create
+    // contracts. Masters are cross-tenant superadmins and bypass this.
+    if (
+      user.role !== 'MASTER' &&
+      documentType.generationMode === 'BOLDSIGN' &&
+      user.companyProfile?.contractsEnabled === false
+    ) {
+      throw new ForbiddenException(
+        'Your plan does not include contracts.',
       );
     }
 
