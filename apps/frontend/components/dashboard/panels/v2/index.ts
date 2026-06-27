@@ -30,13 +30,10 @@ export type { MembersPanelProps } from './members';
 export { LockedUsersPanel } from './locked-users';
 export type { LockedUsersPanelProps } from './locked-users';
 
-// Billing panel V3 (full redesign — top cards + overage alert + comparison + plan-change modals)
+// Billing panel V3 (top cards + overage alert + plan-features + compare modal)
 export { BillingPanel } from './BillingPanel';
 export { TopCardsSection } from './TopCardsSection';
 export { OverageAlert } from './OverageAlert';
 export { MonthlyUsageSection } from './MonthlyUsageSection';
 export { PlanFeaturesSection } from './PlanFeaturesSection';
-export { ComparisonSection } from './ComparisonSection';
 export { ChangePlanModal } from './ChangePlanModal';
-export { ConfirmChangeModal } from './ConfirmChangeModal';
-export { DowngradeWarningModal } from './DowngradeWarningModal';
