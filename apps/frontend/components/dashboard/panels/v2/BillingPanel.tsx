@@ -247,6 +247,11 @@ export function BillingPanel({ currentPlan, cycle, usage, receipts, role, isLoad
           users: currentPlan.usersLimit,
           templates: currentPlan.templatesLimit,
         }}
+        receipts={{
+          limit: receipts.limit,
+          unlimited: receipts.unlimited,
+          overagePrice: receipts.overagePrice,
+        }}
         features={currentPlan.features}
         overageRate={currentPlan.overageRate}
         onCompare={handleChangePlan}

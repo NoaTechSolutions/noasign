@@ -11,6 +11,12 @@ interface PlanFeaturesSectionProps {
     users: number;
     templates: number | null;
   };
+  // Model C — receipt allowance for this plan (cupo + overage, or unlimited).
+  receipts: {
+    limit: number;
+    unlimited: boolean;
+    overagePrice: number;
+  };
   features: {
     userManagement: boolean;
     multiSigner: boolean;
@@ -28,6 +34,7 @@ export function PlanFeaturesSection({
   planName,
   planPrice,
   limits,
+  receipts,
   features,
   overageRate,
   onCompare,
@@ -36,6 +43,10 @@ export function PlanFeaturesSection({
     {
       label: 'Documents/mo',
       value: String(limits.documents),
+    },
+    {
+      label: 'Receipts/mo',
+      value: receipts.unlimited ? 'Unlimited' : String(receipts.limit),
     },
     {
       label: 'Users',
@@ -52,6 +63,10 @@ export function PlanFeaturesSection({
     {
       label: 'Overage',
       value: `$${overageRate.toFixed(2)}/doc`,
+    },
+    {
+      label: 'Receipt overage',
+      value: `$${receipts.overagePrice.toFixed(2)}/receipt`,
     },
   ];
 
