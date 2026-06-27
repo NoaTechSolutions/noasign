@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { BarChart2, FileText, Users, LayoutTemplate } from 'lucide-react';
+import { UNLIMITED_GLYPH } from '@/lib/plan-catalog';
 
 interface MonthlyUsageSectionProps {
   usage: {
@@ -67,14 +68,16 @@ export function MonthlyUsageSection({
             <span className="billing-usage-item__label">Documents</span>
           </div>
           <div className="billing-usage-item__mid">
-            <span className="billing-usage-item__value">{usage.documents}</span>
-            <span className="billing-usage-item__limit">
-              {limits.documents == null
-                ? '/ Unlimited'
-                : `/ ${limits.documents} included`}
-            </span>
-            {limits.documents != null && (
-              <span className="billing-usage-item__badge">{docsPct}%</span>
+            {limits.documents == null ? (
+              <span className="billing-usage-item__value">{UNLIMITED_GLYPH}</span>
+            ) : (
+              <>
+                <span className="billing-usage-item__value">{usage.documents}</span>
+                <span className="billing-usage-item__limit">
+                  / {limits.documents} included
+                </span>
+                <span className="billing-usage-item__badge">{docsPct}%</span>
+              </>
             )}
           </div>
           {limits.documents != null && (
@@ -101,12 +104,14 @@ export function MonthlyUsageSection({
             <span className="billing-usage-item__label">Users</span>
           </div>
           <div className="billing-usage-item__mid">
-            <span className="billing-usage-item__value">{usage.users}</span>
-            <span className="billing-usage-item__limit">
-              {limits.users == null ? '/ Unlimited' : `/ ${limits.users} seats`}
-            </span>
-            {limits.users != null && (
-              <span className="billing-usage-item__badge">{usersPct}%</span>
+            {limits.users == null ? (
+              <span className="billing-usage-item__value">{UNLIMITED_GLYPH}</span>
+            ) : (
+              <>
+                <span className="billing-usage-item__value">{usage.users}</span>
+                <span className="billing-usage-item__limit">/ {limits.users} seats</span>
+                <span className="billing-usage-item__badge">{usersPct}%</span>
+              </>
             )}
           </div>
           {limits.users != null && (
@@ -128,14 +133,16 @@ export function MonthlyUsageSection({
             <span className="billing-usage-item__label">Templates</span>
           </div>
           <div className="billing-usage-item__mid">
-            <span className="billing-usage-item__value">{usage.templates}</span>
-            <span className="billing-usage-item__limit">
-              {limits.templates == null
-                ? '/ Unlimited'
-                : `/ ${limits.templates} included`}
-            </span>
-            {limits.templates != null && (
-              <span className="billing-usage-item__badge">{templatesPct}%</span>
+            {limits.templates == null ? (
+              <span className="billing-usage-item__value">{UNLIMITED_GLYPH}</span>
+            ) : (
+              <>
+                <span className="billing-usage-item__value">{usage.templates}</span>
+                <span className="billing-usage-item__limit">
+                  / {limits.templates} included
+                </span>
+                <span className="billing-usage-item__badge">{templatesPct}%</span>
+              </>
             )}
           </div>
           {limits.templates != null && (

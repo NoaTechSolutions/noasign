@@ -1673,7 +1673,8 @@ function DashboardPageInner() {
       if (!backendUsage) return null;
       return {
         documentsUsed: backendUsage.documentsUsed,
-        documentsLimit: backendUsage.monthlyDocLimit,
+        // null = unlimited (so the usage card shows ∞ instead of 0/0).
+        documentsLimit: backendUsage.isUnlimited ? null : backendUsage.monthlyDocLimit,
         overageCount: backendUsage.overageDocuments,
         // Model C — receipt dimension (per-tenant, separate from contracts).
         receiptsUsed: backendUsage.receiptsUsed,

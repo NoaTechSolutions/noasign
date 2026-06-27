@@ -23,7 +23,7 @@ interface CompanyProfile {
 
 interface CurrentUsage {
   documentsUsed: number;
-  documentsLimit: number;
+  documentsLimit: number | null; // null = unlimited
   overageCount?: number;
   // Model C — receipt dimension (per-tenant, separate from contracts).
   receiptsUsed?: number;

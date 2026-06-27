@@ -1,9 +1,10 @@
 import React from 'react';
 import { FileText, Clock, CircleCheck, CreditCard } from 'lucide-react';
+import { formatUsage } from '@/lib/plan-catalog';
 
 interface CurrentUsage {
   documentsUsed: number;
-  documentsLimit: number;
+  documentsLimit: number | null; // null = unlimited
   overageCount?: number;
 }
 
@@ -48,7 +49,8 @@ export function MetricCards({ usage, monthlySummary, documents, isLoading }: Met
   const docs = documents ?? [];
   const used = usage?.documentsUsed ?? 0;
   const limit = usage?.documentsLimit ?? 0;
-  const pct = limit > 0 ? Math.round((used / limit) * 100) : 0;
+  const isUnlimited = usage?.documentsLimit === null;
+  const pct = !isUnlimited && limit > 0 ? Math.round((used / limit) * 100) : 0;
   const pctClass = pct >= 90 ? 'danger' : pct >= 75 ? 'warning' : 'success';
 
   const pending = docs.filter((d) => d.status === 'SENT' || d.status === 'VIEWED').length;
@@ -68,12 +70,22 @@ export function MetricCards({ usage, monthlySummary, documents, isLoading }: Met
           <span className="metric-card__label">This month</span>
         </div>
         <div className="metric-card__value">
-          {used} <span className="metric-card__value-sub">/ {limit}</span>
+          {isUnlimited ? (
+            formatUsage(used, null)
+          ) : (
+            <>
+              {used} <span className="metric-card__value-sub">/ {limit}</span>
+            </>
+          )}
         </div>
-        <div className={`metric-progress metric-progress--${pctClass}`}>
-          <div className="metric-progress__fill" style={{ width: `${Math.min(pct, 100)}%` }} />
+        {!isUnlimited && (
+          <div className={`metric-progress metric-progress--${pctClass}`}>
+            <div className="metric-progress__fill" style={{ width: `${Math.min(pct, 100)}%` }} />
+          </div>
+        )}
+        <div className="metric-card__foot">
+          {isUnlimited ? 'Unlimited on your plan' : `${pct}% of plan limit`}
         </div>
-        <div className="metric-card__foot">{pct}% of plan limit</div>
       </div>
 
       {/* Pending */}
