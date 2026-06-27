@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Pencil } from 'lucide-react';
 import { compressImage } from '@/lib/compress-image';
+import { getPlanEntry } from '@/lib/plan-catalog';
 
 interface User {
   firstName: string;
@@ -163,7 +164,7 @@ export function ProfileHeaderCard({
               </span>
             )}
             <span className={`plan-badge ${getPlanBadgeClass(plan)}`}>
-              {plan}
+              {getPlanEntry(plan).name}
             </span>
           </div>
         </div>
