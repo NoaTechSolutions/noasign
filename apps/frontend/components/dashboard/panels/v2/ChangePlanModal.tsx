@@ -16,8 +16,8 @@ interface ChangePlanModalProps {
 // ─── Plan catalog (spec-defined values) ─────────────────────────────────────
 
 // RECEIPTS_ONLY is a different kind of plan (no contracts, unlimited receipts).
-// Its price is a business value not encoded anywhere in the codebase, so it is
-// shown as "Contact us" rather than an invented number.
+// Owner-set price: $19/mo. Plan prices live here (the backend has no price
+// column); this is the single source for the comparison table.
 const CONTRACT_PLAN_ORDER = ['STARTER', 'LAUNCH', 'PRO', 'SCALE'] as const;
 type PlanId = 'STARTER' | 'LAUNCH' | 'PRO' | 'SCALE' | 'RECEIPTS_ONLY';
 
@@ -40,9 +40,8 @@ const PLANS: Record<PlanId, PlanInfo> = {
   PRO:           { name: 'Pro',     price: 89,   docs: 50,  users: 5,  templates: 10   },
   SCALE:         { name: 'Scale',   price: 229,  docs: 150, users: 15, templates: null },
   RECEIPTS_ONLY: {
-    name: 'Receipts Only',
-    price: null,
-    priceLabel: 'Contact us',
+    name: 'Receipts',
+    price: 19,
     docs: 0,
     users: 1,
     templates: 0,
@@ -331,8 +330,8 @@ export function ChangePlanModal({ currentPlan, contractsEnabled, onClose }: Chan
                     {plan.receiptsOnly ? (
                       <>
                         <li><strong>∞</strong> receipts/mo</li>
-                        <li>No contract signing</li>
-                        <li>$0.25/receipt overage</li>
+                        <li>Unlimited — no monthly cap</li>
+                        <li>No contracts included</li>
                       </>
                     ) : (
                       <>
