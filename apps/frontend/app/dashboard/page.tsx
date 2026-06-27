@@ -2483,6 +2483,26 @@ const BILLING_PLAN_CONFIG: Record<string, BillingPlanConfig> = {
       retention: "Unlimited",
     },
   },
+  // Model C — receipts-only plan. Values mirror the ChangePlanModal PLANS catalog
+  // (name "Receipts", $19/mo, no contracts). Contract dimensions are 0 because the
+  // plan has no contracts; receipts (unlimited) are shown via the receipts card.
+  RECEIPTS_ONLY: {
+    name: "Receipts",
+    price: 19,
+    docsLimit: 0,
+    usersLimit: 1,
+    templatesLimit: 0,
+    overageRate: 0,
+    features: {
+      userManagement: false,
+      multiSigner: false,
+      branding: false,
+      bulkSend: false,
+      analytics: false,
+      prioritySupport: false,
+      retention: "1 year",
+    },
+  },
 };
 
 function getBillingPlanConfig(planName: string | null | undefined): BillingPlanConfig {
