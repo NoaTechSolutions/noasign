@@ -65,6 +65,20 @@ async function main() {
     });
     if (!before) throw new Error(`CompanyProfile ${companyId} not found`);
 
+    // Anti-downgrade guard (Model C, backend half of the double-lock): a tenant
+    // that already has a contracts plan (contractsEnabled=true) must NOT be moved
+    // to RECEIPTS_ONLY — receipts-only contradicts contract capability and would
+    // strip their contracts. The front hides RECEIPTS_ONLY in the same case; this
+    // is the authoritative server-side check. Migrate/cancel contracts first.
+    if (plan === 'RECEIPTS_ONLY' && before.contractsEnabled === true) {
+      throw new Error(
+        `Anti-downgrade: tenant "${before.companyName}" (${companyId}) is on ` +
+          `"${before.planName}" with contractsEnabled=true. RECEIPTS_ONLY cannot ` +
+          `be assigned to a tenant that has a contracts plan. Cancel/migrate its ` +
+          `contracts first, or pick a contracts plan.`,
+      );
+    }
+
     // Optional per-tenant override of the receipt limit (e.g. 2 for fast overage
     // testing on staging). Falls back to the plan default when unset/invalid.
     const limitOverride = Number(process.env.MONTHLY_RECEIPT_LIMIT);
