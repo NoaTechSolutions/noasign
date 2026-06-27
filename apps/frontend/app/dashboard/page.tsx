@@ -2215,6 +2215,7 @@ function DashboardPageInner() {
           cycle={billingV3.cycle}
           usage={billingV3.usage}
           receipts={billingV3.receipts}
+          contractsEnabled={usage?.contractsEnabled ?? true}
           role={billingV3.role}
           isLoading={isLoading}
         />

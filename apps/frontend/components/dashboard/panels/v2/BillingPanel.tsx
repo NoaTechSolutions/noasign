@@ -7,8 +7,6 @@ import { ReceiptsUsageCard } from './ReceiptsUsageCard';
 import { PlanFeaturesSection } from './PlanFeaturesSection';
 import { OverageAlert } from './OverageAlert';
 import { ChangePlanModal } from './ChangePlanModal';
-import { ConfirmChangeModal } from './ConfirmChangeModal';
-import { DowngradeWarningModal } from './DowngradeWarningModal';
 import './billing-panel.css';
 
 interface BillingPanelProps {
@@ -49,47 +47,20 @@ interface BillingPanelProps {
     unlimited: boolean;
     overagePrice: number;
   };
+  // Model C — gates the RECEIPTS_ONLY anti-downgrade rule in the compare modal.
+  contractsEnabled: boolean;
   role: 'master' | 'admin' | 'user';
   isLoading?: boolean;
 }
 
-export function BillingPanel({ currentPlan, cycle, usage, receipts, role, isLoading }: BillingPanelProps) {
-  const [activeModal, setActiveModal] = useState<'change-plan' | 'confirm-change' | 'downgrade-warning' | null>(null);
-  const [pendingPlan, setPendingPlan] = useState<string | null>(null);
+export function BillingPanel({ currentPlan, cycle, usage, receipts, contractsEnabled, role, isLoading }: BillingPanelProps) {
+  // Single modal: plan comparison. Upgrades are not self-service yet (no billing
+  // endpoint / Stripe), so the modal only compares plans and routes to a contact
+  // CTA — no fake confirm/downgrade simulation.
+  const [showComparePlans, setShowComparePlans] = useState(false);
 
-  const handleChangePlan = () => {
-    setActiveModal('change-plan');
-  };
-
-  const handleSelectPlan = (planId: string) => {
-    if (planId === currentPlan.plan) return;
-
-    setPendingPlan(planId);
-
-    const planTiers: Record<string, number> = {
-      STARTER: 1, LAUNCH: 2, PRO: 3, SCALE: 4,
-    };
-
-    const currentTier = planTiers[currentPlan.plan] || 2;
-    const nextTier = planTiers[planId] || 2;
-
-    setActiveModal(null);
-    setTimeout(() => {
-      setActiveModal(nextTier < currentTier ? 'downgrade-warning' : 'confirm-change');
-    }, 80);
-  };
-
-  const handleConfirmChange = () => {
-    setActiveModal(null);
-    setPendingPlan(null);
-  };
-
-  const closeModal = () => {
-    setActiveModal(null);
-    if (activeModal === 'change-plan') {
-      setPendingPlan(null);
-    }
-  };
+  const handleChangePlan = () => setShowComparePlans(true);
+  const closeModal = () => setShowComparePlans(false);
 
   const hasOverage = usage.overageCount > 0;
 
@@ -257,30 +228,10 @@ export function BillingPanel({ currentPlan, cycle, usage, receipts, role, isLoad
         onCompare={handleChangePlan}
       />
 
-      {activeModal === 'change-plan' && (
+      {showComparePlans && (
         <ChangePlanModal
           currentPlan={currentPlan.plan}
-          onSelectPlan={handleSelectPlan}
-          onClose={closeModal}
-        />
-      )}
-
-      {activeModal === 'confirm-change' && pendingPlan && (
-        <ConfirmChangeModal
-          currentPlan={currentPlan}
-          nextPlan={pendingPlan}
-          nextBilling={cycle.nextBilling}
-          onConfirm={handleConfirmChange}
-          onClose={closeModal}
-        />
-      )}
-
-      {activeModal === 'downgrade-warning' && pendingPlan && (
-        <DowngradeWarningModal
-          currentPlan={currentPlan}
-          nextPlan={pendingPlan}
-          usage={usage}
-          onConfirm={handleConfirmChange}
+          contractsEnabled={contractsEnabled}
           onClose={closeModal}
         />
       )}
