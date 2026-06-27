@@ -14,8 +14,9 @@ interface BillingPanelProps {
     name: string;
     plan: string;
     price: number;
-    documentsLimit: number;
-    usersLimit: number;
+    // null = unlimited (e.g. PRO_UNLIMITED legacy override).
+    documentsLimit: number | null;
+    usersLimit: number | null;
     templatesLimit: number | null;
     overageRate: number;
     features: {

@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { Check, X as XIcon } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { PLAN_CATALOG } from '@/lib/plan-catalog';
 
 interface ChangePlanModalProps {
   currentPlan: string;
@@ -13,41 +14,35 @@ interface ChangePlanModalProps {
   onClose: () => void;
 }
 
-// ─── Plan catalog (spec-defined values) ─────────────────────────────────────
+// ─── Plan data (derived from the shared catalog) ─────────────────────────────
+// All plan numbers come from lib/plan-catalog (single source of truth). This
+// modal only renders the public lineup + RECEIPTS_ONLY; the adapters below keep
+// the existing render shape without re-hardcoding any values.
 
-// RECEIPTS_ONLY is a different kind of plan (no contracts, unlimited receipts).
-// Owner-set price: $19/mo. Plan prices live here (the backend has no price
-// column); this is the single source for the comparison table.
-const CONTRACT_PLAN_ORDER = ['STARTER', 'LAUNCH', 'PRO', 'SCALE'] as const;
-type PlanId = 'STARTER' | 'LAUNCH' | 'PRO' | 'SCALE' | 'RECEIPTS_ONLY';
+const MODAL_PLAN_IDS = ['STARTER', 'LAUNCH', 'PRO', 'SCALE', 'RECEIPTS_ONLY'] as const;
+type PlanId = (typeof MODAL_PLAN_IDS)[number];
 
 interface PlanInfo {
   name: string;
-  /** Monthly price; null when there is no fixed published price (receipts-only). */
-  price: number | null;
-  /** Shown when price is null (e.g. "Contact us"). */
-  priceLabel?: string;
+  price: number;
   docs: number | null;
   users: number | null;
   templates: number | null;
-  /** Receipts-only plans render a dedicated card (no contract dimensions). */
   receiptsOnly?: boolean;
 }
 
-const PLANS: Record<PlanId, PlanInfo> = {
-  STARTER:       { name: 'Starter', price: 19,   docs: 5,   users: 1,  templates: 1    },
-  LAUNCH:        { name: 'Launch',  price: 39,   docs: 15,  users: 2,  templates: 3    },
-  PRO:           { name: 'Pro',     price: 89,   docs: 50,  users: 5,  templates: 10   },
-  SCALE:         { name: 'Scale',   price: 229,  docs: 150, users: 15, templates: null },
-  RECEIPTS_ONLY: {
-    name: 'Receipts',
-    price: 19,
-    docs: 0,
-    users: 1,
-    templates: 0,
-    receiptsOnly: true,
-  },
-};
+const PLANS = MODAL_PLAN_IDS.reduce((acc, id) => {
+  const e = PLAN_CATALOG[id];
+  acc[id] = {
+    name: e.name,
+    price: e.price,
+    docs: e.docsLimit,
+    users: e.usersLimit,
+    templates: e.templatesLimit,
+    receiptsOnly: e.receiptsOnly,
+  };
+  return acc;
+}, {} as Record<PlanId, PlanInfo>);
 
 // Upgrades are not self-service yet (no billing endpoint / Stripe) — every
 // non-current plan routes to a contact request instead of a fake confirmation.
@@ -61,7 +56,7 @@ function upgradeMailto(planName: string): string {
 }
 
 // ─── Feature matrix (cumulative per plan) ────────────────────────────────────
-// Features: Team management, Multi-signer, Auto reminders, Custom branding, Analytics
+// The 5 features shown on the cards map onto catalog feature flags.
 
 type FeatureKey = 'teamManagement' | 'multiSigner' | 'autoReminders' | 'customBranding' | 'analytics';
 
@@ -73,13 +68,17 @@ const FEATURE_LABELS: Record<FeatureKey, string> = {
   analytics:      'Analytics',
 };
 
-const PLAN_FEATURES: Record<PlanId, Record<FeatureKey, boolean>> = {
-  STARTER:       { teamManagement: false, multiSigner: false, autoReminders: true,  customBranding: false, analytics: false },
-  LAUNCH:        { teamManagement: true,  multiSigner: true,  autoReminders: true,  customBranding: false, analytics: false },
-  PRO:           { teamManagement: true,  multiSigner: true,  autoReminders: true,  customBranding: true,  analytics: true  },
-  SCALE:         { teamManagement: true,  multiSigner: true,  autoReminders: true,  customBranding: true,  analytics: true  },
-  RECEIPTS_ONLY: { teamManagement: false, multiSigner: false, autoReminders: false, customBranding: false, analytics: false },
-};
+const PLAN_FEATURES = MODAL_PLAN_IDS.reduce((acc, id) => {
+  const f = PLAN_CATALOG[id].features;
+  acc[id] = {
+    teamManagement: f.userManagement,
+    multiSigner:    f.multiSigner,
+    autoReminders:  f.autoReminders,
+    customBranding: f.branding,
+    analytics:      f.analytics,
+  };
+  return acc;
+}, {} as Record<PlanId, Record<FeatureKey, boolean>>);
 
 // Receipts-only feature highlights (replaces the contract feature rows on its card).
 const RECEIPTS_ONLY_HIGHLIGHTS = [
@@ -88,17 +87,20 @@ const RECEIPTS_ONLY_HIGHLIGHTS = [
   'Contract signing not included',
 ];
 
+// Public contract plans in display order (RECEIPTS_ONLY is offered separately).
+const PUBLIC_ORDER: PlanId[] = MODAL_PLAN_IDS.filter((id) => id !== 'RECEIPTS_ONLY');
+
 // Plans offered to this tenant. Anti-downgrade: RECEIPTS_ONLY is hidden once the
 // tenant has a contracts plan; it stays visible for receipts-only / no-contracts
 // tenants (so their current plan still renders).
 function offeredPlans(contractsEnabled: boolean): PlanId[] {
   return contractsEnabled
-    ? [...CONTRACT_PLAN_ORDER]
-    : ['RECEIPTS_ONLY', ...CONTRACT_PLAN_ORDER];
+    ? [...PUBLIC_ORDER]
+    : ['RECEIPTS_ONLY', ...PUBLIC_ORDER];
 }
 
 function priceText(plan: PlanInfo): string {
-  return plan.price === null ? (plan.priceLabel ?? 'Contact us') : `$${plan.price}/mo`;
+  return `$${plan.price}/mo`;
 }
 
 // ─── PlanSlide (mobile carousel card) ────────────────────────────────────────
@@ -317,13 +319,7 @@ export function ChangePlanModal({ currentPlan, contractsEnabled, onClose }: Chan
 
                   <h3 className="change-plan-card__name">{plan.name}</h3>
                   <p className="change-plan-card__price">
-                    {plan.price === null ? (
-                      <strong>{plan.priceLabel ?? 'Contact us'}</strong>
-                    ) : (
-                      <>
-                        <strong>${plan.price}</strong>/mo
-                      </>
-                    )}
+                    <strong>${plan.price}</strong>/mo
                   </p>
 
                   <ul className="change-plan-card__features">

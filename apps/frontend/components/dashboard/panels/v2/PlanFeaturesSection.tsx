@@ -2,13 +2,14 @@
 
 import React from 'react';
 import { Sparkles, Check, X, ArrowLeftRight } from 'lucide-react';
+import { formatLimit } from '@/lib/plan-catalog';
 
 interface PlanFeaturesSectionProps {
   planName: string;
   planPrice: number;
   limits: {
-    documents: number;
-    users: number;
+    documents: number | null; // null = unlimited
+    users: number | null; // null = unlimited
     templates: number | null;
   };
   // Model C — receipt allowance for this plan (cupo + overage, or unlimited).
@@ -42,7 +43,7 @@ export function PlanFeaturesSection({
   const metrics: { label: string; value: string }[] = [
     {
       label: 'Documents/mo',
-      value: String(limits.documents),
+      value: formatLimit(limits.documents),
     },
     {
       label: 'Receipts/mo',
@@ -50,11 +51,11 @@ export function PlanFeaturesSection({
     },
     {
       label: 'Users',
-      value: String(limits.users),
+      value: formatLimit(limits.users),
     },
     {
       label: 'Templates',
-      value: limits.templates == null ? 'Unlimited' : String(limits.templates),
+      value: formatLimit(limits.templates),
     },
     {
       label: 'History',

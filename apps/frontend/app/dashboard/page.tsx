@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import toast from "react-hot-toast";
 import { SendToast } from "../../components/dashboard/panels/v2/documents/SendToast";
 import { API_URL, apiRequest } from "../../lib/api";
+import { getPlanEntry } from "../../lib/plan-catalog";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel } from "../../components/dashboard/panels/v2";
@@ -1819,25 +1820,37 @@ function DashboardPageInner() {
     };
 
     // BillingPanel V3 data shape. Plan price + features + non-doc limits come
-    // from frontend BILLING_PLAN_CONFIG (backend has no plan-price / max-users
-    // / max-templates columns). Doc limit is the live backend value. Users
-    // count = managedUsers length; templates count = documentTypes length as
-    // a proxy until backend tracks "templates in use".
-    const billingPlanCfg = getBillingPlanConfig(companyProfile?.planName);
+    // from the shared plan catalog (lib/plan-catalog — single source of truth;
+    // backend has no plan-price / max-users / max-templates columns). Doc limit
+    // is the live backend value (null when the tenant is on an unlimited plan,
+    // e.g. PRO_UNLIMITED). Users count = managedUsers length; templates count =
+    // documentTypes length as a proxy until backend tracks "templates in use".
+    const billingPlanCfg = getPlanEntry(companyProfile?.planName);
     const billingPlanKey = (companyProfile?.planName ?? "LAUNCH").toUpperCase();
     const billingV3 = {
       currentPlan: {
         name: billingPlanCfg.name,
         plan: billingPlanKey,
         price: billingPlanCfg.price,
-        documentsLimit:
-          usage?.monthlyDocLimit ??
-          companyProfile?.monthlyDocLimit ??
-          billingPlanCfg.docsLimit,
+        documentsLimit: usage?.isUnlimited
+          ? null
+          : usage?.monthlyDocLimit ??
+            companyProfile?.monthlyDocLimit ??
+            billingPlanCfg.docsLimit,
         usersLimit: billingPlanCfg.usersLimit,
         templatesLimit: billingPlanCfg.templatesLimit,
         overageRate: billingPlanCfg.overageRate,
-        features: billingPlanCfg.features,
+        // Map the catalog's feature set to the BillingPanel shape (retention is
+        // a top-level catalog field; the panel nests it under features).
+        features: {
+          userManagement: billingPlanCfg.features.userManagement,
+          multiSigner: billingPlanCfg.features.multiSigner,
+          branding: billingPlanCfg.features.branding,
+          bulkSend: billingPlanCfg.features.bulkSend,
+          analytics: billingPlanCfg.features.analytics,
+          prioritySupport: billingPlanCfg.features.prioritySupport,
+          retention: billingPlanCfg.retention,
+        },
       },
       cycle: {
         month: formatBillingMonth(monthlySummary?.month),
@@ -2388,126 +2401,6 @@ function DashboardPageInner() {
       </Suspense>
     </main>
   );
-}
-
-// BillingPanel V3 plan config. Mirrors ComparisonSection's PLANS table so the
-// current-plan limits + features stay consistent with the comparison view.
-// SCALE.usersLimit = 9999 is a sentinel: BillingPanel's interface types it as
-// `number` (non-nullable) but ComparisonSection's row renders "Unlimited" for
-// users via its own table — so the UX wart only shows up in the Plan Features
-// header line for actual Scale tenants. Acceptable for MVP.
-type BillingPlanConfig = {
-  name: string;
-  price: number;
-  docsLimit: number;
-  usersLimit: number;
-  templatesLimit: number | null;
-  overageRate: number;
-  features: {
-    userManagement: boolean;
-    multiSigner: boolean;
-    branding: boolean;
-    bulkSend: boolean;
-    analytics: boolean;
-    prioritySupport: boolean;
-    retention: string;
-  };
-};
-
-const BILLING_PLAN_CONFIG: Record<string, BillingPlanConfig> = {
-  STARTER: {
-    name: "Starter",
-    price: 19,
-    docsLimit: 10,
-    usersLimit: 2,
-    templatesLimit: 5,
-    overageRate: 5.0,
-    features: {
-      userManagement: false,
-      multiSigner: false,
-      branding: false,
-      bulkSend: false,
-      analytics: false,
-      prioritySupport: false,
-      retention: "1 year",
-    },
-  },
-  LAUNCH: {
-    name: "Launch",
-    price: 39,
-    docsLimit: 15,
-    usersLimit: 3,
-    templatesLimit: 8,
-    overageRate: 3.5,
-    features: {
-      userManagement: true,
-      multiSigner: true,
-      branding: false,
-      bulkSend: false,
-      analytics: false,
-      prioritySupport: false,
-      retention: "2 years",
-    },
-  },
-  PRO: {
-    name: "Pro",
-    price: 89,
-    docsLimit: 50,
-    usersLimit: 5,
-    templatesLimit: null,
-    overageRate: 2.5,
-    features: {
-      userManagement: true,
-      multiSigner: true,
-      branding: true,
-      bulkSend: true,
-      analytics: true,
-      prioritySupport: false,
-      retention: "5 years",
-    },
-  },
-  SCALE: {
-    name: "Scale",
-    price: 229,
-    docsLimit: 9999,
-    usersLimit: 9999,
-    templatesLimit: null,
-    overageRate: 0,
-    features: {
-      userManagement: true,
-      multiSigner: true,
-      branding: true,
-      bulkSend: true,
-      analytics: true,
-      prioritySupport: true,
-      retention: "Unlimited",
-    },
-  },
-  // Model C — receipts-only plan. Values mirror the ChangePlanModal PLANS catalog
-  // (name "Receipts", $19/mo, no contracts). Contract dimensions are 0 because the
-  // plan has no contracts; receipts (unlimited) are shown via the receipts card.
-  RECEIPTS_ONLY: {
-    name: "Receipts",
-    price: 19,
-    docsLimit: 0,
-    usersLimit: 1,
-    templatesLimit: 0,
-    overageRate: 0,
-    features: {
-      userManagement: false,
-      multiSigner: false,
-      branding: false,
-      bulkSend: false,
-      analytics: false,
-      prioritySupport: false,
-      retention: "1 year",
-    },
-  },
-};
-
-function getBillingPlanConfig(planName: string | null | undefined): BillingPlanConfig {
-  const key = (planName ?? "LAUNCH").toUpperCase();
-  return BILLING_PLAN_CONFIG[key] ?? BILLING_PLAN_CONFIG.LAUNCH;
 }
 
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;

@@ -42,7 +42,7 @@ interface TopCardsSectionProps {
     name: string;
     plan: string;
     price: number;
-    documentsLimit: number;
+    documentsLimit: number | null; // null = unlimited
     overageRate: number;
   };
   cycle: {
@@ -67,7 +67,11 @@ export function CurrentPlanCard({
 }: TopCardsSectionProps) {
   const docsUsed = usage.documents;
   const docsLimit = currentPlan.documentsLimit;
-  const progressPct = docsLimit > 0 ? Math.min(100, Math.round((docsUsed / docsLimit) * 100)) : 0;
+  const docsLimitLabel = docsLimit === null ? '∞' : docsLimit;
+  const progressPct =
+    docsLimit !== null && docsLimit > 0
+      ? Math.min(100, Math.round((docsUsed / docsLimit) * 100))
+      : 0;
   const daysLeft = daysUntil(cycle.nextBilling);
   const isMaxPlan = MAX_PLAN_IDS.includes(currentPlan.plan.toUpperCase());
   const showUpgrade = !isMaxPlan;
@@ -101,7 +105,7 @@ export function CurrentPlanCard({
         <div className="billing-stat-box">
           <span className="billing-stat-box__label">Docs used</span>
           <span className="billing-stat-box__value">
-            {docsUsed}/{docsLimit}
+            {docsUsed}/{docsLimitLabel}
           </span>
           <div className="billing-progress-track">
             <div
@@ -152,7 +156,7 @@ export function CurrentPlanCard({
 
 interface BillingCycleCardProps {
   currentPlan: {
-    documentsLimit: number;
+    documentsLimit: number | null; // null = unlimited
     overageRate: number;
     price: number;
   };
@@ -169,7 +173,11 @@ export function BillingCycleCard({ currentPlan, cycle, usage }: BillingCycleCard
   const cycleTotal = currentPlan.price + usage.overageCount * currentPlan.overageRate;
   const docsUsed = usage.documents;
   const docsLimit = currentPlan.documentsLimit;
-  const progressPct = docsLimit > 0 ? Math.min(100, Math.round((docsUsed / docsLimit) * 100)) : 0;
+  const docsLimitLabel = docsLimit === null ? '∞' : docsLimit;
+  const progressPct =
+    docsLimit !== null && docsLimit > 0
+      ? Math.min(100, Math.round((docsUsed / docsLimit) * 100))
+      : 0;
 
   return (
     <div className="bill-card2">
@@ -186,7 +194,7 @@ export function BillingCycleCard({ currentPlan, cycle, usage }: BillingCycleCard
         {/* docs used + progress */}
         <div className="billing-cycle-cell">
           <span className="billing-cycle-cell__label">Documents used</span>
-          <span className="billing-cycle-cell__value">{docsUsed}/{docsLimit}</span>
+          <span className="billing-cycle-cell__value">{docsUsed}/{docsLimitLabel}</span>
           <div className="billing-progress-track billing-progress-track--sm">
             <div
               className="billing-progress-fill"
@@ -224,7 +232,7 @@ export function BillingCycleCard({ currentPlan, cycle, usage }: BillingCycleCard
       <div className="billing-cycle-rows">
         <div className="billing-cycle-row">
           <span className="billing-cycle-row__label">Documents</span>
-          <span className="billing-cycle-row__value">{docsUsed}/{docsLimit}</span>
+          <span className="billing-cycle-row__value">{docsUsed}/{docsLimitLabel}</span>
         </div>
         <div className="billing-cycle-row">
           <div className="billing-progress-track" style={{ flex: 1 }}>
