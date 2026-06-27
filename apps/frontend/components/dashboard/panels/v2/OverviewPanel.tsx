@@ -2,6 +2,7 @@ import './overview-panel.css';
 import React from 'react';
 import { WelcomeCard } from './WelcomeCard';
 import { MetricCards } from './MetricCards';
+import { ReceiptsUsageCard } from './ReceiptsUsageCard';
 import { NeedsAttention } from './NeedsAttention';
 import { StatusBreakdown } from './StatusBreakdown';
 import { RecentDocumentsTable } from './RecentDocumentsTable';
@@ -24,6 +25,11 @@ interface CurrentUsage {
   documentsUsed: number;
   documentsLimit: number;
   overageCount?: number;
+  // Model C — receipt dimension (per-tenant, separate from contracts).
+  receiptsUsed?: number;
+  monthlyReceiptLimit?: number;
+  receiptsUnlimited?: boolean;
+  receiptOveragePrice?: number;
 }
 
 interface MonthlySummary {
@@ -88,6 +94,14 @@ export function OverviewPanel({
         usage={usage}
         monthlySummary={monthlySummary}
         documents={documents}
+        isLoading={isLoading}
+      />
+
+      <ReceiptsUsageCard
+        used={usage?.receiptsUsed ?? 0}
+        limit={usage?.monthlyReceiptLimit ?? 0}
+        unlimited={usage?.receiptsUnlimited ?? false}
+        overagePrice={usage?.receiptOveragePrice ?? 0.25}
         isLoading={isLoading}
       />
 

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { TopCardsSection } from './TopCardsSection';
 import { MonthlyUsageSection } from './MonthlyUsageSection';
+import { ReceiptsUsageCard } from './ReceiptsUsageCard';
 import { PlanFeaturesSection } from './PlanFeaturesSection';
 import { OverageAlert } from './OverageAlert';
 import { ChangePlanModal } from './ChangePlanModal';
@@ -41,11 +42,18 @@ interface BillingPanelProps {
     templates: number;
     overageCount: number;
   };
+  // Model C — receipt usage + plan allowance (per-tenant, separate dimension).
+  receipts: {
+    used: number;
+    limit: number;
+    unlimited: boolean;
+    overagePrice: number;
+  };
   role: 'master' | 'admin' | 'user';
   isLoading?: boolean;
 }
 
-export function BillingPanel({ currentPlan, cycle, usage, role, isLoading }: BillingPanelProps) {
+export function BillingPanel({ currentPlan, cycle, usage, receipts, role, isLoading }: BillingPanelProps) {
   const [activeModal, setActiveModal] = useState<'change-plan' | 'confirm-change' | 'downgrade-warning' | null>(null);
   const [pendingPlan, setPendingPlan] = useState<string | null>(null);
 
@@ -220,6 +228,15 @@ export function BillingPanel({ currentPlan, cycle, usage, role, isLoading }: Bil
         }}
         cycleMonth={cycle.month}
         overageRate={currentPlan.overageRate}
+      />
+
+      <ReceiptsUsageCard
+        used={receipts.used}
+        limit={receipts.limit}
+        unlimited={receipts.unlimited}
+        overagePrice={receipts.overagePrice}
+        cycleMonth={cycle.month}
+        isLoading={isLoading}
       />
 
       <PlanFeaturesSection

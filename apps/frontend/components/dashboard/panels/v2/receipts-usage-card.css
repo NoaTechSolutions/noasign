@@ -1,0 +1,145 @@
+/* Receipts usage card — self-contained twin of .billing-usage-card. Mirrors the
+   contracts usage card look (billing-panel.css) with its own class namespace so
+   it can be used outside the Billing panel (Overview, Documents). */
+
+.receipts-usage-card {
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.receipts-usage-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 0.5px solid var(--border-soft);
+}
+
+.receipts-usage-card__head-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.receipts-usage-card__icon {
+  color: var(--brand-accent);
+  display: inline-flex;
+  align-items: center;
+}
+
+.receipts-usage-card__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.receipts-usage-card__month-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: rgba(5, 165, 255, 0.12);
+  color: var(--brand-accent);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.receipts-usage-card__body {
+  padding: 16px 20px;
+}
+
+.receipts-usage-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.receipts-usage-item__top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.receipts-usage-item__label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.receipts-usage-item__mid {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.receipts-usage-item__value {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--brand-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.receipts-usage-item__limit {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.receipts-usage-item__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: rgba(5, 165, 255, 0.12);
+  color: var(--brand-accent);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.receipts-usage-item__bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-active);
+  overflow: hidden;
+}
+
+.receipts-usage-item__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--brand-accent);
+  transition: width 0.32s ease-out;
+}
+
+.receipts-usage-item__hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.receipts-usage-skeleton {
+  height: 52px;
+  border-radius: 8px;
+  background: var(--bg-active);
+  animation: receipts-usage-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes receipts-usage-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DocumentsPanelHeader } from './DocumentsPanelHeader';
 import { DocumentsStats } from './DocumentsStats';
+import { ReceiptsUsageCard } from '../ReceiptsUsageCard';
 import { DocumentsToolbar } from './DocumentsToolbar';
 import { DocumentsTable } from './DocumentsTable';
 import { DocumentsCards } from './DocumentsCards';
@@ -60,6 +61,13 @@ export interface DocumentsPanelProps {
   // Model C — receipt quota, forwarded to the receipt form's quota/overage hint.
   receiptQuota?: {
     remaining: number | null;
+    unlimited: boolean;
+    overagePrice: number;
+  };
+  // Model C — receipt usage for the standalone usage card (X / Y this month).
+  receiptUsage?: {
+    used: number;
+    limit: number;
     unlimited: boolean;
     overagePrice: number;
   };
@@ -120,6 +128,7 @@ export function DocumentsPanel({
   onCreateReceipt,
   defaultReceivedBy,
   receiptQuota,
+  receiptUsage,
   selectableUsers,
   onFetchTypesAsUser,
   onEditDocument,
@@ -409,6 +418,16 @@ export function DocumentsPanel({
       <DocumentsPanelHeader isLoading={isLoading} />
 
       <DocumentsStats stats={stats} isLoading={isLoading} />
+
+      {receiptUsage ? (
+        <ReceiptsUsageCard
+          used={receiptUsage.used}
+          limit={receiptUsage.limit}
+          unlimited={receiptUsage.unlimited}
+          overagePrice={receiptUsage.overagePrice}
+          isLoading={isLoading}
+        />
+      ) : null}
 
       <DocumentsToolbar
         search={search}

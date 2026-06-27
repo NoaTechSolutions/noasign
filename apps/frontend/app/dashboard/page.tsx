@@ -1674,6 +1674,11 @@ function DashboardPageInner() {
         documentsUsed: backendUsage.documentsUsed,
         documentsLimit: backendUsage.monthlyDocLimit,
         overageCount: backendUsage.overageDocuments,
+        // Model C — receipt dimension (per-tenant, separate from contracts).
+        receiptsUsed: backendUsage.receiptsUsed,
+        monthlyReceiptLimit: backendUsage.monthlyReceiptLimit,
+        receiptsUnlimited: backendUsage.receiptsUnlimited,
+        receiptOveragePrice: backendUsage.receiptOveragePrice,
       };
     };
 
@@ -1845,6 +1850,13 @@ function DashboardPageInner() {
         users: managedUsers?.length ?? 1,
         templates: documentTypes?.length ?? 0,
         overageCount: usage?.overageDocuments ?? 0,
+      },
+      // Model C — receipt usage + plan allowance, kept separate from contracts.
+      receipts: {
+        used: usage?.receiptsUsed ?? 0,
+        limit: usage?.monthlyReceiptLimit ?? 0,
+        unlimited: usage?.receiptsUnlimited ?? false,
+        overagePrice: usage?.receiptOveragePrice ?? 0.25,
       },
       role: ((dashboardUser?.role ?? "USER").toLowerCase() as
         | "master"
@@ -2202,6 +2214,7 @@ function DashboardPageInner() {
           currentPlan={billingV3.currentPlan}
           cycle={billingV3.cycle}
           usage={billingV3.usage}
+          receipts={billingV3.receipts}
           role={billingV3.role}
           isLoading={isLoading}
         />
@@ -2269,6 +2282,16 @@ function DashboardPageInner() {
                   remaining: usage.receiptsUnlimited
                     ? null
                     : usage.remainingReceipts,
+                  unlimited: usage.receiptsUnlimited,
+                  overagePrice: usage.receiptOveragePrice,
+                }
+              : undefined
+          }
+          receiptUsage={
+            usage
+              ? {
+                  used: usage.receiptsUsed,
+                  limit: usage.monthlyReceiptLimit,
                   unlimited: usage.receiptsUnlimited,
                   overagePrice: usage.receiptOveragePrice,
                 }
