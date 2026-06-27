@@ -179,7 +179,7 @@ export const PLAN_CATALOG: Record<PlanId, PlanCatalogEntry> = {
   // contracts. Contract dimensions are 0; receipts come from getCurrentUsage.
   RECEIPTS_ONLY: {
     id: 'RECEIPTS_ONLY',
-    name: 'Receipts',
+    name: 'Receipts Plan',
     price: 19,
     priceAnnualMo: null,
     docsLimit: 0,
