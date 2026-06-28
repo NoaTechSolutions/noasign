@@ -1673,8 +1673,12 @@ function DashboardPageInner() {
       if (!backendUsage) return null;
       return {
         documentsUsed: backendUsage.documentsUsed,
-        // null = unlimited (so the usage card shows ∞ instead of 0/0).
-        documentsLimit: backendUsage.isUnlimited ? null : backendUsage.monthlyDocLimit,
+        // null = unlimited → usage card shows ∞ instead of 0/0. Also null for
+        // receipts-only tenants (no contracts dimension to cap).
+        documentsLimit:
+          backendUsage.isUnlimited || !backendUsage.contractsEnabled
+            ? null
+            : backendUsage.monthlyDocLimit,
         overageCount: backendUsage.overageDocuments,
         // Model C — receipt dimension (per-tenant, separate from contracts).
         receiptsUsed: backendUsage.receiptsUsed,
@@ -1833,11 +1837,12 @@ function DashboardPageInner() {
         name: billingPlanCfg.name,
         plan: billingPlanKey,
         price: billingPlanCfg.price,
-        documentsLimit: usage?.isUnlimited
-          ? null
-          : usage?.monthlyDocLimit ??
-            companyProfile?.monthlyDocLimit ??
-            billingPlanCfg.docsLimit,
+        documentsLimit:
+          usage?.isUnlimited || usage?.contractsEnabled === false
+            ? null
+            : usage?.monthlyDocLimit ??
+              companyProfile?.monthlyDocLimit ??
+              billingPlanCfg.docsLimit,
         usersLimit: billingPlanCfg.usersLimit,
         templatesLimit: billingPlanCfg.templatesLimit,
         overageRate: billingPlanCfg.overageRate,
