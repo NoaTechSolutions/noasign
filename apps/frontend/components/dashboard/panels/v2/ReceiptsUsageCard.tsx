@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Receipt } from 'lucide-react';
-import { UNLIMITED_GLYPH } from '@/lib/plan-catalog';
+import { formatUsage } from '@/lib/plan-catalog';
 import './receipts-usage-card.css';
 
 export interface ReceiptsUsageCardProps {
@@ -79,7 +79,9 @@ export function ReceiptsUsageCard({
 
           {unlimited ? (
             <div className="receipts-usage-item__mid">
-              <span className="receipts-usage-item__value">{UNLIMITED_GLYPH}</span>
+              <span className="receipts-usage-item__value">
+                {formatUsage(used, null)}
+              </span>
             </div>
           ) : (
             <>

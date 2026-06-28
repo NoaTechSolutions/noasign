@@ -210,14 +210,13 @@ export function formatLimit(value: number | null): string {
   return value === null ? 'Unlimited' : String(value);
 }
 
-/** The glyph shown for an unlimited usage card (recibos or contratos). */
-export const UNLIMITED_GLYPH = '∞';
-
 /**
- * Usage value for a "this month" card: the infinity glyph when the limit is
- * unlimited (null) — never "0 / 0" — else "used / limit". One shared helper so
- * every usage card (receipts and contracts) renders unlimited the same way.
+ * Usage value for a "this month" card. One shared helper so every usage card
+ * (receipts and contracts) renders the same way:
+ *  - unlimited (limit === null): show ONLY the amount used (no "/ limit", no
+ *    glyph) — a separate text label tells the user they have no cap.
+ *  - capped: "used / limit".
  */
 export function formatUsage(used: number, limit: number | null): string {
-  return limit === null ? UNLIMITED_GLYPH : `${used} / ${limit}`;
+  return limit === null ? String(used) : `${used} / ${limit}`;
 }

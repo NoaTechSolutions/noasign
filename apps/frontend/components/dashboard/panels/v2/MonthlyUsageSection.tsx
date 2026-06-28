@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { BarChart2, FileText, Users, LayoutTemplate } from 'lucide-react';
-import { UNLIMITED_GLYPH } from '@/lib/plan-catalog';
+import { formatUsage } from '@/lib/plan-catalog';
 
 interface MonthlyUsageSectionProps {
   usage: {
@@ -69,7 +69,9 @@ export function MonthlyUsageSection({
           </div>
           <div className="billing-usage-item__mid">
             {limits.documents == null ? (
-              <span className="billing-usage-item__value">{UNLIMITED_GLYPH}</span>
+              <span className="billing-usage-item__value">
+                {formatUsage(usage.documents, null)}
+              </span>
             ) : (
               <>
                 <span className="billing-usage-item__value">{usage.documents}</span>
@@ -105,7 +107,9 @@ export function MonthlyUsageSection({
           </div>
           <div className="billing-usage-item__mid">
             {limits.users == null ? (
-              <span className="billing-usage-item__value">{UNLIMITED_GLYPH}</span>
+              <span className="billing-usage-item__value">
+                {formatUsage(usage.users, null)}
+              </span>
             ) : (
               <>
                 <span className="billing-usage-item__value">{usage.users}</span>
@@ -114,13 +118,17 @@ export function MonthlyUsageSection({
               </>
             )}
           </div>
-          {limits.users != null && (
+          {limits.users != null ? (
             <div className="billing-usage-item__bar">
               <div
                 className="billing-usage-item__fill"
                 style={{ width: `${usersPct}%` }}
               />
             </div>
+          ) : (
+            <p className="billing-usage-item__overage-hint">
+              Unlimited seats on your plan.
+            </p>
           )}
         </div>
 
@@ -134,7 +142,9 @@ export function MonthlyUsageSection({
           </div>
           <div className="billing-usage-item__mid">
             {limits.templates == null ? (
-              <span className="billing-usage-item__value">{UNLIMITED_GLYPH}</span>
+              <span className="billing-usage-item__value">
+                {formatUsage(usage.templates, null)}
+              </span>
             ) : (
               <>
                 <span className="billing-usage-item__value">{usage.templates}</span>
@@ -145,13 +155,17 @@ export function MonthlyUsageSection({
               </>
             )}
           </div>
-          {limits.templates != null && (
+          {limits.templates != null ? (
             <div className="billing-usage-item__bar">
               <div
                 className="billing-usage-item__fill"
                 style={{ width: `${templatesPct}%` }}
               />
             </div>
+          ) : (
+            <p className="billing-usage-item__overage-hint">
+              Unlimited templates on your plan.
+            </p>
           )}
         </div>
       </div>
