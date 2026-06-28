@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { SendToast } from "../../components/dashboard/panels/v2/documents/SendToast";
 import { API_URL, apiRequest } from "../../lib/api";
 import { getPlanEntry } from "../../lib/plan-catalog";
+import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
 import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel } from "../../components/dashboard/panels/v2";
@@ -2206,6 +2207,9 @@ function DashboardPageInner() {
           customers={(customers ?? []).map((c) => ({ id: c.id, fullName: c.fullName }))}
           isLoading={isLoading}
           contractsEnabled={usage?.contractsEnabled ?? true}
+          onFetchReceiptStats={() =>
+            apiRequest<ReceiptStats>("/documents/receipt/stats")
+          }
           onNewDocument={() => router.push("/dashboard?panel=documents&new=1")}
           onOpenDocument={(docId) => router.push(`/dashboard?panel=documents&doc=${docId}`)}
           onViewAllAttention={() => router.push("/dashboard?panel=documents&status=SENT")}

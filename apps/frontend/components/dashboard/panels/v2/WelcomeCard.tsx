@@ -18,6 +18,8 @@ interface WelcomeCardProps {
   company: CompanyProfile | null;
   isLoading: boolean;
   onNewDocument?: () => void;
+  // CTA wording — "New receipt" for receipts-only tenants, "New document" else.
+  ctaLabel?: string;
 }
 
 function greetingForHour(hour: number): string {
@@ -26,7 +28,7 @@ function greetingForHour(hour: number): string {
   return 'Good evening';
 }
 
-export function WelcomeCard({ user, company, isLoading, onNewDocument }: WelcomeCardProps) {
+export function WelcomeCard({ user, company, isLoading, onNewDocument, ctaLabel = 'New document' }: WelcomeCardProps) {
   const now = new Date();
   const dateLabel = now
     .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -64,7 +66,7 @@ export function WelcomeCard({ user, company, isLoading, onNewDocument }: Welcome
       {onNewDocument ? (
         <button type="button" className="welcome-cta" onClick={onNewDocument}>
           <Plus size={16} />
-          New document
+          {ctaLabel}
         </button>
       ) : null}
     </div>
