@@ -188,19 +188,23 @@ export function BillingPanel({ currentPlan, cycle, usage, receipts, contractsEna
         cycle={cycle}
         usage={usage}
         role={role}
+        contractsEnabled={contractsEnabled}
         onChangePlan={handleChangePlan}
       />
 
-      <MonthlyUsageSection
-        usage={usage}
-        limits={{
-          documents: currentPlan.documentsLimit,
-          users: currentPlan.usersLimit,
-          templates: currentPlan.templatesLimit,
-        }}
-        cycleMonth={cycle.month}
-        overageRate={currentPlan.overageRate}
-      />
+      {/* Document/contract usage — hidden for receipts-only tenants. */}
+      {contractsEnabled && (
+        <MonthlyUsageSection
+          usage={usage}
+          limits={{
+            documents: currentPlan.documentsLimit,
+            users: currentPlan.usersLimit,
+            templates: currentPlan.templatesLimit,
+          }}
+          cycleMonth={cycle.month}
+          overageRate={currentPlan.overageRate}
+        />
+      )}
 
       <ReceiptsUsageCard
         used={receipts.used}

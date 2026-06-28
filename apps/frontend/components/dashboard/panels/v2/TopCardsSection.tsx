@@ -53,6 +53,8 @@ interface TopCardsSectionProps {
     overageCount: number;
   };
   role: 'master' | 'admin' | 'user';
+  // Receipts-only tenants (contractsEnabled === false) hide the doc-usage stats.
+  contractsEnabled: boolean;
   onChangePlan: () => void;
 }
 
@@ -63,6 +65,7 @@ export function CurrentPlanCard({
   cycle,
   usage,
   role,
+  contractsEnabled,
   onChangePlan,
 }: TopCardsSectionProps) {
   const docsUsed = usage.documents;
@@ -99,21 +102,23 @@ export function CurrentPlanCard({
         Save ~17% → ${Math.round(currentPlan.price * 12 * 0.83 / 12)}/mo billed annually
       </p>
 
-      {/* two stat boxes */}
+      {/* stat boxes — docs usage only for contract plans */}
       <div className="billing-stat-boxes">
         {/* docs used */}
-        <div className="billing-stat-box">
-          <span className="billing-stat-box__label">Docs used</span>
-          <span className="billing-stat-box__value">
-            {docsUsed}/{docsLimitLabel}
-          </span>
-          <div className="billing-progress-track">
-            <div
-              className="billing-progress-fill"
-              style={{ width: `${progressPct}%` }}
-            />
+        {contractsEnabled && (
+          <div className="billing-stat-box">
+            <span className="billing-stat-box__label">Docs used</span>
+            <span className="billing-stat-box__value">
+              {docsUsed}/{docsLimitLabel}
+            </span>
+            <div className="billing-progress-track">
+              <div
+                className="billing-progress-fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* renews */}
         <div className="billing-stat-box">
@@ -167,9 +172,10 @@ interface BillingCycleCardProps {
     documents: number;
     overageCount: number;
   };
+  contractsEnabled: boolean;
 }
 
-export function BillingCycleCard({ currentPlan, cycle, usage }: BillingCycleCardProps) {
+export function BillingCycleCard({ currentPlan, cycle, usage, contractsEnabled }: BillingCycleCardProps) {
   const cycleTotal = currentPlan.price + usage.overageCount * currentPlan.overageRate;
   const docsUsed = usage.documents;
   const docsLimit = currentPlan.documentsLimit;
@@ -191,17 +197,19 @@ export function BillingCycleCard({ currentPlan, cycle, usage }: BillingCycleCard
 
       {/* Desktop / tablet: 2×2 grid */}
       <div className="billing-cycle-grid">
-        {/* docs used + progress */}
-        <div className="billing-cycle-cell">
-          <span className="billing-cycle-cell__label">Documents used</span>
-          <span className="billing-cycle-cell__value">{docsUsed}/{docsLimitLabel}</span>
-          <div className="billing-progress-track billing-progress-track--sm">
-            <div
-              className="billing-progress-fill"
-              style={{ width: `${progressPct}%` }}
-            />
+        {/* docs used + progress — contracts only */}
+        {contractsEnabled && (
+          <div className="billing-cycle-cell">
+            <span className="billing-cycle-cell__label">Documents used</span>
+            <span className="billing-cycle-cell__value">{docsUsed}/{docsLimitLabel}</span>
+            <div className="billing-progress-track billing-progress-track--sm">
+              <div
+                className="billing-progress-fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* renews date */}
         <div className="billing-cycle-cell">
@@ -211,13 +219,15 @@ export function BillingCycleCard({ currentPlan, cycle, usage }: BillingCycleCard
           </span>
         </div>
 
-        {/* overage rate */}
-        <div className="billing-cycle-cell billing-cycle-cell--border-top">
-          <span className="billing-cycle-cell__label">Overage rate</span>
-          <span className="billing-cycle-cell__value billing-cycle-cell__value--sky">
-            ${currentPlan.overageRate.toFixed(2)}/doc
-          </span>
-        </div>
+        {/* overage rate — contracts only */}
+        {contractsEnabled && (
+          <div className="billing-cycle-cell billing-cycle-cell--border-top">
+            <span className="billing-cycle-cell__label">Overage rate</span>
+            <span className="billing-cycle-cell__value billing-cycle-cell__value--sky">
+              ${currentPlan.overageRate.toFixed(2)}/doc
+            </span>
+          </div>
+        )}
 
         {/* cycle total */}
         <div className="billing-cycle-cell billing-cycle-cell--border-top">
@@ -230,23 +240,29 @@ export function BillingCycleCard({ currentPlan, cycle, usage }: BillingCycleCard
 
       {/* Mobile: field-row style */}
       <div className="billing-cycle-rows">
-        <div className="billing-cycle-row">
-          <span className="billing-cycle-row__label">Documents</span>
-          <span className="billing-cycle-row__value">{docsUsed}/{docsLimitLabel}</span>
-        </div>
-        <div className="billing-cycle-row">
-          <div className="billing-progress-track" style={{ flex: 1 }}>
-            <div className="billing-progress-fill" style={{ width: `${progressPct}%` }} />
-          </div>
-        </div>
+        {contractsEnabled && (
+          <>
+            <div className="billing-cycle-row">
+              <span className="billing-cycle-row__label">Documents</span>
+              <span className="billing-cycle-row__value">{docsUsed}/{docsLimitLabel}</span>
+            </div>
+            <div className="billing-cycle-row">
+              <div className="billing-progress-track" style={{ flex: 1 }}>
+                <div className="billing-progress-fill" style={{ width: `${progressPct}%` }} />
+              </div>
+            </div>
+          </>
+        )}
         <div className="billing-cycle-row">
           <span className="billing-cycle-row__label">Renews on</span>
           <span className="billing-cycle-row__value billing-cycle-row__value--sky">{formatDate(cycle.nextBilling)}</span>
         </div>
-        <div className="billing-cycle-row">
-          <span className="billing-cycle-row__label">Overage rate</span>
-          <span className="billing-cycle-row__value billing-cycle-row__value--sky">${currentPlan.overageRate.toFixed(2)}/doc</span>
-        </div>
+        {contractsEnabled && (
+          <div className="billing-cycle-row">
+            <span className="billing-cycle-row__label">Overage rate</span>
+            <span className="billing-cycle-row__value billing-cycle-row__value--sky">${currentPlan.overageRate.toFixed(2)}/doc</span>
+          </div>
+        )}
         <div className="billing-cycle-row billing-cycle-row--total">
           <span className="billing-cycle-row__label">This cycle total</span>
           <span className="billing-cycle-row__value billing-cycle-row__value--sky">${cycleTotal.toFixed(2)}</span>
@@ -266,6 +282,7 @@ export function TopCardsSection(props: TopCardsSectionProps) {
         currentPlan={props.currentPlan}
         cycle={props.cycle}
         usage={props.usage}
+        contractsEnabled={props.contractsEnabled}
       />
     </div>
   );
