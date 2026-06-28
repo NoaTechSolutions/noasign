@@ -189,6 +189,7 @@ export function BillingPanel({ currentPlan, cycle, usage, receipts, contractsEna
         usage={usage}
         role={role}
         contractsEnabled={contractsEnabled}
+        receiptsThisCycle={receipts.used}
         onChangePlan={handleChangePlan}
       />
 
@@ -230,6 +231,7 @@ export function BillingPanel({ currentPlan, cycle, usage, receipts, contractsEna
         }}
         features={currentPlan.features}
         overageRate={currentPlan.overageRate}
+        contractsEnabled={contractsEnabled}
         onCompare={handleChangePlan}
       />
 

@@ -28,6 +28,8 @@ interface PlanFeaturesSectionProps {
     retention: string;
   };
   overageRate: number;
+  // Receipts-only tenants (contractsEnabled === false) see only receipt metrics.
+  contractsEnabled?: boolean;
   onCompare: () => void;
 }
 
@@ -38,38 +40,35 @@ export function PlanFeaturesSection({
   receipts,
   features,
   overageRate,
+  contractsEnabled = true,
   onCompare,
 }: PlanFeaturesSectionProps) {
-  const metrics: { label: string; value: string }[] = [
-    {
-      label: 'Documents/mo',
-      value: formatLimit(limits.documents),
-    },
+  const receiptsOnly = !contractsEnabled;
+  const receiptMetrics: { label: string; value: string }[] = [
     {
       label: 'Receipts/mo',
       value: receipts.unlimited ? 'Unlimited' : String(receipts.limit),
     },
     {
-      label: 'Users',
-      value: formatLimit(limits.users),
-    },
-    {
-      label: 'Templates',
-      value: formatLimit(limits.templates),
+      label: 'Receipt overage',
+      value: `$${receipts.overagePrice.toFixed(2)}/receipt`,
     },
     {
       label: 'History',
       value: features.retention,
     },
-    {
-      label: 'Overage',
-      value: `$${overageRate.toFixed(2)}/doc`,
-    },
-    {
-      label: 'Receipt overage',
-      value: `$${receipts.overagePrice.toFixed(2)}/receipt`,
-    },
   ];
+  const metrics: { label: string; value: string }[] = receiptsOnly
+    ? receiptMetrics
+    : [
+        { label: 'Documents/mo', value: formatLimit(limits.documents) },
+        { label: 'Receipts/mo', value: receipts.unlimited ? 'Unlimited' : String(receipts.limit) },
+        { label: 'Users', value: formatLimit(limits.users) },
+        { label: 'Templates', value: formatLimit(limits.templates) },
+        { label: 'History', value: features.retention },
+        { label: 'Overage', value: `$${overageRate.toFixed(2)}/doc` },
+        { label: 'Receipt overage', value: `$${receipts.overagePrice.toFixed(2)}/receipt` },
+      ];
 
   const featureRows: { label: string; enabled: boolean }[] = [
     { label: 'Team management', enabled: features.userManagement },
@@ -91,12 +90,14 @@ export function PlanFeaturesSection({
             {planName} features
           </h2>
         </span>
-        <span className="billing-features-card__subtitle">
-          Everything in Starter +
-        </span>
+        {!receiptsOnly && (
+          <span className="billing-features-card__subtitle">
+            Everything in Starter +
+          </span>
+        )}
       </div>
 
-      {/* Two-column body */}
+      {/* Body — metrics, plus contract feature toggles (not for receipts-only) */}
       <div className="billing-features-card__body">
         {/* Left — metrics */}
         <div className="billing-features-card__col">
@@ -108,26 +109,30 @@ export function PlanFeaturesSection({
           ))}
         </div>
 
-        {/* Vertical separator */}
-        <div className="billing-features-card__divider" aria-hidden="true" />
+        {!receiptsOnly && (
+          <>
+            {/* Vertical separator */}
+            <div className="billing-features-card__divider" aria-hidden="true" />
 
-        {/* Right — feature toggles */}
-        <div className="billing-features-card__col">
-          {featureRows.map((f) => (
-            <div key={f.label} className="billing-feat-row">
-              {f.enabled ? (
-                <span className="billing-feat-row__icon--ok">
-                  <Check size={14} />
-                </span>
-              ) : (
-                <span className="billing-feat-row__icon--no">
-                  <X size={14} />
-                </span>
-              )}
-              <span className="billing-feat-row__label">{f.label}</span>
+            {/* Right — feature toggles */}
+            <div className="billing-features-card__col">
+              {featureRows.map((f) => (
+                <div key={f.label} className="billing-feat-row">
+                  {f.enabled ? (
+                    <span className="billing-feat-row__icon--ok">
+                      <Check size={14} />
+                    </span>
+                  ) : (
+                    <span className="billing-feat-row__icon--no">
+                      <X size={14} />
+                    </span>
+                  )}
+                  <span className="billing-feat-row__label">{f.label}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
 
       {/* Footer */}

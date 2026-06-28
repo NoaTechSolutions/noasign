@@ -55,6 +55,8 @@ interface TopCardsSectionProps {
   role: 'master' | 'admin' | 'user';
   // Receipts-only tenants (contractsEnabled === false) hide the doc-usage stats.
   contractsEnabled: boolean;
+  // Receipts emitted this cycle — shown in place of "Docs used" for receipts-only.
+  receiptsThisCycle?: number;
   onChangePlan: () => void;
 }
 
@@ -66,6 +68,7 @@ export function CurrentPlanCard({
   usage,
   role,
   contractsEnabled,
+  receiptsThisCycle = 0,
   onChangePlan,
 }: TopCardsSectionProps) {
   const docsUsed = usage.documents;
@@ -102,9 +105,9 @@ export function CurrentPlanCard({
         Save ~17% → ${Math.round(currentPlan.price * 12 * 0.83 / 12)}/mo billed annually
       </p>
 
-      {/* stat boxes — docs usage only for contract plans */}
+      {/* stat boxes — docs usage for contract plans, receipts for receipts-only */}
       <div className="billing-stat-boxes">
-        {/* docs used */}
+        {/* docs used (contracts) */}
         {contractsEnabled && (
           <div className="billing-stat-box">
             <span className="billing-stat-box__label">Docs used</span>
@@ -117,6 +120,14 @@ export function CurrentPlanCard({
                 style={{ width: `${progressPct}%` }}
               />
             </div>
+          </div>
+        )}
+
+        {/* receipts this cycle (receipts-only) */}
+        {!contractsEnabled && (
+          <div className="billing-stat-box">
+            <span className="billing-stat-box__label">Receipts this cycle</span>
+            <span className="billing-stat-box__value">{receiptsThisCycle}</span>
           </div>
         )}
 
