@@ -57,7 +57,7 @@ export function WelcomeCard({ user, company, isLoading, onNewDocument }: Welcome
         <div className="welcome-company-info">
           <span className="welcome-company-name">{company.name}</span>
           <span className="welcome-separator">·</span>
-          <span className="welcome-plan">{getPlanEntry(company.plan).name} plan</span>
+          <span className="welcome-plan">{getPlanEntry(company.plan).name}</span>
         </div>
       </div>
 

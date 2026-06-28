@@ -88,7 +88,7 @@ export function PlanFeaturesSection({
             <Sparkles size={15} />
           </span>
           <h2 className="billing-features-card__title">
-            {planName} plan features
+            {planName} features
           </h2>
         </span>
         <span className="billing-features-card__subtitle">
