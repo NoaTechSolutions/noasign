@@ -11,9 +11,25 @@ interface DashboardDocument {
 interface RecentDocumentsTableProps {
   documents: DashboardDocument[];
   isLoading: boolean;
+  // Drives the wording. Receipts (DIRECT_PDF) are a different entity than
+  // contract documents (BoldSign) — a receipts-only tenant sees "receipts".
+  entity?: 'document' | 'receipt';
 }
 
-export function RecentDocumentsTable({ documents, isLoading }: RecentDocumentsTableProps) {
+export function RecentDocumentsTable({
+  documents,
+  isLoading,
+  entity = 'document',
+}: RecentDocumentsTableProps) {
+  const isReceipt = entity === 'receipt';
+  const titleLabel = isReceipt ? 'Recent Receipts' : 'Recent Documents';
+  const colLabel = isReceipt ? 'Receipt' : 'Document';
+  const emptyTitle = isReceipt ? 'No receipts yet' : 'No documents yet';
+  const emptySubtext = isReceipt
+    ? 'Issue your first receipt to get started'
+    : 'Create your first document to get started';
+  const viewTitle = isReceipt ? 'View receipt' : 'View document';
+
   // Format date helper
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -53,10 +69,10 @@ export function RecentDocumentsTable({ documents, isLoading }: RecentDocumentsTa
   if (isLoading) {
     return (
       <div className="recent-documents loading">
-        <h2 className="recent-documents-title">Recent Documents</h2>
+        <h2 className="recent-documents-title">{titleLabel}</h2>
         <div className="recent-documents-table">
           <div className="recent-documents-table-header">
-            <div className="recent-doc-col-name">Document</div>
+            <div className="recent-doc-col-name">{colLabel}</div>
             <div className="recent-doc-col-status">Status</div>
             <div className="recent-doc-col-recipient">Recipient</div>
             <div className="recent-doc-col-date">Date</div>
@@ -77,13 +93,11 @@ export function RecentDocumentsTable({ documents, isLoading }: RecentDocumentsTa
   if (!documents || documents.length === 0) {
     return (
       <div className="recent-documents">
-        <h2 className="recent-documents-title">Recent Documents</h2>
+        <h2 className="recent-documents-title">{titleLabel}</h2>
         <div className="recent-documents-empty">
           <p className="recent-documents-empty-icon">📄</p>
-          <p className="recent-documents-empty-text">No documents yet</p>
-          <p className="recent-documents-empty-subtext">
-            Create your first document to get started
-          </p>
+          <p className="recent-documents-empty-text">{emptyTitle}</p>
+          <p className="recent-documents-empty-subtext">{emptySubtext}</p>
         </div>
       </div>
     );
@@ -92,7 +106,7 @@ export function RecentDocumentsTable({ documents, isLoading }: RecentDocumentsTa
   return (
     <div className="recent-documents">
       <div className="recent-documents-header">
-        <h2 className="recent-documents-title">Recent Documents</h2>
+        <h2 className="recent-documents-title">{titleLabel}</h2>
         <a href="/dashboard?panel=documents" className="recent-documents-view-all">
           View all →
         </a>
@@ -102,7 +116,7 @@ export function RecentDocumentsTable({ documents, isLoading }: RecentDocumentsTa
         {/* Desktop table */}
         <div className="recent-documents-table-desktop">
           <div className="recent-documents-table-header">
-            <div className="recent-doc-col-name">Document</div>
+            <div className="recent-doc-col-name">{colLabel}</div>
             <div className="recent-doc-col-status">Status</div>
             <div className="recent-doc-col-recipient">Recipient</div>
             <div className="recent-doc-col-date">Date</div>
@@ -126,7 +140,7 @@ export function RecentDocumentsTable({ documents, isLoading }: RecentDocumentsTa
                   <span className="recent-doc-date">{formatDate(doc.createdAt)}</span>
                 </div>
                 <div className="recent-doc-col-actions">
-                  <button className="recent-doc-action-btn" title="View document">
+                  <button className="recent-doc-action-btn" title={viewTitle}>
                     View
                   </button>
                 </div>

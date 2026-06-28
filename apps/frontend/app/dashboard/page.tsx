@@ -2205,6 +2205,7 @@ function DashboardPageInner() {
           documents={adaptDocumentsForPanel(documents)}
           customers={(customers ?? []).map((c) => ({ id: c.id, fullName: c.fullName }))}
           isLoading={isLoading}
+          contractsEnabled={usage?.contractsEnabled ?? true}
           onNewDocument={() => router.push("/dashboard?panel=documents&new=1")}
           onOpenDocument={(docId) => router.push(`/dashboard?panel=documents&doc=${docId}`)}
           onViewAllAttention={() => router.push("/dashboard?panel=documents&status=SENT")}

@@ -64,6 +64,9 @@ export interface OverviewPanelProps {
   documents: DashboardDocument[] | null;
   customers?: CustomerLite[];
   isLoading: boolean;
+  // Receipts-only tenants (contractsEnabled === false) have no contracts: hide
+  // the document metrics + signature-flow panels and reword the recent list.
+  contractsEnabled?: boolean;
   onNewDocument?: () => void;
   onOpenDocument?: (docId: string) => void;
   onViewAllAttention?: () => void;
@@ -77,6 +80,7 @@ export function OverviewPanel({
   documents,
   customers = [],
   isLoading,
+  contractsEnabled = true,
   onNewDocument,
   onOpenDocument,
   onViewAllAttention,
@@ -90,12 +94,15 @@ export function OverviewPanel({
         onNewDocument={onNewDocument}
       />
 
-      <MetricCards
-        usage={usage}
-        monthlySummary={monthlySummary}
-        documents={documents}
-        isLoading={isLoading}
-      />
+      {/* Document metrics — contracts only. */}
+      {contractsEnabled && (
+        <MetricCards
+          usage={usage}
+          monthlySummary={monthlySummary}
+          documents={documents}
+          isLoading={isLoading}
+        />
+      )}
 
       <ReceiptsUsageCard
         used={usage?.receiptsUsed ?? 0}
@@ -110,19 +117,24 @@ export function OverviewPanel({
           <RecentDocumentsTable
             documents={documents?.slice(0, 5) || []}
             isLoading={isLoading}
+            entity={contractsEnabled ? 'document' : 'receipt'}
           />
         </div>
 
-        <div className="overview-columns__side">
-          <NeedsAttention
-            documents={documents}
-            customers={customers}
-            isLoading={isLoading}
-            onOpenDocument={onOpenDocument}
-            onViewAll={onViewAllAttention}
-          />
-          <StatusBreakdown documents={documents} isLoading={isLoading} />
-        </div>
+        {/* Signature-flow panels (needs-attention, status breakdown) don't apply
+            to receipts (DIRECT_PDF, not signed) — hidden for receipts-only. */}
+        {contractsEnabled && (
+          <div className="overview-columns__side">
+            <NeedsAttention
+              documents={documents}
+              customers={customers}
+              isLoading={isLoading}
+              onOpenDocument={onOpenDocument}
+              onViewAll={onViewAllAttention}
+            />
+            <StatusBreakdown documents={documents} isLoading={isLoading} />
+          </div>
+        )}
       </div>
     </div>
   );
