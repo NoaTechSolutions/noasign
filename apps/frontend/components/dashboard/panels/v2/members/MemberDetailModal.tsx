@@ -3,6 +3,7 @@
 import React from 'react';
 import { User as UserIcon, Calendar } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { getPlanEntry } from '@/lib/plan-catalog';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import type { ManagedUser } from './types';
 import { getDisplayName, getInitials } from './types';
@@ -84,7 +85,14 @@ export function MemberDetailModal({
                 <div className="field-rows">
                   <FieldRow label="Account Type" value={user.accountType} />
                   <FieldRow label="Company" value={user.companyProfile?.companyName} />
-                  <FieldRow label="Plan" value={user.companyProfile?.planName} />
+                  <FieldRow
+                    label="Plan"
+                    value={
+                      user.companyProfile?.planName
+                        ? getPlanEntry(user.companyProfile.planName).name
+                        : undefined
+                    }
+                  />
                 </div>
               </div>
               <div className="form-group card-legend">

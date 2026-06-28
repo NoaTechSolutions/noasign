@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
+import { getPlanEntry } from "@/lib/plan-catalog";
 
 interface TopbarProps {
   user: {
@@ -67,9 +68,8 @@ export function Topbar({ user, currentPanel, isLoading, children, onSignOut }: T
   // else (BUSINESS / MASTER) shows the company name. Plan sits underneath.
   const isIndividual = user.accountType === "INDIVIDUAL";
   const primaryLabel = isIndividual ? user.name : user.companyName;
-  const planLabel = user.plan
-    ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1).toLowerCase()
-    : null;
+  // Use the catalog display label (never the raw enum like "RECEIPTS_ONLY").
+  const planLabel = user.plan ? getPlanEntry(user.plan).name : null;
 
   return (
     <div

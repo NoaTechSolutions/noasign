@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
+import { getPlanEntry } from '@/lib/plan-catalog';
 
 interface DashboardUser {
   name: string;
@@ -56,7 +57,7 @@ export function WelcomeCard({ user, company, isLoading, onNewDocument }: Welcome
         <div className="welcome-company-info">
           <span className="welcome-company-name">{company.name}</span>
           <span className="welcome-separator">·</span>
-          <span className="welcome-plan">{company.plan} plan</span>
+          <span className="welcome-plan">{getPlanEntry(company.plan).name} plan</span>
         </div>
       </div>
 
