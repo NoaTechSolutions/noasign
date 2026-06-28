@@ -840,4 +840,79 @@ export class ReceiptsService {
     }
     return `${prefix}${String(max + 1).padStart(6, '0')}`;
   }
+
+  /**
+   * Receipt dashboard stats for a tenant: $ issued in the current billing period
+   * + counts by the REAL receipt statuses (DRAFT / SENT / SEND_FAILED / CANCELLED
+   * and the derived VOID = supersededAt set). Contracts' signature states
+   * (VIEWED/SIGNED/COMPLETED) never apply to receipts. Computed in memory over
+   * the tenant's receipts — fine at current volume.
+   */
+  async getReceiptStats(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { companyProfileId: true },
+    });
+    if (!user?.companyProfileId) {
+      throw new NotFoundException('Company profile not found');
+    }
+
+    const now = new Date();
+    const billingPeriod = `${now.getFullYear()}-${String(
+      now.getMonth() + 1,
+    ).padStart(2, '0')}`;
+
+    const receipts = await this.prisma.document.findMany({
+      where: {
+        companyProfileId: user.companyProfileId,
+        documentType: { code: RECEIPT_TYPE_CODE },
+      },
+      select: {
+        status: true,
+        supersededAt: true,
+        countedAsReceipt: true,
+        billingPeriod: true,
+        data: { select: { dataJson: true } },
+      },
+    });
+
+    let draft = 0;
+    let sent = 0;
+    let sendFailed = 0;
+    let cancelled = 0;
+    let voided = 0;
+    let amountThisMonth = 0;
+    let receiptsThisMonth = 0;
+
+    for (const r of receipts) {
+      // VOID is derived (supersededAt set); the internal status stays SENT.
+      if (r.supersededAt) {
+        voided++;
+      } else if (r.status === DocumentStatus.DRAFT) {
+        draft++;
+      } else if (r.status === DocumentStatus.SENT) {
+        sent++;
+      } else if (r.status === DocumentStatus.SEND_FAILED) {
+        sendFailed++;
+      } else if (r.status === DocumentStatus.CANCELLED) {
+        cancelled++;
+      }
+
+      // $ this month = amount of receipts counted toward billing this period.
+      if (r.countedAsReceipt && r.billingPeriod === billingPeriod) {
+        receiptsThisMonth++;
+        const dataJson = (r.data?.dataJson ?? {}) as Record<string, unknown>;
+        amountThisMonth += this.readNum(dataJson.amount, 0);
+      }
+    }
+
+    return {
+      billingPeriod,
+      receiptsThisMonth,
+      // "Total issued" = active (non-void) sent receipts.
+      totalIssued: sent,
+      amountThisMonth,
+      byStatus: { draft, sent, sendFailed, cancelled, void: voided },
+    };
+  }
 }

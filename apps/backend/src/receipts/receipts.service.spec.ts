@@ -278,3 +278,119 @@ describe('ReceiptsService — receipt billing on send', () => {
     expect(sentUpdate[0].data.isReceiptOverage).toBe(false);
   });
 });
+
+describe('ReceiptsService — getReceiptStats', () => {
+  let service: ReceiptsService;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReceiptsService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: EmailService, useValue: emailMock },
+        { provide: R2Service, useValue: r2Mock },
+        { provide: ReceiptPdfService, useValue: receiptPdfMock },
+      ],
+    }).compile();
+    service = module.get<ReceiptsService>(ReceiptsService);
+  });
+
+  it('counts by real receipt status (VOID derived from supersededAt) and sums $ for the current period', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      companyProfileId: 'tenant-1',
+    });
+
+    const now = new Date();
+    const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    prismaMock.document.findMany.mockResolvedValue([
+      // SENT this month, counted → summed
+      {
+        status: 'SENT',
+        supersededAt: null,
+        countedAsReceipt: true,
+        billingPeriod: period,
+        data: { dataJson: { amount: 100 } },
+      },
+      {
+        status: 'SENT',
+        supersededAt: null,
+        countedAsReceipt: true,
+        billingPeriod: period,
+        data: { dataJson: { amount: 50.5 } },
+      },
+      // VOID (supersededAt set) — counts as void, not sent; still counted toward billing this month
+      {
+        status: 'SENT',
+        supersededAt: new Date(),
+        countedAsReceipt: true,
+        billingPeriod: period,
+        data: { dataJson: { amount: 999 } },
+      },
+      // DRAFT / SEND_FAILED / CANCELLED — not counted, no amount
+      {
+        status: 'DRAFT',
+        supersededAt: null,
+        countedAsReceipt: false,
+        billingPeriod: null,
+        data: { dataJson: { amount: 0 } },
+      },
+      {
+        status: 'SEND_FAILED',
+        supersededAt: null,
+        countedAsReceipt: false,
+        billingPeriod: null,
+        data: null,
+      },
+      {
+        status: 'CANCELLED',
+        supersededAt: null,
+        countedAsReceipt: false,
+        billingPeriod: null,
+        data: { dataJson: {} },
+      },
+      // SENT in a PAST period — excluded from this month's $
+      {
+        status: 'SENT',
+        supersededAt: null,
+        countedAsReceipt: true,
+        billingPeriod: '2020-01',
+        data: { dataJson: { amount: 777 } },
+      },
+    ]);
+
+    const stats = await service.getReceiptStats('user-1');
+
+    expect(stats.byStatus).toEqual({
+      draft: 1,
+      sent: 3,
+      sendFailed: 1,
+      cancelled: 1,
+      void: 1,
+    });
+    expect(stats.amountThisMonth).toBeCloseTo(1149.5); // 100 + 50.5 + 999 (counted this period)
+    expect(stats.receiptsThisMonth).toBe(3);
+    expect(stats.totalIssued).toBe(3); // active (non-void) SENT
+    expect(stats.billingPeriod).toBe(period);
+  });
+
+  it('returns zeroes when the tenant has no receipts', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      companyProfileId: 'tenant-2',
+    });
+    prismaMock.document.findMany.mockResolvedValue([]);
+
+    const stats = await service.getReceiptStats('user-2');
+
+    expect(stats.byStatus).toEqual({
+      draft: 0,
+      sent: 0,
+      sendFailed: 0,
+      cancelled: 0,
+      void: 0,
+    });
+    expect(stats.amountThisMonth).toBe(0);
+    expect(stats.totalIssued).toBe(0);
+  });
+});
