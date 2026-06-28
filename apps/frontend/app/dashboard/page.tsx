@@ -2295,6 +2295,7 @@ function DashboardPageInner() {
           onVoidReceipt={documentsV2.onVoidReceipt}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
+          contractsEnabled={usage?.contractsEnabled ?? true}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={handleFetchTypesAsUser}
           receiptQuota={

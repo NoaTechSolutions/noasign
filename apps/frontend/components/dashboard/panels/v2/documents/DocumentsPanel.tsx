@@ -71,6 +71,8 @@ export interface DocumentsPanelProps {
     unlimited: boolean;
     overagePrice: number;
   };
+  // Receipts-only tenants (contractsEnabled === false) hide the document stats.
+  contractsEnabled?: boolean;
   // Superadmin flow: MASTER picks any user (all tenants) to borrow templates.
   selectableUsers?: SelectableUser[];
   onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
@@ -129,6 +131,7 @@ export function DocumentsPanel({
   defaultReceivedBy,
   receiptQuota,
   receiptUsage,
+  contractsEnabled = true,
   selectableUsers,
   onFetchTypesAsUser,
   onEditDocument,
@@ -417,7 +420,8 @@ export function DocumentsPanel({
     <div className="documents-v2-panel">
       <DocumentsPanelHeader isLoading={isLoading} />
 
-      <DocumentsStats stats={stats} isLoading={isLoading} />
+      {/* Document counters — contracts only; receipts-only tenants see receipts. */}
+      {contractsEnabled && <DocumentsStats stats={stats} isLoading={isLoading} />}
 
       {receiptUsage ? (
         <ReceiptsUsageCard
