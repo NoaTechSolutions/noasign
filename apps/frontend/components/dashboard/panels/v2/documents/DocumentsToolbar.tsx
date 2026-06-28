@@ -11,12 +11,19 @@ interface DocumentsToolbarProps {
   statusFilter: StatusFilter;
   onStatusFilterChange: (value: StatusFilter) => void;
   onCreateNew: () => void;
+  // "receipt" trims the signature-flow statuses and rewords the search/CTA.
+  entity?: 'document' | 'receipt';
 }
 
-// Short tab labels (All / Draft / Sent / …) derived from the shared options.
-const STATUS_TABS: Array<{ value: StatusFilter; label: string }> = STATUS_FILTER_OPTIONS.map(
-  (o) => ({ value: o.value, label: o.value === 'all' ? 'All' : o.label }),
-);
+// Statuses a receipt can really have (no VIEWED/SIGNED/COMPLETED).
+const RECEIPT_STATUS_VALUES = new Set<StatusFilter>([
+  'all',
+  'DRAFT',
+  'SENT',
+  'SEND_FAILED',
+  'CANCELLED',
+  'VOID',
+]);
 
 export function DocumentsToolbar({
   search,
@@ -24,7 +31,17 @@ export function DocumentsToolbar({
   statusFilter,
   onStatusFilterChange,
   onCreateNew,
+  entity = 'document',
 }: DocumentsToolbarProps) {
+  const isReceipt = entity === 'receipt';
+  const options = isReceipt
+    ? STATUS_FILTER_OPTIONS.filter((o) => RECEIPT_STATUS_VALUES.has(o.value))
+    : STATUS_FILTER_OPTIONS;
+  const statusTabs = options.map((o) => ({
+    value: o.value,
+    label: o.value === 'all' ? 'All' : o.label,
+  }));
+
   return (
     <div className="documents-v2-toolbar">
       <div className="documents-v2-toolbar__search">
@@ -32,7 +49,11 @@ export function DocumentsToolbar({
         <input
           type="text"
           className="documents-v2-toolbar__search-input"
-          placeholder="Search by number, client, or type..."
+          placeholder={
+            isReceipt
+              ? 'Search by number or client...'
+              : 'Search by number, client, or type...'
+          }
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -50,7 +71,7 @@ export function DocumentsToolbar({
 
       {/* Desktop (≥1024px): single-select status tabs. */}
       <div className="documents-filter-tabs" role="group" aria-label="Status filter">
-        {STATUS_TABS.map((tab) => (
+        {statusTabs.map((tab) => (
           <button
             key={tab.value}
             type="button"
@@ -75,7 +96,7 @@ export function DocumentsToolbar({
           onChange={(e) => onStatusFilterChange(e.target.value as StatusFilter)}
           aria-label="Filter by status"
         >
-          {STATUS_FILTER_OPTIONS.map((option) => (
+          {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -88,7 +109,7 @@ export function DocumentsToolbar({
           onClick={onCreateNew}
         >
           <Plus size={16} />
-          <span>New Document</span>
+          <span>{isReceipt ? 'New Receipt' : 'New Document'}</span>
         </button>
       </div>
     </div>

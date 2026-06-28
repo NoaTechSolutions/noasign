@@ -4,7 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DocumentsPanelHeader } from './DocumentsPanelHeader';
 import { DocumentsStats } from './DocumentsStats';
+import { ReceiptStatsPills } from './ReceiptStatsPills';
 import { ReceiptsUsageCard } from '../ReceiptsUsageCard';
+import type { ReceiptStats } from '../ReceiptMetricCards';
 import { DocumentsToolbar } from './DocumentsToolbar';
 import { DocumentsTable } from './DocumentsTable';
 import { DocumentsCards } from './DocumentsCards';
@@ -73,6 +75,8 @@ export interface DocumentsPanelProps {
   };
   // Receipts-only tenants (contractsEnabled === false) hide the document stats.
   contractsEnabled?: boolean;
+  // Receipts-only: fetches GET /documents/receipt/stats for the stat pills.
+  onFetchReceiptStats?: () => Promise<ReceiptStats>;
   // Superadmin flow: MASTER picks any user (all tenants) to borrow templates.
   selectableUsers?: SelectableUser[];
   onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
@@ -132,6 +136,7 @@ export function DocumentsPanel({
   receiptQuota,
   receiptUsage,
   contractsEnabled = true,
+  onFetchReceiptStats,
   selectableUsers,
   onFetchTypesAsUser,
   onEditDocument,
@@ -241,6 +246,30 @@ export function DocumentsPanel({
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter, typeFilter]);
+
+  // Receipts-only: fetch the receipt stats for the stat pills.
+  const receiptsOnly = !contractsEnabled;
+  const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  useEffect(() => {
+    if (!receiptsOnly || !onFetchReceiptStats) return;
+    let active = true;
+    const load = async () => {
+      setStatsLoading(true);
+      try {
+        const s = await onFetchReceiptStats();
+        if (active) setReceiptStats(s);
+      } catch {
+        if (active) setReceiptStats(null);
+      } finally {
+        if (active) setStatsLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [receiptsOnly, onFetchReceiptStats]);
 
   const filteredDocuments = useMemo(() => {
     let filtered = documents;
@@ -418,10 +447,17 @@ export function DocumentsPanel({
 
   return (
     <div className="documents-v2-panel">
-      <DocumentsPanelHeader isLoading={isLoading} />
+      <DocumentsPanelHeader
+        isLoading={isLoading}
+        title={receiptsOnly ? 'Receipts' : 'Documents'}
+      />
 
-      {/* Document counters — contracts only; receipts-only tenants see receipts. */}
-      {contractsEnabled && <DocumentsStats stats={stats} isLoading={isLoading} />}
+      {/* Counters: contract stats, or receipt stats for receipts-only tenants. */}
+      {receiptsOnly ? (
+        <ReceiptStatsPills stats={receiptStats} isLoading={isLoading || statsLoading} />
+      ) : (
+        <DocumentsStats stats={stats} isLoading={isLoading} />
+      )}
 
       {receiptUsage ? (
         <ReceiptsUsageCard
@@ -439,6 +475,7 @@ export function DocumentsPanel({
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onCreateNew={() => setShowCreateModal(true)}
+        entity={receiptsOnly ? 'receipt' : 'document'}
       />
 
       {isLoading ? (
@@ -459,7 +496,10 @@ export function DocumentsPanel({
           />
         </>
       ) : showEmpty ? (
-        <DocumentsEmptyState hasFilters={hasFilters} />
+        <DocumentsEmptyState
+          hasFilters={hasFilters}
+          entity={receiptsOnly ? 'receipt' : 'document'}
+        />
       ) : (
         <>
           <DocumentsTable

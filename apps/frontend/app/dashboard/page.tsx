@@ -2300,6 +2300,9 @@ function DashboardPageInner() {
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
           contractsEnabled={usage?.contractsEnabled ?? true}
+          onFetchReceiptStats={() =>
+            apiRequest<ReceiptStats>("/documents/receipt/stats")
+          }
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={handleFetchTypesAsUser}
           receiptQuota={
