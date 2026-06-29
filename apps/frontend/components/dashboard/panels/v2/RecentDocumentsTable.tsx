@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDocumentStatus } from '@/lib/document-status';
 
 interface DashboardDocument {
   id: string;
@@ -6,6 +7,8 @@ interface DashboardDocument {
   status: string;
   recipientEmail: string;
   createdAt: string;
+  // Reissued/voided receipt: status stays SENT but it displays as VOID.
+  supersededAt?: string | null;
 }
 
 interface RecentDocumentsTableProps {
@@ -40,14 +43,16 @@ export function RecentDocumentsTable({
     });
   };
 
-  // Status badge class
+  // Status badge class (this table's own color tokens). Now covers SEND_FAILED
+  // and the derived VOID so they don't fall back to the gray default.
   const getStatusBadgeClass = (status: string) => {
-    const statusUpper = status.toUpperCase();
-    switch (statusUpper) {
+    switch (status.toUpperCase()) {
       case 'DRAFT':
         return 'doc-status-draft';
       case 'SENT':
         return 'doc-status-sent';
+      case 'SEND_FAILED':
+        return 'doc-status-failed';
       case 'VIEWED':
         return 'doc-status-viewed';
       case 'SIGNED':
@@ -56,15 +61,16 @@ export function RecentDocumentsTable({
         return 'doc-status-completed';
       case 'CANCELLED':
         return 'doc-status-cancelled';
+      case 'VOID':
+        return 'doc-status-void';
       default:
         return 'doc-status-default';
     }
   };
 
-  // Format status label
-  const formatStatusLabel = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-  };
+  // A receipt with supersededAt is displayed as VOID (internal status stays SENT).
+  const displayStatus = (doc: DashboardDocument) =>
+    isReceipt && doc.supersededAt ? 'VOID' : doc.status;
 
   if (isLoading) {
     return (
@@ -129,8 +135,8 @@ export function RecentDocumentsTable({
                   <span className="recent-doc-number">{doc.documentNumber}</span>
                 </div>
                 <div className="recent-doc-col-status">
-                  <span className={`doc-status-badge ${getStatusBadgeClass(doc.status)}`}>
-                    {formatStatusLabel(doc.status)}
+                  <span className={`doc-status-badge ${getStatusBadgeClass(displayStatus(doc))}`}>
+                    {formatDocumentStatus(displayStatus(doc))}
                   </span>
                 </div>
                 <div className="recent-doc-col-recipient">
@@ -155,8 +161,8 @@ export function RecentDocumentsTable({
             <div key={doc.id} className="recent-doc-card">
               <div className="recent-doc-card-header">
                 <span className="recent-doc-number">{doc.documentNumber}</span>
-                <span className={`doc-status-badge ${getStatusBadgeClass(doc.status)}`}>
-                  {formatStatusLabel(doc.status)}
+                <span className={`doc-status-badge ${getStatusBadgeClass(displayStatus(doc))}`}>
+                  {formatDocumentStatus(displayStatus(doc))}
                 </span>
               </div>
               <div className="recent-doc-card-body">
