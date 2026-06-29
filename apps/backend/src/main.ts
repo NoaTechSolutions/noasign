@@ -141,6 +141,8 @@ function createAuthRateLimitMiddleware() {
       { windowMs: authWindowMs, max: authMax },
     ],
     ['POST:/contact', { windowMs: contactWindowMs, max: contactMax }],
+    // Public lead capture (post-signature page) — abuse guard, no captcha.
+    ['POST:/public/leads', { windowMs: contactWindowMs, max: 5 }],
   ]);
   const entries = new Map<string, { count: number; resetAt: number }>();
 

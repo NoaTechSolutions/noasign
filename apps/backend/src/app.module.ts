@@ -10,6 +10,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { BillingModule } from './billing/billing.module';
 import { AdminModule } from './admin/admin.module';
 import { ContactModule } from './contact/contact.module';
+import { LeadsModule } from './leads/leads.module';
 import { CustomersModule } from './customers/customers.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 
@@ -27,6 +28,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
     BillingModule,
     AdminModule,
     ContactModule,
+    LeadsModule,
     CustomersModule,
     ReceiptsModule,
   ],

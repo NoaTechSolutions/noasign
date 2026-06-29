@@ -117,7 +117,10 @@ model CompanyProfile {
 
   planName        PlanName @default(LAUNCH)
   monthlyDocLimit Int      @default(5)
-  overagePrice    Decimal  @default(5.00) @db.Decimal(10, 2)
+  // Aligned to the default plan's (LAUNCH) canonical contract overage. The old
+  // $5.00 matched no plan and leaked into tenants created without an explicit
+  // value. New tenants/plan assignments seed this from PLAN_DEFAULTS.
+  overagePrice    Decimal  @default(3.50) @db.Decimal(10, 2)
   isUnlimited     Boolean  @default(false)
 
   // Model C — per-tenant receipt billing (separate from contract limits above).
@@ -314,6 +317,21 @@ model AccountRequest {
   @@index([status])
   @@index([createdAt])
   @@map("account_requests")
+}
+
+// Soft marketing leads (e.g. the email captured on the post-signature confirmation
+// page). Distinct from AccountRequest (a hard "create my account" request) and the
+// email-only contact form — this is a queryable list for follow-up. No auth: it's
+// submitted by external signers.
+model Lead {
+  id        String   @id @default(uuid())
+  email     String
+  // Where the lead came from, so future capture points stay queryable apart.
+  source    String   @default("signature-complete")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("leads")
 }
 
 model DocumentType {
