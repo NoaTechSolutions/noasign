@@ -3,9 +3,11 @@
 // PLAN_DEFAULTS (single source of truth, compiled to dist/billing/plan-defaults).
 //
 // Sets: planName + monthlyReceiptLimit + receiptsUnlimited + receiptOveragePrice
-//       + contractsEnabled.
-// Does NOT touch the contract fields (monthlyDocLimit / isUnlimited / overagePrice)
-// — those stay per-tenant overrides (e.g. worldpaversco's manual PRO_UNLIMITED).
+//       + contractOveragePrice (overagePrice) + contractsEnabled.
+// overagePrice is now seeded from the plan's canonical contract overage (4/3.5/
+// 2.5/1.5, unlimited→0) — assigning a plan leaves the correct overage, no more $5.
+// Still does NOT touch monthlyDocLimit / isUnlimited — those stay per-tenant
+// overrides (e.g. worldpaversco's manual PRO_UNLIMITED doc cap).
 //
 // Env:
 //   COMPANY_ID  (required)  CompanyProfile.id
@@ -100,6 +102,9 @@ async function main() {
       monthlyReceiptLimit,
       receiptsUnlimited: defaults.receiptsUnlimited,
       receiptOveragePrice: defaults.receiptOveragePrice,
+      // Contract overage from the canonical per-plan rate (single source of
+      // truth). Fixes the $5 schema-default debt for every plan assignment.
+      overagePrice: defaults.contractOveragePrice,
       contractsEnabled: defaults.contractsEnabled,
     };
 

@@ -15,6 +15,14 @@ export interface PlanReceiptDefaults {
   receiptsUnlimited: boolean;
   /** Price per receipt over the monthly limit (Starter/Launch/PPC). */
   receiptOveragePrice: number;
+  /**
+   * Price per CONTRACT document over the monthly limit. Canonical per-plan
+   * pricing (mirrors the frontend plan-catalog `overageRate` and
+   * docs/product/pricing-canonical.md). 0 for unlimited / receipts-only.
+   * This is now the authoritative source the plan-assignment script seeds from,
+   * replacing the misleading CompanyProfile.overagePrice $5 schema default.
+   */
+  contractOveragePrice: number;
   /** False for RECEIPTS_ONLY (receipts-only plan cannot create contracts). */
   contractsEnabled: boolean;
 }
@@ -27,24 +35,28 @@ export const PLAN_DEFAULTS: Record<PlanName, PlanReceiptDefaults> = {
     monthlyReceiptLimit: 0,
     receiptsUnlimited: true,
     receiptOveragePrice: OVERAGE,
+    contractOveragePrice: 0,
     contractsEnabled: false,
   },
   STARTER: {
     monthlyReceiptLimit: 20,
     receiptsUnlimited: false,
     receiptOveragePrice: OVERAGE,
+    contractOveragePrice: 4,
     contractsEnabled: true,
   },
   PRO: {
     monthlyReceiptLimit: 0,
     receiptsUnlimited: true,
     receiptOveragePrice: OVERAGE,
+    contractOveragePrice: 2.5,
     contractsEnabled: true,
   },
   PAY_PER_CONTRACT: {
     monthlyReceiptLimit: 0,
     receiptsUnlimited: false,
     receiptOveragePrice: OVERAGE,
+    contractOveragePrice: 12,
     contractsEnabled: true,
   },
   // Legacy plans (kept, not remapped)
@@ -52,18 +64,21 @@ export const PLAN_DEFAULTS: Record<PlanName, PlanReceiptDefaults> = {
     monthlyReceiptLimit: 35,
     receiptsUnlimited: false,
     receiptOveragePrice: OVERAGE,
+    contractOveragePrice: 3.5,
     contractsEnabled: true,
   },
   SCALE: {
     monthlyReceiptLimit: 0,
     receiptsUnlimited: true,
     receiptOveragePrice: OVERAGE,
+    contractOveragePrice: 1.5,
     contractsEnabled: true,
   },
   PRO_UNLIMITED: {
     monthlyReceiptLimit: 0,
     receiptsUnlimited: true,
     receiptOveragePrice: OVERAGE,
+    contractOveragePrice: 0,
     contractsEnabled: true,
   },
 };
