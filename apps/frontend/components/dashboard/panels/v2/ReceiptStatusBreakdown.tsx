@@ -15,7 +15,7 @@ interface ReceiptStatusBreakdownProps {
 export function ReceiptStatusBreakdown({ stats, isLoading }: ReceiptStatusBreakdownProps) {
   if (isLoading) {
     return (
-      <div className="status-breakdown loading">
+      <div className="status-breakdown status-breakdown--receipts loading">
         <h2 className="status-breakdown-title">Receipt status</h2>
         <div className="status-breakdown-grid">
           {[1, 2, 3, 4].map((i) => (
@@ -45,7 +45,7 @@ export function ReceiptStatusBreakdown({ stats, isLoading }: ReceiptStatusBreakd
   ];
 
   return (
-    <div className="status-breakdown">
+    <div className="status-breakdown status-breakdown--receipts">
       <div className="status-breakdown-header">
         <h2 className="status-breakdown-title">Receipt status</h2>
         <span className="status-breakdown-total">

@@ -1,5 +1,5 @@
 import './overview-panel.css';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { WelcomeCard } from './WelcomeCard';
 import { MetricCards } from './MetricCards';
 import { ReceiptsUsageCard } from './ReceiptsUsageCard';
@@ -14,6 +14,8 @@ interface DashboardUser {
   name: string;
   email: string;
   role: string;
+  // Drives business-vs-person name in the WelcomeCard (same as the Topbar).
+  accountType?: string | null;
 }
 
 interface CompanyProfile {
@@ -24,6 +26,9 @@ interface CompanyProfile {
 }
 
 interface CurrentUsage {
+  // Plan key from billing (works for individuals too — companyProfile is nulled
+  // for them, so the WelcomeCard reads the plan from here).
+  planName?: string;
   documentsUsed: number;
   documentsLimit: number | null; // null = unlimited
   overageCount?: number;
@@ -93,19 +98,25 @@ export function OverviewPanel({
   const receiptsOnly = !contractsEnabled;
   const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  // Skeletons only on the FIRST load — a background refetch updates the numbers
+  // in place (no flash/flicker). "Refresco suave."
+  const statsLoadedRef = useRef(false);
 
   useEffect(() => {
     if (!receiptsOnly || !onFetchReceiptStats) return;
     let active = true;
     const load = async () => {
-      setStatsLoading(true);
+      if (!statsLoadedRef.current) setStatsLoading(true);
       try {
         const s = await onFetchReceiptStats();
         if (active) setReceiptStats(s);
       } catch {
-        if (active) setReceiptStats(null);
+        if (active && !statsLoadedRef.current) setReceiptStats(null);
       } finally {
-        if (active) setStatsLoading(false);
+        if (active) {
+          statsLoadedRef.current = true;
+          setStatsLoading(false);
+        }
       }
     };
     void load();
@@ -119,6 +130,7 @@ export function OverviewPanel({
       <WelcomeCard
         user={user}
         company={companyProfile}
+        plan={usage?.planName ?? companyProfile?.plan ?? null}
         isLoading={isLoading}
         onNewDocument={onNewDocument}
         ctaLabel={receiptsOnly ? 'New receipt' : 'New document'}
@@ -136,13 +148,19 @@ export function OverviewPanel({
         />
       )}
 
-      <ReceiptsUsageCard
-        used={usage?.receiptsUsed ?? 0}
-        limit={usage?.monthlyReceiptLimit ?? 0}
-        unlimited={usage?.receiptsUnlimited ?? false}
-        overagePrice={usage?.receiptOveragePrice ?? 0.25}
-        isLoading={isLoading}
-      />
+      {/* Receipts usage/quota card. Receipts-only tenants get their receipt
+          volume from the metric cards above ("This month") — the quota card is
+          redundant there (and unlimited), so it's hidden. Limited contract plans
+          (Starter, etc.) keep it: it shows real quota/overage. */}
+      {!receiptsOnly && (
+        <ReceiptsUsageCard
+          used={usage?.receiptsUsed ?? 0}
+          limit={usage?.monthlyReceiptLimit ?? 0}
+          unlimited={usage?.receiptsUnlimited ?? false}
+          overagePrice={usage?.receiptOveragePrice ?? 0.25}
+          isLoading={isLoading}
+        />
+      )}
 
       <div className="overview-columns">
         <div className="overview-columns__main">

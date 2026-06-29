@@ -53,6 +53,15 @@
   min-width: 0;
 }
 
+/* Right-side stack: date sits directly above the primary CTA. */
+.welcome-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .welcome-date {
   margin: 0;
   font-size: 12px;
@@ -62,15 +71,19 @@
   color: var(--text-muted);
 }
 
+/* Row 1: the time-of-day greeting (muted, secondary to the name). */
 .welcome-greeting {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Row 2: the account name — business name or person name (the headline). */
+.welcome-name {
   font-size: 22px;
   font-weight: 500;
   margin: 0;
   line-height: 1.25;
-  color: var(--text-heading);
-}
-
-.welcome-user-name {
   color: var(--text-heading);
 }
 
@@ -154,22 +167,36 @@
     padding: 28px;
   }
 
-  .welcome-greeting {
+  .welcome-name {
     font-size: 22px;
   }
 }
 
 @media (max-width: 768px) {
+  /* Stack: text block on top, date+CTA row below (CTA full width). */
   .welcome-card {
+    flex-direction: column;
+    align-items: stretch;
     padding: 24px;
   }
 
-  .welcome-greeting {
+  .welcome-name {
     font-size: 20px;
   }
 
   .welcome-company-info {
     flex-wrap: wrap;
+  }
+
+  .welcome-action {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .welcome-action .welcome-cta {
+    flex: 1;
+    justify-content: center;
   }
 }
 
@@ -364,6 +391,13 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+/* Receipts have 4 statuses → a clean 2×2 grid (vs the contract card's 3-up).
+   Scoped so the shared contract StatusBreakdown is untouched. Higher specificity
+   than the base + media rules, so it holds 2 columns at all widths. */
+.status-breakdown--receipts .status-breakdown-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .status-pill {
@@ -646,6 +680,16 @@
 .doc-status-cancelled {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
+}
+
+.doc-status-failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.doc-status-void {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
 }
 
 .doc-status-default {

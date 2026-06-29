@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
 import { getPlanEntry } from "@/lib/plan-catalog";
+import { resolveAccountName } from "@/lib/account-identity";
 
 interface TopbarProps {
   user: {
@@ -66,8 +67,12 @@ export function Topbar({ user, currentPanel, isLoading, children, onSignOut }: T
 
   // Beside the avatar: INDIVIDUAL accounts show the person's name; everyone
   // else (BUSINESS / MASTER) shows the company name. Plan sits underneath.
-  const isIndividual = user.accountType === "INDIVIDUAL";
-  const primaryLabel = isIndividual ? user.name : user.companyName;
+  // Shared resolver so the Topbar and WelcomeCard never drift apart.
+  const primaryLabel = resolveAccountName({
+    accountType: user.accountType,
+    personName: user.name,
+    companyName: user.companyName,
+  });
   // Use the catalog display label (never the raw enum like "RECEIPTS_ONLY").
   const planLabel = user.plan ? getPlanEntry(user.plan).name : null;
 

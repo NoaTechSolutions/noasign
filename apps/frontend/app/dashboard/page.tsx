@@ -725,7 +725,22 @@ function DashboardPageInner() {
     [],
   );
 
+  // Stable reference so the Overview's receipt-stats effect doesn't refetch (and
+  // flash skeletons) on every page re-render — only when it genuinely mounts.
+  const fetchReceiptStats = useCallback(
+    () => apiRequest<ReceiptStats>("/documents/receipt/stats"),
+    [],
+  );
+
   useEffect(() => {
+    // Receipts-only tenants (contractsEnabled=false) have no live signature flow
+    // to sync — a SENT receipt is terminal. Skip the contract-status poll so the
+    // receipts overview doesn't refetch + re-render every 10s for nothing (that
+    // background refetch was making the "Recent receipts" table flicker).
+    if (usage?.contractsEnabled === false) {
+      return;
+    }
+
     const hasLiveDocuments = (documents ?? []).some((document) =>
       LIVE_DOCUMENT_STATUSES.has(document.status),
     );
@@ -761,7 +776,38 @@ function DashboardPageInner() {
       isCancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [documentActionId, documents, refreshLiveDocumentData, selectedDocumentId]);
+  }, [documentActionId, documents, refreshLiveDocumentData, selectedDocumentId, usage?.contractsEnabled]);
+
+  // Plan migrations are applied out-of-band (set-tenant-plan.js), so the open
+  // dashboard would otherwise show a stale plan until a manual F5. When the tab
+  // regains focus, re-pull billing usage + documents so a plan change (e.g.
+  // RECEIPTS_ONLY → STARTER flipping contractsEnabled) reflects immediately — the
+  // documents reappear without a reload. Light (no skeletons, no detail refetch).
+  useEffect(() => {
+    const syncPlanState = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const [currentUsage, myDocuments, availableTypes] = await Promise.all([
+          apiRequest<CurrentUsage>("/billing/current-usage"),
+          apiRequest<DashboardDocument[]>("/documents/my-documents"),
+          // Also re-pull the type catalog: a RECEIPTS_ONLY → contracts migration
+          // re-enables BOLDSIGN types, so "New document" offers them without F5.
+          apiRequest<DocumentTypeCatalogItem[]>("/documents/types"),
+        ]);
+        setUsage(currentUsage);
+        setDocuments(myDocuments);
+        setDocumentTypes(availableTypes);
+      } catch {
+        // Ignore — the next focus/visibility change retries.
+      }
+    };
+    document.addEventListener("visibilitychange", syncPlanState);
+    window.addEventListener("focus", syncPlanState);
+    return () => {
+      document.removeEventListener("visibilitychange", syncPlanState);
+      window.removeEventListener("focus", syncPlanState);
+    };
+  }, []);
 
   async function handleSignOut() {
     try {
@@ -1658,6 +1704,9 @@ function DashboardPageInner() {
             .join(" ") || backendUser.email,
         email: backendUser.email,
         role: backendUser.role,
+        // Lets the WelcomeCard show the person name (INDIVIDUAL) vs the company
+        // name (BUSINESS), matching the Topbar.
+        accountType: backendUser.accountType ?? null,
       };
     };
 
@@ -1673,6 +1722,9 @@ function DashboardPageInner() {
     const adaptUsageForPanel = (backendUsage: CurrentUsage | null) => {
       if (!backendUsage) return null;
       return {
+        // Plan key — the WelcomeCard reads it from here so it shows for
+        // INDIVIDUAL accounts too (their companyProfile is nulled).
+        planName: backendUsage.planName,
         documentsUsed: backendUsage.documentsUsed,
         // null = unlimited → usage card shows ∞ instead of 0/0. Also null for
         // receipts-only tenants (no contracts dimension to cap).
@@ -1714,6 +1766,8 @@ function DashboardPageInner() {
         sentAt: doc.sentAt ?? null,
         viewedAt: doc.viewedAt ?? null,
         completedAt: doc.completedAt ?? null,
+        // A reissued/voided receipt keeps status SENT but is shown as VOID.
+        supersededAt: doc.supersededAt ?? null,
         customerId: (doc as DashboardDocument & { customerId?: string | null }).customerId ?? null,
       }));
     };
@@ -2207,9 +2261,7 @@ function DashboardPageInner() {
           customers={(customers ?? []).map((c) => ({ id: c.id, fullName: c.fullName }))}
           isLoading={isLoading}
           contractsEnabled={usage?.contractsEnabled ?? true}
-          onFetchReceiptStats={() =>
-            apiRequest<ReceiptStats>("/documents/receipt/stats")
-          }
+          onFetchReceiptStats={fetchReceiptStats}
           onNewDocument={() => router.push("/dashboard?panel=documents&new=1")}
           onOpenDocument={(docId) => router.push(`/dashboard?panel=documents&doc=${docId}`)}
           onViewAllAttention={() => router.push("/dashboard?panel=documents&status=SENT")}
@@ -2300,9 +2352,7 @@ function DashboardPageInner() {
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
           contractsEnabled={usage?.contractsEnabled ?? true}
-          onFetchReceiptStats={() =>
-            apiRequest<ReceiptStats>("/documents/receipt/stats")
-          }
+          onFetchReceiptStats={fetchReceiptStats}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={handleFetchTypesAsUser}
           receiptQuota={
