@@ -65,18 +65,27 @@ async function main() {
     });
     if (!before) throw new Error(`CompanyProfile ${companyId} not found`);
 
-    // Anti-downgrade guard (Model C, backend half of the double-lock): a tenant
-    // that already has a contracts plan (contractsEnabled=true) must NOT be moved
-    // to RECEIPTS_ONLY — receipts-only contradicts contract capability and would
-    // strip their contracts. The front hides RECEIPTS_ONLY in the same case; this
-    // is the authoritative server-side check. Migrate/cancel contracts first.
-    if (plan === 'RECEIPTS_ONLY' && before.contractsEnabled === true) {
-      throw new Error(
-        `Anti-downgrade: tenant "${before.companyName}" (${companyId}) is on ` +
-          `"${before.planName}" with contractsEnabled=true. RECEIPTS_ONLY cannot ` +
-          `be assigned to a tenant that has a contracts plan. Cancel/migrate its ` +
-          `contracts first, or pick a contracts plan.`,
-      );
+    // Anti-downgrade guard (Model C, backend half of the double-lock) — by REAL
+    // USAGE, not capability: block RECEIPTS_ONLY only if the tenant has actually
+    // created contracts (BOLDSIGN documents), since those would be orphaned by a
+    // receipts-only plan. A contracts-plan tenant with ZERO contracts can freely
+    // move to receipts-only — there's nothing to strip. (Replaces the old check
+    // that looked at contractsEnabled===true, which blocked even empty tenants.)
+    if (plan === 'RECEIPTS_ONLY') {
+      const contractCount = await prisma.document.count({
+        where: {
+          companyProfileId: companyId,
+          documentType: { generationMode: 'BOLDSIGN' },
+        },
+      });
+      if (contractCount > 0) {
+        throw new Error(
+          `Anti-downgrade: tenant "${before.companyName}" (${companyId}) has ` +
+            `${contractCount} contract(s) (BOLDSIGN documents). RECEIPTS_ONLY would ` +
+            `orphan them — cancel/migrate those contracts first. (A contracts-plan ` +
+            `tenant with zero contracts CAN move to receipts-only.)`,
+        );
+      }
     }
 
     // Optional per-tenant override of the receipt limit (e.g. 2 for fast overage
