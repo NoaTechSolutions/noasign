@@ -10,6 +10,9 @@ interface DocumentsCardsProps {
   onSelect: (docId: string) => void;
   onAction: (action: V2DocumentAction, docId: string) => void | Promise<void>;
   isLoading?: boolean;
+  // Receipts-only context: the card already shows the recipient in its header, so
+  // the redundant "Type" body row is dropped.
+  receiptsOnly?: boolean;
 }
 
 function SkeletonCard() {
@@ -60,6 +63,7 @@ export function DocumentsCards({
   onSelect,
   onAction,
   isLoading,
+  receiptsOnly = false,
 }: DocumentsCardsProps) {
   return (
     <div className="documents-v2-cards">
@@ -72,6 +76,7 @@ export function DocumentsCards({
               selected={doc.id === selectedId}
               onSelect={onSelect}
               onAction={onAction}
+              receiptsOnly={receiptsOnly}
             />
           ))}
     </div>

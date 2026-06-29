@@ -24,13 +24,16 @@ interface DocumentCardProps {
   selected: boolean;
   onSelect: (docId: string) => void;
   onAction: (action: V2DocumentAction, docId: string) => void | Promise<void>;
+  // Receipts-only context: the recipient is already in the card header, so the
+  // redundant "Type" body row is hidden.
+  receiptsOnly?: boolean;
 }
 
 // State-change actions grouped under the "Actions" sub-sheet (mirrors the
 // desktop kebab submenu): Resend / Reissue / Void. A VOID receipt has none.
 const SUBMENU_ACTIONS = new Set<V2DocumentAction>(['resend', 'reissue', 'void']);
 
-export function DocumentCard({ document, selected, onAction }: DocumentCardProps) {
+export function DocumentCard({ document, selected, onAction, receiptsOnly = false }: DocumentCardProps) {
   const [expanded, setExpanded] = useState(false);
   // Mobile bottom sheets (same pattern as the Clients CustomerCard).
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -116,10 +119,12 @@ export function DocumentCard({ document, selected, onAction }: DocumentCardProps
         {expanded ? (
           <div className="documents-v2-card__body">
             <div className="documents-v2-card__info">
-              <div className="documents-v2-card__info-row">
-                <span className="documents-v2-card__label">Type</span>
-                <span>{getDocumentTypeDisplayName(document)}</span>
-              </div>
+              {!receiptsOnly && (
+                <div className="documents-v2-card__info-row">
+                  <span className="documents-v2-card__label">Type</span>
+                  <span>{getDocumentTypeDisplayName(document)}</span>
+                </div>
+              )}
               <div className="documents-v2-card__info-row">
                 <span className="documents-v2-card__label">Date</span>
                 <span>{formatDate(document.createdAt)}</span>

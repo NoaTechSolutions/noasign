@@ -486,6 +486,7 @@ export function DocumentsPanel({
             onSelect={handleSelect}
             onAction={handleAction}
             isLoading
+            receiptsOnly={receiptsOnly}
           />
           <DocumentsCards
             documents={[]}
@@ -493,6 +494,7 @@ export function DocumentsPanel({
             onSelect={handleSelect}
             onAction={handleAction}
             isLoading
+            receiptsOnly={receiptsOnly}
           />
         </>
       ) : showEmpty ? (
@@ -513,12 +515,14 @@ export function DocumentsPanel({
             onQuickFilterStatus={setStatusFilter}
             onQuickFilterType={setTypeFilter}
             newIds={newDocIds}
+            receiptsOnly={receiptsOnly}
           />
           <DocumentsCards
             documents={pageItems}
             selectedId={selectedDocId}
             onSelect={handleSelect}
             onAction={handleAction}
+            receiptsOnly={receiptsOnly}
           />
 
           {totalPages > 1 && (
