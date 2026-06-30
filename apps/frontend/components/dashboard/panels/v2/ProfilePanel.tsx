@@ -67,6 +67,13 @@ export interface ProfilePanelProps {
   onNavigate?: (panel: string) => void;
 }
 
+// Copies one key from `source` into a Partial of the same shape. Binding the key
+// to a single type parameter K keeps the key↔value correlation that TypeScript
+// otherwise loses when indexing with a `keyof T` union, so no `any` is needed.
+function assignChangedKey<T, K extends keyof T>(target: Partial<T>, source: T, key: K): void {
+  target[key] = source[key];
+}
+
 export function ProfilePanel({
   user,
   companyProfile,
@@ -137,12 +144,12 @@ export function ProfilePanel({
 
     if (draftCompany && companyProfile) {
       (Object.keys(draftCompany) as (keyof CompanyProfile)[]).forEach((k) => {
-        if (draftCompany[k] !== companyProfile[k]) companyChanges[k] = draftCompany[k] as any;
+        if (draftCompany[k] !== companyProfile[k]) assignChangedKey(companyChanges, draftCompany, k);
       });
     }
     if (draftUser && user) {
       (Object.keys(draftUser) as (keyof User)[]).forEach((k) => {
-        if (draftUser[k] !== user[k]) userChanges[k] = draftUser[k] as any;
+        if (draftUser[k] !== user[k]) assignChangedKey(userChanges, draftUser, k);
       });
     }
     if (Object.keys(companyChanges).length > 0 || Object.keys(userChanges).length > 0) {
