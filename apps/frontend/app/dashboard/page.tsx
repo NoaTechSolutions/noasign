@@ -1673,6 +1673,13 @@ function DashboardPageInner() {
       [dashboardUser?.firstName, dashboardUser?.lastName]
         .filter(Boolean)
         .join(" ") || "User";
+    // The tenant's plan, single source of truth. usage.planName carries it for
+    // ALL account types; the raw companyProfile is nulled for INDIVIDUAL accounts
+    // (setCompanyProfile by accountType above), so reading the plan from it drops
+    // it for individuals — the shared cause of the missing Topbar plan and the
+    // Billing "Launch" fallback. Reused by the Topbar (shellUser) and Billing below.
+    const effectivePlanKey = usage?.planName ?? companyProfile?.planName ?? null;
+
     const shellUser = {
       name: fullName,
       email: dashboardUser?.email ?? user?.email ?? "",
@@ -1688,7 +1695,7 @@ function DashboardPageInner() {
       // Topbar shows name/company + plan beside the avatar. accountType
       // drives which name to show (INDIVIDUAL → person, else → company).
       accountType: dashboardUser?.accountType ?? null,
-      plan: companyProfile?.planName ?? null,
+      plan: effectivePlanKey,
     };
 
     // Adapters: backend NoaSign shapes → v2 panel interfaces.
@@ -1885,8 +1892,8 @@ function DashboardPageInner() {
     // is the live backend value (null when the tenant is on an unlimited plan,
     // e.g. PRO_UNLIMITED). Users count = managedUsers length; templates count =
     // documentTypes length as a proxy until backend tracks "templates in use".
-    const billingPlanCfg = getPlanEntry(companyProfile?.planName);
-    const billingPlanKey = (companyProfile?.planName ?? "LAUNCH").toUpperCase();
+    const billingPlanCfg = getPlanEntry(effectivePlanKey);
+    const billingPlanKey = (effectivePlanKey ?? "LAUNCH").toUpperCase();
     const billingV3 = {
       currentPlan: {
         name: billingPlanCfg.name,
