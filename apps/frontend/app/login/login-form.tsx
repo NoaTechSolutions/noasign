@@ -555,7 +555,7 @@ export function LoginForm() {
     if (forgotPasswordCooldown > 0 || isSubmittingForgotPassword) return;
     setIsSubmittingForgotPassword(true);
     try {
-      const data = await apiRequest<ForgotPasswordResponse>("/auth/forgot-password", {
+      await apiRequest<ForgotPasswordResponse>("/auth/forgot-password", {
         method: "POST",
         body: { email: forgotPasswordForm.email.trim().toLowerCase() },
       });

@@ -54,7 +54,6 @@ import {
   DetailRow,
   EditableField,
   EmptyBlock,
-  StatPill,
   StatusBadge,
 } from "@/components/dashboard/shared/ui";
 import {
