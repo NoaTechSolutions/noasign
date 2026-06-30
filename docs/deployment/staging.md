@@ -11,6 +11,40 @@ Deploy automático: cada push a la rama `develop` dispara `.github/workflows/dep
 
 ---
 
+## Usuarios de prueba (4 tipos account × plan)
+
+Pensados para la migración "Recibos → plan con documentos": los 4 combos de
+`accountType` × plan, cada uno **clarísimamente identificado** (1 usuario = 1
+company = 1 plan + accountType explícito). Se siembran con la corrida gateada del
+workflow (`workflow_dispatch` con `seed_test_users=true`), que ejecuta
+`scripts/dev-helpers/_seed-staging-test-users.js` (World Pavers) +
+`_seed-staging-4type-users.js` (los otros 3). Idempotente, no destructivo.
+
+| # | Tipo | Login | Password | accountType | Plan | Company |
+|---|------|-------|----------|-------------|------|---------|
+| 1 | PERSONAL individual | `personal.individual@staging.ntssign.com` | `PersonalIndStg2026!` | INDIVIDUAL | STARTER | Staging Personal Individual |
+| 2 | BUSINESS normal | `business@staging.ntssign.com` | `BusinessStg2026!` | NULL→business | STARTER | World Pavers |
+| 3 | RECEIPTS personal | `receipts.personal@staging.ntssign.com` | `ReceiptPersStg2026!` | INDIVIDUAL | RECEIPTS_ONLY | Staging Receipts Personal |
+| 4 | RECEIPTS business | `receipts.business@staging.ntssign.com` | `ReceiptBizStg2026!` | BUSINESS | RECEIPTS_ONLY | Staging Receipts Business |
+
+**World Pavers (tipo 2)** es el tenant principal y tiene **ambos templates**:
+contrato (`SignatureTemplate` "World Pavers Contract Template (staging)") +
+recibo (`ReceiptTemplate` company-scoped). Sus admins: `master@staging` (MASTER) +
+`business@staging` (USER). Los dos tenants RECEIPTS_ONLY también reciben un
+`ReceiptTemplate` propio (wireado por `_seed-receipt-template.js` en el workflow).
+
+> ⚠️ **`personal@staging.ntssign.com` es legacy y en realidad es BUSINESS** (su
+> `accountType` quedó NULL → se trata como business, vive en World Pavers). NO es
+> el usuario individual — ese es `personal.individual@staging`. No renombrar correos
+> (rompe logins); por eso el individual real se creó con nombre nuevo.
+
+`RECEIPTS_ONLY` = plan con `contractsEnabled=false` + `receiptsUnlimited=true`. Un
+"recibo" es un `Document` con `DocumentType=PAYMENT_RECEIPT` + `receiptTemplateId`
+(no hay modelo Receipt aparte). Estructura espejo del set local
+`scripts/setup-billing-test-tenants.js`.
+
+---
+
 ## Stack en la VM
 
 | Componente | Versión | Puerto interno |
