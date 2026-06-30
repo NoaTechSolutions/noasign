@@ -71,6 +71,22 @@ const TENANTS = [
     firstName: 'Alex',
     lastName: 'Rivera',
   },
+  {
+    // INDIVIDUAL on a normal CONTRACT plan (STARTER) — the 4th staging-parity
+    // type (PERSONAL individual). Its companyProfile is nulled in the dashboard
+    // (accountType INDIVIDUAL), so it exercises the plan-resolution path for the
+    // Topbar plan label + Billing current-plan on a non-receipts individual.
+    id: 'b1110000-0000-4000-8000-000000000005',
+    companyName: 'Test Personal Individual Co',
+    email: 'personal.individual@billingtest.local',
+    plan: 'STARTER',
+    monthlyDocLimit: 5,
+    isUnlimited: false,
+    overagePrice: 4.0,
+    accountType: 'INDIVIDUAL',
+    firstName: 'Pat',
+    lastName: 'Individual',
+  },
 ];
 
 async function main() {
