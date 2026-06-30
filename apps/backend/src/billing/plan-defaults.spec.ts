@@ -44,7 +44,11 @@ describe('PLAN_DEFAULTS (Model C receipt billing)', () => {
   });
 
   it('overage price is $0.25 for the metered plans', () => {
-    for (const plan of ['STARTER', 'LAUNCH', 'PAY_PER_CONTRACT'] as PlanName[]) {
+    for (const plan of [
+      'STARTER',
+      'LAUNCH',
+      'PAY_PER_CONTRACT',
+    ] as PlanName[]) {
       expect(PLAN_DEFAULTS[plan].receiptOveragePrice).toBe(0.25);
     }
   });

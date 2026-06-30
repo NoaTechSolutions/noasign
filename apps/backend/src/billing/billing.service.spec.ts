@@ -132,7 +132,9 @@ describe('BillingService.getCurrentUsage — receipt dimension (Model C)', () =>
           : (counts.receipts ?? 0);
       }
       if (w.countedInBilling) {
-        return w.isOverage ? (counts.contractOverage ?? 0) : (counts.contracts ?? 0);
+        return w.isOverage
+          ? (counts.contractOverage ?? 0)
+          : (counts.contracts ?? 0);
       }
       return 0;
     });

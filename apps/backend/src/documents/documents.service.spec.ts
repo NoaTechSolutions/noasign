@@ -118,7 +118,9 @@ describe('DocumentsService', () => {
         companyProfileId: 'company-2',
       });
     prismaMock.userDocumentConfig.findMany.mockResolvedValue([]);
-    prismaMock.receiptTemplate.findMany.mockResolvedValue([{ id: 'rt-borrow' }]);
+    prismaMock.receiptTemplate.findMany.mockResolvedValue([
+      { id: 'rt-borrow' },
+    ]);
     prismaMock.documentType.findMany.mockResolvedValue([
       {
         id: 'dt-rec',

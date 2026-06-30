@@ -275,9 +275,9 @@ describe('CustomersService', () => {
 
     it('throws NotFoundException when customer not in tenant', async () => {
       prismaMock.customer.findFirst.mockResolvedValue(null);
-      await expect(
-        service.findOne(tenantUser, 'other'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.findOne(tenantUser, 'other')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -287,7 +287,10 @@ describe('CustomersService', () => {
         id: 'c-1',
         business: null,
       });
-      prismaMock.customer.update.mockResolvedValue({ id: 'c-1', fullName: 'New' });
+      prismaMock.customer.update.mockResolvedValue({
+        id: 'c-1',
+        fullName: 'New',
+      });
       prismaMock.customer.findUniqueOrThrow.mockResolvedValue({
         id: 'c-1',
         fullName: 'New',
@@ -373,9 +376,9 @@ describe('CustomersService', () => {
 
     it('throws NotFoundException if customer not in tenant', async () => {
       prismaMock.customer.findFirst.mockResolvedValue(null);
-      await expect(
-        service.delete(tenantUser, 'other'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.delete(tenantUser, 'other')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
       expect(prismaMock.customer.delete).not.toHaveBeenCalled();
     });
   });
