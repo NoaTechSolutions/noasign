@@ -1065,18 +1065,15 @@ function CustomerViewDrawer({
     ];
   }, [isBusiness]);
 
-  // Customer arrives async (null → loaded), so the initial useState runs when
-  // customer is still null (isBusiness=false, activeTab="info"). Once the
-  // BUSINESS customer resolves, the "info" tab is no longer in the list — snap
-  // activeTab back to the first valid tab for this customer type.
-  useEffect(() => {
-    const validKeys: ViewTabKey[] = isBusiness
-      ? ["company", "contact", "documents"]
-      : ["info", "documents"];
-    if (!validKeys.includes(activeTab)) {
-      setActiveTab(isBusiness ? "company" : "info");
-    }
-  }, [isBusiness, activeTab]);
+  // Customer arrives async (null → loaded), so activeTab may hold a tab that's
+  // invalid once the (BUSINESS) customer resolves. Derive the effective tab
+  // during render instead of snapping it back in an effect — avoids the
+  // cascading render / flicker. setActiveTab still drives explicit user clicks.
+  const effectiveTab: ViewTabKey = tabs.some((t) => t.key === activeTab)
+    ? activeTab
+    : isBusiness
+      ? "company"
+      : "info";
 
   const b = customer?.business;
   const phoneDisplay = customer
@@ -1200,7 +1197,7 @@ function CustomerViewDrawer({
               onClick={() => setActiveTab(tab.key)}
               className={cn(
                 "inline-flex items-center gap-2 rounded-t-md px-4 py-3 text-sm transition",
-                activeTab === tab.key
+                effectiveTab === tab.key
                   ? "border-b-2 border-[color:var(--brand-accent)] font-semibold text-[color:var(--text-primary)]"
                   : "border-b-2 border-transparent font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--bg-page-subtle)] hover:text-[color:var(--text-primary)] dark:hover:bg-white/5",
               )}
@@ -1215,7 +1212,7 @@ function CustomerViewDrawer({
             <EmptyBlock text="Loading client..." />
           ) : !customer ? (
             <EmptyBlock text="Client not found." />
-          ) : activeTab === "documents" ? (
+          ) : effectiveTab === "documents" ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-[color:var(--text-muted)]">
@@ -1324,7 +1321,7 @@ function CustomerViewDrawer({
                 </>
               )}
             </div>
-          ) : activeTab === "info" ? (
+          ) : effectiveTab === "info" ? (
             <div className="grid gap-4">
               <CustomerField
                 label="Full name"
@@ -1380,7 +1377,7 @@ function CustomerViewDrawer({
                 disabled
               />
             </div>
-          ) : activeTab === "company" ? (
+          ) : effectiveTab === "company" ? (
             <div className="grid gap-4">
               {/* Row 1 — Business Name | Business Legal Name */}
               <div className="grid gap-4 md:grid-cols-2">

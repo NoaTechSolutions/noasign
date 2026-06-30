@@ -1,7 +1,11 @@
 # Known issue — `setState` synchronously inside an effect
 
-**Status:** open, deferred (low severity). Logged for a focused follow-up — do
-NOT bundle the fix into unrelated PRs.
+**Status (2026-06-30): mostly RESOLVED.**
+- `customers-panel.tsx` — FIXED (derive the effective tab during render).
+- `ProfilePanel.tsx` — FIXED (sync drafts during render via the prev-ref pattern).
+- `Sidebar.tsx` — intentionally kept (SSR-safe localStorage read); the lint rule
+  is suppressed with a justification comment. A proper fix
+  (`useSyncExternalStore`-based hook) is still deferred — see "Sidebar" below.
 
 ## What
 

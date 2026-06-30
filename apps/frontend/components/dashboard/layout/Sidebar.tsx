@@ -51,6 +51,15 @@ export function Sidebar({
   // Expand/collapse state for nav groups (e.g. "User management"), persisted.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
+  // Read persisted sidebar prefs once on mount. This deliberately calls setState
+  // in an effect rather than a lazy useState initializer to stay SSR-safe: a
+  // lazy init would touch localStorage during the server render (no `window` →
+  // crash) or diverge from the server's default and trigger a hydration
+  // mismatch. The single post-mount render is the documented tradeoff (the brief
+  // expand→collapse flicker noted above). A proper fix would move this to a
+  // useSyncExternalStore-based hook — see
+  // docs/architecture/known-issue-setstate-in-effect.md.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved !== null) {
@@ -63,6 +72,7 @@ export function Sidebar({
       /* ignore malformed storage */
     }
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleGroup = (key: string) => {
     setOpenGroups((cur) => {

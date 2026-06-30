@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import './profile-panel-v2.css';
 import { ProfileHeaderCard } from './ProfileHeaderCard';
 import { CompanyInformationSection } from './CompanyInformationSection';
@@ -75,12 +75,29 @@ export function ProfilePanel({
   stats,
   onNavigate,
 }: ProfilePanelProps) {
-  const [draftUser, setDraftUser] = useState<User | null>(null);
-  const [draftCompany, setDraftCompany] = useState<CompanyProfile | null>(null);
+  const [draftUser, setDraftUser] = useState<User | null>(() =>
+    user ? { ...user } : null,
+  );
+  const [draftCompany, setDraftCompany] = useState<CompanyProfile | null>(() =>
+    companyProfile ? { ...companyProfile } : null,
+  );
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
 
-  useEffect(() => { if (user) setDraftUser({ ...user }); }, [user]);
-  useEffect(() => { if (companyProfile) setDraftCompany({ ...companyProfile }); }, [companyProfile]);
+  // Refresh the edit drafts when the source props change — derived during
+  // render (React's "you might not need an effect") instead of in an effect, to
+  // drop the cascading render. Equivalent to the old [user]/[companyProfile]
+  // effects: a new reference refreshes its draft; a null prop leaves the last
+  // draft intact.
+  const [syncedUser, setSyncedUser] = useState(user);
+  if (user !== syncedUser) {
+    setSyncedUser(user);
+    if (user) setDraftUser({ ...user });
+  }
+  const [syncedCompany, setSyncedCompany] = useState(companyProfile);
+  if (companyProfile !== syncedCompany) {
+    setSyncedCompany(companyProfile);
+    if (companyProfile) setDraftCompany({ ...companyProfile });
+  }
 
   const openGroup = useCallback((group: string) => {
     if (user) setDraftUser({ ...user });
