@@ -1,66 +1,74 @@
 # Known issue — `setState` synchronously inside an effect
 
-**Status (2026-06-30): mostly RESOLVED.**
-- `customers-panel.tsx` — FIXED (derive the effective tab during render).
-- `ProfilePanel.tsx` — FIXED (sync drafts during render via the prev-ref pattern).
-- `Sidebar.tsx` — intentionally kept (SSR-safe localStorage read); the lint rule
-  is suppressed with a justification comment. A proper fix
-  (`useSyncExternalStore`-based hook) is still deferred — see "Sidebar" below.
+**Status (2026-06-30): RESOLVED across the frontend.** `frontend-lint` is green
+(0 errors) and every `react-hooks/set-state-in-effect` violation is either fixed
+with the pattern that fits its cause or left as a deliberate, documented
+external-store read (4 cases, see "Remaining" below).
 
 ## What
 
-Three dashboard components call `setState` synchronously in a `useEffect` body.
-React's `react-hooks/set-state-in-effect` rule (and the React docs,
-<https://react.dev/learn/you-might-not-need-an-effect>) flag this: it triggers a
-**second, cascading render** right after the first — wasted work, and a smell
-that the state should be *derived during render* instead of synced via an effect.
+`setState` called synchronously in a `useEffect` body triggers a **second,
+cascading render** right after the first — wasted work, and usually a smell that
+the state should be *derived during render* or read from an *external store*
+instead of synced via an effect. React's `react-hooks/set-state-in-effect` rule
+flags it (see <https://react.dev/learn/you-might-not-need-an-effect>). It is not a
+crash or data bug — the UI works; it just renders twice more often than needed and
+can flicker.
 
-It is **not** a crash or data bug. It's a performance / correctness-smell. The UI
-works today; it just renders twice more often than needed and can flicker.
+## Patterns used to fix it
 
-## Where (3 instances)
+There is no single fix — each instance is resolved with the pattern that matches
+*why* it was wrong:
 
-| File | Line | Effect does | Trigger |
-|---|---|---|---|
-| `components/dashboard/layout/Sidebar.tsx` | ~57 | reads `localStorage` on mount and `setIsCollapsed` / `setOpenGroups` | mount |
-| `components/dashboard/panels/customers-panel.tsx` | ~1077 | snaps `activeTab` to a valid tab when the async `customer` resolves and the current tab becomes invalid | `customer` loads (null → business/personal) |
-| `components/dashboard/panels/v2/ProfilePanel.tsx` | ~82 | copies the `user` / `companyProfile` props into `draftUser` / `draftCompany` state | those props change |
+| Cause | Correct pattern | Helper |
+|---|---|---|
+| Reset/adjust state when another value changes | prev-value compare **during render** | — |
+| Copy a `keyof T` union write | typed generic key helper (no `as any`) | — |
+| Read a media query | `useSyncExternalStore` | `lib/use-media-query.ts` (`useMediaQuery`) |
+| Hydration "mounted" guard | `useSyncExternalStore` | `lib/use-is-hydrated.ts` (`useIsHydrated`) |
+| Persisted state in `localStorage` | `useSyncExternalStore` | `lib/use-local-storage-state.ts` (`useLocalStorageState`) |
+| Loading flag before a fetch | initialise the flag `true`; restart on dep change via prev-compare | — |
 
-## Why it happens
+`useSyncExternalStore` gotcha: `getSnapshot` must return a **stable primitive**.
+For object values, snapshot the raw JSON *string* and parse it in a memo — never
+return a freshly-parsed object, or React loops forever.
 
-All three are the same anti-pattern in different clothes: **state that is really
-a function of props/external data is being *synced* with an effect** instead of
-*derived during render* (or initialized lazily).
+## Resolved instances
 
-- `customers-panel` / `ProfilePanel` — classic "copy props to state" / "adjust
-  state when a prop changes".
-- `Sidebar` — "initialize state from `localStorage`", kept in an effect partly to
-  stay SSR/hydration-safe (no `window` on the server).
+- `customers-panel.tsx` — derive the effective tab during render.
+- `ProfilePanel.tsx` — sync drafts during render via the prev-ref pattern; the two
+  `as any` indexed writes now go through a typed key helper.
+- `Sidebar.tsx` — persisted collapse/open-groups state moved to
+  `useLocalStorageState` (`useSyncExternalStore`). SSR-safe, no hydration mismatch,
+  `eslint-disable` removed.
+- `CustomersToolbar.tsx` — `isMobile` via `useMediaQuery`.
+- `theme-toggle.tsx` (both the `ui/` and login variants) — mounted guard via
+  `useIsHydrated`.
+- `DashboardThemeProvider.tsx` — persisted theme read via `useSyncExternalStore`;
+  the `data-theme` DOM write stays in an effect (allowed external-system sync).
+- `CustomerTableRow.tsx`, `GroupEditPopup.tsx` — reset-on-close via prev-compare.
+- `AssignCustomerModal.tsx` — dropped a redundant `setLoading(true)` (state inits
+  `true`).
+- `DocumentDetailSidebar.tsx` — `versionsLoading` inits from `onFetchVersions` and
+  restarts on in-place document swaps via prev-compare; removes a one-frame flash.
+- `ui/sidebar.tsx`, `dashboard-sidebar-demo.tsx` (URL→section sync,
+  section→menu auto-open) — `useIsHydrated` / prev-compare.
 
-## Proposed fix (per instance)
+## Remaining (deliberate, deferred)
 
-1. **customers-panel `activeTab`** — derive the effective tab during render and
-   drop the effect entirely:
-   ```ts
-   const validKeys = isBusiness ? ["company","contact","documents"] : ["info","documents"];
-   const effectiveTab = validKeys.includes(activeTab) ? activeTab : validKeys[0];
-   // use effectiveTab for rendering; only setActiveTab from user clicks.
-   ```
-   This removes the cascading render and the "snap-back flicker".
+Four suppressions are left in place — each reads from `localStorage` /
+`sessionStorage` on mount with a fallback, which is a documented, React-sanctioned
+external-store read (issue #418 hydration safety). They are conscious tradeoffs,
+not accidental, and a clean migration changes user-visible behavior (theme/lang
+flash timing, modal/viewer restore), so it needs a manual smoke test and owner
+sign-off:
 
-2. **ProfilePanel `draftUser` / `draftCompany`** — these are edit drafts. Prefer
-   the **key-reset pattern** (give the editing subtree a `key={user.id}` so it
-   remounts with fresh `useState(user)` initial state), or set-during-render
-   guarded by a "previous id" ref. Avoids the per-prop-change effect+setState.
+| File | Reads | Migration target |
+|---|---|---|
+| `marketing/FloatingControls.tsx` | `localStorage` theme + `matchMedia` fallback | `useSyncExternalStore` store |
+| `marketing/LandingContext.tsx` | `localStorage` lang + `navigator.language` fallback | `useSyncExternalStore` store |
+| `dashboard/panels/billing-panel.tsx` | `sessionStorage` modal-open boolean | `sessionStorage` variant of `useLocalStorageState` |
+| `dashboard-sidebar-demo.tsx` | `sessionStorage` document-viewer state (3 fields) | `sessionStorage` store, restore as one object |
 
-3. **Sidebar `localStorage`** — move the read into a **lazy `useState`
-   initializer** guarded for SSR, e.g.
-   `useState(() => typeof window === "undefined" ? false : localStorage.getItem(KEY) === "true")`,
-   or formalize it with `useSyncExternalStore`. Watch for hydration mismatch —
-   verify the server and first client render agree.
-
-## Effort / risk
-
-Small per file, but each touches interactive UI (tabs, profile editing, sidebar
-persistence) → needs a manual smoke test after. Best done as one dedicated
-"derive-don't-sync" cleanup PR, not piggybacked on a feature.
+These four are the natural scope of a follow-up "finish the external-store
+migration" change.
