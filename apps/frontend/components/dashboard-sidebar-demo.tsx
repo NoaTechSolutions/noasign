@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import NextImage from "next/image";
 import Link from "next/link";
@@ -24,7 +24,6 @@ import {
   Lock,
   LogOut,
   Menu,
-  Phone,
   ScanText,
   Search,
   UserCog,
@@ -62,8 +61,6 @@ import {
   getDisplayEmail,
   getDisplayPhone,
   type Customer,
-  type CustomerBusiness,
-  type CustomerBusinessFormValues,
   type CustomerFormValues,
 } from "@/components/dashboard/shared/customer-types";
 import type {
@@ -662,11 +659,9 @@ export function DashboardSidebarDemo({
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDocumentViewerInitialTab(persistedViewerState.initialTab ?? "client");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDocumentViewerInitialEditingTab(
       persistedViewerState.initialEditingTab ?? null,
     );
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDocumentViewerOpen(true);
   }, []);
 

@@ -3,7 +3,6 @@ import {
   IsNotEmpty,
   IsObject,
   IsOptional,
-  IsString,
   IsUUID,
 } from 'class-validator';
 

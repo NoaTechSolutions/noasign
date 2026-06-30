@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User as UserIcon, Phone, Briefcase, Globe, MapPin, Pencil } from 'lucide-react';
+import { User as UserIcon, Briefcase, Globe, MapPin, Pencil } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { FieldRow, ProfileSectionSkeleton } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';

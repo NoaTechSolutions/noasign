@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User as UserIcon, MapPin, Building2, Phone, Mail, Pencil } from 'lucide-react';
+import { User as UserIcon, MapPin, Building2, Pencil } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';

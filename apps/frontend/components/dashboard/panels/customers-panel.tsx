@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowDown,
@@ -30,7 +30,6 @@ import {
   getDisplayPhone,
   getOwnerLabel,
   type Customer,
-  type CustomerBusiness,
   type CustomerBusinessFormValues,
   type CustomerFormValues,
 } from "@/components/dashboard/shared/customer-types";
