@@ -68,24 +68,28 @@ async function main() {
     if (!before) throw new Error(`CompanyProfile ${companyId} not found`);
 
     // Anti-downgrade guard (Model C, backend half of the double-lock) — by REAL
-    // USAGE, not capability: block RECEIPTS_ONLY only if the tenant has actually
-    // created contracts (BOLDSIGN documents), since those would be orphaned by a
-    // receipts-only plan. A contracts-plan tenant with ZERO contracts can freely
-    // move to receipts-only — there's nothing to strip. (Replaces the old check
-    // that looked at contractsEnabled===true, which blocked even empty tenants.)
+    // USAGE, not capability: block RECEIPTS_ONLY only if the tenant has LIVE
+    // contracts (BOLDSIGN documents) that a receipts-only plan would orphan.
+    // DRAFT / CANCELLED / voided (supersededAt set) contracts are NOT live usage
+    // — a tenant that created and then cancelled all its contracts can downgrade.
+    // (Document has no soft-delete column; void is the supersededAt marker.)
+    // A contracts-plan tenant with ZERO live contracts can move freely.
     if (plan === 'RECEIPTS_ONLY') {
       const contractCount = await prisma.document.count({
         where: {
           companyProfileId: companyId,
           documentType: { generationMode: 'BOLDSIGN' },
+          status: { notIn: ['DRAFT', 'CANCELLED'] },
+          supersededAt: null,
         },
       });
       if (contractCount > 0) {
         throw new Error(
           `Anti-downgrade: tenant "${before.companyName}" (${companyId}) has ` +
-            `${contractCount} contract(s) (BOLDSIGN documents). RECEIPTS_ONLY would ` +
-            `orphan them — cancel/migrate those contracts first. (A contracts-plan ` +
-            `tenant with zero contracts CAN move to receipts-only.)`,
+            `${contractCount} live contract(s) (active BOLDSIGN documents). ` +
+            `RECEIPTS_ONLY would orphan them — cancel/migrate those contracts ` +
+            `first. (DRAFT/CANCELLED/voided contracts don't count; a tenant with ` +
+            `zero live contracts CAN move to receipts-only.)`,
         );
       }
     }
