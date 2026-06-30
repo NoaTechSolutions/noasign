@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
 
@@ -158,7 +159,7 @@ export function Footer() {
                 <li><a href="https://noatechsolutions.com/nosotros/" target="_blank" rel="noopener noreferrer">{T[lang].f_abt}</a></li>
                 <li><a href="/privacy">{T[lang].f_prv}</a></li>
                 <li><a href="/terms">{T[lang].f_trm}</a></li>
-                <li><a href="/#contact">{T[lang].f_cnt}</a></li>
+                <li><Link href="/#contact">{T[lang].f_cnt}</Link></li>
               </ul>
             </div>
           </div>

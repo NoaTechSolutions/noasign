@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored, pre-minified bundles shipped as static assets (e.g. the pdf.js
+    // worker). Not our source — linting a minified bundle is meaningless and the
+    // file is overwritten on every dependency bump.
+    "public/**/*.min.js",
+    "public/**/*.min.mjs",
   ]),
 ]);
 

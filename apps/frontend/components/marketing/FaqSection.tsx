@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
@@ -88,12 +89,12 @@ export function FaqSection() {
 
         <div className="faq-footer rv">
           <p className="faq-intro">{T[lang].faq_sub}</p>
-          <a
+          <Link
             href="/#contact"
             className="faq-contact-link"
           >
             {T[lang].faq_contact}
-          </a>
+          </Link>
         </div>
       </div>
     </section>
