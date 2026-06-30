@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { CreditCard, FileText, WalletCards } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModuleLayout } from "@/components/layouts";
 // FASE 3.5 — helpers centralizados en lib/ y components/dashboard/shared/
 import { formatCurrency, formatBillingMonthLabel } from "@/lib/format";
-import { readSessionBoolean, writeSessionBoolean } from "@/lib/session-storage";
+import { useSessionStorageState } from "@/lib/use-session-storage-state";
 import {
   DetailRow,
   EmptyBlock,
@@ -138,7 +137,13 @@ export function BillingPanel({
   monthlySummary: MonthlySummary;
   billingHistory: BillingHistoryItem[];
 }) {
-  const [plansModalOpen, setPlansModalOpen] = useState(false);
+  // Restored from sessionStorage so the compare-plans modal survives a reload,
+  // via useSyncExternalStore (no setState-in-effect, #418). Wire-compatible with
+  // the prior readSessionBoolean/writeSessionBoolean encoding ("true"/"false").
+  const [plansModalOpen, setPlansModalOpen] = useSessionStorageState<boolean>(
+    BILLING_PLANS_MODAL_KEY,
+    false,
+  );
   const currentPlan = usage?.planName ?? monthlySummary?.planName ?? "LAUNCH";
   const documentsUsed = usage?.documentsUsed ?? 0;
   const monthlyLimit = usage?.monthlyDocLimit ?? monthlySummary?.monthlyDocLimit ?? 0;
@@ -198,15 +203,6 @@ export function BillingPanel({
     },
   ];
   const currentPlanDisplay = planCards.find((p) => p.name === currentPlan)?.displayName ?? currentPlan;
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPlansModalOpen(readSessionBoolean(BILLING_PLANS_MODAL_KEY));
-  }, []);
-
-  useEffect(() => {
-    writeSessionBoolean(BILLING_PLANS_MODAL_KEY, plansModalOpen);
-  }, [plansModalOpen]);
 
   return (
     <ModuleLayout
