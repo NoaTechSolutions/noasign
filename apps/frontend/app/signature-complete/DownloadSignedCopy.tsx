@@ -62,7 +62,7 @@ export function DownloadSignedCopy({ token, initialDownloadUrl }: Props) {
     return (
       <a
         href={downloadUrl}
-        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#05a5ff,#022977)] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(5,165,255,0.35)] transition hover:brightness-110 md:px-6 md:py-3.5"
+        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#022977] px-5 py-3 text-sm font-medium text-white shadow-[0_8px_24px_rgba(2,41,119,0.28)] transition hover:bg-[#0400f0] md:px-6 md:py-3.5 dark:bg-[#05a5ff] dark:text-[#00183a] dark:shadow-[0_8px_24px_rgba(5,165,255,0.32)] dark:hover:bg-[#33b8ff]"
       >
         <Download className="h-4 w-4" />
         Download your signed copy
@@ -71,8 +71,8 @@ export function DownloadSignedCopy({ token, initialDownloadUrl }: Props) {
   }
 
   return (
-    <div className="inline-flex items-center gap-2.5 rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--bg-surface)] px-5 py-3 text-sm font-medium text-[color:var(--text-secondary)]">
-      <Loader2 className="h-4 w-4 animate-spin text-[color:var(--text-muted)]" />
+    <div className="inline-flex items-center gap-2.5 rounded-2xl border border-[rgba(2,41,119,0.2)] bg-white px-5 py-3 text-sm font-medium text-[rgba(2,41,119,0.7)] dark:border-[rgba(226,232,240,0.22)] dark:bg-[#0f1628] dark:text-[#c8d8f0]">
+      <Loader2 className="h-4 w-4 animate-spin text-[rgba(2,41,119,0.5)] dark:text-[rgba(200,216,240,0.6)]" />
       Preparing your copy — we&apos;ll email it to you.
     </div>
   );
