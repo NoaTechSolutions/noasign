@@ -59,16 +59,22 @@ return a freshly-parsed object, or React loops forever.
 Four suppressions are left in place — each reads from `localStorage` /
 `sessionStorage` on mount with a fallback, which is a documented, React-sanctioned
 external-store read (issue #418 hydration safety). They are conscious tradeoffs,
-not accidental, and a clean migration changes user-visible behavior (theme/lang
-flash timing, modal/viewer restore), so it needs a manual smoke test and owner
-sign-off:
+not accidental. Three of the original four were migrated on 2026-06-30:
 
-| File | Reads | Migration target |
+| File | Reads | Migration |
 |---|---|---|
-| `marketing/FloatingControls.tsx` | `localStorage` theme + `matchMedia` fallback | `useSyncExternalStore` store |
-| `marketing/LandingContext.tsx` | `localStorage` lang + `navigator.language` fallback | `useSyncExternalStore` store |
-| `dashboard/panels/billing-panel.tsx` | `sessionStorage` modal-open boolean | `sessionStorage` variant of `useLocalStorageState` |
-| `dashboard-sidebar-demo.tsx` | `sessionStorage` document-viewer state (3 fields) | `sessionStorage` store, restore as one object |
+| `marketing/LandingContext.tsx` | `localStorage` lang + `navigator.language` fallback | ✅ `useSyncExternalStore` (lang store) |
+| `marketing/FloatingControls.tsx` | `localStorage` theme + `matchMedia` fallback | ✅ `useSyncExternalStore`; DOM swap stays in an effect |
+| `dashboard/panels/billing-panel.tsx` | `sessionStorage` modal-open boolean | ✅ new `useSessionStorageState` (`lib/use-session-storage-state.ts`) |
 
-These four are the natural scope of a follow-up "finish the external-store
-migration" change.
+### Still deferred (one, higher-risk)
+
+`dashboard-sidebar-demo.tsx` (~line 673) restores the document-viewer state — **3
+separate states** (`documentViewerOpen`, `documentViewerInitialTab`,
+`documentViewerInitialEditingTab`) from a **single** `sessionStorage` JSON object
+on mount, and the states are also independently set by user actions. It lives in
+the core dashboard. A clean migration means making the viewer state one store
+object (or one `useSessionStorageState<PersistedDocumentViewerState>`) and deriving
+the three values — a larger refactor with reload-restore behavior that needs a
+manual smoke test. Left suppressed deliberately, pending owner sign-off; it is the
+remaining scope of a "finish the external-store migration" change.
