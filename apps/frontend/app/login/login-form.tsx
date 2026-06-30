@@ -200,15 +200,6 @@ export function LoginForm() {
     : "/img/NTSSign_AzulDark_SinFondo.svg";
   const authCardClassName =
     "flex w-full max-w-[420px] flex-col gap-5 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-8 shadow-[var(--shadow-soft)] transition-colors";
-  const neutralButtonClassName = isDarkTheme
-    ? "inline-flex items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--button-neutral)] text-[color:var(--text-primary)] transition hover:bg-[color:var(--button-neutral-hover)]"
-    : "inline-flex items-center justify-center rounded-2xl border border-[color:var(--brand-secondary)] bg-white text-[color:var(--brand-secondary)] transition hover:bg-[color:var(--bg-page-subtle)]";
-  const documentTypeCardClassName = (checked: boolean) =>
-    checked
-      ? "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
-      : isDarkTheme
-        ? "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-primary)] hover:bg-[color:var(--bg-surface)]"
-        : "border-[color:var(--brand-secondary)] bg-white text-[color:var(--text-primary)] hover:bg-[color:var(--bg-page-subtle)]";
 
   useEffect(() => {
     if (typeof window === "undefined") {

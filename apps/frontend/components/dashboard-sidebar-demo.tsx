@@ -391,7 +391,6 @@ type SectionKey =
   | "billing";
 
 const SECTION_QUERY_KEY = "section";
-const DASHBOARD_SELECTED_DOCUMENT_KEY = "ntssign:dashboard:selected-document-id";
 const DASHBOARD_DOCUMENT_VIEWER_KEY = "ntssign:dashboard:document-viewer";
 const DOCUMENTS_CREATE_DRAWER_KEY = "ntssign:documents:create-draft-open";
 const DOCUMENTS_CREATE_DRAFT_STATE_KEY = "ntssign:documents:create-draft-state";
@@ -2461,32 +2460,6 @@ function TemplateSelectorDialog({
   );
 }
 
-function PlaceholderPanel({
-  title,
-  description,
-  rows,
-}: {
-  title: string;
-  description: string;
-  rows: Array<[string, string]>;
-}) {
-  return (
-    <section className="rounded-[1.9rem] border border-[color:var(--border)] bg-white p-6 shadow-[0_18px_50px_rgba(36,76,144,0.08)] dark:border-white/10 dark:bg-[color:var(--bg-elevated)]/90 dark:shadow-[0_20px_50px_rgba(2,6,23,0.35)]">
-      <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] dark:text-[color:var(--text-primary)]">
-        {title}
-      </h2>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] dark:text-[color:var(--text-muted)]">
-        {description}
-      </p>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        {rows.map(([label, value]) => (
-          <StatPill key={label} label={label} value={value} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function ForcePasswordChangeModal({
   onSubmit,
 }: {
@@ -4263,57 +4236,6 @@ function SelectField({
   );
 }
 
-function CurrencyField({
-  icon,
-  label,
-  value,
-  onChange,
-  placeholder,
-  disabled = false,
-  error,
-}: {
-  icon?: ReactNode;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  error?: string;
-}) {
-  return (
-    <div className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--bg-surface)] p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
-        {icon ? <span className="text-[color:var(--text-muted)]">{icon}</span> : null}
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-3 flex h-11 items-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] px-4 transition focus-within:border-[color:var(--brand-accent)]",
-          error && "border-[color:var(--danger-border)] focus-within:border-[color:var(--button-danger)]",
-          disabled && "cursor-not-allowed bg-[color:var(--bg-page-subtle)] opacity-80",
-        )}
-      >
-        <span className="mr-3 text-sm font-semibold text-[color:var(--text-secondary)]">$</span>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={value}
-          placeholder={placeholder}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-full w-full bg-transparent text-sm text-[color:var(--text-primary)] outline-none placeholder:text-[color:var(--text-muted)]"
-        />
-      </div>
-      {error ? (
-        <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[color:var(--danger-text)]">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function TabEditorToolbar({
   canEdit,
   isEditing,
@@ -4731,24 +4653,6 @@ function toDateInputValue(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function sectionEyebrow(section: SectionKey) {
-  if (section === "users") return "Users";
-  if (section === "accountRequests") return "Users";
-  if (section === "profile") return "Profile";
-  if (section === "documents") return "Documents";
-  if (section === "billing") return "Billing";
-  return "Workspace";
-}
-
-function sectionTitle(section: SectionKey, companyName?: string | null) {
-  if (section === "users") return "Workspace users";
-  if (section === "accountRequests") return "Account requests";
-  if (section === "profile") return "User profile";
-  if (section === "documents") return "Contract lifecycle";
-  if (section === "billing") return "Usage and limits";
-  return companyName ?? "NTSsign";
 }
 
 function breadcrumbItems(section: SectionKey) {

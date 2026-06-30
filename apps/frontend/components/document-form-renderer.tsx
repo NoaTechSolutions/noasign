@@ -480,11 +480,6 @@ export function DocumentFormRenderer({
 
   // ── Field state ────────────────────────────────────────────────────────────
 
-  const allFieldKeys = useMemo(
-    () => schema.sections.flatMap((s) => s.fields.map((f) => f.key)),
-    [schema],
-  );
-
   const [fields, setFields] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const section of schema.sections) {
