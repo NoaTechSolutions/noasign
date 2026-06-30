@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocalStorageState } from "@/lib/use-local-storage-state";
 import {
   NAVIGATION_ITEMS,
   filterNavigationItems,
@@ -24,6 +25,9 @@ interface SidebarProps {
 }
 
 const STORAGE_KEY = "sidebar-collapsed";
+const OPEN_GROUPS_KEY = "sidebar-open-groups";
+// Stable default so the localStorage hook returns a steady identity pre-hydration.
+const EMPTY_GROUPS: Record<string, boolean> = {};
 
 // Modern collapsible sidebar (Linear/Notion/Discord style). Persists the
 // collapse state to localStorage. On first paint, defaults to expanded —
@@ -36,7 +40,14 @@ export function Sidebar({
   isLoading,
 }: SidebarProps) {
   const router = useRouter();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Persisted to localStorage via useSyncExternalStore. SSR-safe: the server
+  // snapshot is the default (expanded / no open groups), adopted from storage
+  // right after hydration — no setState-in-effect, no hydration mismatch. The
+  // brief expand->collapse flicker is inherent to SSR without a cookie.
+  const [isCollapsed, setIsCollapsed] = useLocalStorageState<boolean>(
+    STORAGE_KEY,
+    false,
+  );
   // Custom hover tooltip for collapsed mode. Positioned fixed (viewport
   // coords from the button's rect) so it escapes the sidebar's
   // overflow:hidden clipping — a normal absolute tooltip to the right
@@ -49,50 +60,18 @@ export function Sidebar({
   const items = filterNavigationItems(NAVIGATION_ITEMS, userRole);
 
   // Expand/collapse state for nav groups (e.g. "User management"), persisted.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-
-  // Read persisted sidebar prefs once on mount. This deliberately calls setState
-  // in an effect rather than a lazy useState initializer to stay SSR-safe: a
-  // lazy init would touch localStorage during the server render (no `window` →
-  // crash) or diverge from the server's default and trigger a hydration
-  // mismatch. The single post-mount render is the documented tradeoff (the brief
-  // expand→collapse flicker noted above). A proper fix would move this to a
-  // useSyncExternalStore-based hook — see
-  // docs/architecture/known-issue-setstate-in-effect.md.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved !== null) {
-      setIsCollapsed(saved === "true");
-    }
-    try {
-      const groups = window.localStorage.getItem("sidebar-open-groups");
-      if (groups) setOpenGroups(JSON.parse(groups));
-    } catch {
-      /* ignore malformed storage */
-    }
-  }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  const [openGroups, setOpenGroups] = useLocalStorageState<Record<string, boolean>>(
+    OPEN_GROUPS_KEY,
+    EMPTY_GROUPS,
+  );
 
   const toggleGroup = (key: string) => {
-    setOpenGroups((cur) => {
-      const next = { ...cur, [key]: !(cur[key] ?? false) };
-      try {
-        window.localStorage.setItem("sidebar-open-groups", JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    setOpenGroups((cur) => ({ ...cur, [key]: !(cur[key] ?? false) }));
   };
 
   const toggleCollapse = () => {
     setTooltip(null);
-    setIsCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(STORAGE_KEY, String(next));
-      return next;
-    });
+    setIsCollapsed((current) => !current);
   };
 
   const { requestNavigate } = useDirtyForm();
