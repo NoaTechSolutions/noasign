@@ -121,6 +121,16 @@ jobs:
           # Receipt company-wide (getDocumentTypes), so no per-user config is needed.
           echo "--- Seeding World Pavers ReceiptTemplate ---"
           node scripts/dev-helpers/_seed-receipt-template.js 7aaad16a-6d76-4c36-97c7-b9ce3e45b801
+          # The other 3 of the 4 account/plan combinations (personal-individual,
+          # receipts-personal, receipts-business), each on its own company so plan +
+          # accountType are unambiguous. World Pavers stays the business-normal one.
+          echo "--- Seeding staging 4-type test users ---"
+          node scripts/dev-helpers/_seed-staging-4type-users.js
+          # Wire a per-tenant ReceiptTemplate for the two RECEIPTS_ONLY tenants so
+          # they can actually issue receipts (company ids from _seed-staging-4type-users.js).
+          echo "--- Wiring ReceiptTemplate for the RECEIPTS_ONLY staging tenants ---"
+          node scripts/dev-helpers/_seed-receipt-template.js 5ad11000-0000-4000-8000-000000000002
+          node scripts/dev-helpers/_seed-receipt-template.js 5ad11000-0000-4000-8000-000000000003
 
       # Gated one-shot: assign a plan + receipt fields to a staging tenant so the
       # owner can validate Model C (overage / RECEIPTS_ONLY). DRY_RUN by default;
