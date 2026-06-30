@@ -326,6 +326,10 @@ model AccountRequest {
 model Lead {
   id        String   @id @default(uuid())
   email     String
+  // Optional follow-up details captured in step 2 of the lead flow (the signer
+  // can submit just the email and bail, so both stay nullable).
+  name      String?
+  phone     String?
   // Where the lead came from, so future capture points stay queryable apart.
   source    String   @default("signature-complete")
   createdAt DateTime @default(now())

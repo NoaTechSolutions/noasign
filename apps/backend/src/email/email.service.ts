@@ -35,6 +35,15 @@ export type ContactFormPayload = {
   lang?: 'en' | 'es';
 };
 
+export type LeadNotificationPayload = {
+  email: string;
+  source: string;
+  name?: string;
+  phone?: string;
+  // 'captured' = step 1 (email only); 'enriched' = step 2 (name/phone added).
+  stage: 'captured' | 'enriched';
+};
+
 export type PasswordResetPayload = {
   to: string;
   resetLink: string;
@@ -287,6 +296,112 @@ export class EmailService {
     this.logger.log(
       `[EmailService] Contact form sent from ${payload.email} to ${to} (id: ${data?.id})`,
     );
+  }
+
+  /**
+   * Internal heads-up when a marketing lead is captured (step 1) or enriched
+   * with name/phone (step 2). Goes to LEADS_NOTIFY_TO (defaults to the owner
+   * inbox). Throws on delivery error — the caller (LeadsService) treats this as
+   * best-effort and swallows it so lead capture never fails on email problems.
+   */
+  async sendLeadNotification(payload: LeadNotificationPayload): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(
+        `[EmailService] Skipping lead notification for ${payload.email} — Resend not configured`,
+      );
+      return;
+    }
+
+    const to = process.env.LEADS_NOTIFY_TO ?? 'noatechsolutions@gmail.com';
+    const subject =
+      payload.stage === 'enriched'
+        ? `Lead updated — ${payload.email}`
+        : `New NTSsign lead — ${payload.email}`;
+
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
+      to,
+      replyTo: payload.email,
+      subject,
+      html: this.buildLeadNotificationHtml(payload),
+    });
+
+    if (error) {
+      this.logger.error(
+        `[EmailService] Failed to send lead notification for ${payload.email}: ${JSON.stringify(error)}`,
+      );
+      throw new Error(`Email delivery failed: ${error.message}`);
+    }
+
+    this.logger.log(
+      `[EmailService] Lead notification (${payload.stage}) sent for ${payload.email} to ${to} (id: ${data?.id})`,
+    );
+  }
+
+  private buildLeadNotificationHtml(p: LeadNotificationPayload): string {
+    const timestamp = new Date().toISOString();
+    const email = escapeHtml(p.email);
+    const source = escapeHtml(p.source);
+    const name = p.name ? escapeHtml(p.name) : '—';
+    const phone = p.phone ? escapeHtml(p.phone) : '—';
+    const heading =
+      p.stage === 'enriched'
+        ? 'Lead updated (step 2 — details added)'
+        : 'New lead captured (step 1 — email)';
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${heading}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#111827;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(2,41,119,0.06);">
+          <tr>
+            <td style="padding:24px 32px;border-bottom:1px solid #e5e7eb;">
+              <div style="color:#6b7280;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;">NTSsign leads</div>
+              <div style="color:#111827;font-size:18px;font-weight:700;margin-top:4px;">${heading}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.6;">
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;width:120px;vertical-align:top;">Email</td>
+                  <td style="padding:8px 0;color:#111827;"><a href="mailto:${email}" style="color:#0400f0;text-decoration:none;">${email}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;vertical-align:top;">Name</td>
+                  <td style="padding:8px 0;color:#111827;font-weight:500;">${name}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;vertical-align:top;">Phone</td>
+                  <td style="padding:8px 0;color:#111827;">${phone}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;vertical-align:top;">Source</td>
+                  <td style="padding:8px 0;color:#111827;">${source}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;color:#6b7280;vertical-align:top;">Received</td>
+                  <td style="padding:8px 0;color:#111827;font-family:monospace;font-size:12px;">${escapeHtml(timestamp)}</td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;">
+                Reply directly to this email to reach the lead.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
   }
 
   async sendPasswordResetEmail(payload: PasswordResetPayload): Promise<void> {
