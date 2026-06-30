@@ -49,10 +49,14 @@ export function GroupEditPopup({
     onClose();
   }, [onClose]);
 
-  // Reset the confirmation when the popup itself closes/reopens.
-  useEffect(() => {
-    if (!isOpen) setShowDiscard(false);
-  }, [isOpen]);
+  // Reset the confirmation when the popup itself closes/reopens. Done during
+  // render via a prev-value compare — the canonical replacement for an effect
+  // that only adjusts state in response to another value changing.
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen);
+    if (!isOpen && showDiscard) setShowDiscard(false);
+  }
 
   useEffect(() => {
     if (!isOpen) return;

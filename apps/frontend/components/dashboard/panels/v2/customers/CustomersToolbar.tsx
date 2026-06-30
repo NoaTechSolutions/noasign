@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useDropdownPosition } from '@/components/dashboard/shared/use-dropdown-position';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { useMediaQuery } from '@/lib/use-media-query';
 
 type TypeOption = 'PERSONAL' | 'BUSINESS';
 type StatusOption = 'ACTIVE' | 'INACTIVE' | 'DELETED';
@@ -55,17 +56,9 @@ export function CustomersToolbar({
   const [pendingStatus, setPendingStatus] = useState<StatusRadio>(radioFromArray(statusFilters));
 
   // Mobile detection via matchMedia — drives bottom-sheet rendering when the
-  // dropdown is open. Initial render is `false` (server / desktop) to avoid
-  // hydration mismatch; the effect updates after mount if mobile.
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(max-width: 767px)');
-    setIsMobile(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
+  // dropdown is open. Server snapshot is `false` (desktop) to avoid a hydration
+  // mismatch; reflects the live match on the client.
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   // Block body scroll only while the bottom sheet is open on mobile.
   useBlockScroll(dropdownOpen && isMobile);

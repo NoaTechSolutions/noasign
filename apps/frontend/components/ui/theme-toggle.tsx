@@ -1,8 +1,9 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useIsHydrated } from "@/lib/use-is-hydrated";
 
 const themeLabels = {
   light: { icon: "☀️", label: "Light" },
@@ -15,11 +16,7 @@ type ThemeKey = keyof typeof themeLabels;
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsHydrated();
 
   if (!mounted) return null;
 

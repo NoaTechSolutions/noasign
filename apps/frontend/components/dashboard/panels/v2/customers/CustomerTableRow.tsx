@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatUsPhone } from '@/lib/format-phone';
 import { useDropdownPosition } from '@/components/dashboard/shared/use-dropdown-position';
@@ -36,9 +36,13 @@ export function CustomerTableRow({
   // the options can't accidentally close it by passing over another table row.
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   // Reset the submenu whenever the kebab itself closes (click-outside, action…).
-  useEffect(() => {
-    if (!menuOpen) setShowStatusMenu(false);
-  }, [menuOpen]);
+  // Done during render via a prev-value compare — the canonical replacement for
+  // an effect that only adjusts state in response to another state changing.
+  const [prevMenuOpen, setPrevMenuOpen] = useState(menuOpen);
+  if (prevMenuOpen !== menuOpen) {
+    setPrevMenuOpen(menuOpen);
+    if (!menuOpen && showStatusMenu) setShowStatusMenu(false);
+  }
 
   const displayName = customer.customerType === 'BUSINESS'
     ? (customer.business?.businessName || customer.fullName)
