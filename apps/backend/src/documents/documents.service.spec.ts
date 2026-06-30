@@ -7,6 +7,21 @@ import { SignatureProviderService } from '../signature-provider/signature-provid
 import { EmailService } from '../email/email.service';
 import { R2Service } from '../storage/r2.service';
 
+// Mirror of documentDetailInclude in documents.service.ts — the shared shape
+// every document.update/create returns (the source const isn't exported, so we
+// keep a copy here for the detail-include assertions to track the real shape).
+const DOCUMENT_DETAIL_INCLUDE = {
+  documentType: true,
+  formDefinition: true,
+  signatureTemplate: true,
+  data: true,
+  customer: true,
+  companyProfile: true,
+  user: { select: { id: true, email: true, firstName: true, lastName: true } },
+  supersedes: { select: { id: true, documentNumber: true } },
+  supersededBy: { select: { id: true, documentNumber: true } },
+};
+
 const prismaMock = {
   documentType: {
     findMany: jest.fn(),
@@ -297,12 +312,7 @@ describe('DocumentsService', () => {
         lastSentRecipientEmail: 'client@example.com',
         providerStatus: 'document.sent',
       }),
-      include: {
-        documentType: true,
-        formDefinition: true,
-        signatureTemplate: true,
-        data: true,
-      },
+      include: DOCUMENT_DETAIL_INCLUDE,
     });
     expect(result.isOverage).toBe(false);
     expect(result.document.status).toBe(DocumentStatus.SENT);
@@ -513,12 +523,7 @@ describe('DocumentsService', () => {
         isOverage: true,
         billingPeriod: expect.any(String),
       }),
-      include: {
-        documentType: true,
-        formDefinition: true,
-        signatureTemplate: true,
-        data: true,
-      },
+      include: DOCUMENT_DETAIL_INCLUDE,
     });
     expect(result.document.status).toBe(DocumentStatus.VIEWED);
   });
@@ -566,12 +571,7 @@ describe('DocumentsService', () => {
         isOverage: false,
         billingPeriod: null,
       },
-      include: {
-        documentType: true,
-        formDefinition: true,
-        signatureTemplate: true,
-        data: true,
-      },
+      include: DOCUMENT_DETAIL_INCLUDE,
     });
     expect(prismaMock.documentVersion.create).toHaveBeenCalledWith({
       data: {
@@ -617,12 +617,7 @@ describe('DocumentsService', () => {
         viewedAt,
         signedAt: expect.any(Date),
       }),
-      include: {
-        documentType: true,
-        formDefinition: true,
-        signatureTemplate: true,
-        data: true,
-      },
+      include: DOCUMENT_DETAIL_INCLUDE,
     });
     expect(result.document.status).toBe(DocumentStatus.SIGNED);
   });
