@@ -7,7 +7,7 @@
 - VM IP: `163.192.12.220`
 - SSL: Let's Encrypt (renovación automática, expira 2026-07-03)
 
-Deploy automático: cada push a la rama `staging` dispara `.github/workflows/deploy-staging.yml`.
+Deploy automático: cada push a la rama `develop` dispara `.github/workflows/deploy-staging.yml`.
 
 ---
 
