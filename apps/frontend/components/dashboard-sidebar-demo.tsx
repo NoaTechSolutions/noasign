@@ -514,6 +514,28 @@ export function DashboardSidebarDemo({
   } | null>(null);
   const requestedSection = parseSectionKey(searchParams.get(SECTION_QUERY_KEY));
   const [activeSection, setActiveSection] = useState<SectionKey>(requestedSection);
+
+  // Keep activeSection in sync with the URL, and auto-open the user-management
+  // group when one of its sections becomes active. Both are state adjustments in
+  // response to another value changing, so they run during render via a
+  // prev-value compare — the canonical replacement for the equivalent effects.
+  const [prevRequestedSection, setPrevRequestedSection] = useState(requestedSection);
+  if (prevRequestedSection !== requestedSection) {
+    setPrevRequestedSection(requestedSection);
+    setActiveSection(requestedSection);
+  }
+  const [prevActiveSection, setPrevActiveSection] = useState(activeSection);
+  if (prevActiveSection !== activeSection) {
+    setPrevActiveSection(activeSection);
+    if (
+      activeSection === "users" ||
+      activeSection === "accountRequests" ||
+      activeSection === "lockedUsers"
+    ) {
+      setUsersMenuOpen(true);
+    }
+  }
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   // When the customer view drawer's "+ New Document" button fires, we stash
@@ -642,13 +664,6 @@ export function DashboardSidebarDemo({
   }, [open]);
 
   useEffect(() => {
-    if (activeSection === "users" || activeSection === "accountRequests" || activeSection === "lockedUsers") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUsersMenuOpen(true);
-    }
-  }, [activeSection]);
-
-  useEffect(() => {
     const persistedViewerState =
       readSessionJson<PersistedDocumentViewerState>(DASHBOARD_DOCUMENT_VIEWER_KEY);
 
@@ -671,13 +686,6 @@ export function DashboardSidebarDemo({
       initialEditingTab: documentViewerInitialEditingTab,
     } satisfies PersistedDocumentViewerState);
   }, [documentViewerInitialEditingTab, documentViewerInitialTab, documentViewerOpen]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setActiveSection((current) =>
-      current === requestedSection ? current : requestedSection,
-    );
-  }, [requestedSection]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {

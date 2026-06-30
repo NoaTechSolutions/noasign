@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { useIsHydrated } from "@/lib/use-is-hydrated";
 
 type SidebarContextProps = {
   open: boolean;
@@ -66,13 +67,8 @@ export function SidebarLink({
   className,
 }: SidebarLinkProps) {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsHydrated();
   const [isHovered, setIsHovered] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   const isDark = mounted && resolvedTheme === "dark";
   const isLightActive = !isDark && active;
