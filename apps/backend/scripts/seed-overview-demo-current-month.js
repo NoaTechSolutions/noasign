@@ -29,6 +29,16 @@ const RECEIPT_USER = 'receipts@billingtest.local';
 // 4 = the minimum that makes savings positive on LAUNCH ($39/mo): 4×$12 = $48 > $39.
 const DOC_BUMP_COUNT = 4;
 const RECEIPT_BUMP_COUNT = 2;
+// Scaled receipt counts per client so the "Top clients by receipts" card has a
+// real ranking (6 clients → the card shows the top 5, the last one is cut off).
+const TOP_CLIENT_PLAN = [
+  { name: 'Northwind Traders', count: 6 },
+  { name: 'Contoso Ltd', count: 5 },
+  { name: 'Fabrikam Inc', count: 4 },
+  { name: 'Adventure Works', count: 3 },
+  { name: 'Tailspin Toys', count: 2 },
+  { name: 'Wingtip Pavers', count: 1 },
+];
 
 function currentBillingPeriod() {
   const now = new Date();
@@ -65,7 +75,7 @@ async function main() {
   //    receiptsThisMonth + amountThisMonth (the green card) are non-zero.
   const recUser = await prisma.user.findFirst({
     where: { email: RECEIPT_USER },
-    select: { companyProfileId: true },
+    select: { id: true, companyProfileId: true },
   });
   if (!recUser?.companyProfileId) throw new Error(`Receipt user/tenant not found: ${RECEIPT_USER}`);
   const receipts = await prisma.document.findMany({
@@ -88,6 +98,58 @@ async function main() {
   console.log(
     `[receipts] ${receipts.length} → ${period}: ${receipts.map((r) => r.documentNumber).join(', ')}`,
   );
+
+  // 3. Top clients — seed customers with a scaled receipt count so the "Top clients
+  //    by receipts" card shows a real ranking. Clones an existing receipt (copies
+  //    all required scalar columns) and assigns each to a customer. Not counted
+  //    toward this-month billing (countedAsReceipt: false), so it doesn't skew the
+  //    volume/amount figures. Idempotent: DEMO-TOPCLIENT rows are wiped + rebuilt.
+  const template = await prisma.document.findFirst({
+    where: { companyProfileId: recUser.companyProfileId, documentType: { code: RECEIPT_CODE } },
+  });
+  if (template) {
+    await prisma.document.deleteMany({
+      where: {
+        companyProfileId: recUser.companyProfileId,
+        documentNumber: { startsWith: 'DEMO-TOPCLIENT-' },
+      },
+    });
+    let made = 0;
+    for (let i = 0; i < TOP_CLIENT_PLAN.length; i++) {
+      const spec = TOP_CLIENT_PLAN[i];
+      let customer = await prisma.customer.findFirst({
+        where: { companyProfileId: recUser.companyProfileId, fullName: spec.name },
+        select: { id: true },
+      });
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            companyProfileId: recUser.companyProfileId,
+            userId: recUser.id,
+            fullName: spec.name,
+          },
+          select: { id: true },
+        });
+      }
+      for (let n = 0; n < spec.count; n++) {
+        const clone = { ...template };
+        delete clone.id;
+        delete clone.createdAt;
+        delete clone.updatedAt;
+        await prisma.document.create({
+          data: {
+            ...clone,
+            documentNumber: `DEMO-TOPCLIENT-${i + 1}-${n + 1}`,
+            customerId: customer.id,
+            status: 'SENT',
+            countedAsReceipt: false,
+          },
+        });
+        made++;
+      }
+    }
+    console.log(`[top-clients] ${TOP_CLIENT_PLAN.length} customers, ${made} receipts`);
+  }
 }
 
 main()

@@ -4,6 +4,8 @@ import { FileText, Send, Eye, PenLine, CheckCircle2, Ban, AlertTriangle } from '
 import { WelcomeCard } from './WelcomeCard';
 import { MonthVolumeCard } from './MonthVolumeCard';
 import { HighlightCard } from './HighlightCard';
+import { ReceiptSummaryCard } from './ReceiptSummaryCard';
+import { TopClientsCard } from './TopClientsCard';
 import { StatusStrip, type StatusStripItem } from './StatusStrip';
 import { RecentDocumentsTable } from './RecentDocumentsTable';
 import type { ReceiptStats } from './ReceiptMetricCards';
@@ -184,34 +186,33 @@ export function OverviewPanel({
           Receipts: volume (no quota) + $ amount this month. */}
       <div className="overview-row2">
         {receiptsOnly ? (
-          <MonthVolumeCard
-            entity="receipt"
-            used={receiptStats?.receiptsThisMonth ?? 0}
-            limit={null}
-            isLoading={isLoading || statsLoading}
-          />
+          <>
+            <ReceiptSummaryCard
+              receiptsThisMonth={receiptStats?.receiptsThisMonth ?? 0}
+              amountThisMonth={receiptStats?.amountThisMonth ?? 0}
+              isLoading={isLoading || statsLoading}
+            />
+            <TopClientsCard
+              clients={receiptStats?.topClients ?? []}
+              isLoading={isLoading || statsLoading}
+            />
+          </>
         ) : (
-          <MonthVolumeCard
-            entity="document"
-            used={docsThisMonth}
-            limit={usage?.documentsLimit ?? null}
-            isLoading={isLoading}
-          />
-        )}
-        {receiptsOnly ? (
-          <HighlightCard
-            variant="amount"
-            amount={receiptStats?.amountThisMonth ?? 0}
-            isLoading={isLoading || statsLoading}
-          />
-        ) : (
-          <HighlightCard
-            variant="savings"
-            docsThisMonth={docsThisMonth}
-            ppcCost={ppcCost}
-            planCost={planCost}
-            isLoading={isLoading}
-          />
+          <>
+            <MonthVolumeCard
+              entity="document"
+              used={docsThisMonth}
+              limit={usage?.documentsLimit ?? null}
+              isLoading={isLoading}
+            />
+            <HighlightCard
+              variant="savings"
+              docsThisMonth={docsThisMonth}
+              ppcCost={ppcCost}
+              planCost={planCost}
+              isLoading={isLoading}
+            />
+          </>
         )}
       </div>
 

@@ -14,6 +14,9 @@ export interface ReceiptStats {
     cancelled: number;
     void: number;
   };
+  // Top 5 clients by all-time receipt count (backend groupBy). Optional so older
+  // callers/tests keep type-checking.
+  topClients?: { name: string; count: number }[];
 }
 
 interface ReceiptMetricCardsProps {

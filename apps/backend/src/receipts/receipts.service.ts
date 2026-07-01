@@ -906,6 +906,34 @@ export class ReceiptsService {
       }
     }
 
+    // Top 5 clients by receipt count (all-time). Grouped in the DB, then joined to
+    // the customer name. Receipts without a customer are excluded.
+    const grouped = await this.prisma.document.groupBy({
+      by: ['customerId'],
+      where: {
+        companyProfileId: user.companyProfileId,
+        documentType: { code: RECEIPT_TYPE_CODE },
+        customerId: { not: null },
+      },
+      _count: { customerId: true },
+      orderBy: { _count: { customerId: 'desc' } },
+      take: 5,
+    });
+    const topCustomerIds = grouped
+      .map((g) => g.customerId)
+      .filter((id): id is string => !!id);
+    const topCustomers = topCustomerIds.length
+      ? await this.prisma.customer.findMany({
+          where: { id: { in: topCustomerIds } },
+          select: { id: true, fullName: true },
+        })
+      : [];
+    const nameById = new Map(topCustomers.map((c) => [c.id, c.fullName]));
+    const topClients = grouped.map((g) => ({
+      name: (g.customerId && nameById.get(g.customerId)) || 'Unknown client',
+      count: g._count.customerId,
+    }));
+
     return {
       billingPeriod,
       receiptsThisMonth,
@@ -913,6 +941,7 @@ export class ReceiptsService {
       totalIssued: sent,
       amountThisMonth,
       byStatus: { draft, sent, sendFailed, cancelled, void: voided },
+      topClients,
     };
   }
 }
