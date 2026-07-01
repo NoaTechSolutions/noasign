@@ -139,14 +139,14 @@ export function OverviewPanel({
       const k = (d.status ?? '').toUpperCase();
       if (k in counts) counts[k] += 1;
     });
-    // Owner order: Completed, Draft, Sent, Viewed, Signed. Cancelled is not shown
-    // on the document overview (kept in the count map, just not rendered).
+    // Owner order: Completed, Draft, Sent, Viewed, Signed, Cancelled.
     return [
       { key: 'completed', label: 'Completed', count: counts.COMPLETED, icon: <CheckCircle2 size={18} />, tone: 'green' },
       { key: 'draft', label: 'Draft', count: counts.DRAFT, icon: <FileText size={18} />, tone: 'navy' },
       { key: 'sent', label: 'Sent', count: counts.SENT, icon: <Send size={18} />, tone: 'sky' },
       { key: 'viewed', label: 'Viewed', count: counts.VIEWED, icon: <Eye size={18} />, tone: 'amber' },
       { key: 'signed', label: 'Signed', count: counts.SIGNED, icon: <PenLine size={18} />, tone: 'green-soft' },
+      { key: 'cancelled', label: 'Cancelled', count: counts.CANCELLED, icon: <Ban size={18} />, tone: 'red' },
     ];
   }, [documents]);
 

@@ -1205,7 +1205,7 @@
   display: grid;
   gap: 12px;
 }
-.status-strip__grid--documents { grid-template-columns: repeat(5, 1fr); }
+.status-strip__grid--documents { grid-template-columns: repeat(6, 1fr); }
 .status-strip__grid--receipts { grid-template-columns: repeat(4, 1fr); }
 .status-mini {
   display: flex;
