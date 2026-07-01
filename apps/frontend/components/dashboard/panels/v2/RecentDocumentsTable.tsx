@@ -17,12 +17,15 @@ interface RecentDocumentsTableProps {
   // Drives the wording. Receipts (DIRECT_PDF) are a different entity than
   // contract documents (BoldSign) — a receipts-only tenant sees "receipts".
   entity?: 'document' | 'receipt';
+  // Opens the row's document in the Documents module (one click → detail open).
+  onView?: (docId: string) => void;
 }
 
 export function RecentDocumentsTable({
   documents,
   isLoading,
   entity = 'document',
+  onView,
 }: RecentDocumentsTableProps) {
   const isReceipt = entity === 'receipt';
   const titleLabel = isReceipt ? 'Recent Receipts' : 'Recent Documents';
@@ -146,7 +149,12 @@ export function RecentDocumentsTable({
                   <span className="recent-doc-date">{formatDate(doc.createdAt)}</span>
                 </div>
                 <div className="recent-doc-col-actions">
-                  <button className="recent-doc-action-btn" title={viewTitle}>
+                  <button
+                    type="button"
+                    className="recent-doc-action-btn"
+                    title={viewTitle}
+                    onClick={() => onView?.(doc.id)}
+                  >
                     View
                   </button>
                 </div>
@@ -176,7 +184,14 @@ export function RecentDocumentsTable({
                 </div>
               </div>
               <div className="recent-doc-card-actions">
-                <button className="recent-doc-action-btn">View</button>
+                <button
+                  type="button"
+                  className="recent-doc-action-btn"
+                  title={viewTitle}
+                  onClick={() => onView?.(doc.id)}
+                >
+                  View
+                </button>
               </div>
             </div>
           ))}

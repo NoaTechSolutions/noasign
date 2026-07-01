@@ -164,14 +164,19 @@ export function DocumentsPanel({
   const [currentPage, setCurrentPage] = useState(1);
   // `doc`/`new` are one-shot navigation params (e.g. from the Overview): open a
   // document's modal or the create modal on mount, then strip them from the URL.
-  // Read `doc` from window.location (not useSearchParams) so a full page load /
-  // reload reopens the document: on a statically-rendered route useSearchParams()
-  // is empty at initial render, but window.location.search always has the real URL.
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(() =>
-    typeof window === 'undefined'
-      ? null
-      : new URLSearchParams(window.location.search).get('doc'),
-  );
+  // Seed the open document from the URL so it survives navigation AND reload.
+  // Client navigation (router.push) populates useSearchParams but not yet
+  // window.location; a full page load of a statically-rendered route is the
+  // reverse (useSearchParams empty at first render, window.location correct).
+  // Reading both covers both paths.
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(() => {
+    const fromRouter = searchParams.get('doc');
+    if (fromRouter) return fromRouter;
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('doc');
+    }
+    return null;
+  });
   const [showCreateModal, setShowCreateModal] = useState(
     () => searchParams.get('new') === '1',
   );

@@ -160,6 +160,7 @@ export function OverviewPanel({
           documents={documents?.slice(0, 5) || []}
           isLoading={isLoading}
           entity="receipt"
+          onView={onOpenDocument}
         />
       ) : (
         <div className="overview-columns">
@@ -168,6 +169,7 @@ export function OverviewPanel({
               documents={documents?.slice(0, 5) || []}
               isLoading={isLoading}
               entity="document"
+              onView={onOpenDocument}
             />
           </div>
           <div className="overview-columns__side">
