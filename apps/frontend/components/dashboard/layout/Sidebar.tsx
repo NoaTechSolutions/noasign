@@ -10,6 +10,7 @@ import {
   type NavigationItem,
 } from "./NavigationItems";
 import { useDirtyForm } from "@/components/dashboard/shared/dirty-form-context";
+import { ConfirmDialog } from "@/components/dashboard/shared/ConfirmDialog";
 import { DashboardFooter } from "./DashboardFooter";
 
 interface SidebarProps {
@@ -57,6 +58,8 @@ export function Sidebar({
     top: number;
     left: number;
   } | null>(null);
+  // Sign-out confirmation (custom dialog — replaces the native window.confirm).
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const items = filterNavigationItems(NAVIGATION_ITEMS, userRole);
 
   // Expand/collapse state for nav groups (e.g. "User management"), persisted.
@@ -483,10 +486,9 @@ export function Sidebar({
               await onSignOut();
               return;
             }
-            // Fallback: no real session clear — flagged in props comment
-            if (window.confirm("Sign out?")) {
-              window.location.href = "/login";
-            }
+            // Fallback: no real session clear — flagged in props comment.
+            // Custom confirm dialog (not the native window.confirm).
+            setShowSignOutConfirm(true);
           }}
           style={{
             display: "flex",
@@ -571,6 +573,19 @@ export function Sidebar({
           {tooltip.label}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={showSignOutConfirm}
+        title="Sign out?"
+        message="You'll be returned to the login screen."
+        confirmLabel="Sign out"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          window.location.href = "/login";
+        }}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
     </aside>
   );
 }
