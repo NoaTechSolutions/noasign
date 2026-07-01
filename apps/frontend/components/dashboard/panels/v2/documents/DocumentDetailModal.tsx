@@ -336,11 +336,23 @@ export function DocumentDetailModal({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      // Don't close the detail on Escape while a child editor/confirm popup is
+      // open — that popup owns Escape and gates it behind the unsaved-changes
+      // check. Closing the detail here would unmount the editor and drop the
+      // changes without a warning (the ESC bug).
+      if (
+        e.key === 'Escape' &&
+        !editGroup &&
+        !receiptEditOpen &&
+        !reissueOpen &&
+        !reissueConfirm
+      ) {
+        onClose();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, editGroup, receiptEditOpen, reissueOpen, reissueConfirm]);
 
   // Header info — prefer the loaded detail, fall back to the list item.
   const status = (detail?.status ?? listItem?.status ?? 'DRAFT') as string;
