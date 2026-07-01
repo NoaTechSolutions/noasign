@@ -1,9 +1,8 @@
 # Known issue — `setState` synchronously inside an effect
 
-**Status (2026-06-30): RESOLVED across the frontend.** `frontend-lint` is green
-(0 errors) and every `react-hooks/set-state-in-effect` violation is either fixed
-with the pattern that fits its cause or left as a deliberate, documented
-external-store read (4 cases, see "Remaining" below).
+**Status (2026-06-30): FULLY RESOLVED across the frontend.** `frontend-lint` is
+green (0 errors) and there are **zero** `react-hooks/set-state-in-effect`
+suppressions left — every case is fixed with the pattern that fits its cause.
 
 ## What
 
@@ -54,27 +53,18 @@ return a freshly-parsed object, or React loops forever.
 - `ui/sidebar.tsx`, `dashboard-sidebar-demo.tsx` (URL→section sync,
   section→menu auto-open) — `useIsHydrated` / prev-compare.
 
-## Remaining (deliberate, deferred)
+## Storage-backed external-store migrations (all done, 2026-06-30)
 
-Four suppressions are left in place — each reads from `localStorage` /
-`sessionStorage` on mount with a fallback, which is a documented, React-sanctioned
-external-store read (issue #418 hydration safety). They are conscious tradeoffs,
-not accidental. Three of the original four were migrated on 2026-06-30:
+The four cases that read from `localStorage` / `sessionStorage` on mount (issue
+#418 hydration-safe reads) were the last suppressions. All are now migrated to
+`useSyncExternalStore`:
 
 | File | Reads | Migration |
 |---|---|---|
 | `marketing/LandingContext.tsx` | `localStorage` lang + `navigator.language` fallback | ✅ `useSyncExternalStore` (lang store) |
 | `marketing/FloatingControls.tsx` | `localStorage` theme + `matchMedia` fallback | ✅ `useSyncExternalStore`; DOM swap stays in an effect |
-| `dashboard/panels/billing-panel.tsx` | `sessionStorage` modal-open boolean | ✅ new `useSessionStorageState` (`lib/use-session-storage-state.ts`) |
+| `dashboard/panels/billing-panel.tsx` | `sessionStorage` modal-open boolean | ✅ `useSessionStorageState` |
+| `dashboard-sidebar-demo.tsx` | `sessionStorage` document-viewer — 3 states from one JSON | ✅ single `useSessionStorageState<PersistedDocumentViewerState>`, 3 values destructured (the higher-risk one — confirm the reload-restore smoke test) |
 
-### Still deferred (one, higher-risk)
-
-`dashboard-sidebar-demo.tsx` (~line 673) restores the document-viewer state — **3
-separate states** (`documentViewerOpen`, `documentViewerInitialTab`,
-`documentViewerInitialEditingTab`) from a **single** `sessionStorage` JSON object
-on mount, and the states are also independently set by user actions. It lives in
-the core dashboard. A clean migration means making the viewer state one store
-object (or one `useSessionStorageState<PersistedDocumentViewerState>`) and deriving
-the three values — a larger refactor with reload-restore behavior that needs a
-manual smoke test. Left suppressed deliberately, pending owner sign-off; it is the
-remaining scope of a "finish the external-store migration" change.
+Shared hooks: `lib/use-local-storage-state.ts`, `lib/use-session-storage-state.ts`,
+`lib/use-media-query.ts`, `lib/use-is-hydrated.ts`.
