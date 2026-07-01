@@ -1080,3 +1080,38 @@
   .welcome-card { flex-direction: column; align-items: stretch; gap: 14px; }
   .welcome-cta { width: 100%; justify-content: center; }
 }
+
+/* ============================================
+   METRIC CARDS — 2-up "duo" variant (Overview)
+   Two prominent cards (redundant metrics removed) instead of the 4-up grid.
+   Appended after the base .metric-cards rules so it wins on source order.
+   ============================================ */
+.metric-cards--duo {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.metric-cards--duo .metric-card {
+  padding: 24px;
+  min-height: 132px;
+  gap: 10px;
+}
+.metric-cards--duo .metric-card__label {
+  font-size: 13px;
+}
+.metric-cards--duo .metric-card__value {
+  font-size: 34px;
+}
+
+/* Tablet — stay 2-up, a touch tighter. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .metric-cards--duo { gap: 16px; }
+  .metric-cards--duo .metric-card { padding: 20px; }
+  .metric-cards--duo .metric-card__value { font-size: 30px; }
+}
+
+/* Mobile — stack the two big cards full-width. */
+@media (max-width: 767px) {
+  .metric-cards--duo { grid-template-columns: 1fr; gap: 14px; }
+  .metric-cards--duo .metric-card { padding: 20px; min-height: 116px; }
+  .metric-cards--duo .metric-card__value { font-size: 30px; }
+}

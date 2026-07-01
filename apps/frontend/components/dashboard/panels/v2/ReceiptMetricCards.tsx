@@ -1,5 +1,5 @@
 import React from 'react';
-import { Receipt, FileText, DollarSign, Pencil } from 'lucide-react';
+import { Receipt, DollarSign } from 'lucide-react';
 
 // Shape returned by GET /documents/receipt/stats.
 export interface ReceiptStats {
@@ -31,15 +31,16 @@ function formatMoney(value: number): string {
 }
 
 /**
- * Receipts-focused metric row for the RECEIPTS_ONLY overview. Repurposes the
- * shared .metric-cards grid (same look as the contracts metrics) but with
- * receipt data: this month, total issued, $ this month, drafts pending.
+ * Receipts-focused metric row for the RECEIPTS_ONLY overview. Two prominent
+ * cards only — the volume this month and the $ this month. "Total issued" and
+ * "Drafts" were dropped because they duplicated the Receipt status card (Sent /
+ * Draft pills). Uses the shared .metric-cards grid (now 2-up).
  */
 export function ReceiptMetricCards({ stats, isLoading }: ReceiptMetricCardsProps) {
   if (isLoading) {
     return (
-      <div className="metric-cards">
-        {[0, 1, 2, 3].map((i) => (
+      <div className="metric-cards metric-cards--duo">
+        {[0, 1].map((i) => (
           <div key={i} className="metric-card metric-card--loading">
             <div className="metric-skeleton metric-skeleton--label" />
             <div className="metric-skeleton metric-skeleton--value" />
@@ -50,12 +51,10 @@ export function ReceiptMetricCards({ stats, isLoading }: ReceiptMetricCardsProps
   }
 
   const thisMonth = stats?.receiptsThisMonth ?? 0;
-  const totalIssued = stats?.totalIssued ?? 0;
   const amount = stats?.amountThisMonth ?? 0;
-  const drafts = stats?.byStatus.draft ?? 0;
 
   return (
-    <div className="metric-cards">
+    <div className="metric-cards metric-cards--duo">
       {/* Receipts this month */}
       <div className="metric-card metric-card--sky">
         <div className="metric-card__header">
@@ -66,16 +65,6 @@ export function ReceiptMetricCards({ stats, isLoading }: ReceiptMetricCardsProps
         <div className="metric-card__foot">receipts issued</div>
       </div>
 
-      {/* Total issued */}
-      <div className="metric-card metric-card--neutral">
-        <div className="metric-card__header">
-          <span className="metric-card__icon"><FileText size={16} /></span>
-          <span className="metric-card__label">Total issued</span>
-        </div>
-        <div className="metric-card__value">{totalIssued}</div>
-        <div className="metric-card__foot">all time</div>
-      </div>
-
       {/* Amount this month */}
       <div className="metric-card metric-card--green">
         <div className="metric-card__header">
@@ -84,16 +73,6 @@ export function ReceiptMetricCards({ stats, isLoading }: ReceiptMetricCardsProps
         </div>
         <div className="metric-card__value">{formatMoney(amount)}</div>
         <div className="metric-card__foot">total receipted</div>
-      </div>
-
-      {/* Drafts pending */}
-      <div className="metric-card metric-card--amber">
-        <div className="metric-card__header">
-          <span className="metric-card__icon"><Pencil size={16} /></span>
-          <span className="metric-card__label">Drafts</span>
-        </div>
-        <div className="metric-card__value">{drafts}</div>
-        <div className="metric-card__foot">pending to send</div>
       </div>
     </div>
   );

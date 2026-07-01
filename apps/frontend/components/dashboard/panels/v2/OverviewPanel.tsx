@@ -202,7 +202,6 @@ export function OverviewPanel({
         <MetricCards
           usage={usage}
           monthlySummary={monthlySummary}
-          documents={documents}
           isLoading={isLoading}
         />
       )}
