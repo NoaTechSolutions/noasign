@@ -84,7 +84,7 @@ export function MemberCard({
 
             {!isSelf && (
               <>
-                <button type="button" className="btn-secondary btn-sm" onClick={() => onEdit(user)}>Edit</button>
+                <button type="button" className="btn-secondary btn-sm btn-edit" onClick={() => onEdit(user)}>Edit</button>
                 <button type="button" className="btn-secondary btn-sm" onClick={() => onResetPassword(user)}>Reset password</button>
                 {user.status === 'ACTIVE' ? (
                   <button type="button" className="btn-danger btn-sm" onClick={() => onDeactivate(user)}>Deactivate</button>

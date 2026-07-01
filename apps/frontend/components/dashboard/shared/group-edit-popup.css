@@ -114,7 +114,8 @@
   justify-content: center;
   border: none;
   background: transparent;
-  color: var(--text-label);
+  /* Edit = brand sky (unified across the app). */
+  color: var(--brand-accent);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s;
@@ -122,8 +123,8 @@
 }
 
 .gep-edit-btn:hover {
-  background: var(--bg-hover);
-  color: var(--brand);
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent-hover);
 }
 
 /* Reuse btn-cancel/btn-save from profile-panel-v2.css */

@@ -122,7 +122,7 @@ export function MemberDetailModal({
 
         {!isSelf && (
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onEdit}>Edit</button>
+            <button type="button" className="btn-secondary btn-edit" onClick={onEdit}>Edit</button>
             <button type="button" className="btn-secondary" onClick={onResetPassword}>Reset password</button>
             {user.status === 'ACTIVE' ? (
               <button type="button" className="btn-danger" onClick={onDeactivate}>Deactivate</button>

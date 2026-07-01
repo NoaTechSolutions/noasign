@@ -796,7 +796,9 @@ input {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--text-secondary);
+  /* Edit = brand sky, unified across the app. Secondary emphasis (icon, not a
+     filled button) so it stands out without competing with the primary CTA. */
+  color: var(--brand-accent);
   padding: 4px;
   border-radius: var(--radius-sm);
   display: inline-flex;
@@ -805,8 +807,24 @@ input {
 }
 
 .card-legend__edit:hover {
-  color: var(--text-primary);
-  background: var(--tx-hover);
+  color: var(--brand-accent-hover);
+  background: var(--brand-accent-soft);
+}
+
+/* Edit action button — brand sky, unified across the app. Secondary emphasis
+   (sky text/outline) so "Edit" is recognizable everywhere without competing with
+   the primary filled CTA. Works standalone (plain button) or as a modifier on
+   .btn-secondary (higher-specificity pair wins over the base neutral color). */
+.btn-edit,
+.btn-secondary.btn-edit {
+  color: var(--brand-accent);
+  border-color: var(--brand-accent-soft);
+}
+.btn-edit:hover,
+.btn-secondary.btn-edit:hover {
+  color: var(--brand-accent-hover);
+  border-color: var(--brand-accent);
+  background: var(--brand-accent-soft);
 }
 
 /* ============================================
