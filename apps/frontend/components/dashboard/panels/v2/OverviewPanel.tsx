@@ -139,27 +139,29 @@ export function OverviewPanel({
       const k = (d.status ?? '').toUpperCase();
       if (k in counts) counts[k] += 1;
     });
+    // Owner order: Completed, Draft, Sent, Viewed, Signed. Cancelled is not shown
+    // on the document overview (kept in the count map, just not rendered).
     return [
-      { key: 'draft', label: 'Draft', count: counts.DRAFT, icon: <FileText size={16} /> },
-      { key: 'sent', label: 'Sent', count: counts.SENT, icon: <Send size={16} /> },
-      { key: 'viewed', label: 'Viewed', count: counts.VIEWED, icon: <Eye size={16} /> },
-      { key: 'signed', label: 'Signed', count: counts.SIGNED, icon: <PenLine size={16} /> },
-      { key: 'completed', label: 'Completed', count: counts.COMPLETED, icon: <CheckCircle2 size={16} /> },
-      { key: 'cancelled', label: 'Cancelled', count: counts.CANCELLED, icon: <Ban size={16} /> },
+      { key: 'completed', label: 'Completed', count: counts.COMPLETED, icon: <CheckCircle2 size={18} />, tone: 'green' },
+      { key: 'draft', label: 'Draft', count: counts.DRAFT, icon: <FileText size={18} />, tone: 'navy' },
+      { key: 'sent', label: 'Sent', count: counts.SENT, icon: <Send size={18} />, tone: 'sky' },
+      { key: 'viewed', label: 'Viewed', count: counts.VIEWED, icon: <Eye size={18} />, tone: 'amber' },
+      { key: 'signed', label: 'Signed', count: counts.SIGNED, icon: <PenLine size={18} />, tone: 'green-soft' },
     ];
   }, [documents]);
 
   // Receipt status counts (from GET /documents/receipt/stats). Cancelled + Void
   // are folded into one "Cancelled" mini-card.
   const receiptStatus: StatusStripItem[] = [
-    { key: 'sent', label: 'Sent', count: receiptStats?.byStatus.sent ?? 0, icon: <Send size={16} /> },
-    { key: 'draft', label: 'Draft', count: receiptStats?.byStatus.draft ?? 0, icon: <FileText size={16} /> },
-    { key: 'failed', label: 'Send failed', count: receiptStats?.byStatus.sendFailed ?? 0, icon: <AlertTriangle size={16} /> },
+    { key: 'sent', label: 'Sent', count: receiptStats?.byStatus.sent ?? 0, icon: <Send size={18} />, tone: 'sky' },
+    { key: 'draft', label: 'Draft', count: receiptStats?.byStatus.draft ?? 0, icon: <FileText size={18} />, tone: 'navy' },
+    { key: 'failed', label: 'Send failed', count: receiptStats?.byStatus.sendFailed ?? 0, icon: <AlertTriangle size={18} />, tone: 'amber' },
     {
       key: 'void',
       label: 'Cancelled',
       count: (receiptStats?.byStatus.cancelled ?? 0) + (receiptStats?.byStatus.void ?? 0),
-      icon: <Ban size={16} />,
+      icon: <Ban size={18} />,
+      tone: 'red',
     },
   ];
 

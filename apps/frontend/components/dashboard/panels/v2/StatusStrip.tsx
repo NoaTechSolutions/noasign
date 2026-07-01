@@ -5,6 +5,8 @@ export interface StatusStripItem {
   label: string;
   count: number;
   icon: React.ReactNode;
+  // Colour tone: green | green-soft | navy | sky | amber | red.
+  tone: string;
 }
 
 interface StatusStripProps {
@@ -26,7 +28,7 @@ export function StatusStrip({ title, items, isLoading, variant = 'documents' }: 
       <h2 className="status-strip__title">{title}</h2>
       <div className={`status-strip__grid status-strip__grid--${variant}`}>
         {items.map((it) => (
-          <div key={it.key} className="status-mini">
+          <div key={it.key} className={`status-mini status-mini--${it.tone}`}>
             <span className="status-mini__icon" aria-hidden="true">{it.icon}</span>
             <span className="status-mini__count">{isLoading ? '—' : it.count}</span>
             <span className="status-mini__label">{it.label}</span>

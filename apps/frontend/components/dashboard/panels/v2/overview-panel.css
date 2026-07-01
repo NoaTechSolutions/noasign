@@ -1183,9 +1183,6 @@
 .ov-highlight .ov-card__label,
 .ov-highlight .ov-card__value,
 .ov-highlight .ov-card__foot { color: #0b6e4f; }
-.dark .ov-highlight .ov-card__label,
-.dark .ov-highlight .ov-card__value,
-.dark .ov-highlight .ov-card__foot,
 :root[data-theme='dark'] .ov-highlight .ov-card__label,
 :root[data-theme='dark'] .ov-highlight .ov-card__value,
 :root[data-theme='dark'] .ov-highlight .ov-card__foot { color: #6ee7b7; }
@@ -1208,23 +1205,26 @@
   display: grid;
   gap: 12px;
 }
-.status-strip__grid--documents { grid-template-columns: repeat(6, 1fr); }
+.status-strip__grid--documents { grid-template-columns: repeat(5, 1fr); }
 .status-strip__grid--receipts { grid-template-columns: repeat(4, 1fr); }
 .status-mini {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 12px 14px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 7px;
+  padding: 14px 10px;
   border: 0.5px solid var(--border-soft, var(--tx-border));
   border-radius: 10px;
-  background: var(--bg-page, transparent);
+  /* Tint + accent driven by the per-status tone class (below). */
+  background: var(--mini-bg, transparent);
 }
-.status-mini__icon { color: var(--text-label); display: inline-flex; }
+.status-mini__icon { color: var(--mini-color, var(--text-label)); display: inline-flex; }
 .status-mini__count {
   font-size: 24px;
-  font-weight: 600;
-  color: var(--text-heading);
+  font-weight: 700;
+  color: var(--mini-color, var(--text-heading));
   line-height: 1;
 }
 .status-mini__label {
@@ -1232,8 +1232,27 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-label);
+  /* Navy with opacity in light; softened light tone in dark — not a generic grey. */
+  color: rgba(2, 41, 119, 0.82);
 }
+:root[data-theme='dark'] .status-mini__label { color: rgba(226, 232, 240, 0.82); }
+
+/* Per-status tones — very light tint bg, icon + number in the state colour. Green
+   and red kept soft (success/error) so they sit beside navy/sky/amber without
+   shouting. Amber uses a slightly deeper shade than #ff9900 for legible numbers
+   on the light tint. */
+.status-mini--green      { --mini-color: #047857; --mini-bg: #ecfdf5; }
+.status-mini--green-soft { --mini-color: #059669; --mini-bg: #f0fdf6; }
+.status-mini--navy       { --mini-color: #022977; --mini-bg: #eef2fc; }
+.status-mini--sky        { --mini-color: #05a5ff; --mini-bg: #e9f6ff; }
+.status-mini--amber      { --mini-color: #e07b00; --mini-bg: #fff7ea; }
+.status-mini--red        { --mini-color: #dc2626; --mini-bg: #fef2f2; }
+:root[data-theme='dark'] .status-mini--green      { --mini-color: #6ee7b7; --mini-bg: rgba(16, 185, 129, 0.14); }
+:root[data-theme='dark'] .status-mini--green-soft { --mini-color: #a7f3d0; --mini-bg: rgba(16, 185, 129, 0.10); }
+:root[data-theme='dark'] .status-mini--navy       { --mini-color: #93b4ff; --mini-bg: rgba(59, 130, 246, 0.16); }
+:root[data-theme='dark'] .status-mini--sky        { --mini-color: #5cc6ff; --mini-bg: rgba(5, 165, 255, 0.16); }
+:root[data-theme='dark'] .status-mini--amber      { --mini-color: #fbbf24; --mini-bg: rgba(245, 158, 11, 0.16); }
+:root[data-theme='dark'] .status-mini--red        { --mini-color: #f87171; --mini-bg: rgba(239, 68, 68, 0.16); }
 
 /* Responsive: stack row-2 cards; reflow the status strip. */
 @media (max-width: 1023px) {
