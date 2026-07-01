@@ -5,7 +5,6 @@ import { MetricCards } from './MetricCards';
 import { ReceiptsUsageCard } from './ReceiptsUsageCard';
 import { ReceiptMetricCards, type ReceiptStats } from './ReceiptMetricCards';
 import { ReceiptStatusBreakdown } from './ReceiptStatusBreakdown';
-import { NeedsAttention } from './NeedsAttention';
 import { StatusBreakdown } from './StatusBreakdown';
 import { RecentDocumentsTable } from './RecentDocumentsTable';
 
@@ -87,13 +86,11 @@ export function OverviewPanel({
   usage,
   monthlySummary,
   documents,
-  customers = [],
   isLoading,
   contractsEnabled = true,
   onFetchReceiptStats,
   onNewDocument,
   onOpenDocument,
-  onViewAllAttention,
 }: OverviewPanelProps) {
   const receiptsOnly = !contractsEnabled;
   const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
@@ -127,8 +124,9 @@ export function OverviewPanel({
 
   // Row order (identical on desktop/tablet/phone — the panel is a flex column, so
   // DOM order is the visual order at every breakpoint; only the inner grids reflow):
-  //   1 WelcomeCard · 2 Status · 3 Recent (+ NeedsAttention for documents) ·
-  //   4 Receipts usage (non-receipts) · 5 Metrics (4-up).
+  //   1 WelcomeCard · 2 Status · 3 Recent · 4 Receipts usage (non-receipts) ·
+  //   5 Metrics (4-up). (Needs attention was removed from the Overview — the
+  //   NeedsAttention component is kept for a future redesign of that slot.)
   return (
     <div className="overview-panel">
       {/* Row 1 — welcome. */}
@@ -159,18 +157,6 @@ export function OverviewPanel({
         entity={receiptsOnly ? 'receipt' : 'document'}
         onView={onOpenDocument}
       />
-
-      {/* Row 3b — Needs attention, its own full-width row (documents only;
-          receipts have no signature-flow attention panel). */}
-      {!receiptsOnly && (
-        <NeedsAttention
-          documents={documents}
-          customers={customers}
-          isLoading={isLoading}
-          onOpenDocument={onOpenDocument}
-          onViewAll={onViewAllAttention}
-        />
-      )}
 
       {/* Row 4 — receipts usage/quota. Hidden for receipts-only tenants (their
           receipt volume comes from the metric cards below, and it's unlimited);
