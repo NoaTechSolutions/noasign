@@ -931,26 +931,6 @@
 }
 
 /* ============================================
-   TWO-COLUMN LAYOUT (main + side) — TASK 4
-   ============================================ */
-.overview-columns {
-  display: grid;
-  /* minmax(0, ...) so the 1fr tracks can shrink below their content's
-     min-content size — otherwise long doc numbers / emails inside push the
-     column past the available width and overflow the page. */
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
-}
-.overview-columns__main,
-.overview-columns__side {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-
-/* ============================================
    NEEDS ATTENTION — TASK 3
    ============================================ */
 .needs-attention {
@@ -1060,11 +1040,6 @@
 /* ============================================
    RESPONSIVE — TASK 4
    ============================================ */
-/* Stack the bottom two columns a bit earlier (≤1180) so a small laptop doesn't
-   cram the recent-docs table + side cards into halves that feel too tight. */
-@media (max-width: 1180px) {
-  .overview-columns { grid-template-columns: minmax(0, 1fr); }
-}
 /* Tablet — keep 4 in a row (base), just tighten so they fit comfortably. */
 @media (min-width: 768px) and (max-width: 1023px) {
   .metric-cards { gap: 10px; }

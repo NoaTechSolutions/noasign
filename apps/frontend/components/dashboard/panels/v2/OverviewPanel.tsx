@@ -152,36 +152,24 @@ export function OverviewPanel({
         <StatusBreakdown documents={documents} isLoading={isLoading} />
       )}
 
-      {/* Row 3 — recent items. Documents also show NeedsAttention beside the
-          table (2-column); receipts-only has no attention panel, so the table
-          spans full width. */}
-      {receiptsOnly ? (
-        <RecentDocumentsTable
-          documents={documents?.slice(0, 5) || []}
+      {/* Row 3 — recent items, full-width. */}
+      <RecentDocumentsTable
+        documents={documents?.slice(0, 5) || []}
+        isLoading={isLoading}
+        entity={receiptsOnly ? 'receipt' : 'document'}
+        onView={onOpenDocument}
+      />
+
+      {/* Row 3b — Needs attention, its own full-width row (documents only;
+          receipts have no signature-flow attention panel). */}
+      {!receiptsOnly && (
+        <NeedsAttention
+          documents={documents}
+          customers={customers}
           isLoading={isLoading}
-          entity="receipt"
-          onView={onOpenDocument}
+          onOpenDocument={onOpenDocument}
+          onViewAll={onViewAllAttention}
         />
-      ) : (
-        <div className="overview-columns">
-          <div className="overview-columns__main">
-            <RecentDocumentsTable
-              documents={documents?.slice(0, 5) || []}
-              isLoading={isLoading}
-              entity="document"
-              onView={onOpenDocument}
-            />
-          </div>
-          <div className="overview-columns__side">
-            <NeedsAttention
-              documents={documents}
-              customers={customers}
-              isLoading={isLoading}
-              onOpenDocument={onOpenDocument}
-              onViewAll={onViewAllAttention}
-            />
-          </div>
-        </div>
       )}
 
       {/* Row 4 — receipts usage/quota. Hidden for receipts-only tenants (their
