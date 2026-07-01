@@ -1,13 +1,12 @@
 import './overview-panel.css';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Send, Eye, PenLine, CheckCircle2, Ban } from 'lucide-react';
+import { FileText, Send, Eye, PenLine, CheckCircle2, Ban, AlertTriangle } from 'lucide-react';
 import { WelcomeCard } from './WelcomeCard';
 import { MonthVolumeCard } from './MonthVolumeCard';
 import { HighlightCard } from './HighlightCard';
 import { StatusStrip, type StatusStripItem } from './StatusStrip';
 import { RecentDocumentsTable } from './RecentDocumentsTable';
-import { ReceiptMetricCards, type ReceiptStats } from './ReceiptMetricCards';
-import { ReceiptStatusBreakdown } from './ReceiptStatusBreakdown';
+import type { ReceiptStats } from './ReceiptMetricCards';
 import { getPlanEntry } from '@/lib/plan-catalog';
 
 interface DashboardUser {
@@ -150,6 +149,20 @@ export function OverviewPanel({
     ];
   }, [documents]);
 
+  // Receipt status counts (from GET /documents/receipt/stats). Cancelled + Void
+  // are folded into one "Cancelled" mini-card.
+  const receiptStatus: StatusStripItem[] = [
+    { key: 'sent', label: 'Sent', count: receiptStats?.byStatus.sent ?? 0, icon: <Send size={16} /> },
+    { key: 'draft', label: 'Draft', count: receiptStats?.byStatus.draft ?? 0, icon: <FileText size={16} /> },
+    { key: 'failed', label: 'Send failed', count: receiptStats?.byStatus.sendFailed ?? 0, icon: <AlertTriangle size={16} /> },
+    {
+      key: 'void',
+      label: 'Cancelled',
+      count: (receiptStats?.byStatus.cancelled ?? 0) + (receiptStats?.byStatus.void ?? 0),
+      icon: <Ban size={16} />,
+    },
+  ];
+
   // Skeleton — Row 1 welcome · Row 2 [volume | highlight] · Row 3 status strip ·
   // Row 4 recent. Same shape for documents and receipts; the receipts wiring lands
   // in a follow-up commit (still on the old receipt cards below for now).
@@ -165,57 +178,56 @@ export function OverviewPanel({
         ctaLabel={receiptsOnly ? 'New receipt' : 'New document'}
       />
 
-      {receiptsOnly ? (
-        <>
-          {/* Receipts — still on the old cards; migrated to the new skeleton next. */}
-          <ReceiptStatusBreakdown
-            stats={receiptStats}
+      {/* Row 2 — volume | green highlight. Documents: used/limit + savings.
+          Receipts: volume (no quota) + $ amount this month. */}
+      <div className="overview-row2">
+        {receiptsOnly ? (
+          <MonthVolumeCard
+            entity="receipt"
+            used={receiptStats?.receiptsThisMonth ?? 0}
+            limit={null}
             isLoading={isLoading || statsLoading}
           />
-          <RecentDocumentsTable
-            documents={documents?.slice(0, 5) || []}
-            isLoading={isLoading}
-            entity="receipt"
-            onView={onOpenDocument}
-          />
-          <ReceiptMetricCards stats={receiptStats} isLoading={isLoading || statsLoading} />
-        </>
-      ) : (
-        <>
-          {/* Row 2 — volume (quota) | savings (green highlight). */}
-          <div className="overview-row2">
-            <MonthVolumeCard
-              entity="document"
-              used={docsThisMonth}
-              limit={usage?.documentsLimit ?? null}
-              isLoading={isLoading}
-            />
-            <HighlightCard
-              variant="savings"
-              docsThisMonth={docsThisMonth}
-              ppcCost={ppcCost}
-              planCost={planCost}
-              isLoading={isLoading}
-            />
-          </div>
-
-          {/* Row 3 — compact document status. */}
-          <StatusStrip
-            title="Document status"
-            items={docStatus}
-            variant="documents"
-            isLoading={isLoading}
-          />
-
-          {/* Row 4 — recent documents. */}
-          <RecentDocumentsTable
-            documents={documents?.slice(0, 5) || []}
-            isLoading={isLoading}
+        ) : (
+          <MonthVolumeCard
             entity="document"
-            onView={onOpenDocument}
+            used={docsThisMonth}
+            limit={usage?.documentsLimit ?? null}
+            isLoading={isLoading}
           />
-        </>
-      )}
+        )}
+        {receiptsOnly ? (
+          <HighlightCard
+            variant="amount"
+            amount={receiptStats?.amountThisMonth ?? 0}
+            isLoading={isLoading || statsLoading}
+          />
+        ) : (
+          <HighlightCard
+            variant="savings"
+            docsThisMonth={docsThisMonth}
+            ppcCost={ppcCost}
+            planCost={planCost}
+            isLoading={isLoading}
+          />
+        )}
+      </div>
+
+      {/* Row 3 — compact status strip (6 document statuses / 4 receipt statuses). */}
+      <StatusStrip
+        title={receiptsOnly ? 'Receipt status' : 'Document status'}
+        items={receiptsOnly ? receiptStatus : docStatus}
+        variant={receiptsOnly ? 'receipts' : 'documents'}
+        isLoading={receiptsOnly ? isLoading || statsLoading : isLoading}
+      />
+
+      {/* Row 4 — recent documents / receipts. */}
+      <RecentDocumentsTable
+        documents={documents?.slice(0, 5) || []}
+        isLoading={isLoading}
+        entity={receiptsOnly ? 'receipt' : 'document'}
+        onView={onOpenDocument}
+      />
     </div>
   );
 }
