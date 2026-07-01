@@ -125,8 +125,13 @@ export function OverviewPanel({
     };
   }, [receiptsOnly, onFetchReceiptStats]);
 
+  // Row order (identical on desktop/tablet/phone — the panel is a flex column, so
+  // DOM order is the visual order at every breakpoint; only the inner grids reflow):
+  //   1 WelcomeCard · 2 Status · 3 Recent (+ NeedsAttention for documents) ·
+  //   4 Receipts usage (non-receipts) · 5 Metrics (4-up).
   return (
     <div className="overview-panel">
+      {/* Row 1 — welcome. */}
       <WelcomeCard
         user={user}
         company={companyProfile}
@@ -136,22 +141,50 @@ export function OverviewPanel({
         ctaLabel={receiptsOnly ? 'New receipt' : 'New document'}
       />
 
-      {/* Metrics: contract document metrics, or receipt metrics for receipts-only. */}
+      {/* Row 2 — status, full-width. Receipt status for receipts-only tenants,
+          document (signature) status otherwise. */}
       {receiptsOnly ? (
-        <ReceiptMetricCards stats={receiptStats} isLoading={isLoading || statsLoading} />
-      ) : (
-        <MetricCards
-          usage={usage}
-          monthlySummary={monthlySummary}
-          documents={documents}
-          isLoading={isLoading}
+        <ReceiptStatusBreakdown
+          stats={receiptStats}
+          isLoading={isLoading || statsLoading}
         />
+      ) : (
+        <StatusBreakdown documents={documents} isLoading={isLoading} />
       )}
 
-      {/* Receipts usage/quota card. Receipts-only tenants get their receipt
-          volume from the metric cards above ("This month") — the quota card is
-          redundant there (and unlimited), so it's hidden. Limited contract plans
-          (Starter, etc.) keep it: it shows real quota/overage. */}
+      {/* Row 3 — recent items. Documents also show NeedsAttention beside the
+          table (2-column); receipts-only has no attention panel, so the table
+          spans full width. */}
+      {receiptsOnly ? (
+        <RecentDocumentsTable
+          documents={documents?.slice(0, 5) || []}
+          isLoading={isLoading}
+          entity="receipt"
+        />
+      ) : (
+        <div className="overview-columns">
+          <div className="overview-columns__main">
+            <RecentDocumentsTable
+              documents={documents?.slice(0, 5) || []}
+              isLoading={isLoading}
+              entity="document"
+            />
+          </div>
+          <div className="overview-columns__side">
+            <NeedsAttention
+              documents={documents}
+              customers={customers}
+              isLoading={isLoading}
+              onOpenDocument={onOpenDocument}
+              onViewAll={onViewAllAttention}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Row 4 — receipts usage/quota. Hidden for receipts-only tenants (their
+          receipt volume comes from the metric cards below, and it's unlimited);
+          limited contract plans (Starter, etc.) keep it for real quota/overage. */}
       {!receiptsOnly && (
         <ReceiptsUsageCard
           used={usage?.receiptsUsed ?? 0}
@@ -162,37 +195,17 @@ export function OverviewPanel({
         />
       )}
 
-      <div className="overview-columns">
-        <div className="overview-columns__main">
-          <RecentDocumentsTable
-            documents={documents?.slice(0, 5) || []}
-            isLoading={isLoading}
-            entity={receiptsOnly ? 'receipt' : 'document'}
-          />
-        </div>
-
-        {/* Side: contracts show signature-flow panels; receipts-only shows the
-            receipt status breakdown (signature states don't apply to receipts). */}
-        <div className="overview-columns__side">
-          {receiptsOnly ? (
-            <ReceiptStatusBreakdown
-              stats={receiptStats}
-              isLoading={isLoading || statsLoading}
-            />
-          ) : (
-            <>
-              <NeedsAttention
-                documents={documents}
-                customers={customers}
-                isLoading={isLoading}
-                onOpenDocument={onOpenDocument}
-                onViewAll={onViewAllAttention}
-              />
-              <StatusBreakdown documents={documents} isLoading={isLoading} />
-            </>
-          )}
-        </div>
-      </div>
+      {/* Row 5 — metrics (4-up): contract document metrics, or receipt metrics. */}
+      {receiptsOnly ? (
+        <ReceiptMetricCards stats={receiptStats} isLoading={isLoading || statsLoading} />
+      ) : (
+        <MetricCards
+          usage={usage}
+          monthlySummary={monthlySummary}
+          documents={documents}
+          isLoading={isLoading}
+        />
+      )}
     </div>
   );
 }
