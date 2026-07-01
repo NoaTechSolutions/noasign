@@ -1090,3 +1090,161 @@
   .metric-cards--duo .metric-card { padding: 20px; min-height: 116px; }
   .metric-cards--duo .metric-card__value { font-size: 30px; }
 }
+
+/* ============================================================
+   OVERVIEW REDESIGN — Row 2 (volume | highlight) + Row 3 (status strip)
+   Shared skeleton for the document and receipt overviews.
+   ============================================================ */
+
+/* Row 2 — two cards side by side; stack on mobile. */
+.overview-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* Base card for the row-2 cards. */
+.ov-card {
+  background: var(--surface-card, var(--bg-card));
+  border: 0.5px solid var(--tx-border);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 156px;
+}
+.ov-card__label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ov-card__value {
+  font-size: 38px;
+  font-weight: 600;
+  color: var(--text-heading);
+  line-height: 1.05;
+}
+.ov-card__value-sub { font-size: 20px; color: var(--text-muted); font-weight: 400; }
+.ov-card__value-strike { text-decoration: line-through; opacity: 0.75; }
+/* Text prompt in place of a "$0" figure (no usage yet this month). */
+.ov-card__value--prompt { font-size: 22px; font-weight: 600; }
+.ov-card__foot { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+
+/* Quota progress bar (limited document plans only). */
+.ov-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+.ov-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand-accent);
+  transition: width 0.3s ease;
+}
+.ov-bar__fill--warning { background: #f59e0b; }
+.ov-bar__fill--danger { background: #ef4444; }
+
+/* Foot row: "X left" on the left, "Need more?" link on the right. */
+.ov-volume__foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+}
+.ov-need-more {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.ov-need-more:hover { color: var(--brand-accent-hover); text-decoration: underline; }
+
+/* Green "highlight" (value) card — savings / amount. */
+.ov-highlight {
+  background: var(--success-bg);
+  border-color: var(--success-border);
+}
+/* Explicit greens (not the --success-text token, which renders too pale on the
+   light success surface) — guaranteed contrast in both themes. */
+.ov-highlight .ov-card__label,
+.ov-highlight .ov-card__value,
+.ov-highlight .ov-card__foot { color: #0b6e4f; }
+.dark .ov-highlight .ov-card__label,
+.dark .ov-highlight .ov-card__value,
+.dark .ov-highlight .ov-card__foot,
+:root[data-theme='dark'] .ov-highlight .ov-card__label,
+:root[data-theme='dark'] .ov-highlight .ov-card__value,
+:root[data-theme='dark'] .ov-highlight .ov-card__foot { color: #6ee7b7; }
+.ov-highlight .ov-card__foot { opacity: 0.9; }
+
+/* Row 3 — compact status strip (mini-cards; icon + big number + small label). */
+.status-strip {
+  background: var(--surface-card, var(--bg-card));
+  border: 0.5px solid var(--tx-border);
+  border-radius: 14px;
+  padding: 20px 22px;
+}
+.status-strip__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0 0 16px;
+}
+.status-strip__grid {
+  display: grid;
+  gap: 12px;
+}
+.status-strip__grid--documents { grid-template-columns: repeat(6, 1fr); }
+.status-strip__grid--receipts { grid-template-columns: repeat(4, 1fr); }
+.status-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 0.5px solid var(--border-soft, var(--tx-border));
+  border-radius: 10px;
+  background: var(--bg-page, transparent);
+}
+.status-mini__icon { color: var(--text-label); display: inline-flex; }
+.status-mini__count {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-heading);
+  line-height: 1;
+}
+.status-mini__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-label);
+}
+
+/* Responsive: stack row-2 cards; reflow the status strip. */
+@media (max-width: 1023px) {
+  .status-strip__grid--documents { grid-template-columns: repeat(3, 1fr); }
+  .status-strip__grid--receipts { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 767px) {
+  .overview-row2 { grid-template-columns: 1fr; gap: 14px; }
+  .ov-card { padding: 20px; min-height: 132px; }
+  .ov-card__value { font-size: 32px; }
+}
+@media (max-width: 560px) {
+  .status-strip__grid--documents { grid-template-columns: repeat(2, 1fr); }
+}

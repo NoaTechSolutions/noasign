@@ -1,12 +1,14 @@
 import './overview-panel.css';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { FileText, Send, Eye, PenLine, CheckCircle2, Ban } from 'lucide-react';
 import { WelcomeCard } from './WelcomeCard';
-import { MetricCards } from './MetricCards';
-import { ReceiptsUsageCard } from './ReceiptsUsageCard';
+import { MonthVolumeCard } from './MonthVolumeCard';
+import { HighlightCard } from './HighlightCard';
+import { StatusStrip, type StatusStripItem } from './StatusStrip';
+import { RecentDocumentsTable } from './RecentDocumentsTable';
 import { ReceiptMetricCards, type ReceiptStats } from './ReceiptMetricCards';
 import { ReceiptStatusBreakdown } from './ReceiptStatusBreakdown';
-import { StatusBreakdown } from './StatusBreakdown';
-import { RecentDocumentsTable } from './RecentDocumentsTable';
+import { getPlanEntry } from '@/lib/plan-catalog';
 
 interface DashboardUser {
   id: string;
@@ -84,7 +86,6 @@ export function OverviewPanel({
   user,
   companyProfile,
   usage,
-  monthlySummary,
   documents,
   isLoading,
   contractsEnabled = true,
@@ -122,11 +123,36 @@ export function OverviewPanel({
     };
   }, [receiptsOnly, onFetchReceiptStats]);
 
-  // Row order (identical on desktop/tablet/phone — the panel is a flex column, so
-  // DOM order is the visual order at every breakpoint; only the inner grids reflow):
-  //   1 WelcomeCard · 2 Status · 3 Recent · 4 Receipts usage (non-receipts) ·
-  //   5 Metrics (4-up). (Needs attention was removed from the Overview — the
-  //   NeedsAttention component is kept for a future redesign of that slot.)
+  // Savings maths for the document highlight card: pay-per-doc ($12/doc) vs the
+  // plan's monthly price.
+  const planKey = usage?.planName ?? companyProfile?.plan ?? null;
+  const planCost = getPlanEntry(planKey).price;
+  const ppcPerDoc = getPlanEntry('PAY_PER_CONTRACT').price; // $12
+  const docsThisMonth = usage?.documentsUsed ?? 0;
+  const ppcCost = docsThisMonth * ppcPerDoc;
+
+  // Document status counts for the compact status strip.
+  const docStatus = useMemo<StatusStripItem[]>(() => {
+    const counts: Record<string, number> = {
+      DRAFT: 0, SENT: 0, VIEWED: 0, SIGNED: 0, COMPLETED: 0, CANCELLED: 0,
+    };
+    (documents ?? []).forEach((d) => {
+      const k = (d.status ?? '').toUpperCase();
+      if (k in counts) counts[k] += 1;
+    });
+    return [
+      { key: 'draft', label: 'Draft', count: counts.DRAFT, icon: <FileText size={16} /> },
+      { key: 'sent', label: 'Sent', count: counts.SENT, icon: <Send size={16} /> },
+      { key: 'viewed', label: 'Viewed', count: counts.VIEWED, icon: <Eye size={16} /> },
+      { key: 'signed', label: 'Signed', count: counts.SIGNED, icon: <PenLine size={16} /> },
+      { key: 'completed', label: 'Completed', count: counts.COMPLETED, icon: <CheckCircle2 size={16} /> },
+      { key: 'cancelled', label: 'Cancelled', count: counts.CANCELLED, icon: <Ban size={16} /> },
+    ];
+  }, [documents]);
+
+  // Skeleton — Row 1 welcome · Row 2 [volume | highlight] · Row 3 status strip ·
+  // Row 4 recent. Same shape for documents and receipts; the receipts wiring lands
+  // in a follow-up commit (still on the old receipt cards below for now).
   return (
     <div className="overview-panel">
       {/* Row 1 — welcome. */}
@@ -139,47 +165,56 @@ export function OverviewPanel({
         ctaLabel={receiptsOnly ? 'New receipt' : 'New document'}
       />
 
-      {/* Row 2 — status, full-width. Receipt status for receipts-only tenants,
-          document (signature) status otherwise. */}
       {receiptsOnly ? (
-        <ReceiptStatusBreakdown
-          stats={receiptStats}
-          isLoading={isLoading || statsLoading}
-        />
+        <>
+          {/* Receipts — still on the old cards; migrated to the new skeleton next. */}
+          <ReceiptStatusBreakdown
+            stats={receiptStats}
+            isLoading={isLoading || statsLoading}
+          />
+          <RecentDocumentsTable
+            documents={documents?.slice(0, 5) || []}
+            isLoading={isLoading}
+            entity="receipt"
+            onView={onOpenDocument}
+          />
+          <ReceiptMetricCards stats={receiptStats} isLoading={isLoading || statsLoading} />
+        </>
       ) : (
-        <StatusBreakdown documents={documents} isLoading={isLoading} />
-      )}
+        <>
+          {/* Row 2 — volume (quota) | savings (green highlight). */}
+          <div className="overview-row2">
+            <MonthVolumeCard
+              entity="document"
+              used={docsThisMonth}
+              limit={usage?.documentsLimit ?? null}
+              isLoading={isLoading}
+            />
+            <HighlightCard
+              variant="savings"
+              docsThisMonth={docsThisMonth}
+              ppcCost={ppcCost}
+              planCost={planCost}
+              isLoading={isLoading}
+            />
+          </div>
 
-      {/* Row 3 — recent items, full-width. */}
-      <RecentDocumentsTable
-        documents={documents?.slice(0, 5) || []}
-        isLoading={isLoading}
-        entity={receiptsOnly ? 'receipt' : 'document'}
-        onView={onOpenDocument}
-      />
+          {/* Row 3 — compact document status. */}
+          <StatusStrip
+            title="Document status"
+            items={docStatus}
+            variant="documents"
+            isLoading={isLoading}
+          />
 
-      {/* Row 4 — receipts usage/quota. Hidden for receipts-only tenants (their
-          receipt volume comes from the metric cards below, and it's unlimited);
-          limited contract plans (Starter, etc.) keep it for real quota/overage. */}
-      {!receiptsOnly && (
-        <ReceiptsUsageCard
-          used={usage?.receiptsUsed ?? 0}
-          limit={usage?.monthlyReceiptLimit ?? 0}
-          unlimited={usage?.receiptsUnlimited ?? false}
-          overagePrice={usage?.receiptOveragePrice ?? 0.25}
-          isLoading={isLoading}
-        />
-      )}
-
-      {/* Row 5 — metrics (4-up): contract document metrics, or receipt metrics. */}
-      {receiptsOnly ? (
-        <ReceiptMetricCards stats={receiptStats} isLoading={isLoading || statsLoading} />
-      ) : (
-        <MetricCards
-          usage={usage}
-          monthlySummary={monthlySummary}
-          isLoading={isLoading}
-        />
+          {/* Row 4 — recent documents. */}
+          <RecentDocumentsTable
+            documents={documents?.slice(0, 5) || []}
+            isLoading={isLoading}
+            entity="document"
+            onView={onOpenDocument}
+          />
+        </>
       )}
     </div>
   );
