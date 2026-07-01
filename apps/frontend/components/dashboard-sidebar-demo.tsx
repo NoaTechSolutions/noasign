@@ -48,6 +48,7 @@ import {
   formatUsPhone,
 } from "@/lib/format";
 import { readSessionBoolean, writeSessionBoolean } from "@/lib/session-storage";
+import { useSessionStorageState } from "@/lib/use-session-storage-state";
 import {
   CompanyAvatar,
   CustomerTypeBadge,
@@ -400,6 +401,14 @@ type PersistedDocumentViewerState = {
   initialEditingTab: EditableViewerTabKey | null;
 };
 
+// Stable default (module constant) so the sessionStorage hook returns a steady
+// identity before/without a persisted value — no render loop.
+const DEFAULT_VIEWER_STATE: PersistedDocumentViewerState = {
+  open: false,
+  initialTab: "client",
+  initialEditingTab: null,
+};
+
 type PersistedCreateDraftState = {
   isSetupOpen: boolean;
   selectedDocumentTypeId: string;
@@ -497,11 +506,19 @@ export function DashboardSidebarDemo({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const [usersMenuOpen, setUsersMenuOpen] = useState(true);
-  const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
-  const [documentViewerInitialTab, setDocumentViewerInitialTab] =
-    useState<ViewerTabKey>("client");
-  const [documentViewerInitialEditingTab, setDocumentViewerInitialEditingTab] =
-    useState<EditableViewerTabKey | null>(null);
+  // Document-viewer UI state, persisted to sessionStorage so it survives a reload
+  // (restore-in-place). Backed by useSyncExternalStore — SSR-safe, no
+  // setState-in-effect (#418). One store object instead of three synced states.
+  const [viewerState, setViewerState] =
+    useSessionStorageState<PersistedDocumentViewerState>(
+      DASHBOARD_DOCUMENT_VIEWER_KEY,
+      DEFAULT_VIEWER_STATE,
+    );
+  const {
+    open: documentViewerOpen,
+    initialTab: documentViewerInitialTab,
+    initialEditingTab: documentViewerInitialEditingTab,
+  } = viewerState;
   const [documentSuccessMessage, setDocumentSuccessMessage] = useState("");
   // NOA-280 — when user clicks Edit on a schema-driven draft, show this
   // notice instead of opening the legacy viewer-with-edit-tabs (which
@@ -663,30 +680,6 @@ export function DashboardSidebarDemo({
   }, [open]);
 
   useEffect(() => {
-    const persistedViewerState =
-      readSessionJson<PersistedDocumentViewerState>(DASHBOARD_DOCUMENT_VIEWER_KEY);
-
-    if (!persistedViewerState?.open) {
-      return;
-    }
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDocumentViewerInitialTab(persistedViewerState.initialTab ?? "client");
-    setDocumentViewerInitialEditingTab(
-      persistedViewerState.initialEditingTab ?? null,
-    );
-    setDocumentViewerOpen(true);
-  }, []);
-
-  useEffect(() => {
-    writeSessionJson(DASHBOARD_DOCUMENT_VIEWER_KEY, {
-      open: documentViewerOpen,
-      initialTab: documentViewerInitialTab,
-      initialEditingTab: documentViewerInitialEditingTab,
-    } satisfies PersistedDocumentViewerState);
-  }, [documentViewerInitialEditingTab, documentViewerInitialTab, documentViewerOpen]);
-
-  useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
       if (!accountMenuRef.current) {
         return;
@@ -715,9 +708,7 @@ export function DashboardSidebarDemo({
   ];
 
   function closeDocumentViewer() {
-    setDocumentViewerOpen(false);
-    setDocumentViewerInitialTab("client");
-    setDocumentViewerInitialEditingTab(null);
+    setViewerState(DEFAULT_VIEWER_STATE);
   }
 
   function openDocumentViewer(options: {
@@ -725,9 +716,11 @@ export function DashboardSidebarDemo({
     tab?: ViewerTabKey;
     editingTab?: EditableViewerTabKey | null;
   }) {
-    setDocumentViewerInitialTab(options.tab ?? "client");
-    setDocumentViewerInitialEditingTab(options.editingTab ?? null);
-    setDocumentViewerOpen(true);
+    setViewerState({
+      open: true,
+      initialTab: options.tab ?? "client",
+      initialEditingTab: options.editingTab ?? null,
+    });
     onSelectDocument(options.documentId);
   }
 
