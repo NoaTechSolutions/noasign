@@ -164,8 +164,13 @@ export function DocumentsPanel({
   const [currentPage, setCurrentPage] = useState(1);
   // `doc`/`new` are one-shot navigation params (e.g. from the Overview): open a
   // document's modal or the create modal on mount, then strip them from the URL.
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(
-    () => searchParams.get('doc'),
+  // Read `doc` from window.location (not useSearchParams) so a full page load /
+  // reload reopens the document: on a statically-rendered route useSearchParams()
+  // is empty at initial render, but window.location.search always has the real URL.
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(() =>
+    typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.search).get('doc'),
   );
   const [showCreateModal, setShowCreateModal] = useState(
     () => searchParams.get('new') === '1',
@@ -224,8 +229,10 @@ export function DocumentsPanel({
     return () => clearTimeout(t);
   }, [documents]);
 
-  // Persist filters + search in the URL via replaceState (NOT the Next router,
-  // so it never re-runs the page's data effects). Empty/"all" values are removed.
+  // Persist filters + search + the open document in the URL via replaceState (NOT
+  // the Next router, so it never re-runs the page's data effects). Empty/"all"
+  // values are removed. Keeping `doc` in sync with the open detail lets a reload
+  // reopen the same document (the lazy init above reads it back).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -235,12 +242,13 @@ export function DocumentsPanel({
     sync('search', search.trim());
     sync('status', statusFilter);
     sync('type', typeFilter);
-    // One-shot navigation params consumed by the initial state — strip them so
-    // they don't linger / re-trigger on reload.
-    params.delete('doc');
+    // Mirror the open document so it survives a reload; cleared when the detail
+    // closes (selectedDocId null -> removed).
+    sync('doc', selectedDocId ?? '');
+    // `new` stays one-shot — it opens the create modal on mount, then is stripped.
     params.delete('new');
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
-  }, [search, statusFilter, typeFilter]);
+  }, [search, statusFilter, typeFilter, selectedDocId]);
 
   // Reset to page 1 whenever the filters/search change.
   useEffect(() => {
