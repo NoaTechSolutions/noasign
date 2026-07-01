@@ -814,13 +814,21 @@ input {
    (sky text/outline) so "Edit" is recognizable everywhere without competing with
    the primary filled CTA. Works standalone (plain button) or as a modifier on
    .btn-secondary (higher-specificity pair wins over the base neutral color). */
-.btn-edit,
+/* Members "Edit" in the row kebab is a menu item (not a button) — sky accent
+   only (no pill fill, which is out of place in a dropdown). */
+.btn-edit {
+  color: var(--brand-accent);
+}
+.btn-edit:hover {
+  color: var(--brand-accent-hover);
+}
+/* Standalone members "Edit" buttons (card / detail footer) — solid sky fill,
+   matching the Edit affordance everywhere else. */
 .btn-secondary.btn-edit {
   color: #ffffff;
   background: var(--brand-accent);
   border-color: var(--brand-accent);
 }
-.btn-edit:hover,
 .btn-secondary.btn-edit:hover {
   color: #ffffff;
   background: var(--brand-accent-hover);
