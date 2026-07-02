@@ -12,10 +12,10 @@ interface OverageAlertProps {
 
 export function OverageAlert({ overageCount, overageRate, nextBilling, role, onUpgrade }: OverageAlertProps) {
   const total = (overageCount * overageRate).toFixed(2);
-  const isMaster = role === 'superadmin';
+  const isSuperadmin = role === 'superadmin';
 
   const handleUpgradeClick = () => {
-    if (!isMaster) {
+    if (!isSuperadmin) {
       // Show toast: "Only the workspace owner can change the plan"
       return;
     }

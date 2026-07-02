@@ -178,7 +178,7 @@ export function CustomersTable({
                     { value: 'all', label: 'All' },
                     { value: 'ACTIVE', label: 'Active' },
                     { value: 'INACTIVE', label: 'Inactive' },
-                    // Deleted is MASTER-only (matches the toolbar Status filter).
+                    // Deleted is SUPERADMIN-only (matches the toolbar Status filter).
                     ...(role === 'superadmin' ? [{ value: 'DELETED', label: 'Deleted' }] : []),
                   ]}
                   onSelect={(v) => onQuickFilterStatus(v as 'all' | 'ACTIVE' | 'INACTIVE' | 'DELETED')}

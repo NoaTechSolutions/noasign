@@ -39,8 +39,8 @@ interface DocumentCreationModalProps {
   documentTypes: DocumentTypeOption[];
   customers: CustomerOption[];
   sessionId?: string;
-  isMaster?: boolean;
-  // Superadmin flow: a MASTER may pick any user (all tenants) to borrow their
+  isSuperadmin?: boolean;
+  // Superadmin flow: a SUPERADMIN may pick any user (all tenants) to borrow their
   // forms/templates; onFetchTypesAsUser refetches the catalog as that user. The
   // created document still belongs to the master (the borrow is template-only).
   selectableUsers?: SelectableUser[];
@@ -97,7 +97,7 @@ export function DocumentCreationModal({
   documentTypes,
   customers,
   sessionId,
-  isMaster = false,
+  isSuperadmin = false,
   selectableUsers,
   onFetchTypesAsUser,
   onClose,
@@ -119,7 +119,7 @@ export function DocumentCreationModal({
   const [wizardDirty, setWizardDirty] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
 
-  // Superadmin flow: when a MASTER picks a user, refetch the catalog as that
+  // Superadmin flow: when a SUPERADMIN picks a user, refetch the catalog as that
   // user (asUserId) and use it instead of the master's own types. The created
   // document still belongs to the master (no userId is sent on create).
   const [asUserId, setAsUserId] = useState('');
@@ -281,7 +281,7 @@ export function DocumentCreationModal({
         </header>
 
         <div className="docs-v2-creation-modal__body">
-          {isMaster && selectableUsers && selectableUsers.length > 0 ? (
+          {isSuperadmin && selectableUsers && selectableUsers.length > 0 ? (
             <div className="docs-v2-setup-card">
               <div className="docs-v2-setup-card__row">
                 <label className="docs-v2-setup-card__field">
@@ -313,7 +313,7 @@ export function DocumentCreationModal({
             value={setup}
             onChange={setSetup}
             disabled={isSubmitting}
-            isMaster={isMaster}
+            isSuperadmin={isSuperadmin}
           />
 
           {isReceipt ? (

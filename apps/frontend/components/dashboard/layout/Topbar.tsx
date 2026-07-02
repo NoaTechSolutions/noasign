@@ -66,7 +66,7 @@ export function Topbar({ user, currentPanel, isLoading, children, onSignOut }: T
   const initial = user.name.charAt(0).toUpperCase();
 
   // Beside the avatar: INDIVIDUAL accounts show the person's name; everyone
-  // else (BUSINESS / MASTER) shows the company name. Plan sits underneath.
+  // else (BUSINESS / SUPERADMIN) shows the company name. Plan sits underneath.
   // Shared resolver so the Topbar and WelcomeCard never drift apart.
   const primaryLabel = resolveAccountName({
     accountType: user.accountType,

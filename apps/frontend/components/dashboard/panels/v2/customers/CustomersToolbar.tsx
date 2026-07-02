@@ -17,7 +17,7 @@ interface CustomersToolbarProps {
   statusFilters: StatusOption[];
   onSetTypeFilters: (next: TypeOption[]) => void;
   onSetStatusFilters: (next: StatusOption[]) => void;
-  // MASTER-only: unlocks the "Deleted" status filter (desktop tab + mobile radio).
+  // SUPERADMIN-only: unlocks the "Deleted" status filter (desktop tab + mobile radio).
   canSeeDeleted: boolean;
   loading: boolean;
 }

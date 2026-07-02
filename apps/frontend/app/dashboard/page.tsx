@@ -472,7 +472,7 @@ function DashboardPageInner() {
   const [billingHistory, setBillingHistory] = useState<MonthlySummary[]>([]);
   const [documents, setDocuments] = useState<DashboardDocument[] | null>(null);
   const [managedUsers, setManagedUsers] = useState<ManagedUser[] | null>(null);
-  // Superadmin flow: all users across all tenants (MASTER only) for the
+  // Superadmin flow: all users across all tenants (SUPERADMIN only) for the
   // "create for user" template-source selector. undefined until loaded / non-master.
   const [selectableUsers, setSelectableUsers] = useState<
     SelectableUser[] | undefined
@@ -520,7 +520,7 @@ function DashboardPageInner() {
       const [[me, currentUsage, summary, myDocuments, customersResponse], staticResult] =
         await Promise.all([dynamicRequests, staticRequests]);
 
-      // Superadmin flow: load the cross-tenant user list for MASTER only
+      // Superadmin flow: load the cross-tenant user list for SUPERADMIN only
       // (the endpoint 403s otherwise). Best-effort — never blocks the workspace.
       if (me.role === "SUPERADMIN") {
         apiRequest<SelectableUser[]>("/documents/selectable-users")
@@ -606,16 +606,16 @@ function DashboardPageInner() {
   }, []);
 
   // Route guard: privileged panels (members / lockedUsers) are hidden from the
-  // sidebar for non-MASTER, but a direct ?panel= URL would still render them.
-  // Redirect non-MASTER away once the role is known (the backend already gates
+  // sidebar for non-SUPERADMIN, but a direct ?panel= URL would still render them.
+  // Redirect non-SUPERADMIN away once the role is known (the backend already gates
   // the data — this just stops the privileged UI from rendering at all).
   useEffect(() => {
-    const MASTER_ONLY_PANELS = ["members", "lockedUsers"];
+    const SUPERADMIN_ONLY_PANELS = ["members", "lockedUsers"];
     const role = dashboardUser?.role ?? user?.role;
-    if (!role) return; // role not loaded yet — don't redirect a MASTER prematurely
+    if (!role) return; // role not loaded yet — don't redirect a SUPERADMIN prematurely
     if (
       newLayoutPanel &&
-      MASTER_ONLY_PANELS.includes(newLayoutPanel) &&
+      SUPERADMIN_ONLY_PANELS.includes(newLayoutPanel) &&
       role !== "SUPERADMIN"
     ) {
       router.replace("/dashboard?panel=overview");
@@ -1616,7 +1616,7 @@ function DashboardPageInner() {
         id: string,
         status: "ACTIVE" | "INACTIVE" | "DELETED",
       ) => {
-        // Backend update() syncs deletedAt and gates restores to MASTER, so a
+        // Backend update() syncs deletedAt and gates restores to SUPERADMIN, so a
         // single PATCH covers every status transition (including delete/restore).
         return apiRequest<Customer>(`/customers/${id}`, {
           method: "PATCH",
@@ -1661,9 +1661,9 @@ function DashboardPageInner() {
   // always renders. The `if` is a guard; the block below always returns.
   if (newLayoutPanel) {
     // Defensive render gate (pairs with the redirect effect above): never render
-    // the privileged panels for a non-MASTER, even for the frame before the
+    // the privileged panels for a non-SUPERADMIN, even for the frame before the
     // redirect fires. Role unknown (still loading) also counts as not-master.
-    const isMaster = (dashboardUser?.role ?? user?.role) === "SUPERADMIN";
+    const isSuperadmin = (dashboardUser?.role ?? user?.role) === "SUPERADMIN";
 
     const fullName =
       [dashboardUser?.firstName, dashboardUser?.lastName]
@@ -2337,7 +2337,7 @@ function DashboardPageInner() {
           onFetchDeletedCustomers={customersV2Handlers.onFetchDeletedCustomers}
           onRestoreCustomer={customersV2Handlers.onRestoreCustomer}
         />
-      ) : newLayoutPanel === "members" && isMaster ? (
+      ) : newLayoutPanel === "members" && isSuperadmin ? (
         <MembersPanel
           role={membersV2.role}
           currentUserId={membersV2.currentUserId}
@@ -2350,7 +2350,7 @@ function DashboardPageInner() {
           onResetPassword={membersV2.onResetPassword}
           onUpdateAccountRequestStatus={membersV2.onUpdateAccountRequestStatus}
         />
-      ) : newLayoutPanel === "lockedUsers" && isMaster ? (
+      ) : newLayoutPanel === "lockedUsers" && isSuperadmin ? (
         <LockedUsersPanel
           onFetchLockedUsers={lockedUsersV2.onFetchLockedUsers}
           onUnlockUser={lockedUsersV2.onUnlockUser}
@@ -2378,7 +2378,7 @@ function DashboardPageInner() {
           onReissueReceipt={documentsV2.onReissueReceipt}
           onVoidReceipt={documentsV2.onVoidReceipt}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
-          isMaster={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
+          isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
           contractsEnabled={usage?.contractsEnabled ?? true}
           onFetchReceiptStats={fetchReceiptStats}
           selectableUsers={selectableUsers}

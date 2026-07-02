@@ -105,14 +105,14 @@ export class ReceiptsService {
    */
   private async getReceiptBillingState(
     companyProfileId: string,
-    isMaster: boolean,
+    isSuperadmin: boolean,
   ): Promise<{ billingPeriod: string; isReceiptOverage: boolean }> {
     const billingPeriod = this.getBillingPeriod();
     const profile = await this.prisma.companyProfile.findUnique({
       where: { id: companyProfileId },
       select: { receiptsUnlimited: true, monthlyReceiptLimit: true },
     });
-    const receiptsUnlimited = isMaster || (profile?.receiptsUnlimited ?? false);
+    const receiptsUnlimited = isSuperadmin || (profile?.receiptsUnlimited ?? false);
     if (receiptsUnlimited) return { billingPeriod, isReceiptOverage: false };
     const used = await this.prisma.document.count({
       where: { companyProfileId, countedAsReceipt: true, billingPeriod },
@@ -154,7 +154,7 @@ export class ReceiptsService {
     if (!formDefinition) {
       throw new NotFoundException('No active receipt form definition');
     }
-    // Superadmin flow: a MASTER may borrow another user's design by passing that
+    // Superadmin flow: a SUPERADMIN may borrow another user's design by passing that
     // user's receiptTemplateId (any tenant). The document stays the creator's
     // (userId + the per-tenant REC- counter below both use the creator). Other
     // callers always get their own company's template.

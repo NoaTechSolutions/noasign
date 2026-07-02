@@ -124,7 +124,7 @@ describe('DocumentsService', () => {
   });
 
   it('getDocumentTypes (asUserId) borrows a cross-tenant target user’s receipt template', async () => {
-    // caller = MASTER (company-1); target = USER in a DIFFERENT tenant (company-2).
+    // caller = SUPERADMIN (company-1); target = USER in a DIFFERENT tenant (company-2).
     prismaMock.user.findUnique
       .mockResolvedValueOnce({ role: 'SUPERADMIN', companyProfileId: 'company-1' })
       .mockResolvedValueOnce({
@@ -148,7 +148,7 @@ describe('DocumentsService', () => {
 
     const result = await service.getDocumentTypes('user-1', 'user-2');
 
-    // Target resolved WITHOUT a same-tenant constraint (cross-tenant for MASTER).
+    // Target resolved WITHOUT a same-tenant constraint (cross-tenant for SUPERADMIN).
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-2' },
       select: { id: true, role: true, companyProfileId: true },

@@ -10,7 +10,7 @@ export function isIndividualAccount(accountType?: string | null): boolean {
 
 /**
  * The primary display name: person name for INDIVIDUAL accounts, company name
- * otherwise (BUSINESS / MASTER / unknown). Mirrors the Topbar/ProfileHeaderCard
+ * otherwise (BUSINESS / SUPERADMIN / unknown). Mirrors the Topbar/ProfileHeaderCard
  * logic (`isIndividual ? personName : companyName`).
  */
 export function resolveAccountName(args: {

@@ -23,7 +23,7 @@ export class UsersService {
     return safeUser;
   }
 
-  private async getMasterRequester(userId: string) {
+  private async getSuperadminRequester(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -109,7 +109,7 @@ export class UsersService {
   }
 
   async listAccountRequests(requesterId: string) {
-    await this.getMasterRequester(requesterId);
+    await this.getSuperadminRequester(requesterId);
 
     return this.prisma.accountRequest.findMany({
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
@@ -121,7 +121,7 @@ export class UsersService {
     requestId: string,
     body: UpdateAccountRequestStatusDto,
   ) {
-    await this.getMasterRequester(requesterId);
+    await this.getSuperadminRequester(requesterId);
 
     const existingRequest = await this.prisma.accountRequest.findUnique({
       where: { id: requestId },
@@ -147,7 +147,7 @@ export class UsersService {
   }
 
   async listUsers(requesterId: string) {
-    const requester = await this.getMasterRequester(requesterId);
+    const requester = await this.getSuperadminRequester(requesterId);
 
     // NOA-237 Fix 5 — return ALL users in the master's tenant, not just the
     // ones they personally created (parentCompanyProfileId match). Customer
@@ -183,7 +183,7 @@ export class UsersService {
   }
 
   async createUser(requesterId: string, body: CreateUserDto) {
-    const requester = await this.getMasterRequester(requesterId);
+    const requester = await this.getSuperadminRequester(requesterId);
     const normalizedEmail = body.email.trim().toLowerCase();
 
     const existingUser = await this.prisma.user.findUnique({
@@ -266,7 +266,7 @@ export class UsersService {
     targetUserId: string,
     body: UpdateUserDto,
   ) {
-    const requester = await this.getMasterRequester(requesterId);
+    const requester = await this.getSuperadminRequester(requesterId);
     const targetUser = await this.prisma.user.findFirst({
       where: {
         id: targetUserId,
@@ -321,7 +321,7 @@ export class UsersService {
     targetUserId: string,
     body: ResetUserPasswordDto,
   ) {
-    const requester = await this.getMasterRequester(requesterId);
+    const requester = await this.getSuperadminRequester(requesterId);
     const targetUser = await this.prisma.user.findFirst({
       where: {
         id: targetUserId,

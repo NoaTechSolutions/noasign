@@ -77,7 +77,7 @@ export interface DocumentsPanelProps {
   contractsEnabled?: boolean;
   // Receipts-only: fetches GET /documents/receipt/stats for the stat pills.
   onFetchReceiptStats?: () => Promise<ReceiptStats>;
-  // Superadmin flow: MASTER picks any user (all tenants) to borrow templates.
+  // Superadmin flow: SUPERADMIN picks any user (all tenants) to borrow templates.
   selectableUsers?: SelectableUser[];
   onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
   onEditDocument: (docId: string) => void;
@@ -107,7 +107,7 @@ export interface DocumentsPanelProps {
   // Void (2c): mark a SENT receipt VOID with no replacement.
   onVoidReceipt?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
-  isMaster?: boolean;
+  isSuperadmin?: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -152,7 +152,7 @@ export function DocumentsPanel({
   onReissueReceipt,
   onVoidReceipt,
   onFetchReceiptPdf,
-  isMaster = false,
+  isSuperadmin = false,
 }: DocumentsPanelProps) {
   // Filters + search seeded from the URL so they survive a reload / can be shared.
   const searchParams = useSearchParams();
@@ -579,7 +579,7 @@ export function DocumentsPanel({
           onReissueReceipt={onReissueReceipt}
           autoOpenReissue={reissueOnOpen}
           onFetchReceiptPdf={onFetchReceiptPdf}
-          isMaster={isMaster}
+          isSuperadmin={isSuperadmin}
         />
       ) : null}
 
@@ -588,7 +588,7 @@ export function DocumentsPanel({
           documentTypes={documentTypes}
           customers={customers}
           sessionId={sessionId}
-          isMaster={isMaster}
+          isSuperadmin={isSuperadmin}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={onFetchTypesAsUser}
           onClose={() => setShowCreateModal(false)}

@@ -7,7 +7,7 @@ interface DashboardUser {
   name: string;
   email: string;
   role: string;
-  // INDIVIDUAL → show the person name; BUSINESS/MASTER → the company name.
+  // INDIVIDUAL → show the person name; BUSINESS/SUPERADMIN → the company name.
   accountType?: string | null;
 }
 

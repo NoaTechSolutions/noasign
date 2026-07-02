@@ -311,7 +311,7 @@ export class CustomersService {
     }
 
     // Soft delete via status. `deletedAt` is kept as an audit trail (when it was
-    // deleted) but `status` is what the queries filter on. MASTER can restore
+    // deleted) but `status` is what the queries filter on. SUPERADMIN can restore
     // later via POST /customers/:id/restore. Hard delete is no longer exposed.
     await this.prisma.customer.update({
       where: { id },

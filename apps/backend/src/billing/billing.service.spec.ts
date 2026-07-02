@@ -209,7 +209,7 @@ describe('BillingService.getCurrentUsage — receipt dimension (Model C)', () =>
     expect(usage.remainingReceipts).toBeNull();
   });
 
-  it('MASTER: receipts unlimited regardless of profile', async () => {
+  it('SUPERADMIN: receipts unlimited regardless of profile', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'm-1',
       role: 'SUPERADMIN',

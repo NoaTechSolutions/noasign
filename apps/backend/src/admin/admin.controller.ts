@@ -161,7 +161,7 @@ export class AdminController {
     return this.adminService.deleteUserDocumentConfig(req.user.id, id);
   }
 
-  // ── User lockout endpoints (MASTER-only, enforced in service) ────────────
+  // ── User lockout endpoints (SUPERADMIN-only, enforced in service) ────────────
 
   @Get('users/locked')
   async listLockedUsers(@Req() req: any) {

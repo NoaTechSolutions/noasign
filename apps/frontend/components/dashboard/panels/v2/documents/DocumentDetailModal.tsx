@@ -61,8 +61,8 @@ interface DocumentDetailModalProps {
   autoOpenReissue?: boolean;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   // Manual "Sync status" (BoldSign provider pull) is a fallback to the webhook;
-  // restricted to MASTER (support/admin) so regular users don't see it in prod.
-  isMaster?: boolean;
+  // restricted to SUPERADMIN (support/admin) so regular users don't see it in prod.
+  isSuperadmin?: boolean;
 }
 
 // Editable field groups (per card) — drives both readOnly display and the
@@ -269,7 +269,7 @@ export function DocumentDetailModal({
   onReissueReceipt,
   autoOpenReissue = false,
   onFetchReceiptPdf,
-  isMaster = false,
+  isSuperadmin = false,
 }: DocumentDetailModalProps) {
   const [detail, setDetail] = useState<DocumentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -702,7 +702,7 @@ export function DocumentDetailModal({
             {/* Footer actions — hidden on the PDF tab so its single Download
                 button isn't duplicated by the footer's (COMPLETED) Download. */}
             {activeTab !== 'pdf' && !isVoidedReceipt && (
-              <DetailFooter status={status} onAction={runAction} isMaster={isMaster} />
+              <DetailFooter status={status} onAction={runAction} isSuperadmin={isSuperadmin} />
             )}
           </>
         )}
@@ -1226,11 +1226,11 @@ function PdfTab({
 function DetailFooter({
   status,
   onAction,
-  isMaster = false,
+  isSuperadmin = false,
 }: {
   status: string;
   onAction: (action: V2DocumentAction) => void;
-  isMaster?: boolean;
+  isSuperadmin?: boolean;
 }) {
   let left: React.ReactNode = null;
   let right: React.ReactNode = null;
@@ -1257,7 +1257,7 @@ function DetailFooter({
       );
       right = (
         <>
-          {isMaster ? (
+          {isSuperadmin ? (
             <button type="button" className="btn-secondary" onClick={() => onAction('sync')}>
               Sync
             </button>
@@ -1269,8 +1269,8 @@ function DetailFooter({
       );
       break;
     case 'SIGNED':
-      // Manual sync is a MASTER-only fallback to the BoldSign webhook.
-      right = isMaster ? (
+      // Manual sync is a SUPERADMIN-only fallback to the BoldSign webhook.
+      right = isSuperadmin ? (
         <button type="button" className="btn-secondary" onClick={() => onAction('sync')}>
           Sync status
         </button>

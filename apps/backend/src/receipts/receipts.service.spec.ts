@@ -85,7 +85,7 @@ describe('ReceiptsService — superadmin borrow', () => {
     service = module.get<ReceiptsService>(ReceiptsService);
   });
 
-  it('a MASTER borrows another tenant’s template via receiptTemplateId; the doc stays the master’s', async () => {
+  it('a SUPERADMIN borrows another tenant’s template via receiptTemplateId; the doc stays the master’s', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'super',
       role: 'SUPERADMIN',

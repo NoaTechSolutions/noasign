@@ -64,7 +64,7 @@ export function CustomerTableRow({
   const canAssign = role === 'superadmin';
   const isDeleted = customer.status === 'DELETED';
 
-  // Change-status submenu options. DELETED is MASTER-only (matches the filter).
+  // Change-status submenu options. DELETED is SUPERADMIN-only (matches the filter).
   const currentStatus = customer.status ?? 'ACTIVE';
   const statusOptions: { value: 'ACTIVE' | 'INACTIVE' | 'DELETED'; label: string }[] = [
     { value: 'ACTIVE', label: 'Active' },

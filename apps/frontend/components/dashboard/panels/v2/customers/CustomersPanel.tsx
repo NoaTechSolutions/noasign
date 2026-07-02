@@ -93,7 +93,7 @@ export function CustomersPanel({
   const reloadCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      // Single source: the backend returns all statuses for MASTER (including
+      // Single source: the backend returns all statuses for SUPERADMIN (including
       // DELETED) and excludes DELETED for USER/ADMIN. The DELETED visibility is
       // a client-side filter concern now — no separate "deleted" fetch.
       const list = await onFetchCustomers();
@@ -131,7 +131,7 @@ export function CustomersPanel({
     if (statusFilters.length > 0) {
       filtered = filtered.filter(c => statusFilters.includes(c.status ?? 'ACTIVE'));
     } else {
-      // Default view never surfaces DELETED clients — MASTER must explicitly
+      // Default view never surfaces DELETED clients — SUPERADMIN must explicitly
       // pick the "Deleted" filter to see them.
       filtered = filtered.filter(c => (c.status ?? 'ACTIVE') !== 'DELETED');
     }

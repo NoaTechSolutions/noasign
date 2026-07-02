@@ -66,9 +66,9 @@ interface DocumentSetupCardProps {
   value: DocumentSetupValue;
   onChange: (next: DocumentSetupValue) => void;
   disabled?: boolean;
-  /** MASTER sees the Form Version + Signature Template dropdowns. Others get the
+  /** SUPERADMIN sees the Form Version + Signature Template dropdowns. Others get the
    *  simplified setup (type + date + client); form/template auto-load by type. */
-  isMaster?: boolean;
+  isSuperadmin?: boolean;
 }
 
 export function DocumentSetupCard({
@@ -77,7 +77,7 @@ export function DocumentSetupCard({
   value,
   onChange,
   disabled = false,
-  isMaster = false,
+  isSuperadmin = false,
 }: DocumentSetupCardProps) {
   const [clientPopupOpen, setClientPopupOpen] = useState(false);
 
@@ -136,10 +136,10 @@ export function DocumentSetupCard({
         ) : null}
       </div>
 
-      {/* MASTER-only: explicit Form Version + Signature Template. For everyone
+      {/* SUPERADMIN-only: explicit Form Version + Signature Template. For everyone
           else these are auto-loaded from the selected type (TASK 4). Hidden for
           receipts (DIRECT_PDF) — they don't use a signature template. */}
-      {isMaster && !isReceipt ? (
+      {isSuperadmin && !isReceipt ? (
         <div className="docs-v2-setup-card__row">
           <label className="docs-v2-setup-card__field">
             <span className="docs-v2-setup-card__label">Form Version</span>

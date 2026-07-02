@@ -487,8 +487,8 @@ export class DocumentsService {
     };
   }
 
-  // Superadmin flow: list EVERY user across ALL tenants so a MASTER can pick
-  // whose forms/templates to borrow. Gated to MASTER (tightens to a real
+  // Superadmin flow: list EVERY user across ALL tenants so a SUPERADMIN can pick
+  // whose forms/templates to borrow. Gated to SUPERADMIN (tightens to a real
   // superadmin role with the parked refactor).
   async getSelectableUsers(userId: string) {
     const caller = await this.prisma.user.findUnique({
@@ -543,9 +543,9 @@ export class DocumentsService {
           'Only master users can request templates as another user',
         );
       }
-      // Superadmin flow: a MASTER may select a user in ANY tenant to borrow their
+      // Superadmin flow: a SUPERADMIN may select a user in ANY tenant to borrow their
       // forms/templates (the document still becomes the master's, with the
-      // master's correlativo). Gated to MASTER — tightens to a superadmin role
+      // master's correlativo). Gated to SUPERADMIN — tightens to a superadmin role
       // with the parked refactor.
       const target = await this.prisma.user.findUnique({
         where: { id: asUserId },

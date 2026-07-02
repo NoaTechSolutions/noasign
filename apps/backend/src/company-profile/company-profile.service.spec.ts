@@ -38,7 +38,7 @@ describe('CompanyProfileService', () => {
     prismaMock.user.findUnique.mockResolvedValue({
       companyProfileId: 'company-1',
       role: 'SUPERADMIN',
-      accountType: null, // MASTER has no accountType
+      accountType: null, // SUPERADMIN has no accountType
     });
     prismaMock.companyProfile.update.mockResolvedValue({
       id: 'company-1',
