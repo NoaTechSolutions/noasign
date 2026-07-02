@@ -143,12 +143,25 @@
 /* Responsive: stack the button below the text on small screens. */
 @media (max-width: 640px) {
   .welcome-card {
+    position: relative; /* anchor for the absolute plan badge */
     flex-direction: column;
     align-items: stretch;
     gap: 16px;
     padding: 22px;
   }
+  /* Leave room on the right so the name never underlaps the corner badge. */
+  .welcome-content { padding-right: 76px; }
   .welcome-name { font-size: 22px; }
+  /* Plan badge → smaller, pinned to the top-right corner; name only (no "plan"). */
+  .welcome-plan-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    margin-top: 0;
+    padding: 3px 9px;
+    font-size: 11px;
+  }
+  .welcome-plan-suffix { display: none; }
   .welcome-action { width: 100%; }
   .welcome-cta { width: 100%; justify-content: center; }
 }
@@ -1112,6 +1125,8 @@
 /* Text prompt in place of a "$0" figure (no usage yet this month). */
 .ov-card__value--prompt { font-size: 22px; font-weight: 600; }
 .ov-card__foot { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+/* Compact foot shown only on phone (the verbose foot is hidden there). */
+.ov-card__foot-compact { display: none; font-size: 11px; color: var(--text-muted); }
 
 /* Quota progress bar (limited document plans only). */
 .ov-bar {
@@ -1290,9 +1305,24 @@
   .status-strip__grid--receipts { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 767px) {
+  /* Receipts overview stays stacked; the DOCUMENTS overview goes 2-up. */
   .overview-row2 { grid-template-columns: 1fr; gap: 14px; }
   .ov-card { padding: 20px; min-height: 132px; }
   .ov-card__value { font-size: 32px; }
+
+  /* Documents Row-2: the two cards side by side, compacted so they fit a phone. */
+  .overview-row2--document { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .overview-row2--document .ov-card { padding: 14px; min-height: 0; gap: 8px; }
+  .overview-row2--document .ov-card__label { font-size: 10.5px; letter-spacing: 0.03em; gap: 6px; }
+  .overview-row2--document .ov-card__value { font-size: 26px; }
+  .overview-row2--document .ov-card__value-sub { font-size: 15px; }
+  /* Volume: keep number / bar / "X left"; drop the "Need more?" link. */
+  .overview-row2--document .ov-need-more { display: none; }
+  .overview-row2--document .ov-volume__foot-row { display: block; margin-top: 6px; }
+  .overview-row2--document .ov-card__foot { font-size: 11px; }
+  /* Savings: hide the verbose detail, show only the compact "vs pay-per-doc". */
+  .overview-row2--document .ov-highlight .ov-card__foot { display: none; }
+  .overview-row2--document .ov-highlight .ov-card__foot-compact { display: block; }
 }
 @media (max-width: 560px) {
   .status-strip__grid--documents { grid-template-columns: repeat(2, 1fr); }

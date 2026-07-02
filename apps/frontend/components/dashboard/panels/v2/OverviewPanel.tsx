@@ -186,7 +186,7 @@ export function OverviewPanel({
 
       {/* Row 2 — volume | green highlight. Documents: used/limit + savings.
           Receipts: volume (no quota) + $ amount this month. */}
-      <div className="overview-row2">
+      <div className={`overview-row2 overview-row2--${receiptsOnly ? 'receipt' : 'document'}`}>
         {receiptsOnly ? (
           <>
             <ReceiptSummaryCard

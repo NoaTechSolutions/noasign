@@ -68,7 +68,8 @@ export function WelcomeCard({ user, company, plan, isLoading, onNewDocument, cta
         {plan ? (
           <span className="welcome-plan-badge">
             <Crown size={14} className="welcome-plan-crown" aria-hidden="true" />
-            {getPlanEntry(plan).name} plan
+            {getPlanEntry(plan).name}
+            <span className="welcome-plan-suffix">&nbsp;plan</span>
           </span>
         ) : null}
       </div>

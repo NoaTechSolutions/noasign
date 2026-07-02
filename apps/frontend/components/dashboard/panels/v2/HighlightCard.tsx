@@ -58,6 +58,7 @@ export function HighlightCard({
         <span className="ov-card__foot">
           Each document you generate saves vs $12/doc pay-per-doc
         </span>
+        <span className="ov-card__foot-compact">vs pay-per-doc</span>
       </div>
     );
   }
@@ -74,6 +75,7 @@ export function HighlightCard({
           {docLabel(docsThisMonth)} · pay-per-doc{' '}
           <span className="ov-card__value-strike">{usd(ppcCost)}</span> · your plan {usd(planCost)}/mo
         </span>
+        <span className="ov-card__foot-compact">vs pay-per-doc</span>
       </div>
     );
   }
@@ -87,6 +89,7 @@ export function HighlightCard({
       <span className="ov-card__foot">
         {docLabel(docsThisMonth)} · worth {usd(ppcCost)} at $12/doc pay-per-doc
       </span>
+      <span className="ov-card__foot-compact">vs pay-per-doc</span>
     </div>
   );
 }
