@@ -1397,5 +1397,17 @@
   .overview-row2--document .ov-highlight .ov-card__foot-compact { display: block; }
 }
 @media (max-width: 560px) {
-  .status-strip__grid--documents { grid-template-columns: repeat(2, 1fr); }
+  /* Phone: the Document status strip goes to ONE row of 4 compact mini-cards
+     (was 2×2). Shrunk icon/number/label + tight padding so all four fit a
+     narrow screen. Scoped to --documents; the receipts strip is untouched.
+     Desktop + tablet keep their layout. */
+  .status-strip { padding: 16px 12px; }
+  .status-strip__grid--documents {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .status-strip__grid--documents .status-mini { padding: 10px 4px; gap: 4px; border-radius: 8px; }
+  .status-strip__grid--documents .status-mini__icon svg { width: 16px; height: 16px; }
+  .status-strip__grid--documents .status-mini__count { font-size: 18px; }
+  .status-strip__grid--documents .status-mini__label { font-size: 9px; letter-spacing: 0.02em; }
 }
