@@ -681,10 +681,11 @@ input {
   text-align: left;
 }
 
-/* Avatar carries the same border token as the theme-toggle button, in both
-   themes and on desktop + mobile, so the two chrome controls read as a pair. */
+/* Avatar ring — a subtle translucent white that stays visible on the navy
+   (--brand) fill in both themes (the theme-toggle's --border-soft is a
+   translucent navy that vanishes on a navy background). Desktop + mobile. */
 .topbar-avatar {
-  border: 0.5px solid var(--border-soft);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 /* Hide on phones (≤700). At 701px+ (tablet + desktop) the name + plan show
