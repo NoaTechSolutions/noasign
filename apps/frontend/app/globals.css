@@ -681,11 +681,13 @@ input {
   text-align: left;
 }
 
-/* Avatar ring — a subtle translucent white that stays visible on the navy
-   (--brand) fill in both themes (the theme-toggle's --border-soft is a
-   translucent navy that vanishes on a navy background). Desktop + mobile. */
+/* Avatar border — EXACTLY matches the theme-toggle button next to it so the
+   two topbar controls read as a set: 0.5px + var(--border-soft) (soft navy in
+   light, faint white in dark). The avatar is a filled --brand disc, so this
+   border is deliberately the same soft token as the toggle — not a bold ring.
+   Desktop + mobile. */
 .topbar-avatar {
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 0.5px solid var(--border-soft);
 }
 
 /* Hide on phones (≤700). At 701px+ (tablet + desktop) the name + plan show
