@@ -681,17 +681,18 @@ input {
   text-align: left;
 }
 
+/* Avatar carries the same border token as the theme-toggle button, in both
+   themes and on desktop + mobile, so the two chrome controls read as a pair. */
+.topbar-avatar {
+  border: 0.5px solid var(--border-soft);
+}
+
 /* Hide on phones (≤700). At 701px+ (tablet + desktop) the name + plan show
    beside the avatar. 700 (not 767) leaves margin so a 768 tablet still shows
    it even when the responsive-viewer scrollbar shrinks the effective width. */
 @media (max-width: 700px) {
   .topbar-user-meta {
     display: none;
-  }
-  /* Phone: give the avatar the same border as the theme-toggle button
-     (same token) so the two chrome controls read as a matched pair. */
-  .topbar-avatar {
-    border: 0.5px solid var(--border-soft);
   }
 }
 
