@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Crown } from 'lucide-react';
 import { getPlanEntry } from '@/lib/plan-catalog';
 import { resolveAccountName } from '@/lib/account-identity';
 
@@ -35,11 +35,7 @@ function greetingForHour(hour: number): string {
 }
 
 export function WelcomeCard({ user, company, plan, isLoading, onNewDocument, ctaLabel = 'New document' }: WelcomeCardProps) {
-  const now = new Date();
-  const dateLabel = now
-    .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-    .toUpperCase();
-  const greeting = greetingForHour(now.getHours());
+  const greeting = greetingForHour(new Date().getHours());
 
   if (isLoading) {
     return (
@@ -67,24 +63,24 @@ export function WelcomeCard({ user, company, plan, isLoading, onNewDocument, cta
   return (
     <div className="welcome-card">
       <div className="welcome-content">
-        <span className="welcome-greeting">{greeting}</span>
+        <span className="welcome-greeting">{greeting} 👋</span>
         <h1 className="welcome-name">{displayName}</h1>
         {plan ? (
-          <div className="welcome-company-info">
-            <span className="welcome-plan">{getPlanEntry(plan).name}</span>
-          </div>
+          <span className="welcome-plan-badge">
+            <Crown size={14} className="welcome-plan-crown" aria-hidden="true" />
+            {getPlanEntry(plan).name} plan
+          </span>
         ) : null}
       </div>
 
-      <div className="welcome-action">
-        <span className="welcome-date">{dateLabel}</span>
-        {onNewDocument ? (
+      {onNewDocument ? (
+        <div className="welcome-action">
           <button type="button" className="welcome-cta" onClick={onNewDocument}>
             <Plus size={16} />
             {ctaLabel}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
