@@ -8,6 +8,7 @@ import {
   DocumentFileType,
   DocumentStatus,
   Prisma,
+  ReceiptTemplate,
   StorageProvider,
 } from '@prisma/client';
 import type { Response } from 'express';
@@ -157,7 +158,7 @@ export class ReceiptsService {
     // user's receiptTemplateId (any tenant). The document stays the creator's
     // (userId + the per-tenant REC- counter below both use the creator). Other
     // callers always get their own company's template.
-    let template;
+    let template: ReceiptTemplate | null = null;
     if (dto.receiptTemplateId && user.role === 'MASTER') {
       template = await this.prisma.receiptTemplate.findFirst({
         where: { id: dto.receiptTemplateId, isActive: true },
