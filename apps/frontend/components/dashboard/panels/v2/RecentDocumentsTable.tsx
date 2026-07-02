@@ -1,4 +1,5 @@
 import React from 'react';
+import { FileText, ChevronRight } from 'lucide-react';
 import { formatDocumentStatus } from '@/lib/document-status';
 
 interface DashboardDocument {
@@ -92,6 +93,20 @@ export function RecentDocumentsTable({
       {formatDocumentStatus(displayStatus(doc))}
     </span>
   );
+  // Status → brand tone for the compact mobile row (colours the status text).
+  const toneForStatus = (s: string) => {
+    switch (s.toUpperCase()) {
+      case 'COMPLETED': return 'green';
+      case 'SENT': return 'sky';
+      case 'DRAFT': return 'navy';
+      case 'SIGNED': return 'green';
+      case 'VIEWED':
+      case 'SEND_FAILED': return 'amber';
+      case 'CANCELLED':
+      case 'VOID': return 'red';
+      default: return 'navy';
+    }
+  };
   const viewCell = (doc: DashboardDocument) => (
     <button
       type="button"
@@ -188,28 +203,33 @@ export function RecentDocumentsTable({
           </div>
         </div>
 
-        {/* Mobile cards — prioritise Name + Status + View; Type/Date are secondary. */}
+        {/* Mobile — compact tappable rows (icon · name / status · date · chevron).
+            The whole row opens the document (same as desktop "View"). */}
         <div className="recent-documents-mobile">
           {documents.map((doc) => (
-            <div key={doc.id} className="recent-doc-card">
-              <div className="recent-doc-card-header">
-                <span className="recent-doc-name">{nameOf(doc)}</span>
-                {statusCell(doc)}
-              </div>
-              <div className="recent-doc-card-body">
-                {!isReceipt && (
-                  <div className="recent-doc-card-row">
-                    <span className="recent-doc-card-label">Type:</span>
-                    <span className="recent-doc-card-value">{doc.type ?? 'Contract'}</span>
-                  </div>
-                )}
-                <div className="recent-doc-card-row">
-                  <span className="recent-doc-card-label">Date:</span>
-                  <span className="recent-doc-card-value">{formatDate(doc.createdAt)}</span>
-                </div>
-              </div>
-              <div className="recent-doc-card-actions">{viewCell(doc)}</div>
-            </div>
+            <button
+              key={doc.id}
+              type="button"
+              className="recent-doc-mobile-row"
+              title={viewTitle}
+              onClick={() => onView?.(doc.id)}
+            >
+              <span className="recent-doc-mobile-icon" aria-hidden="true">
+                <FileText size={18} />
+              </span>
+              <span className="recent-doc-mobile-main">
+                <span className="recent-doc-mobile-name">{nameOf(doc)}</span>
+                <span className="recent-doc-mobile-meta">
+                  <span
+                    className={`recent-doc-mobile-status recent-doc-mobile-status--${toneForStatus(displayStatus(doc))}`}
+                  >
+                    {formatDocumentStatus(displayStatus(doc))}
+                  </span>
+                  <span className="recent-doc-mobile-date">· {formatDate(doc.createdAt)}</span>
+                </span>
+              </span>
+              <ChevronRight size={18} className="recent-doc-mobile-chevron" aria-hidden="true" />
+            </button>
           ))}
         </div>
       </div>

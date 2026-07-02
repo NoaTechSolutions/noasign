@@ -726,6 +726,77 @@
   display: none;
 }
 
+/* Compact mobile row (icon · name / status·date · chevron). Only rendered on
+   mobile — the container is display:none on desktop, so desktop is untouched. */
+.recent-doc-mobile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 0.5px solid var(--border-soft);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+.recent-doc-mobile-row:last-child { border-bottom: none; }
+.recent-doc-mobile-row:active { background: var(--bg-hover); }
+.recent-doc-mobile-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent);
+}
+.recent-doc-mobile-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.recent-doc-mobile-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-doc-mobile-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  min-width: 0;
+}
+.recent-doc-mobile-status { font-weight: 600; flex-shrink: 0; }
+.recent-doc-mobile-date {
+  color: rgba(2, 41, 119, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:root[data-theme='dark'] .recent-doc-mobile-date { color: rgba(226, 232, 240, 0.6); }
+.recent-doc-mobile-chevron { flex-shrink: 0; color: var(--text-muted); }
+/* Status tones (text colour) — same brand colours as the status strip. */
+.recent-doc-mobile-status--green { color: #047857; }
+.recent-doc-mobile-status--sky { color: #05a5ff; }
+.recent-doc-mobile-status--navy { color: #022977; }
+.recent-doc-mobile-status--amber { color: #e07b00; }
+.recent-doc-mobile-status--red { color: #dc2626; }
+:root[data-theme='dark'] .recent-doc-mobile-status--green { color: #6ee7b7; }
+:root[data-theme='dark'] .recent-doc-mobile-status--sky { color: #5cc6ff; }
+:root[data-theme='dark'] .recent-doc-mobile-status--navy { color: #93b4ff; }
+:root[data-theme='dark'] .recent-doc-mobile-status--amber { color: #fbbf24; }
+:root[data-theme='dark'] .recent-doc-mobile-status--red { color: #f87171; }
+
 /* Empty state */
 .recent-documents-empty {
   text-align: center;
@@ -777,7 +848,7 @@
   .recent-documents-mobile {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0; /* rows carry their own 0.5px separators */
   }
 
   .recent-doc-card {
