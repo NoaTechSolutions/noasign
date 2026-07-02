@@ -161,7 +161,6 @@
     padding: 3px 9px;
     font-size: 11px;
   }
-  .welcome-plan-suffix { display: none; }
   .welcome-action { width: 100%; }
   .welcome-cta { width: 100%; justify-content: center; }
 }
@@ -1373,7 +1372,14 @@
 
 /* Responsive: stack row-2 cards; reflow the status strip. */
 @media (max-width: 1023px) {
-  .status-strip__grid--documents { grid-template-columns: repeat(2, 1fr); }
+  /* Tablet: Document status goes to ONE row of 4 (was 2×2), mildly compacted so
+     four fit across tablet widths. Phones get the tighter sizing below (≤560).
+     Receipts strip stays 2-up. */
+  .status-strip__grid--documents {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .status-strip__grid--documents .status-mini { padding: 12px 8px; }
   .status-strip__grid--receipts { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 767px) {
