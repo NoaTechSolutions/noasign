@@ -32,7 +32,9 @@
 /* ===== STATS PILLS ===== */
 .documents-v2-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* The 4 summary cards (Total · Draft · In Progress · Completed) sit in ONE
+     row of 4 on tablet + desktop. Phones drop to 2×2 (below). */
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--sp-3);
 }
 
@@ -188,14 +190,39 @@
   transform: scale(0.97);
 }
 
-/* Desktop: search on the left (not greedy), status tabs next to it, and the
-   "New Document" button pushed to the far right via margin-left:auto. */
+/* Desktop: search stretches across row 1 with the "New Document" button pinned
+   directly to its right → [search .........] [New Document]. The status filter
+   tabs wrap onto their own row below (flex-basis:100%). */
 @media (min-width: 1024px) {
   .documents-v2-toolbar__search {
-    flex: 0 1 340px;
+    flex: 1 1 auto;
+    order: 1;
   }
   .documents-v2-toolbar__filters {
-    margin-left: auto;
+    order: 2;
+    margin-left: 0;
+  }
+  .documents-filter-tabs {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+/* Tablet: the 4 stat cards share one row, so compact them a touch (smaller
+   number/label + tighter padding) to fit the narrower width cleanly. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .documents-v2-stat-pill {
+    padding: var(--sp-3);
+  }
+  .documents-v2-stat-pill__label {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .documents-v2-stat-pill__value {
+    font-size: 24px;
+  }
+  .documents-v2-stat-pill__hint {
+    font-size: 10.5px;
   }
 }
 
