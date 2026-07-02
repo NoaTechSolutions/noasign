@@ -16,7 +16,9 @@ const prismaMock = {
     create: jest.fn(),
     count: jest.fn(),
     update: jest.fn(),
+    groupBy: jest.fn(),
   },
+  customer: { findMany: jest.fn() },
   documentFile: { findFirst: jest.fn(), deleteMany: jest.fn() },
   $transaction: jest.fn(),
 };
@@ -86,7 +88,7 @@ describe('ReceiptsService — superadmin borrow', () => {
   it('a MASTER borrows another tenant’s template via receiptTemplateId; the doc stays the master’s', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'super',
-      role: 'MASTER',
+      role: 'SUPERADMIN',
       companyProfileId: 'nts',
     });
     prismaMock.receiptTemplate.findFirst.mockResolvedValue({
@@ -300,6 +302,7 @@ describe('ReceiptsService — getReceiptStats', () => {
     prismaMock.user.findUnique.mockResolvedValue({
       companyProfileId: 'tenant-1',
     });
+    prismaMock.document.groupBy.mockResolvedValue([]);
 
     const now = new Date();
     const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -380,6 +383,7 @@ describe('ReceiptsService — getReceiptStats', () => {
       companyProfileId: 'tenant-2',
     });
     prismaMock.document.findMany.mockResolvedValue([]);
+    prismaMock.document.groupBy.mockResolvedValue([]);
 
     const stats = await service.getReceiptStats('user-2');
 

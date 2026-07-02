@@ -522,7 +522,7 @@ function DashboardPageInner() {
 
       // Superadmin flow: load the cross-tenant user list for MASTER only
       // (the endpoint 403s otherwise). Best-effort — never blocks the workspace.
-      if (me.role === "MASTER") {
+      if (me.role === "SUPERADMIN") {
         apiRequest<SelectableUser[]>("/documents/selectable-users")
           .then(setSelectableUsers)
           .catch(() => setSelectableUsers(undefined));
@@ -531,7 +531,7 @@ function DashboardPageInner() {
       if (staticResult) {
         const [profile, availableDocumentTypes, summaryHistory] = staticResult;
         // Individual users have their own data — don't leak company profile into state
-        const isIndividual = me.role !== "MASTER" && me.accountType === "INDIVIDUAL";
+        const isIndividual = me.role !== "SUPERADMIN" && me.accountType === "INDIVIDUAL";
         setCompanyProfile(isIndividual ? null : profile);
         setDocumentTypes(availableDocumentTypes);
         setBillingHistory(summaryHistory);
@@ -539,7 +539,7 @@ function DashboardPageInner() {
       }
 
       const [workspaceUsers, workspaceAccountRequests] =
-        me.role === "MASTER"
+        me.role === "SUPERADMIN"
           ? await Promise.all([
               apiRequest<ManagedUser[]>("/users"),
               apiRequest<AccountRequest[]>("/users/account-requests"),
@@ -616,7 +616,7 @@ function DashboardPageInner() {
     if (
       newLayoutPanel &&
       MASTER_ONLY_PANELS.includes(newLayoutPanel) &&
-      role !== "MASTER"
+      role !== "SUPERADMIN"
     ) {
       router.replace("/dashboard?panel=overview");
     }
@@ -1663,7 +1663,7 @@ function DashboardPageInner() {
     // Defensive render gate (pairs with the redirect effect above): never render
     // the privileged panels for a non-MASTER, even for the frame before the
     // redirect fires. Role unknown (still loading) also counts as not-master.
-    const isMaster = (dashboardUser?.role ?? user?.role) === "MASTER";
+    const isMaster = (dashboardUser?.role ?? user?.role) === "SUPERADMIN";
 
     const fullName =
       [dashboardUser?.firstName, dashboardUser?.lastName]
@@ -1680,8 +1680,8 @@ function DashboardPageInner() {
       name: fullName,
       email: dashboardUser?.email ?? user?.email ?? "",
       role: ((dashboardUser?.role ?? user?.role) as
-        | "MASTER"
-        | "ADMIN"
+        | "SUPERADMIN"
+
         | "USER") || "USER",
       companyName:
         companyProfile?.companyName ||
@@ -1961,8 +1961,8 @@ function DashboardPageInner() {
         overagePrice: usage?.receiptOveragePrice ?? 0.25,
       },
       role: ((dashboardUser?.role ?? "USER").toLowerCase() as
-        | "master"
-        | "admin"
+        | "superadmin"
+
         | "user"),
     };
 
@@ -1970,8 +1970,8 @@ function DashboardPageInner() {
     // above the `if (newLayoutPanel)` guard). Only the role string — a
     // primitive, safe to recompute — is derived here.
     const customersV2Role = ((dashboardUser?.role ?? "USER").toLowerCase() as
-      | "master"
-      | "admin"
+      | "superadmin"
+
       | "user");
 
     // MembersPanel V2 handlers. Reuses existing page.tsx handlers (no duplication
@@ -1980,8 +1980,8 @@ function DashboardPageInner() {
     // Only 2 new handlers are needed: fetch users and fetch account-requests
     // (page.tsx loads these via loadWorkspace, no standalone fetch existed).
     const membersV2Role = ((dashboardUser?.role ?? "USER").toLowerCase() as
-      | "master"
-      | "admin"
+      | "superadmin"
+
       | "user");
     const membersV2 = {
       role: membersV2Role,
@@ -1992,7 +1992,7 @@ function DashboardPageInner() {
       onCreateUser: async (data: {
         email: string;
         password: string;
-        role?: "MASTER" | "USER";
+        role?: "SUPERADMIN" | "USER";
         accountType?: "INDIVIDUAL" | "BUSINESS";
         firstName?: string;
         lastName?: string;
@@ -2016,7 +2016,7 @@ function DashboardPageInner() {
     type BackendLockedUser = {
       id: string;
       email: string;
-      role: "MASTER" | "ADMIN" | "USER";
+      role: "SUPERADMIN" | "USER";
       failedLoginAttempts: number;
       lockLevel: number;
       lockedUntil: string;
@@ -2378,7 +2378,7 @@ function DashboardPageInner() {
           onReissueReceipt={documentsV2.onReissueReceipt}
           onVoidReceipt={documentsV2.onVoidReceipt}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
-          isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
+          isMaster={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
           contractsEnabled={usage?.contractsEnabled ?? true}
           onFetchReceiptStats={fetchReceiptStats}
           selectableUsers={selectableUsers}

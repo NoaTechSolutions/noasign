@@ -6,13 +6,13 @@ interface OverageAlertProps {
   overageCount: number;
   overageRate: number;
   nextBilling: string;
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   onUpgrade: () => void;
 }
 
 export function OverageAlert({ overageCount, overageRate, nextBilling, role, onUpgrade }: OverageAlertProps) {
   const total = (overageCount * overageRate).toFixed(2);
-  const isMaster = role === 'master';
+  const isMaster = role === 'superadmin';
 
   const handleUpgradeClick = () => {
     if (!isMaster) {

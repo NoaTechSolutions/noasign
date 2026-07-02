@@ -8,7 +8,7 @@ import type { Customer } from './types';
 
 interface CustomerCardProps {
   customer: Customer;
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   onView: (customer: Customer) => void;
   onEdit: (customer: Customer) => void;
@@ -43,15 +43,15 @@ export function CustomerCard({
     ? (`${customer.user.firstName ?? ''} ${customer.user.lastName ?? ''}`.trim() || customer.user.email)
     : 'Unknown';
 
-  const canAssign = role === 'master';
-  const showOwner = role === 'master' || role === 'admin';
+  const canAssign = role === 'superadmin';
+  const showOwner = role === 'superadmin';
   const isDeleted = customer.status === 'DELETED';
 
   const currentStatus = customer.status ?? 'ACTIVE';
   const statusOptions: { value: 'ACTIVE' | 'INACTIVE' | 'DELETED'; label: string }[] = [
     { value: 'ACTIVE', label: 'Active' },
     { value: 'INACTIVE', label: 'Inactive' },
-    ...(role === 'master' ? [{ value: 'DELETED' as const, label: 'Deleted' }] : []),
+    ...(role === 'superadmin' ? [{ value: 'DELETED' as const, label: 'Deleted' }] : []),
   ];
 
   const closeAll = () => {

@@ -18,7 +18,7 @@ interface CustomerFormDrawerProps {
   onClose: () => void;
   // MASTER-only assignment step (TASK 3). role drives whether the "Assign to
   // user" step appears; currentUserId pre-selects "Assign to myself".
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   onFetchUsers: () => Promise<CustomerOwnerUser[]>;
 }
@@ -69,7 +69,7 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
 
   // Assign step (TASK 3) — MASTER on create only. Defaults to "myself".
-  const showAssignStep = mode === 'create' && role === 'master';
+  const showAssignStep = mode === 'create' && role === 'superadmin';
   const [assignUserId, setAssignUserId] = useState(currentUserId);
   const [assignUsers, setAssignUsers] = useState<CustomerOwnerUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);

@@ -52,7 +52,7 @@ interface TopCardsSectionProps {
     documents: number;
     overageCount: number;
   };
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   // Receipts-only tenants (contractsEnabled === false) hide the doc-usage stats.
   contractsEnabled: boolean;
   // Receipts emitted this cycle — shown in place of "Docs used" for receipts-only.

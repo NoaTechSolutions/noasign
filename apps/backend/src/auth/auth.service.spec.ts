@@ -63,7 +63,7 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
-  it('register creates a new company profile and assigns MASTER role', async () => {
+  it('register creates a new company profile and assigns USER role', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.companyProfile.create.mockResolvedValue({
       id: 'company-1',
@@ -73,7 +73,7 @@ describe('AuthService', () => {
       companyProfileId: 'company-1',
       email: 'owner@ntssign.com',
       passwordHash: 'hashed-password',
-      role: UserRole.MASTER,
+      role: UserRole.USER,
       status: UserStatus.ACTIVE,
       companyProfile: {
         id: 'company-1',
@@ -101,7 +101,7 @@ describe('AuthService', () => {
         companyProfileId: 'company-1',
         email: 'owner@ntssign.com',
         passwordHash: expect.any(String),
-        role: UserRole.MASTER,
+        role: UserRole.USER,
         status: UserStatus.ACTIVE,
       },
       include: {
@@ -114,7 +114,7 @@ describe('AuthService', () => {
         id: 'user-1',
         companyProfileId: 'company-1',
         email: 'owner@ntssign.com',
-        role: UserRole.MASTER,
+        role: UserRole.USER,
         status: UserStatus.ACTIVE,
         companyProfile: {
           id: 'company-1',
@@ -133,7 +133,7 @@ describe('AuthService', () => {
       companyProfileId: 'company-1',
       email: 'owner@ntssign.com',
       passwordHash: 'hashed-password',
-      role: UserRole.MASTER,
+      role: UserRole.USER,
       status: UserStatus.ACTIVE,
       companyProfile: {
         id: 'company-1',

@@ -23,7 +23,7 @@ export class BillingService {
     }
 
     const companyProfile = user.companyProfile;
-    const isMaster = user.role === 'MASTER';
+    const isMaster = user.role === 'SUPERADMIN';
     const isUnlimited = isMaster || companyProfile.isUnlimited;
     const billingPeriod = this.getCurrentBillingPeriod();
 
@@ -101,7 +101,7 @@ export class BillingService {
     }
 
     const companyProfile = user.companyProfile;
-    const isMaster = user.role === 'MASTER';
+    const isMaster = user.role === 'SUPERADMIN';
     const isUnlimited = isMaster || companyProfile.isUnlimited;
     const billingPeriod = month || this.getCurrentBillingPeriod();
 

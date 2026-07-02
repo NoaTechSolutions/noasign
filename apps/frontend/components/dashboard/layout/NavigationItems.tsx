@@ -11,7 +11,7 @@ export interface NavigationItem {
   shortLabel?: string;
   panel: string;
   icon?: ReactNode;
-  requiresRole?: "MASTER" | "ADMIN";
+  requiresRole?: "SUPERADMIN";
 }
 
 // A collapsible group of sub-items (e.g. "User management" → Members, Locked
@@ -22,7 +22,7 @@ export interface NavigationGroup {
   // Stable key for persisting expand/collapse state.
   key: string;
   icon?: ReactNode;
-  requiresRole?: "MASTER" | "ADMIN";
+  requiresRole?: "SUPERADMIN";
   children: NavigationItem[];
 }
 
@@ -96,7 +96,7 @@ export const NAVIGATION_ITEMS: NavEntry[] = [
     label: "User management",
     shortLabel: "Users",
     key: "user-management",
-    requiresRole: "MASTER",
+    requiresRole: "SUPERADMIN",
     icon: (
       <Icon path="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
     ),
@@ -108,7 +108,7 @@ export const NAVIGATION_ITEMS: NavEntry[] = [
         icon: (
           <Icon path="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         ),
-        requiresRole: "MASTER",
+        requiresRole: "SUPERADMIN",
       },
       {
         label: "Locked Users",
@@ -117,7 +117,7 @@ export const NAVIGATION_ITEMS: NavEntry[] = [
         icon: (
           <Icon path="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         ),
-        requiresRole: "MASTER",
+        requiresRole: "SUPERADMIN",
       },
     ],
   },
@@ -127,7 +127,7 @@ export function filterNavigationItems(
   items: NavEntry[],
   userRole: string,
 ): NavEntry[] {
-  const allowed = (req?: "MASTER" | "ADMIN") => !req || userRole === req;
+  const allowed = (req?: "SUPERADMIN") => !req || userRole === req;
   return items
     .filter((entry) => allowed(entry.requiresRole))
     .map((entry) =>

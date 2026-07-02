@@ -13,8 +13,8 @@ interface EditUserModalProps {
 export function EditUserModal({ user, onSubmit, onClose }: EditUserModalProps) {
   useBlockScroll();
   const [email, setEmail] = useState(user.email);
-  const [role, setRole] = useState<'MASTER' | 'USER'>(
-    user.role === 'ADMIN' ? 'USER' : (user.role as 'MASTER' | 'USER')
+  const [role, setRole] = useState<'SUPERADMIN' | 'USER'>(
+    user.role as 'SUPERADMIN' | 'USER'
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -88,9 +88,9 @@ export function EditUserModal({ user, onSubmit, onClose }: EditUserModalProps) {
 
             <div className="form-group">
               <label htmlFor="role">Role</label>
-              <select id="role" value={role} onChange={(e) => setRole(e.target.value as 'MASTER' | 'USER')} className="form-select">
+              <select id="role" value={role} onChange={(e) => setRole(e.target.value as 'SUPERADMIN' | 'USER')} className="form-select">
                 <option value="USER">User</option>
-                <option value="MASTER">Master</option>
+                <option value="SUPERADMIN">Master</option>
               </select>
             </div>
           </div>

@@ -51,7 +51,7 @@ const tenantUser = {
 };
 const masterUser = {
   id: 'master-1',
-  role: 'MASTER' as const,
+  role: 'SUPERADMIN' as const,
   companyProfileId: 'cp-1',
 };
 const otherTenantUser = {

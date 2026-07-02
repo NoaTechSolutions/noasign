@@ -134,7 +134,7 @@ export class CustomersService {
       // `status` is the source of truth for the delete state. Non-master users
       // never receive DELETED clients; master receives every status and the
       // frontend filters client-side (hiding DELETED unless explicitly filtered).
-      ...(user.role === 'MASTER' ? {} : { status: { not: 'DELETED' } }),
+      ...(user.role === 'SUPERADMIN' ? {} : { status: { not: 'DELETED' } }),
       ...buildOwnershipFilter(user, query.userId),
     };
 
@@ -211,7 +211,7 @@ export class CustomersService {
 
     // Non-master users can neither see nor touch DELETED clients — editing one
     // (or restoring it out of DELETED via a status change) is master-only.
-    if (existing.status === 'DELETED' && user.role !== 'MASTER') {
+    if (existing.status === 'DELETED' && user.role !== 'SUPERADMIN') {
       throw new NotFoundException('Customer not found');
     }
 
@@ -220,7 +220,7 @@ export class CustomersService {
     // shape, the service is the gate.
     let nextOwnerUserId: string | undefined;
     if (dto.userId !== undefined) {
-      if (user.role !== 'MASTER') {
+      if (user.role !== 'SUPERADMIN') {
         throw new ForbiddenException(
           'Only master users can reassign customer ownership',
         );
@@ -320,7 +320,7 @@ export class CustomersService {
   }
 
   async restore(user: AuthUser, id: string) {
-    if (user.role !== 'MASTER') {
+    if (user.role !== 'SUPERADMIN') {
       throw new ForbiddenException('Only master users can restore customers');
     }
     const companyProfileId = requireTenant(user);
@@ -352,7 +352,7 @@ export class CustomersService {
     user: AuthUser,
     query: ListCustomersQueryDto,
   ): Promise<CustomerListResult> {
-    if (user.role !== 'MASTER') {
+    if (user.role !== 'SUPERADMIN') {
       throw new ForbiddenException('Only master users can list deleted customers');
     }
     const companyProfileId = requireTenant(user);
@@ -396,7 +396,7 @@ export class CustomersService {
     requested: string | undefined,
   ): Promise<string> {
     // Non-master: forced to self regardless of payload.
-    if (user.role !== 'MASTER') {
+    if (user.role !== 'SUPERADMIN') {
       return user.id;
     }
     // Master with explicit assignment: validate target lives in the same
@@ -446,7 +446,7 @@ function buildOwnershipFilter(
   user: AuthUser,
   queryUserId?: string,
 ): Prisma.CustomerWhereInput {
-  if (user.role !== 'MASTER') {
+  if (user.role !== 'SUPERADMIN') {
     return { userId: user.id };
   }
   const requested = queryUserId?.trim();

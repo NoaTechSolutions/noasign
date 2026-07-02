@@ -36,7 +36,7 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.role !== UserRole.MASTER || user.parentCompanyProfileId !== null) {
+    if (user.role !== UserRole.SUPERADMIN || user.parentCompanyProfileId !== null) {
       throw new ForbiddenException('Only the root master account can manage admin resources');
     }
 

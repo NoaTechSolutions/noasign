@@ -159,7 +159,7 @@ export class ReceiptsService {
     // (userId + the per-tenant REC- counter below both use the creator). Other
     // callers always get their own company's template.
     let template: ReceiptTemplate | null = null;
-    if (dto.receiptTemplateId && user.role === 'MASTER') {
+    if (dto.receiptTemplateId && user.role === 'SUPERADMIN') {
       template = await this.prisma.receiptTemplate.findFirst({
         where: { id: dto.receiptTemplateId, isActive: true },
       });
@@ -295,7 +295,7 @@ export class ReceiptsService {
         ? null
         : await this.getReceiptBillingState(
             companyProfileId,
-            user.role === 'MASTER',
+            user.role === 'SUPERADMIN',
           );
       const sent = await this.prisma.document.update({
         where: { id: document.id },
@@ -581,7 +581,7 @@ export class ReceiptsService {
         });
         const state = await this.getReceiptBillingState(
           document.companyProfileId,
-          owner?.role === 'MASTER',
+          owner?.role === 'SUPERADMIN',
         );
         receiptBilling = {
           countedAsReceipt: true,

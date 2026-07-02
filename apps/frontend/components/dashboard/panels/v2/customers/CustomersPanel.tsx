@@ -25,7 +25,7 @@ function parseFilterParam<T extends string>(raw: string | null, allowed: readonl
 }
 
 export interface CustomersPanelProps {
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   // Handler props — wired from page.tsx via apiRequest (auth-aware).
   // Refactored from the tarball's raw fetch() calls which bypass JwtAuthGuard.
@@ -248,7 +248,7 @@ export function CustomersPanel({
         statusFilters={statusFilters}
         onSetTypeFilters={setTypeFilters}
         onSetStatusFilters={setStatusFilters}
-        canSeeDeleted={role === 'master'}
+        canSeeDeleted={role === 'superadmin'}
         loading={loading}
       />
 

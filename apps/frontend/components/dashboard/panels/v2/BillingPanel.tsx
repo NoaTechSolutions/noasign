@@ -50,7 +50,7 @@ interface BillingPanelProps {
   };
   // Model C — gates the RECEIPTS_ONLY anti-downgrade rule in the compare modal.
   contractsEnabled: boolean;
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   isLoading?: boolean;
 }
 

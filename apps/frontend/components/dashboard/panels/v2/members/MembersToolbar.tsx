@@ -9,8 +9,8 @@ interface MembersToolbarProps {
   loading: boolean;
 
   // Members mode
-  roleFilter?: 'all' | 'MASTER' | 'USER';
-  onRoleFilterChange?: (value: 'all' | 'MASTER' | 'USER') => void;
+  roleFilter?: 'all' | 'SUPERADMIN' | 'USER';
+  onRoleFilterChange?: (value: 'all' | 'SUPERADMIN' | 'USER') => void;
   statusFilter?: 'all' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   onStatusFilterChange?: (value: 'all' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED') => void;
 
@@ -60,9 +60,9 @@ export function MembersToolbar({
       <div className="members-toolbar__filters">
         {!isRequestsMode ? (
           <>
-            <select value={roleFilter} onChange={(e) => onRoleFilterChange?.(e.target.value as 'all' | 'MASTER' | 'USER')} className="members-toolbar__filter">
+            <select value={roleFilter} onChange={(e) => onRoleFilterChange?.(e.target.value as 'all' | 'SUPERADMIN' | 'USER')} className="members-toolbar__filter">
               <option value="all">All roles</option>
-              <option value="MASTER">Master</option>
+              <option value="SUPERADMIN">Master</option>
               <option value="USER">User</option>
             </select>
 

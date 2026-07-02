@@ -77,7 +77,7 @@ describe('DocumentsService', () => {
     );
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'user-1',
-      role: 'MASTER',
+      role: 'SUPERADMIN',
       companyProfileId: 'company-1',
     });
     // Model C — default tenant allows contracts unless a test overrides it.
@@ -126,7 +126,7 @@ describe('DocumentsService', () => {
   it('getDocumentTypes (asUserId) borrows a cross-tenant target user’s receipt template', async () => {
     // caller = MASTER (company-1); target = USER in a DIFFERENT tenant (company-2).
     prismaMock.user.findUnique
-      .mockResolvedValueOnce({ role: 'MASTER', companyProfileId: 'company-1' })
+      .mockResolvedValueOnce({ role: 'SUPERADMIN', companyProfileId: 'company-1' })
       .mockResolvedValueOnce({
         id: 'user-2',
         role: 'USER',
@@ -235,7 +235,7 @@ describe('DocumentsService', () => {
       },
       user: {
         email: 'owner@ntssign.test',
-        role: 'MASTER',
+        role: 'SUPERADMIN',
       },
       documentType: {
         name: 'Contract',
@@ -337,7 +337,7 @@ describe('DocumentsService', () => {
       },
       user: {
         email: 'owner@ntssign.test',
-        role: 'MASTER',
+        role: 'SUPERADMIN',
       },
       documentType: {
         name: 'Contract',
@@ -414,7 +414,7 @@ describe('DocumentsService', () => {
       },
       user: {
         email: 'owner@ntssign.test',
-        role: 'MASTER',
+        role: 'SUPERADMIN',
       },
       documentType: {
         name: 'Contract',

@@ -8,7 +8,7 @@ import type { Customer } from './types';
 
 interface CustomerTableRowProps {
   customer: Customer;
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   showOwner: boolean;
   onView: (customer: Customer) => void;
@@ -61,7 +61,7 @@ export function CustomerTableRow({
   // name; PERSONAL shows the workspace user that owns the record.
   const ownerCell = customer.customerType === 'BUSINESS' ? displayName : ownerName;
 
-  const canAssign = role === 'master';
+  const canAssign = role === 'superadmin';
   const isDeleted = customer.status === 'DELETED';
 
   // Change-status submenu options. DELETED is MASTER-only (matches the filter).
@@ -69,7 +69,7 @@ export function CustomerTableRow({
   const statusOptions: { value: 'ACTIVE' | 'INACTIVE' | 'DELETED'; label: string }[] = [
     { value: 'ACTIVE', label: 'Active' },
     { value: 'INACTIVE', label: 'Inactive' },
-    ...(role === 'master' ? [{ value: 'DELETED' as const, label: 'Deleted' }] : []),
+    ...(role === 'superadmin' ? [{ value: 'DELETED' as const, label: 'Deleted' }] : []),
   ];
 
   return (

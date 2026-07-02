@@ -36,7 +36,7 @@ export class UsersService {
       throw new BadRequestException('User does not have a company profile');
     }
 
-    if (user.role !== UserRole.MASTER) {
+    if (user.role !== UserRole.SUPERADMIN) {
       throw new ForbiddenException('Only master users can manage users');
     }
 
@@ -292,7 +292,7 @@ export class UsersService {
 
     if (
       requester.id === targetUser.id &&
-      ((body.role && body.role !== UserRole.MASTER) ||
+      ((body.role && body.role !== UserRole.SUPERADMIN) ||
         body.status === UserStatus.INACTIVE ||
         body.status === UserStatus.SUSPENDED)
     ) {

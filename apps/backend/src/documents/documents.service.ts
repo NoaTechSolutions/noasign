@@ -305,7 +305,7 @@ export class DocumentsService {
       throw new BadRequestException('User does not have a company profile');
     }
 
-    return user.role === 'MASTER'
+    return user.role === 'SUPERADMIN'
       ? { companyProfileId: user.companyProfileId }
       : { userId: user.id };
   }
@@ -496,7 +496,7 @@ export class DocumentsService {
       select: { role: true },
     });
     if (!caller) throw new NotFoundException('User not found');
-    if (caller.role !== 'MASTER') {
+    if (caller.role !== 'SUPERADMIN') {
       throw new ForbiddenException(
         'Only master users can list users across tenants',
       );
@@ -538,7 +538,7 @@ export class DocumentsService {
     let effectiveRole = user.role;
     let effectiveCompanyProfileId = user.companyProfileId;
     if (asUserId && asUserId !== userId) {
-      if (user.role !== 'MASTER') {
+      if (user.role !== 'SUPERADMIN') {
         throw new ForbiddenException(
           'Only master users can request templates as another user',
         );
@@ -559,7 +559,7 @@ export class DocumentsService {
       effectiveCompanyProfileId = target.companyProfileId;
     }
 
-    if (effectiveRole === 'MASTER') {
+    if (effectiveRole === 'SUPERADMIN') {
       const documentTypes = await this.prisma.documentType.findMany({
         include: {
           formDefinitions: {
@@ -818,7 +818,7 @@ export class DocumentsService {
     // Model C — RECEIPTS_ONLY tenants (contractsEnabled=false) cannot create
     // contracts. Masters are cross-tenant superadmins and bypass this.
     if (
-      user.role !== 'MASTER' &&
+      user.role !== 'SUPERADMIN' &&
       documentType.generationMode === 'BOLDSIGN' &&
       user.companyProfile?.contractsEnabled === false
     ) {
@@ -849,7 +849,7 @@ export class DocumentsService {
     // behalf of <user>". Non-master attempts to override are rejected.
     let ownerUserId: string = user.id;
     if (body.userId && body.userId !== user.id) {
-      if (user.role !== 'MASTER') {
+      if (user.role !== 'SUPERADMIN') {
         throw new ForbiddenException(
           'Only master users can create documents on behalf of another user',
         );

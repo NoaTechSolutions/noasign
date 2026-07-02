@@ -10,7 +10,7 @@ interface TopbarProps {
   user: {
     name: string;
     email: string;
-    role: "MASTER" | "ADMIN" | "USER";
+    role: "SUPERADMIN" | "USER";
     companyName: string;
     avatarUrl?: string | null;
     accountType?: string | null;

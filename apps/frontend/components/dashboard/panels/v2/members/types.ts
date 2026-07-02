@@ -3,7 +3,7 @@ export interface ManagedUser {
   id: string;
   companyProfileId: string | null;
   email: string;
-  role: 'MASTER' | 'ADMIN' | 'USER';
+  role: 'SUPERADMIN' | 'USER';
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   mustChangePassword?: boolean;
   accountType?: 'INDIVIDUAL' | 'BUSINESS' | null;
@@ -35,7 +35,7 @@ export interface AccountRequest {
 export interface CreateUserData {
   email: string;
   password: string;
-  role?: 'MASTER' | 'USER';
+  role?: 'SUPERADMIN' | 'USER';
   accountType?: 'INDIVIDUAL' | 'BUSINESS';
   firstName?: string;
   lastName?: string;
@@ -44,7 +44,7 @@ export interface CreateUserData {
 
 export interface UpdateUserData {
   email?: string;
-  role?: 'MASTER' | 'USER';
+  role?: 'SUPERADMIN' | 'USER';
 }
 
 export interface ResetPasswordData {

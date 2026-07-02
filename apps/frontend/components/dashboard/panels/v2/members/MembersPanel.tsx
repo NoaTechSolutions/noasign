@@ -25,7 +25,7 @@ import type {
 import './members-panel.css';
 
 export interface MembersPanelProps {
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   onFetchUsers: () => Promise<ManagedUser[]>;
   onFetchAccountRequests: () => Promise<AccountRequest[]>;
@@ -61,7 +61,7 @@ export function MembersPanel({
 
   // Filters
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'MASTER' | 'USER'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'SUPERADMIN' | 'USER'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'>('all');
   const [requestStatusFilter, setRequestStatusFilter] = useState<'all' | 'PENDING' | 'APPROVED' | 'REJECTED'>('all');
 

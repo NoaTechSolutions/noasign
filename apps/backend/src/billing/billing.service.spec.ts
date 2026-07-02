@@ -59,7 +59,7 @@ describe('BillingService', () => {
   it('getCurrentUsage returns null remainingDocuments for unlimited plans', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'user-1',
-      role: 'MASTER',
+      role: 'SUPERADMIN',
       companyProfile: {
         id: 'company-1',
         planName: 'PRO_UNLIMITED',
@@ -212,7 +212,7 @@ describe('BillingService.getCurrentUsage — receipt dimension (Model C)', () =>
   it('MASTER: receipts unlimited regardless of profile', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'm-1',
-      role: 'MASTER',
+      role: 'SUPERADMIN',
       companyProfile: baseProfile,
     });
     setCounts({ receipts: 3 });

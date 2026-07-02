@@ -37,7 +37,7 @@ describe('CompanyProfileService', () => {
   it('updates only the current company profile with provided business fields', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       companyProfileId: 'company-1',
-      role: 'MASTER',
+      role: 'SUPERADMIN',
       accountType: null, // MASTER has no accountType
     });
     prismaMock.companyProfile.update.mockResolvedValue({

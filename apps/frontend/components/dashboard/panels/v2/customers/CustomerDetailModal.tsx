@@ -13,7 +13,7 @@ import { splitFullName, combineFullName } from './types';
 
 interface CustomerDetailModalProps {
   customer: Customer;
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   onUpdateCustomer: (id: string, data: CustomerFormData) => Promise<Customer>;
   onDelete: () => void;
@@ -94,7 +94,7 @@ export function CustomerDetailModal({
   const isBusiness = current.customerType === 'BUSINESS';
   const displayName = isBusiness ? (current.business?.businessName || current.fullName) : current.fullName;
 
-  const canAssign = role === 'master';
+  const canAssign = role === 'superadmin';
 
   const openGroup = (key: string) => {
     setDraft(seedDraft(current));
