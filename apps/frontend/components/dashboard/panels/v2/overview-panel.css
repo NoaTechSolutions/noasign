@@ -642,49 +642,54 @@
   letter-spacing: 0.03em;
 }
 
+/* Status colours — kept IN SYNC with the Documents module
+   (documents-panel.css .doc-status-badge--{state}) so Recent (desktop table +
+   mobile rows) and the module share one palette per state. */
 .doc-status-draft {
-  background: rgba(148, 163, 184, 0.15);
-  color: #64748b;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
 }
 
 .doc-status-sent {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  background: rgba(5, 165, 255, 0.12);
+  color: #05a5ff;
 }
 
 .doc-status-viewed {
-  background: rgba(139, 92, 246, 0.15);
-  color: #8b5cf6;
+  background: rgba(255, 153, 0, 0.12);
+  color: #ff9900;
 }
 
 .doc-status-signed {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  background: rgba(255, 153, 0, 0.20);
+  color: #cc7a00;
 }
 
 .doc-status-completed {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
 }
 
 .doc-status-cancelled {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
 }
 
 .doc-status-failed {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: rgba(220, 38, 38, 0.16);
+  color: #dc2626;
 }
 
 .doc-status-void {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  background: #dc2626;
+  color: #ffffff;
 }
 
 .doc-status-default {
-  background: rgba(100, 116, 139, 0.15);
-  color: #64748b;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
 }
 
 .recent-doc-email {
@@ -776,14 +781,13 @@
   font-size: 12px;
   min-width: 0;
 }
-/* Status as a small filled pill (tint bg + brand-colour text), like the desktop
-   table badge — sized down to fit the compact row. */
-.recent-doc-mobile-status {
+/* The row status uses the shared .doc-status-badge / .doc-status-{state} classes
+   (same single palette as the desktop table + the Documents module) — just sized
+   down to fit the compact row. */
+.recent-doc-mobile-row .doc-status-badge {
   flex-shrink: 0;
-  font-weight: 600;
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
 }
 .recent-doc-mobile-date {
   color: rgba(2, 41, 119, 0.55);
@@ -793,17 +797,6 @@
 }
 :root[data-theme='dark'] .recent-doc-mobile-date { color: rgba(226, 232, 240, 0.6); }
 .recent-doc-mobile-chevron { flex-shrink: 0; color: var(--text-muted); }
-/* Status tones — tint bg + text, same brand colours as the status strip. */
-.recent-doc-mobile-status--green { color: #047857; background: #ecfdf5; }
-.recent-doc-mobile-status--sky { color: #05a5ff; background: #e9f6ff; }
-.recent-doc-mobile-status--navy { color: #022977; background: #eef2fc; }
-.recent-doc-mobile-status--amber { color: #e07b00; background: #fff7ea; }
-.recent-doc-mobile-status--red { color: #dc2626; background: #fef2f2; }
-:root[data-theme='dark'] .recent-doc-mobile-status--green { color: #6ee7b7; background: rgba(16, 185, 129, 0.16); }
-:root[data-theme='dark'] .recent-doc-mobile-status--sky { color: #5cc6ff; background: rgba(5, 165, 255, 0.16); }
-:root[data-theme='dark'] .recent-doc-mobile-status--navy { color: #93b4ff; background: rgba(59, 130, 246, 0.18); }
-:root[data-theme='dark'] .recent-doc-mobile-status--amber { color: #fbbf24; background: rgba(245, 158, 11, 0.16); }
-:root[data-theme='dark'] .recent-doc-mobile-status--red { color: #f87171; background: rgba(239, 68, 68, 0.16); }
 
 /* Empty state */
 .recent-documents-empty {

@@ -93,20 +93,6 @@ export function RecentDocumentsTable({
       {formatDocumentStatus(displayStatus(doc))}
     </span>
   );
-  // Status → brand tone for the compact mobile row (colours the status text).
-  const toneForStatus = (s: string) => {
-    switch (s.toUpperCase()) {
-      case 'COMPLETED': return 'green';
-      case 'SENT': return 'sky';
-      case 'DRAFT': return 'navy';
-      case 'SIGNED': return 'green';
-      case 'VIEWED':
-      case 'SEND_FAILED': return 'amber';
-      case 'CANCELLED':
-      case 'VOID': return 'red';
-      default: return 'navy';
-    }
-  };
   const viewCell = (doc: DashboardDocument) => (
     <button
       type="button"
@@ -220,9 +206,7 @@ export function RecentDocumentsTable({
               <span className="recent-doc-mobile-main">
                 <span className="recent-doc-mobile-name">{nameOf(doc)}</span>
                 <span className="recent-doc-mobile-meta">
-                  <span
-                    className={`recent-doc-mobile-status recent-doc-mobile-status--${toneForStatus(displayStatus(doc))}`}
-                  >
+                  <span className={`doc-status-badge ${getStatusBadgeClass(displayStatus(doc))}`}>
                     {formatDocumentStatus(displayStatus(doc))}
                   </span>
                   <span className="recent-doc-mobile-date">· {formatDate(doc.createdAt)}</span>
