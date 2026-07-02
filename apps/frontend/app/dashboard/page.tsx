@@ -1764,11 +1764,36 @@ function DashboardPageInner() {
       backendDocs: DashboardDocument[] | null,
     ) => {
       if (!backendDocs) return null;
+      // The recipient/client name isn't a dedicated column and the docs aren't
+      // linked to a Customer record (customerId is null), so pull it from the
+      // form data: contracts use `customer_name`, receipts use `client`. Priority
+      // list + email fallback covers both without per-type branching.
+      const NAME_KEYS = [
+        "customer_name",
+        "client",
+        "client_name",
+        "customer_full_name",
+        "full_name",
+        "fullName",
+        "name",
+        "contact_full_name",
+      ];
+      const extractName = (doc: DashboardDocument): string => {
+        const dj = (doc.data?.dataJson ?? {}) as Record<string, unknown>;
+        for (const k of NAME_KEYS) {
+          const v = dj[k];
+          if (typeof v === "string" && v.trim()) return v.trim();
+        }
+        return doc.lastSentRecipientEmail || "—";
+      };
       return backendDocs.map((doc) => ({
         id: doc.id,
         documentNumber: doc.documentNumber,
         status: doc.status,
         recipientEmail: doc.lastSentRecipientEmail || "N/A",
+        recipientName: extractName(doc),
+        // System-level type: Receipt (PAYMENT_RECEIPT) vs Contract (everything else).
+        type: doc.documentType?.code === "PAYMENT_RECEIPT" ? "Receipt" : "Contract",
         createdAt: doc.createdAt,
         sentAt: doc.sentAt ?? null,
         viewedAt: doc.viewedAt ?? null,

@@ -642,6 +642,30 @@
   color: var(--text-heading);
 }
 
+/* Recent table — columns per entity. Documents: Name · Type · Date · Status ·
+   View (5). Receipts: Name · Status · Date · View (4) — Status earlier on purpose. */
+.recent-table--document .recent-documents-table-header,
+.recent-table--document .recent-doc-row {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.recent-table--receipt .recent-documents-table-header,
+.recent-table--receipt .recent-doc-row {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.recent-doc-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.recent-doc-type { font-size: 13px; color: var(--text-body); }
+/* View button aligned to the right edge of its column (header label + cell). */
+.recent-col--view { display: flex; justify-content: flex-end; }
+
 .doc-status-badge {
   padding: 4px 10px;
   border-radius: 12px;

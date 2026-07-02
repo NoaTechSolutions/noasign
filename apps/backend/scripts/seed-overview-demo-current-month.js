@@ -84,6 +84,9 @@ async function main() {
       documentType: { code: RECEIPT_CODE },
       status: 'SENT',
       supersededAt: null,
+      // Only real receipts — never the DEMO-TOPCLIENT ranking clones (which sort
+      // first alphabetically and get wiped/rebuilt in step 3).
+      documentNumber: { startsWith: 'PAYMENT_RECEIPT' },
     },
     orderBy: { documentNumber: 'asc' },
     take: RECEIPT_BUMP_COUNT,
@@ -143,6 +146,10 @@ async function main() {
             customerId: customer.id,
             status: 'SENT',
             countedAsReceipt: false,
+            // Back-dated so these ranking-only rows never surface in "Recent"
+            // (which shows the newest receipts) — they exist only to populate the
+            // all-time Top clients count.
+            createdAt: new Date('2024-06-01T00:00:00Z'),
           },
         });
         made++;

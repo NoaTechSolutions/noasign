@@ -6,6 +6,9 @@ interface DashboardDocument {
   documentNumber: string;
   status: string;
   recipientEmail: string;
+  // Client/recipient name (from the form data) + system type (Receipt|Contract).
+  recipientName?: string;
+  type?: string;
   createdAt: string;
   // Reissued/voided receipt: status stays SENT but it displays as VOID.
   supersededAt?: string | null;
@@ -14,8 +17,8 @@ interface DashboardDocument {
 interface RecentDocumentsTableProps {
   documents: DashboardDocument[];
   isLoading: boolean;
-  // Drives the wording. Receipts (DIRECT_PDF) are a different entity than
-  // contract documents (BoldSign) — a receipts-only tenant sees "receipts".
+  // Drives the columns + wording. Documents: Name · Type · Date · Status · View.
+  // Receipts: Name · Status · Date · View (Status sits earlier — on purpose).
   entity?: 'document' | 'receipt';
   // Opens the row's document in the Documents module (one click → detail open).
   onView?: (docId: string) => void;
@@ -29,14 +32,12 @@ export function RecentDocumentsTable({
 }: RecentDocumentsTableProps) {
   const isReceipt = entity === 'receipt';
   const titleLabel = isReceipt ? 'Recent Receipts' : 'Recent Documents';
-  const colLabel = isReceipt ? 'Receipt' : 'Document';
   const emptyTitle = isReceipt ? 'No receipts yet' : 'No documents yet';
   const emptySubtext = isReceipt
     ? 'Issue your first receipt to get started'
     : 'Create your first document to get started';
   const viewTitle = isReceipt ? 'View receipt' : 'View document';
 
-  // Format date helper
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -46,8 +47,6 @@ export function RecentDocumentsTable({
     });
   };
 
-  // Status badge class (this table's own color tokens). Now covers SEND_FAILED
-  // and the derived VOID so they don't fall back to the gray default.
   const getStatusBadgeClass = (status: string) => {
     switch (status.toUpperCase()) {
       case 'DRAFT':
@@ -75,24 +74,73 @@ export function RecentDocumentsTable({
   const displayStatus = (doc: DashboardDocument) =>
     isReceipt && doc.supersededAt ? 'VOID' : doc.status;
 
+  const nameOf = (doc: DashboardDocument) =>
+    doc.recipientName || doc.recipientEmail || '—';
+
+  // Cell renderers, keyed so header labels and body cells stay in lockstep.
+  const nameCell = (doc: DashboardDocument) => (
+    <span className="recent-doc-name" title={nameOf(doc)}>{nameOf(doc)}</span>
+  );
+  const typeCell = (doc: DashboardDocument) => (
+    <span className="recent-doc-type">{doc.type ?? 'Contract'}</span>
+  );
+  const dateCell = (doc: DashboardDocument) => (
+    <span className="recent-doc-date">{formatDate(doc.createdAt)}</span>
+  );
+  const statusCell = (doc: DashboardDocument) => (
+    <span className={`doc-status-badge ${getStatusBadgeClass(displayStatus(doc))}`}>
+      {formatDocumentStatus(displayStatus(doc))}
+    </span>
+  );
+  const viewCell = (doc: DashboardDocument) => (
+    <button
+      type="button"
+      className="recent-doc-action-btn"
+      title={viewTitle}
+      onClick={() => onView?.(doc.id)}
+    >
+      View
+    </button>
+  );
+
+  // Column order differs by entity (Status is intentionally in a different slot).
+  const columns: {
+    key: string;
+    label: string;
+    cell: (d: DashboardDocument) => React.ReactNode;
+  }[] = isReceipt
+    ? [
+        { key: 'name', label: 'Name', cell: nameCell },
+        { key: 'status', label: 'Status', cell: statusCell },
+        { key: 'date', label: 'Date', cell: dateCell },
+        { key: 'view', label: 'Actions', cell: viewCell },
+      ]
+    : [
+        { key: 'name', label: 'Name', cell: nameCell },
+        { key: 'type', label: 'Type', cell: typeCell },
+        { key: 'date', label: 'Date', cell: dateCell },
+        { key: 'status', label: 'Status', cell: statusCell },
+        { key: 'view', label: 'Actions', cell: viewCell },
+      ];
+
   if (isLoading) {
     return (
       <div className="recent-documents loading">
         <h2 className="recent-documents-title">{titleLabel}</h2>
         <div className="recent-documents-table">
-          <div className="recent-documents-table-header">
-            <div className="recent-doc-col-name">{colLabel}</div>
-            <div className="recent-doc-col-status">Status</div>
-            <div className="recent-doc-col-recipient">Recipient</div>
-            <div className="recent-doc-col-date">Date</div>
-            <div className="recent-doc-col-actions">Actions</div>
-          </div>
-          <div className="recent-documents-table-body">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="recent-doc-row loading">
-                <div className="recent-doc-skeleton-line"></div>
-              </div>
-            ))}
+          <div className={`recent-documents-table-desktop recent-table--${entity}`}>
+            <div className="recent-documents-table-header">
+              {columns.map((c) => (
+                <div key={c.key} className={`recent-col recent-col--${c.key}`}>{c.label}</div>
+              ))}
+            </div>
+            <div className="recent-documents-table-body">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="recent-doc-row loading">
+                  <div className="recent-doc-skeleton-line"></div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -122,77 +170,45 @@ export function RecentDocumentsTable({
       </div>
 
       <div className="recent-documents-table">
-        {/* Desktop table */}
-        <div className="recent-documents-table-desktop">
+        {/* Desktop table — columns per entity via the grid modifier. */}
+        <div className={`recent-documents-table-desktop recent-table--${entity}`}>
           <div className="recent-documents-table-header">
-            <div className="recent-doc-col-name">{colLabel}</div>
-            <div className="recent-doc-col-status">Status</div>
-            <div className="recent-doc-col-recipient">Recipient</div>
-            <div className="recent-doc-col-date">Date</div>
-            <div className="recent-doc-col-actions">Actions</div>
+            {columns.map((c) => (
+              <div key={c.key} className={`recent-col recent-col--${c.key}`}>{c.label}</div>
+            ))}
           </div>
           <div className="recent-documents-table-body">
             {documents.map((doc) => (
               <div key={doc.id} className="recent-doc-row">
-                <div className="recent-doc-col-name">
-                  <span className="recent-doc-number">{doc.documentNumber}</span>
-                </div>
-                <div className="recent-doc-col-status">
-                  <span className={`doc-status-badge ${getStatusBadgeClass(displayStatus(doc))}`}>
-                    {formatDocumentStatus(displayStatus(doc))}
-                  </span>
-                </div>
-                <div className="recent-doc-col-recipient">
-                  <span className="recent-doc-email">{doc.recipientEmail}</span>
-                </div>
-                <div className="recent-doc-col-date">
-                  <span className="recent-doc-date">{formatDate(doc.createdAt)}</span>
-                </div>
-                <div className="recent-doc-col-actions">
-                  <button
-                    type="button"
-                    className="recent-doc-action-btn"
-                    title={viewTitle}
-                    onClick={() => onView?.(doc.id)}
-                  >
-                    View
-                  </button>
-                </div>
+                {columns.map((c) => (
+                  <div key={c.key} className={`recent-col recent-col--${c.key}`}>{c.cell(doc)}</div>
+                ))}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Mobile cards */}
+        {/* Mobile cards — prioritise Name + Status + View; Type/Date are secondary. */}
         <div className="recent-documents-mobile">
           {documents.map((doc) => (
             <div key={doc.id} className="recent-doc-card">
               <div className="recent-doc-card-header">
-                <span className="recent-doc-number">{doc.documentNumber}</span>
-                <span className={`doc-status-badge ${getStatusBadgeClass(displayStatus(doc))}`}>
-                  {formatDocumentStatus(displayStatus(doc))}
-                </span>
+                <span className="recent-doc-name">{nameOf(doc)}</span>
+                {statusCell(doc)}
               </div>
               <div className="recent-doc-card-body">
-                <div className="recent-doc-card-row">
-                  <span className="recent-doc-card-label">Recipient:</span>
-                  <span className="recent-doc-card-value">{doc.recipientEmail}</span>
-                </div>
+                {!isReceipt && (
+                  <div className="recent-doc-card-row">
+                    <span className="recent-doc-card-label">Type:</span>
+                    <span className="recent-doc-card-value">{doc.type ?? 'Contract'}</span>
+                  </div>
+                )}
                 <div className="recent-doc-card-row">
                   <span className="recent-doc-card-label">Date:</span>
                   <span className="recent-doc-card-value">{formatDate(doc.createdAt)}</span>
                 </div>
               </div>
-              <div className="recent-doc-card-actions">
-                <button
-                  type="button"
-                  className="recent-doc-action-btn"
-                  title={viewTitle}
-                  onClick={() => onView?.(doc.id)}
-                >
-                  View
-                </button>
-              </div>
+              <div className="recent-doc-card-actions">{viewCell(doc)}</div>
             </div>
           ))}
         </div>

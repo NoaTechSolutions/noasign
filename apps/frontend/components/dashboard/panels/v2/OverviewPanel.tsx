@@ -53,6 +53,10 @@ interface DashboardDocument {
   documentNumber: string;
   status: string;
   recipientEmail: string;
+  // Client/recipient name (from the form data) + system type (Receipt|Contract),
+  // both derived in the page adapter.
+  recipientName?: string;
+  type?: string;
   createdAt: string;
   sentAt?: string | null;
   viewedAt?: string | null;
