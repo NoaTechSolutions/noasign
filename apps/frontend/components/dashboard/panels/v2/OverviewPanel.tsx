@@ -1,6 +1,6 @@
 import './overview-panel.css';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Send, Eye, PenLine, CheckCircle2, Ban, AlertTriangle } from 'lucide-react';
+import { FileText, Send, PenLine, CheckCircle2, Ban, AlertTriangle } from 'lucide-react';
 import { WelcomeCard } from './WelcomeCard';
 import { MonthVolumeCard } from './MonthVolumeCard';
 import { HighlightCard } from './HighlightCard';
@@ -149,8 +149,6 @@ export function OverviewPanel({
     return [
       { key: 'completed', label: 'Completed', count: counts.COMPLETED, icon: <CheckCircle2 size={18} />, tone: 'green' },
       { key: 'draft', label: 'Draft', count: counts.DRAFT, icon: <FileText size={18} />, tone: 'navy' },
-      { key: 'sent', label: 'Sent', count: counts.SENT, icon: <Send size={18} />, tone: 'sky' },
-      { key: 'viewed', label: 'Viewed', count: counts.VIEWED, icon: <Eye size={18} />, tone: 'amber' },
       { key: 'signed', label: 'Signed', count: counts.SIGNED, icon: <PenLine size={18} />, tone: 'green-soft' },
       { key: 'cancelled', label: 'Cancelled', count: counts.CANCELLED, icon: <Ban size={18} />, tone: 'red' },
     ];
