@@ -8,7 +8,6 @@ import { SendToast } from "../../components/dashboard/panels/v2/documents/SendTo
 import { API_URL, apiRequest } from "../../lib/api";
 import { getPlanEntry } from "../../lib/plan-catalog";
 import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
-import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
@@ -461,10 +460,8 @@ export default function DashboardPage() {
 function DashboardPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Default to the V2 "overview" panel when no ?panel= is present. This makes
-  // the V2 dashboard the default and leaves the legacy DashboardSidebarDemo
-  // (the `else` branch of the `if (newLayoutPanel)` below) unreachable via the
-  // normal flow — without deleting it yet.
+  // Default to the V2 "overview" panel when no ?panel= is present, so the V2
+  // dashboard always renders (this value is never empty).
   const newLayoutPanel = searchParams.get("panel") ?? "overview";
   const { setTheme } = useTheme();
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -1660,9 +1657,8 @@ function DashboardPageInner() {
     [],
   );
 
-  // Dual-mode rendering: if `?panel=` is in URL, render the new DashboardShell
-  // layout. Otherwise fall through to the legacy DashboardSidebarDemo below.
-  // This lets the redesign coexist with the live SPA during the rebuild.
+  // newLayoutPanel is always set (defaults to "overview"), so the V2 DashboardShell
+  // always renders. The `if` is a guard; the block below always returns.
   if (newLayoutPanel) {
     // Defensive render gate (pairs with the redirect effect above): never render
     // the privileged panels for a non-MASTER, even for the frame before the
@@ -2443,61 +2439,10 @@ function DashboardPageInner() {
     );
   }
 
-  return (
-    <main className="min-h-screen bg-[color:var(--background)]">
-      {error ? (
-        <div className="border-b border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
-          {error}
-        </div>
-      ) : null}
-      <Suspense fallback={<div className="px-4 py-6 text-sm text-[color:var(--text-muted)]">Loading workspace...</div>}>
-        <DashboardSidebarDemo
-          user={dashboardUser ?? user}
-          companyProfile={companyProfile}
-          usage={usage}
-          monthlySummary={monthlySummary}
-          billingHistory={billingHistory}
-          users={managedUsers}
-          accountRequests={accountRequests}
-          documents={documents}
-          documentTypes={documentTypes}
-          documentDetail={documentDetail}
-          selectedDocumentId={selectedDocumentId}
-          isDocumentDetailLoading={isDocumentDetailLoading}
-          documentActionId={documentActionId}
-          isLoading={isLoading}
-          customers={customers}
-          customerDetail={customerDetail}
-          selectedCustomerId={selectedCustomerId}
-          isCustomerDetailLoading={isCustomerDetailLoading}
-          customerActionId={customerActionId}
-          onSelectCustomer={handleSelectCustomer}
-          onCloseCustomerDetail={handleCloseCustomerDetail}
-          onDeleteCustomer={handleDeleteCustomer}
-          onCreateCustomer={handleCreateCustomer}
-          onUpdateCustomer={handleUpdateCustomer}
-          onSelectDocument={handleSelectDocument}
-          onDocumentAction={handleDocumentAction}
-          onUpdateDraft={handleUpdateDraft}
-          onSyncDocumentStatus={handleSyncDocumentStatus}
-          onPreviewFinalPdf={handlePreviewFinalPdf}
-          onDownloadFinalPdf={handleDownloadFinalPdf}
-          onCreateDraft={handleCreateDraft}
-          onFetchTemplatesAsUser={handleFetchTemplatesAsUser}
-          onUpdateMe={handleUpdateMe}
-          onUpdateCompanyProfile={handleUpdateCompanyProfile}
-          onCreateUser={handleCreateUser}
-          onUpdateUser={handleUpdateUser}
-          onDeactivateUser={handleDeactivateUser}
-          onReactivateUser={handleReactivateUser}
-          onResetUserPassword={handleResetUserPassword}
-          onUpdateAccountRequestStatus={handleUpdateAccountRequestStatus}
-          onSignOut={handleSignOut}
-          onChangeOwnPassword={handleChangeOwnPassword}
-        />
-      </Suspense>
-    </main>
-  );
+  // Unreachable: newLayoutPanel is always truthy, so the block above always
+  // returns. Kept to satisfy the function's return type — the legacy
+  // DashboardSidebarDemo layout that used to live here was removed.
+  return null;
 }
 
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
