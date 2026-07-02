@@ -688,6 +688,11 @@ input {
   .topbar-user-meta {
     display: none;
   }
+  /* Phone: give the avatar the same border as the theme-toggle button
+     (same token) so the two chrome controls read as a matched pair. */
+  .topbar-avatar {
+    border: 0.5px solid var(--border-soft);
+  }
 }
 
 /* Sidebar collapsed hover tooltip — fixed-positioned so it escapes the

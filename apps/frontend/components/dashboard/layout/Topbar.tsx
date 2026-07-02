@@ -175,7 +175,7 @@ export function Topbar({ user, currentPanel, isLoading, children, onSignOut }: T
             aria-expanded={avatarOpen}
           >
             <div
-              className="w-8 h-8 rounded-full grid place-items-center text-xs font-medium flex-shrink-0 transition-transform duration-150 overflow-hidden"
+              className="topbar-avatar w-8 h-8 rounded-full grid place-items-center text-xs font-medium flex-shrink-0 transition-transform duration-150 overflow-hidden"
               style={{
                 background: "var(--brand)",
                 color: "#ffffff",
