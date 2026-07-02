@@ -177,8 +177,9 @@ export function Topbar({ user, currentPanel, isLoading, children, onSignOut }: T
             <div
               className="topbar-avatar w-8 h-8 rounded-full grid place-items-center text-xs font-medium flex-shrink-0 transition-transform duration-150 overflow-hidden"
               style={{
-                background: "var(--brand)",
-                color: "#ffffff",
+                // Fill + initial colour live in .topbar-avatar CSS (transparent
+                // fill, brand-navy/white initial per theme) so the avatar reads
+                // as a hollow twin of the theme toggle. Keep only the dynamics.
                 letterSpacing: "0.02em",
                 transform: avatarOpen ? "scale(1.05)" : "scale(1)",
               }}

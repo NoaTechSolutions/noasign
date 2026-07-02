@@ -681,13 +681,19 @@ input {
   text-align: left;
 }
 
-/* Avatar border — EXACTLY matches the theme-toggle button next to it so the
-   two topbar controls read as a set: 0.5px + var(--border-soft) (soft navy in
-   light, faint white in dark). The avatar is a filled --brand disc, so this
-   border is deliberately the same soft token as the toggle — not a bold ring.
+/* Avatar = twin of the theme-toggle button next to it: a HOLLOW control with a
+   soft contour, not a saturated brand disc. Same 0.5px + var(--border-soft)
+   border in both themes; transparent fill so it reads as an outline like the
+   toggle. The initial sits in brand navy on light and white on dark for
+   contrast over the transparent fill. Photo avatars keep the same soft border.
    Desktop + mobile. */
 .topbar-avatar {
   border: 0.5px solid var(--border-soft);
+  background: transparent;
+  color: var(--brand);
+}
+:root[data-theme="dark"] .topbar-avatar {
+  color: #ffffff;
 }
 
 /* Hide on phones (≤700). At 701px+ (tablet + desktop) the name + plan show
