@@ -408,13 +408,27 @@ input {
   --shadow-elev:   0 4px 16px rgba(2,41,119,0.10);
   --shadow-elev-1: 0 2px 6px rgba(2,41,119,0.06);
 
-  /* Status badges */
-  --status-completed: #34c759;
-  --status-sent:      #ffcc00;
-  --status-viewed:    #007aff;
-  --status-draft:     #8e8e93;
-  --status-cancelled: #ff3b30;
-  --status-signed:    #5856d6;
+  /* Status badges — SINGLE SOURCE for the 6 document states (+ receipt-only
+     failed/void). Consumed by the overview status strip, the Recent badges and
+     the Documents-module badges. Each state: a foreground colour + a soft tint
+     bg. Do NOT hardcode these hexes anywhere else. */
+  --status-draft:        #022977;
+  --status-draft-bg:     rgba(2, 41, 119, 0.10);
+  --status-sent:         #05a5ff;
+  --status-sent-bg:      rgba(5, 165, 255, 0.12);
+  --status-viewed:       #e08600;
+  --status-viewed-bg:    rgba(224, 134, 0, 0.12);
+  --status-signed:       #6d5ae0;
+  --status-signed-bg:    rgba(109, 90, 224, 0.12);
+  --status-completed:    #10b981;
+  --status-completed-bg: rgba(16, 185, 129, 0.12);
+  --status-cancelled:    #ef4444;
+  --status-cancelled-bg: rgba(239, 68, 68, 0.12);
+  /* Receipt-only states */
+  --status-failed:       #dc2626;
+  --status-failed-bg:    rgba(220, 38, 38, 0.16);
+  --status-void:         #ffffff;
+  --status-void-bg:      #dc2626;
 
   /* Gradients */
   --gradient-welcome: linear-gradient(135deg, #022977 0%, #0400f0 100%);
@@ -468,13 +482,24 @@ input {
   --shadow-elev:   0 4px 16px rgba(0,0,0,0.40);
   --shadow-elev-1: 0 2px 6px rgba(0,0,0,0.32);
 
-  /* Status badges */
-  --status-completed: #30d158;
-  --status-sent:      #ffd60a;
-  --status-viewed:    #0a84ff;
-  --status-draft:     #98989d;
-  --status-cancelled: #ff453a;
-  --status-signed:    #5e5ce6;
+  /* Status badges — single source (dark variants). See the light block. */
+  --status-draft:        #93b4ff;
+  --status-draft-bg:     rgba(59, 130, 246, 0.16);
+  --status-sent:         #5cc6ff;
+  --status-sent-bg:      rgba(5, 165, 255, 0.16);
+  --status-viewed:       #fbbf24;
+  --status-viewed-bg:    rgba(245, 158, 11, 0.16);
+  --status-signed:       #a99bf0;
+  --status-signed-bg:    rgba(109, 90, 224, 0.22);
+  --status-completed:    #6ee7b7;
+  --status-completed-bg: rgba(16, 185, 129, 0.14);
+  --status-cancelled:    #f87171;
+  --status-cancelled-bg: rgba(239, 68, 68, 0.16);
+  /* Receipt-only states */
+  --status-failed:       #f87171;
+  --status-failed-bg:    rgba(220, 38, 38, 0.22);
+  --status-void:         #ffffff;
+  --status-void-bg:      #dc2626;
 
   /* Gradients */
   --gradient-welcome: linear-gradient(135deg, #05a5ff 0%, #0291dd 100%);

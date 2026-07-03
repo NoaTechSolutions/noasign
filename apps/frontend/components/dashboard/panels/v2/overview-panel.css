@@ -649,48 +649,47 @@
   letter-spacing: 0.03em;
 }
 
-/* Status colours — kept IN SYNC with the Documents module
-   (documents-panel.css .doc-status-badge--{state}) so Recent (desktop table +
-   mobile rows) and the module share one palette per state. */
+/* Status colours — ALL from the SINGLE SOURCE (globals.css --status-*), so the
+   Recent badges, the status strip and the Documents module never drift. Draft =
+   navy, Signed = violet, etc. (bg = soft tint, fg = state colour). */
 .doc-status-draft {
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-soft);
+  background: var(--status-draft-bg);
+  color: var(--status-draft);
 }
 
 .doc-status-sent {
-  background: rgba(5, 165, 255, 0.12);
-  color: #05a5ff;
+  background: var(--status-sent-bg);
+  color: var(--status-sent);
 }
 
 .doc-status-viewed {
-  background: rgba(255, 153, 0, 0.12);
-  color: #ff9900;
+  background: var(--status-viewed-bg);
+  color: var(--status-viewed);
 }
 
 .doc-status-signed {
-  background: rgba(255, 153, 0, 0.20);
-  color: #cc7a00;
+  background: var(--status-signed-bg);
+  color: var(--status-signed);
 }
 
 .doc-status-completed {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
+  background: var(--status-completed-bg);
+  color: var(--status-completed);
 }
 
 .doc-status-cancelled {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
 }
 
 .doc-status-failed {
-  background: rgba(220, 38, 38, 0.16);
-  color: #dc2626;
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
 }
 
 .doc-status-void {
-  background: #dc2626;
-  color: #ffffff;
+  background: var(--status-void-bg);
+  color: var(--status-void);
 }
 
 .doc-status-default {
@@ -1361,22 +1360,16 @@
 }
 :root[data-theme='dark'] .status-mini__label { color: rgba(226, 232, 240, 0.82); }
 
-/* Per-status tones — very light tint bg, icon + number in the state colour. Green
-   and red kept soft (success/error) so they sit beside navy/sky/amber without
-   shouting. Amber uses a slightly deeper shade than #ff9900 for legible numbers
-   on the light tint. */
-.status-mini--green      { --mini-color: #047857; --mini-bg: #ecfdf5; }
-.status-mini--green-soft { --mini-color: #059669; --mini-bg: #f0fdf6; }
-.status-mini--navy       { --mini-color: #022977; --mini-bg: #eef2fc; }
-.status-mini--sky        { --mini-color: #05a5ff; --mini-bg: #e9f6ff; }
-.status-mini--amber      { --mini-color: #e07b00; --mini-bg: #fff7ea; }
-.status-mini--red        { --mini-color: #dc2626; --mini-bg: #fef2f2; }
-:root[data-theme='dark'] .status-mini--green      { --mini-color: #6ee7b7; --mini-bg: rgba(16, 185, 129, 0.14); }
-:root[data-theme='dark'] .status-mini--green-soft { --mini-color: #a7f3d0; --mini-bg: rgba(16, 185, 129, 0.10); }
-:root[data-theme='dark'] .status-mini--navy       { --mini-color: #93b4ff; --mini-bg: rgba(59, 130, 246, 0.16); }
-:root[data-theme='dark'] .status-mini--sky        { --mini-color: #5cc6ff; --mini-bg: rgba(5, 165, 255, 0.16); }
-:root[data-theme='dark'] .status-mini--amber      { --mini-color: #fbbf24; --mini-bg: rgba(245, 158, 11, 0.16); }
-:root[data-theme='dark'] .status-mini--red        { --mini-color: #f87171; --mini-bg: rgba(239, 68, 68, 0.16); }
+/* Per-STATE tones — very light tint bg, icon + number in the state colour, ALL
+   from the SINGLE SOURCE (globals.css --status-*). Theme is handled by the vars,
+   so there is no per-theme override here. Same palette as the badges. */
+.status-mini--completed { --mini-color: var(--status-completed); --mini-bg: var(--status-completed-bg); }
+.status-mini--draft     { --mini-color: var(--status-draft);     --mini-bg: var(--status-draft-bg); }
+.status-mini--sent      { --mini-color: var(--status-sent);      --mini-bg: var(--status-sent-bg); }
+.status-mini--viewed    { --mini-color: var(--status-viewed);    --mini-bg: var(--status-viewed-bg); }
+.status-mini--signed    { --mini-color: var(--status-signed);    --mini-bg: var(--status-signed-bg); }
+.status-mini--cancelled { --mini-color: var(--status-cancelled); --mini-bg: var(--status-cancelled-bg); }
+.status-mini--failed    { --mini-color: var(--status-failed);    --mini-bg: var(--status-failed-bg); }
 
 /* Responsive: stack row-2 cards; reflow the status strip. */
 @media (max-width: 1023px) {

@@ -265,41 +265,42 @@
   white-space: nowrap;
 }
 
+/* All colours from the SINGLE SOURCE (globals.css --status-*) — shared with the
+   Recent badges and the overview strip so the palette never drifts. */
 .doc-status-badge--draft {
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-soft);
+  background: var(--status-draft-bg);
+  color: var(--status-draft);
 }
 
 .doc-status-badge--sent {
-  background: rgba(5, 165, 255, 0.12);
-  color: #05a5ff;
+  background: var(--status-sent-bg);
+  color: var(--status-sent);
 }
 
 .doc-status-badge--viewed {
-  background: rgba(255, 153, 0, 0.12);
-  color: #ff9900;
+  background: var(--status-viewed-bg);
+  color: var(--status-viewed);
 }
 
 .doc-status-badge--signed {
-  background: rgba(255, 153, 0, 0.20);
-  color: #cc7a00;
+  background: var(--status-signed-bg);
+  color: var(--status-signed);
 }
 
 .doc-status-badge--completed {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
+  background: var(--status-completed-bg);
+  color: var(--status-completed);
 }
 
 .doc-status-badge--cancelled {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
 }
 
 /* Send failed — stronger red than "cancelled" to flag it needs attention. */
 .doc-status-badge--failed {
-  background: rgba(220, 38, 38, 0.16);
-  color: #dc2626;
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
   font-weight: 700;
 }
 
@@ -308,8 +309,8 @@
    sentence-case — it's an accounting state and must read as one: solid red,
    uppercase, unmissable. */
 .doc-status-badge--void {
-  background: #dc2626;
-  color: #fff;
+  background: var(--status-void-bg);
+  color: var(--status-void);
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;

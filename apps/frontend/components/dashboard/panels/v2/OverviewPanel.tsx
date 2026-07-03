@@ -147,25 +147,27 @@ export function OverviewPanel({
     });
     // Owner order: Completed, Draft, Sent, Viewed, Signed, Cancelled.
     return [
-      { key: 'completed', label: 'Completed', count: counts.COMPLETED, icon: <CheckCircle2 size={18} />, tone: 'green' },
-      { key: 'draft', label: 'Draft', count: counts.DRAFT, icon: <FileText size={18} />, tone: 'amber' },
-      { key: 'signed', label: 'Signed', count: counts.SIGNED, icon: <PenLine size={18} />, tone: 'sky' },
-      { key: 'cancelled', label: 'Cancelled', count: counts.CANCELLED, icon: <Ban size={18} />, tone: 'red' },
+      { key: 'completed', label: 'Completed', count: counts.COMPLETED, icon: <CheckCircle2 size={18} />, tone: 'completed' },
+      { key: 'draft', label: 'Draft', count: counts.DRAFT, icon: <FileText size={18} />, tone: 'draft' },
+      { key: 'signed', label: 'Signed', count: counts.SIGNED, icon: <PenLine size={18} />, tone: 'signed' },
+      { key: 'cancelled', label: 'Cancelled', count: counts.CANCELLED, icon: <Ban size={18} />, tone: 'cancelled' },
     ];
   }, [documents]);
 
   // Receipt status counts (from GET /documents/receipt/stats). Cancelled + Void
   // are folded into one "Cancelled" mini-card.
   const receiptStatus: StatusStripItem[] = [
-    { key: 'sent', label: 'Sent', count: receiptStats?.byStatus.sent ?? 0, icon: <Send size={18} />, tone: 'sky' },
-    { key: 'draft', label: 'Draft', count: receiptStats?.byStatus.draft ?? 0, icon: <FileText size={18} />, tone: 'navy' },
-    { key: 'failed', label: 'Send failed', count: receiptStats?.byStatus.sendFailed ?? 0, icon: <AlertTriangle size={18} />, tone: 'amber' },
+    { key: 'sent', label: 'Sent', count: receiptStats?.byStatus.sent ?? 0, icon: <Send size={18} />, tone: 'sent' },
+    { key: 'draft', label: 'Draft', count: receiptStats?.byStatus.draft ?? 0, icon: <FileText size={18} />, tone: 'draft' },
+    { key: 'failed', label: 'Send failed', count: receiptStats?.byStatus.sendFailed ?? 0, icon: <AlertTriangle size={18} />, tone: 'failed' },
     {
       key: 'void',
       label: 'Cancelled',
+      // Folds cancelled + void counts; uses the cancelled tint (not the loud
+      // solid-red void badge — too heavy for a count card).
       count: (receiptStats?.byStatus.cancelled ?? 0) + (receiptStats?.byStatus.void ?? 0),
       icon: <Ban size={18} />,
-      tone: 'red',
+      tone: 'cancelled',
     },
   ];
 
