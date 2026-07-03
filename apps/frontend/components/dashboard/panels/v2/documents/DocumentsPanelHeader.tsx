@@ -4,9 +4,11 @@ import React from 'react';
 
 interface DocumentsPanelHeaderProps {
   isLoading?: boolean;
+  // "Receipts" for receipts-only tenants, "Documents" otherwise.
+  title?: string;
 }
 
-export function DocumentsPanelHeader({ isLoading }: DocumentsPanelHeaderProps) {
+export function DocumentsPanelHeader({ isLoading, title = 'Documents' }: DocumentsPanelHeaderProps) {
   return (
     <header className="documents-v2-head">
       <div className="documents-v2-head__main">
@@ -18,7 +20,7 @@ export function DocumentsPanelHeader({ isLoading }: DocumentsPanelHeaderProps) {
             aria-hidden="true"
           />
         ) : (
-          <h1 className="documents-v2-head__title">Documents</h1>
+          <h1 className="documents-v2-head__title">{title}</h1>
         )}
       </div>
     </header>

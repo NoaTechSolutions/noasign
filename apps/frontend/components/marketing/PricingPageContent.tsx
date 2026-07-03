@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useLang } from "./LandingContext";
-import { APP_URL } from "../../lib/app-url";
 import { openChat } from "../../lib/open-chat";
 import { PricingSection } from "./PricingSection";
 

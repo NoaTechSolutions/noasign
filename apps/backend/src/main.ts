@@ -115,48 +115,50 @@ function createAuthRateLimitMiddleware() {
     process.env.AUTH_RATE_LIMIT_WINDOW_MS,
     15 * 60 * 1000,
   );
-  const authMax = normalizePositiveInteger(
-    process.env.AUTH_RATE_LIMIT_MAX,
-    10,
-  );
+  const authMax = normalizePositiveInteger(process.env.AUTH_RATE_LIMIT_MAX, 10);
   const contactWindowMs = 60 * 60 * 1000;
   const contactMax = 3;
 
-  const protectedRoutes = new Map<
-    string,
-    { windowMs: number; max: number }
-  >([
+  const protectedRoutes = new Map<string, { windowMs: number; max: number }>([
     ['POST:/auth/login', { windowMs: authWindowMs, max: authMax }],
     ['POST:/auth/register', { windowMs: authWindowMs, max: authMax }],
-    [
-      'POST:/auth/forgot-password',
-      { windowMs: authWindowMs, max: authMax },
-    ],
-    [
-      'POST:/auth/reset-password',
-      { windowMs: authWindowMs, max: authMax },
-    ],
-    [
-      'POST:/users/account-requests',
-      { windowMs: authWindowMs, max: authMax },
-    ],
+    ['POST:/auth/forgot-password', { windowMs: authWindowMs, max: authMax }],
+    ['POST:/auth/reset-password', { windowMs: authWindowMs, max: authMax }],
+    ['POST:/users/account-requests', { windowMs: authWindowMs, max: authMax }],
     ['POST:/contact', { windowMs: contactWindowMs, max: contactMax }],
+    // Public lead capture (post-signature page) — abuse guard, no captcha.
+    ['POST:/public/leads', { windowMs: contactWindowMs, max: 5 }],
   ]);
   const entries = new Map<string, { count: number; resetAt: number }>();
 
   // Prevent unbounded memory growth — prune expired entries every 5 minutes
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of entries) {
-      if (entry.resetAt <= now) {
-        entries.delete(key);
+  setInterval(
+    () => {
+      const now = Date.now();
+      for (const [key, entry] of entries) {
+        if (entry.resetAt <= now) {
+          entries.delete(key);
+        }
       }
-    }
-  }, 5 * 60 * 1000).unref();
+    },
+    5 * 60 * 1000,
+  ).unref();
 
   return (req: Request, res: Response, next: NextFunction) => {
     const routeKey = `${req.method}:${req.path}`;
-    const config = protectedRoutes.get(routeKey);
+    let config = protectedRoutes.get(routeKey);
+    // Step-2 lead enrichment: PATCH /public/leads/:id has a dynamic id, so it
+    // can't be an exact-match key. Match it by shape and bucket under a fixed
+    // route so varying the id can't bypass the per-IP limit.
+    let bucketRoute = routeKey;
+    if (
+      !config &&
+      req.method === 'PATCH' &&
+      /^\/public\/leads\/[^/]+$/.test(req.path)
+    ) {
+      config = { windowMs: contactWindowMs, max: 10 };
+      bucketRoute = 'PATCH:/public/leads/:id';
+    }
     if (!config) {
       next();
       return;
@@ -164,7 +166,7 @@ function createAuthRateLimitMiddleware() {
 
     const now = Date.now();
     const clientIp = resolveClientIp(req);
-    const key = `${routeKey}:${clientIp}`;
+    const key = `${bucketRoute}:${clientIp}`;
     const existing = entries.get(key);
 
     if (!existing || existing.resetAt <= now) {

@@ -2,7 +2,6 @@
 
 import { useLang } from "./LandingContext";
 import { T } from "../../lib/landing-i18n";
-import { APP_URL } from "../../lib/app-url";
 import { openChat } from "../../lib/open-chat";
 
 export function BottomCta() {

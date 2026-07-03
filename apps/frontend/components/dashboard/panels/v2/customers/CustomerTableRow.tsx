@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatUsPhone } from '@/lib/format-phone';
 import { useDropdownPosition } from '@/components/dashboard/shared/use-dropdown-position';
@@ -8,7 +8,7 @@ import type { Customer } from './types';
 
 interface CustomerTableRowProps {
   customer: Customer;
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   showOwner: boolean;
   onView: (customer: Customer) => void;
@@ -36,9 +36,13 @@ export function CustomerTableRow({
   // the options can't accidentally close it by passing over another table row.
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   // Reset the submenu whenever the kebab itself closes (click-outside, action…).
-  useEffect(() => {
-    if (!menuOpen) setShowStatusMenu(false);
-  }, [menuOpen]);
+  // Done during render via a prev-value compare — the canonical replacement for
+  // an effect that only adjusts state in response to another state changing.
+  const [prevMenuOpen, setPrevMenuOpen] = useState(menuOpen);
+  if (prevMenuOpen !== menuOpen) {
+    setPrevMenuOpen(menuOpen);
+    if (!menuOpen && showStatusMenu) setShowStatusMenu(false);
+  }
 
   const displayName = customer.customerType === 'BUSINESS'
     ? (customer.business?.businessName || customer.fullName)
@@ -57,15 +61,15 @@ export function CustomerTableRow({
   // name; PERSONAL shows the workspace user that owns the record.
   const ownerCell = customer.customerType === 'BUSINESS' ? displayName : ownerName;
 
-  const canAssign = role === 'master';
+  const canAssign = role === 'superadmin';
   const isDeleted = customer.status === 'DELETED';
 
-  // Change-status submenu options. DELETED is MASTER-only (matches the filter).
+  // Change-status submenu options. DELETED is SUPERADMIN-only (matches the filter).
   const currentStatus = customer.status ?? 'ACTIVE';
   const statusOptions: { value: 'ACTIVE' | 'INACTIVE' | 'DELETED'; label: string }[] = [
     { value: 'ACTIVE', label: 'Active' },
     { value: 'INACTIVE', label: 'Inactive' },
-    ...(role === 'master' ? [{ value: 'DELETED' as const, label: 'Deleted' }] : []),
+    ...(role === 'superadmin' ? [{ value: 'DELETED' as const, label: 'Deleted' }] : []),
   ];
 
   return (

@@ -16,9 +16,9 @@ interface CustomerFormDrawerProps {
   customer: Customer | null;
   onSubmit: (data: CustomerFormData) => Promise<void>;
   onClose: () => void;
-  // MASTER-only assignment step (TASK 3). role drives whether the "Assign to
+  // SUPERADMIN-only assignment step (TASK 3). role drives whether the "Assign to
   // user" step appears; currentUserId pre-selects "Assign to myself".
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   onFetchUsers: () => Promise<CustomerOwnerUser[]>;
 }
@@ -68,8 +68,8 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
   // Status (edit mode only)
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
 
-  // Assign step (TASK 3) — MASTER on create only. Defaults to "myself".
-  const showAssignStep = mode === 'create' && role === 'master';
+  // Assign step (TASK 3) — SUPERADMIN on create only. Defaults to "myself".
+  const showAssignStep = mode === 'create' && role === 'superadmin';
   const [assignUserId, setAssignUserId] = useState(currentUserId);
   const [assignUsers, setAssignUsers] = useState<CustomerOwnerUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -206,7 +206,7 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
         zipCode: zipCode || undefined,
         notes: notes || undefined,
         status,
-        // MASTER assigns ownership at create (TASK 3). Omitted for non-master /
+        // SUPERADMIN assigns ownership at create (TASK 3). Omitted for non-master /
         // edit — the backend then assigns to the requesting user.
         ...(showAssignStep ? { userId: assignUserId } : {}),
       };
@@ -329,7 +329,7 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
   };
 
   const renderStepContent = () => {
-    // Assign step (TASK 3) is the final step for MASTER on create. Intercept it
+    // Assign step (TASK 3) is the final step for SUPERADMIN on create. Intercept it
     // before the type branches — their `else` fallbacks would otherwise re-render
     // the last data step.
     if (isAssignStep) {

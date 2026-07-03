@@ -59,7 +59,7 @@ export class AuthService {
         companyProfileId: companyProfile.id,
         email: normalizedEmail,
         passwordHash: hashedPassword,
-        role: UserRole.MASTER,
+        role: UserRole.USER,
         status: UserStatus.ACTIVE,
       },
       include: {

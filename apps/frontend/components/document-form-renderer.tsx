@@ -480,11 +480,6 @@ export function DocumentFormRenderer({
 
   // ── Field state ────────────────────────────────────────────────────────────
 
-  const allFieldKeys = useMemo(
-    () => schema.sections.flatMap((s) => s.fields.map((f) => f.key)),
-    [schema],
-  );
-
   const [fields, setFields] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const section of schema.sections) {
@@ -1293,7 +1288,7 @@ export function DocumentFormRenderer({
 
                       {items.length === 0 ? (
                         <div className="rounded-2xl border border-dashed border-[color:var(--border)] px-4 py-8 text-center text-sm text-[color:var(--text-muted)]">
-                          No items yet. Click "{addLabel}" to add one.
+                          No items yet. Click &quot;{addLabel}&quot; to add one.
                         </div>
                       ) : (
                         <div className="space-y-3">

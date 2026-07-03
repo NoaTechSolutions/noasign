@@ -32,7 +32,9 @@
 /* ===== STATS PILLS ===== */
 .documents-v2-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* The 4 summary cards (Total · Draft · In Progress · Completed) sit in ONE
+     row of 4 on tablet + desktop. Phones drop to 2×2 (below). */
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--sp-3);
 }
 
@@ -188,14 +190,39 @@
   transform: scale(0.97);
 }
 
-/* Desktop: search on the left (not greedy), status tabs next to it, and the
-   "New Document" button pushed to the far right via margin-left:auto. */
+/* Desktop: search stretches across row 1 with the "New Document" button pinned
+   directly to its right → [search .........] [New Document]. The status filter
+   tabs wrap onto their own row below (flex-basis:100%). */
 @media (min-width: 1024px) {
   .documents-v2-toolbar__search {
-    flex: 0 1 340px;
+    flex: 1 1 auto;
+    order: 1;
   }
   .documents-v2-toolbar__filters {
-    margin-left: auto;
+    order: 2;
+    margin-left: 0;
+  }
+  .documents-filter-tabs {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+/* Tablet: the 4 stat cards share one row, so compact them a touch (smaller
+   number/label + tighter padding) to fit the narrower width cleanly. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .documents-v2-stat-pill {
+    padding: var(--sp-3);
+  }
+  .documents-v2-stat-pill__label {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .documents-v2-stat-pill__value {
+    font-size: 24px;
+  }
+  .documents-v2-stat-pill__hint {
+    font-size: 10.5px;
   }
 }
 
@@ -238,41 +265,42 @@
   white-space: nowrap;
 }
 
+/* All colours from the SINGLE SOURCE (globals.css --status-*) — shared with the
+   Recent badges and the overview strip so the palette never drifts. */
 .doc-status-badge--draft {
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-soft);
+  background: var(--status-draft-bg);
+  color: var(--status-draft);
 }
 
 .doc-status-badge--sent {
-  background: rgba(5, 165, 255, 0.12);
-  color: #05a5ff;
+  background: var(--status-sent-bg);
+  color: var(--status-sent);
 }
 
 .doc-status-badge--viewed {
-  background: rgba(255, 153, 0, 0.12);
-  color: #ff9900;
+  background: var(--status-viewed-bg);
+  color: var(--status-viewed);
 }
 
 .doc-status-badge--signed {
-  background: rgba(255, 153, 0, 0.20);
-  color: #cc7a00;
+  background: var(--status-signed-bg);
+  color: var(--status-signed);
 }
 
 .doc-status-badge--completed {
-  background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
+  background: var(--status-completed-bg);
+  color: var(--status-completed);
 }
 
 .doc-status-badge--cancelled {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
 }
 
 /* Send failed — stronger red than "cancelled" to flag it needs attention. */
 .doc-status-badge--failed {
-  background: rgba(220, 38, 38, 0.16);
-  color: #dc2626;
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
   font-weight: 700;
 }
 
@@ -281,8 +309,8 @@
    sentence-case — it's an accounting state and must read as one: solid red,
    uppercase, unmissable. */
 .doc-status-badge--void {
-  background: #dc2626;
-  color: #fff;
+  background: var(--status-void-bg);
+  color: var(--status-void);
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -426,7 +454,27 @@
   color: #05a5ff;
 }
 .receipt-toast--success .receipt-toast__icon {
-  color: #22c55e;
+  color: var(--color-success);
+  /* Sober celebratory pop of the green check (scale-in w/ slight overshoot). */
+  animation: send-toast-check-pop 0.3s ease-out;
+}
+@keyframes send-toast-check-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .receipt-toast--success .receipt-toast__icon {
+    animation: none;
+  }
 }
 .receipt-toast--error .receipt-toast__icon {
   color: #dc2626;
@@ -459,7 +507,7 @@
   animation: receipt-toast-progress 6s cubic-bezier(0.12, 0.7, 0.3, 1) forwards;
 }
 .receipt-toast__fill--success {
-  background: #22c55e;
+  background: var(--color-success);
   width: 100%;
   transition: width 0.3s ease;
 }
@@ -794,6 +842,28 @@
   }
   to {
     transform: translateX(0);
+  }
+}
+
+/* Entrance for a freshly-inserted table row (fade + slight slide down). Matches
+   the app's 0.2s ease-out entrance timing. Applied once via the .docs-v2-row-in
+   class flagged by DocumentsPanel. */
+.docs-v2-row-in {
+  animation: docs-v2-row-in 0.2s ease-out;
+}
+@keyframes docs-v2-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-v2-row-in {
+    animation: none;
   }
 }
 
@@ -1708,18 +1778,19 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid var(--tx-border);
-  background: var(--surface);
-  color: var(--text-muted);
+  /* Edit = solid brand-sky fill with a white icon (unified). */
+  border: 1px solid var(--brand-accent);
+  background: var(--brand-accent);
+  color: #ffffff;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   z-index: 1;
 }
 .card-legend__edit:hover {
-  background: var(--tx-hover);
-  color: var(--primary);
-  border-color: var(--primary);
+  background: var(--brand-accent-hover);
+  color: #ffffff;
+  border-color: var(--brand-accent-hover);
 }
 
 
@@ -2168,6 +2239,13 @@
   gap: 10px;
   padding: 16px 24px;
   border-top: 1px solid var(--tx-border);
+}
+
+/* Model C — receipt quota / overage hint above the receipt form actions. */
+.receipt-quota-hint {
+  padding: 0 24px 4px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .documents-v2-toolbar__create-btn--secondary {

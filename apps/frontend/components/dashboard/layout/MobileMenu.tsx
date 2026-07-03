@@ -8,6 +8,7 @@ import {
   isNavGroup,
   type NavigationItem,
 } from "./NavigationItems";
+import { ConfirmDialog } from "@/components/dashboard/shared/ConfirmDialog";
 import { DashboardFooter } from "./DashboardFooter";
 
 interface MobileMenuProps {
@@ -29,6 +30,8 @@ export function MobileMenu({
 }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // Sign-out confirmation (custom dialog — replaces the native window.confirm).
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const router = useRouter();
   const items = filterNavigationItems(NAVIGATION_ITEMS, userRole);
 
@@ -260,9 +263,7 @@ export function MobileMenu({
                     await onSignOut();
                     return;
                   }
-                  if (window.confirm("Sign out?")) {
-                    window.location.href = "/login";
-                  }
+                  setShowSignOutConfirm(true);
                 }}
                 style={{
                   display: "flex",
@@ -324,6 +325,19 @@ export function MobileMenu({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        isOpen={showSignOutConfirm}
+        title="Sign out?"
+        message="You'll be returned to the login screen."
+        confirmLabel="Sign out"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          window.location.href = "/login";
+        }}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
     </>
   );
 }

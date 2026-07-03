@@ -27,7 +27,7 @@ export class AdminService {
     private emailService: EmailService,
   ) {}
 
-  private async assertRootMaster(userId: string) {
+  private async assertSuperadmin(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -36,7 +36,7 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.role !== UserRole.MASTER || user.parentCompanyProfileId !== null) {
+    if (user.role !== UserRole.SUPERADMIN || user.parentCompanyProfileId !== null) {
       throw new ForbiddenException('Only the root master account can manage admin resources');
     }
 
@@ -46,7 +46,7 @@ export class AdminService {
   // ── DocumentType (read-only helpers for admin UI) ────────────────────────
 
   async listDocumentTypes(userId: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     return this.prisma.documentType.findMany({
       select: { id: true, code: true, name: true },
@@ -57,7 +57,7 @@ export class AdminService {
   // ── FormDefinition CRUD ──────────────────────────────────────────────────
 
   async createFormDefinition(userId: string, dto: CreateFormDefinitionDto) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const documentType = await this.prisma.documentType.findUnique({
       where: { id: dto.documentTypeId },
@@ -80,7 +80,7 @@ export class AdminService {
   }
 
   async listFormDefinitions(userId: string, documentTypeId?: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     return this.prisma.formDefinition.findMany({
       where: documentTypeId ? { documentTypeId } : undefined,
@@ -93,7 +93,7 @@ export class AdminService {
   }
 
   async getFormDefinition(userId: string, id: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const formDef = await this.prisma.formDefinition.findUnique({
       where: { id },
@@ -108,7 +108,7 @@ export class AdminService {
   }
 
   async updateFormDefinition(userId: string, id: string, dto: UpdateFormDefinitionDto) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const existing = await this.prisma.formDefinition.findUnique({ where: { id } });
     if (!existing) {
@@ -139,7 +139,7 @@ export class AdminService {
   }
 
   async deleteFormDefinition(userId: string, id: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const existing = await this.prisma.formDefinition.findUnique({ where: { id } });
     if (!existing) {
@@ -154,7 +154,7 @@ export class AdminService {
   // ── SignatureTemplate CRUD ───────────────────────────────────────────────
 
   async createSignatureTemplate(userId: string, dto: CreateSignatureTemplateDto) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const documentType = await this.prisma.documentType.findUnique({
       where: { id: dto.documentTypeId },
@@ -181,7 +181,7 @@ export class AdminService {
   }
 
   async listSignatureTemplates(userId: string, documentTypeId?: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     return this.prisma.signatureTemplate.findMany({
       where: documentTypeId ? { documentTypeId } : undefined,
@@ -191,7 +191,7 @@ export class AdminService {
   }
 
   async getSignatureTemplate(userId: string, id: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const template = await this.prisma.signatureTemplate.findUnique({
       where: { id },
@@ -206,7 +206,7 @@ export class AdminService {
   }
 
   async updateSignatureTemplate(userId: string, id: string, dto: UpdateSignatureTemplateDto) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const existing = await this.prisma.signatureTemplate.findUnique({ where: { id } });
     if (!existing) {
@@ -241,7 +241,7 @@ export class AdminService {
   }
 
   async deleteSignatureTemplate(userId: string, id: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const existing = await this.prisma.signatureTemplate.findUnique({ where: { id } });
     if (!existing) {
@@ -256,7 +256,7 @@ export class AdminService {
   // ── UserDocumentConfig assignments ───────────────────────────────────────
 
   async createUserDocumentConfig(userId: string, dto: CreateUserDocumentConfigDto) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const [targetUser, documentType, formDefinition, signatureTemplate] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: dto.userId } }),
@@ -296,7 +296,7 @@ export class AdminService {
   }
 
   async listUserDocumentConfigs(userId: string, targetUserId?: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     return this.prisma.userDocumentConfig.findMany({
       where: targetUserId ? { userId: targetUserId } : undefined,
@@ -311,7 +311,7 @@ export class AdminService {
   }
 
   async toggleUserDocumentConfig(userId: string, id: string, isActive: boolean) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const existing = await this.prisma.userDocumentConfig.findUnique({ where: { id } });
     if (!existing) {
@@ -331,7 +331,7 @@ export class AdminService {
   }
 
   async deleteUserDocumentConfig(userId: string, id: string) {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const existing = await this.prisma.userDocumentConfig.findUnique({ where: { id } });
     if (!existing) {
@@ -343,10 +343,10 @@ export class AdminService {
     return { message: 'UserDocumentConfig removed successfully' };
   }
 
-  // ── User lockout management (MASTER-only) ────────────────────────────────
+  // ── User lockout management (SUPERADMIN-only) ────────────────────────────────
 
   async listLockedUsers(userId: string): Promise<LockedUserDto[]> {
-    await this.assertRootMaster(userId);
+    await this.assertSuperadmin(userId);
 
     const now = new Date();
     const users = await this.prisma.user.findMany({
@@ -383,7 +383,7 @@ export class AdminService {
     actorId: string,
     targetUserId: string,
   ): Promise<{ success: true; userId: string }> {
-    await this.assertRootMaster(actorId);
+    await this.assertSuperadmin(actorId);
 
     const target = await this.prisma.user.findUnique({
       where: { id: targetUserId },

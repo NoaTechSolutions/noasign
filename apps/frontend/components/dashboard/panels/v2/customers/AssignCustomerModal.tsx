@@ -49,9 +49,10 @@ export function AssignCustomerModal({ customer, onFetchUsers, onConfirm, onClose
     return name.includes(q) || u.email.toLowerCase().includes(q);
   });
 
+  // `loading` is initialised to `true`, so a fresh fetch starts in the loading
+  // state without a synchronous setState here. The `.finally` flips it off.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     onFetchUsers()
       .then((list) => {
         if (cancelled) return;

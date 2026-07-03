@@ -3,6 +3,7 @@
 import React from 'react';
 import { User as UserIcon, Calendar } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { getPlanEntry } from '@/lib/plan-catalog';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import type { ManagedUser } from './types';
 import { getDisplayName, getInitials } from './types';
@@ -65,7 +66,7 @@ export function MemberDetailModal({
 
             <div className="member-detail__badges">
               <span className={`role-badge role-badge--${user.role.toLowerCase()}`}>
-                {user.role === 'MASTER' && (
+                {user.role === 'SUPERADMIN' && (
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                   </svg>
@@ -84,7 +85,14 @@ export function MemberDetailModal({
                 <div className="field-rows">
                   <FieldRow label="Account Type" value={user.accountType} />
                   <FieldRow label="Company" value={user.companyProfile?.companyName} />
-                  <FieldRow label="Plan" value={user.companyProfile?.planName} />
+                  <FieldRow
+                    label="Plan"
+                    value={
+                      user.companyProfile?.planName
+                        ? getPlanEntry(user.companyProfile.planName).name
+                        : undefined
+                    }
+                  />
                 </div>
               </div>
               <div className="form-group card-legend">
@@ -114,7 +122,7 @@ export function MemberDetailModal({
 
         {!isSelf && (
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onEdit}>Edit</button>
+            <button type="button" className="btn-secondary btn-edit" onClick={onEdit}>Edit</button>
             <button type="button" className="btn-secondary" onClick={onResetPassword}>Reset password</button>
             {user.status === 'ACTIVE' ? (
               <button type="button" className="btn-danger" onClick={onDeactivate}>Deactivate</button>

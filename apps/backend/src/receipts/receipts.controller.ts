@@ -40,6 +40,14 @@ export class ReceiptsController {
     };
   }
 
+  // Receipt dashboard stats for the current tenant: $ issued this month +
+  // counts by real receipt status (draft/sent/sendFailed/cancelled/void).
+  // Declared before ':id/pdf' so the literal 'stats' segment matches first.
+  @Get('stats')
+  async getReceiptStats(@Req() req: { user: { id: string } }) {
+    return this.receiptsService.getReceiptStats(req.user.id);
+  }
+
   // Regenerated-on-the-fly PDF, streamed inline so an <iframe> can render it
   // (the cookie auth rides along automatically on same-origin requests).
   @Get(':id/pdf')
@@ -79,7 +87,10 @@ export class ReceiptsController {
     @Req() req: { user: { id: string } },
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    const { document } = await this.receiptsService.voidReceipt(req.user.id, id);
+    const { document } = await this.receiptsService.voidReceipt(
+      req.user.id,
+      id,
+    );
     return { message: 'Receipt voided', document };
   }
 

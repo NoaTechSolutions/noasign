@@ -4,9 +4,10 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import toast from "react-hot-toast";
-import { ReceiptSendToast } from "../../components/dashboard/panels/v2/documents/ReceiptSendToast";
+import { SendToast } from "../../components/dashboard/panels/v2/documents/SendToast";
 import { API_URL, apiRequest } from "../../lib/api";
-import { DashboardSidebarDemo } from "../../components/dashboard-sidebar-demo";
+import { getPlanEntry } from "../../lib/plan-catalog";
+import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
@@ -109,6 +110,14 @@ type CurrentUsage = {
   documentsUsed: number;
   remainingDocuments: number | null;
   overageDocuments: number;
+  // Model C — receipt billing dimension (separate from contracts).
+  contractsEnabled: boolean;
+  monthlyReceiptLimit: number;
+  receiptsUnlimited: boolean;
+  receiptOveragePrice: number;
+  receiptsUsed: number;
+  remainingReceipts: number | null;
+  receiptOverageDocuments: number;
 };
 
 type MonthlySummary = {
@@ -451,10 +460,8 @@ export default function DashboardPage() {
 function DashboardPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Default to the V2 "overview" panel when no ?panel= is present. This makes
-  // the V2 dashboard the default and leaves the legacy DashboardSidebarDemo
-  // (the `else` branch of the `if (newLayoutPanel)` below) unreachable via the
-  // normal flow — without deleting it yet.
+  // Default to the V2 "overview" panel when no ?panel= is present, so the V2
+  // dashboard always renders (this value is never empty).
   const newLayoutPanel = searchParams.get("panel") ?? "overview";
   const { setTheme } = useTheme();
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -465,7 +472,7 @@ function DashboardPageInner() {
   const [billingHistory, setBillingHistory] = useState<MonthlySummary[]>([]);
   const [documents, setDocuments] = useState<DashboardDocument[] | null>(null);
   const [managedUsers, setManagedUsers] = useState<ManagedUser[] | null>(null);
-  // Superadmin flow: all users across all tenants (MASTER only) for the
+  // Superadmin flow: all users across all tenants (SUPERADMIN only) for the
   // "create for user" template-source selector. undefined until loaded / non-master.
   const [selectableUsers, setSelectableUsers] = useState<
     SelectableUser[] | undefined
@@ -513,9 +520,9 @@ function DashboardPageInner() {
       const [[me, currentUsage, summary, myDocuments, customersResponse], staticResult] =
         await Promise.all([dynamicRequests, staticRequests]);
 
-      // Superadmin flow: load the cross-tenant user list for MASTER only
+      // Superadmin flow: load the cross-tenant user list for SUPERADMIN only
       // (the endpoint 403s otherwise). Best-effort — never blocks the workspace.
-      if (me.role === "MASTER") {
+      if (me.role === "SUPERADMIN") {
         apiRequest<SelectableUser[]>("/documents/selectable-users")
           .then(setSelectableUsers)
           .catch(() => setSelectableUsers(undefined));
@@ -524,7 +531,7 @@ function DashboardPageInner() {
       if (staticResult) {
         const [profile, availableDocumentTypes, summaryHistory] = staticResult;
         // Individual users have their own data — don't leak company profile into state
-        const isIndividual = me.role !== "MASTER" && me.accountType === "INDIVIDUAL";
+        const isIndividual = me.role !== "SUPERADMIN" && me.accountType === "INDIVIDUAL";
         setCompanyProfile(isIndividual ? null : profile);
         setDocumentTypes(availableDocumentTypes);
         setBillingHistory(summaryHistory);
@@ -532,7 +539,7 @@ function DashboardPageInner() {
       }
 
       const [workspaceUsers, workspaceAccountRequests] =
-        me.role === "MASTER"
+        me.role === "SUPERADMIN"
           ? await Promise.all([
               apiRequest<ManagedUser[]>("/users"),
               apiRequest<AccountRequest[]>("/users/account-requests"),
@@ -599,17 +606,17 @@ function DashboardPageInner() {
   }, []);
 
   // Route guard: privileged panels (members / lockedUsers) are hidden from the
-  // sidebar for non-MASTER, but a direct ?panel= URL would still render them.
-  // Redirect non-MASTER away once the role is known (the backend already gates
+  // sidebar for non-SUPERADMIN, but a direct ?panel= URL would still render them.
+  // Redirect non-SUPERADMIN away once the role is known (the backend already gates
   // the data — this just stops the privileged UI from rendering at all).
   useEffect(() => {
-    const MASTER_ONLY_PANELS = ["members", "lockedUsers"];
+    const SUPERADMIN_ONLY_PANELS = ["members", "lockedUsers"];
     const role = dashboardUser?.role ?? user?.role;
-    if (!role) return; // role not loaded yet — don't redirect a MASTER prematurely
+    if (!role) return; // role not loaded yet — don't redirect a SUPERADMIN prematurely
     if (
       newLayoutPanel &&
-      MASTER_ONLY_PANELS.includes(newLayoutPanel) &&
-      role !== "MASTER"
+      SUPERADMIN_ONLY_PANELS.includes(newLayoutPanel) &&
+      role !== "SUPERADMIN"
     ) {
       router.replace("/dashboard?panel=overview");
     }
@@ -715,7 +722,22 @@ function DashboardPageInner() {
     [],
   );
 
+  // Stable reference so the Overview's receipt-stats effect doesn't refetch (and
+  // flash skeletons) on every page re-render — only when it genuinely mounts.
+  const fetchReceiptStats = useCallback(
+    () => apiRequest<ReceiptStats>("/documents/receipt/stats"),
+    [],
+  );
+
   useEffect(() => {
+    // Receipts-only tenants (contractsEnabled=false) have no live signature flow
+    // to sync — a SENT receipt is terminal. Skip the contract-status poll so the
+    // receipts overview doesn't refetch + re-render every 10s for nothing (that
+    // background refetch was making the "Recent receipts" table flicker).
+    if (usage?.contractsEnabled === false) {
+      return;
+    }
+
     const hasLiveDocuments = (documents ?? []).some((document) =>
       LIVE_DOCUMENT_STATUSES.has(document.status),
     );
@@ -751,7 +773,38 @@ function DashboardPageInner() {
       isCancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [documentActionId, documents, refreshLiveDocumentData, selectedDocumentId]);
+  }, [documentActionId, documents, refreshLiveDocumentData, selectedDocumentId, usage?.contractsEnabled]);
+
+  // Plan migrations are applied out-of-band (set-tenant-plan.js), so the open
+  // dashboard would otherwise show a stale plan until a manual F5. When the tab
+  // regains focus, re-pull billing usage + documents so a plan change (e.g.
+  // RECEIPTS_ONLY → STARTER flipping contractsEnabled) reflects immediately — the
+  // documents reappear without a reload. Light (no skeletons, no detail refetch).
+  useEffect(() => {
+    const syncPlanState = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const [currentUsage, myDocuments, availableTypes] = await Promise.all([
+          apiRequest<CurrentUsage>("/billing/current-usage"),
+          apiRequest<DashboardDocument[]>("/documents/my-documents"),
+          // Also re-pull the type catalog: a RECEIPTS_ONLY → contracts migration
+          // re-enables BOLDSIGN types, so "New document" offers them without F5.
+          apiRequest<DocumentTypeCatalogItem[]>("/documents/types"),
+        ]);
+        setUsage(currentUsage);
+        setDocuments(myDocuments);
+        setDocumentTypes(availableTypes);
+      } catch {
+        // Ignore — the next focus/visibility change retries.
+      }
+    };
+    document.addEventListener("visibilitychange", syncPlanState);
+    window.addEventListener("focus", syncPlanState);
+    return () => {
+      document.removeEventListener("visibilitychange", syncPlanState);
+      window.removeEventListener("focus", syncPlanState);
+    };
+  }, []);
 
   async function handleSignOut() {
     try {
@@ -919,24 +972,48 @@ function DashboardPageInner() {
 
   async function handleDocumentAction(documentId: string, action: DocumentAction) {
     setDocumentActionId(documentId);
-    setError("");
-    let actionSucceeded = false;
 
-    try {
+    // POST the action + refresh workspace/detail. Shared by all actions.
+    const runAction = async () => {
       await apiRequest<DocumentActionResponse>(`/documents/${documentId}/${action}`, {
         method: "POST",
       });
-      actionSucceeded = true;
-
       const { nextSelectedId } = await loadWorkspace(selectedDocumentId);
       const detailTarget =
         documentId === selectedDocumentId ? documentId : nextSelectedId;
-
       if (detailTarget) {
         await loadDocumentDetail(detailTarget);
       } else {
         setDocumentDetail(null);
       }
+    };
+
+    // send/resend surface the SendToast (parity with receipts) — success + error
+    // live in the toast, NOT the inline error banner. The POST throws on failure
+    // (no SEND_FAILED status for contracts), so the toast's catch handles errors.
+    if (action === "send" || action === "resend") {
+      runSendWithToast(
+        async () => {
+          try {
+            await runAction();
+            return { status: "SENT", sendError: null };
+          } finally {
+            setDocumentActionId(null);
+          }
+        },
+        action === "send"
+          ? { loading: "Sending document…", success: "Document sent for signature" }
+          : { loading: "Resending document…", success: "Document resent for signature" },
+      );
+      return;
+    }
+
+    // cancel / reactivate keep the inline error banner.
+    setError("");
+    let actionSucceeded = false;
+    try {
+      await runAction();
+      actionSucceeded = true;
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -1104,14 +1181,18 @@ function DashboardPageInner() {
   // Optimistic send: show a top-right toast with an animated bar that resolves
   // to the REAL result (SENT → success; SEND_FAILED / cooldown 400 → error with
   // the reason). The caller has already closed the popup. Fire-and-forget.
-  function runReceiptSendWithToast(
+  // Shared send/resend toast orchestrator for receipts AND contracts. `send`
+  // resolves with { status, sendError } (status "SEND_FAILED" → error state) or
+  // throws (network/unknown → error state). Copy is per-flow.
+  function runSendWithToast(
     send: () => Promise<{ status: string; sendError: string | null }>,
+    copy: { loading: string; success: string },
   ): void {
-    const id = `rcpt-send-${Date.now()}-${Math.random()
+    const id = `send-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2, 7)}`;
     toast.custom(
-      () => <ReceiptSendToast state="loading" message="Sending receipt…" />,
+      () => <SendToast state="loading" message={copy.loading} />,
       { id, duration: Infinity },
     );
     send()
@@ -1119,12 +1200,12 @@ function DashboardPageInner() {
         const failed = res.status === "SEND_FAILED";
         toast.custom(
           () => (
-            <ReceiptSendToast
+            <SendToast
               state={failed ? "error" : "success"}
               message={
                 failed
                   ? `Could not send: ${res.sendError ?? "unknown error"}`
-                  : "Receipt sent successfully"
+                  : copy.success
               }
               onDismiss={() => toast.dismiss(id)}
             />
@@ -1135,11 +1216,9 @@ function DashboardPageInner() {
       .catch((e: unknown) => {
         toast.custom(
           () => (
-            <ReceiptSendToast
+            <SendToast
               state="error"
-              message={
-                e instanceof Error ? e.message : "Could not send the receipt"
-              }
+              message={`Could not send: ${e instanceof Error ? e.message : "unknown error"}`}
               onDismiss={() => toast.dismiss(id)}
             />
           ),
@@ -1151,18 +1230,21 @@ function DashboardPageInner() {
   // Resend/retry from the kebab. The backend handles the 24h cooldown (bypassed
   // on email change) and returns a clear message on 400 — surfaced in the toast.
   async function handleResendReceipt(documentId: string): Promise<void> {
-    runReceiptSendWithToast(async () => {
-      const res = await apiRequest<{
-        message: string;
-        document: { status: string };
-        sendError: string | null;
-      }>(`/documents/receipt/${documentId}/resend`, { method: "POST" });
-      await loadWorkspace();
-      return {
-        status: res.document?.status ?? "SENT",
-        sendError: res.sendError ?? null,
-      };
-    });
+    runSendWithToast(
+      async () => {
+        const res = await apiRequest<{
+          message: string;
+          document: { status: string };
+          sendError: string | null;
+        }>(`/documents/receipt/${documentId}/resend`, { method: "POST" });
+        await loadWorkspace();
+        return {
+          status: res.document?.status ?? "SENT",
+          sendError: res.sendError ?? null,
+        };
+      },
+      { loading: "Sending receipt…", success: "Receipt sent successfully" },
+    );
   }
 
   async function handleUpdateReceipt(
@@ -1278,6 +1360,9 @@ function DashboardPageInner() {
 
       await loadWorkspace(response.document.id);
       await loadDocumentDetail(response.document.id);
+      // Parity with the receipt draft flow — confirm the save. Errors stay in
+      // the creation modal's inline banner (no duplicate toast).
+      toast.success("Draft saved");
       return response.document;
     } catch (createError) {
       setError(
@@ -1531,7 +1616,7 @@ function DashboardPageInner() {
         id: string,
         status: "ACTIVE" | "INACTIVE" | "DELETED",
       ) => {
-        // Backend update() syncs deletedAt and gates restores to MASTER, so a
+        // Backend update() syncs deletedAt and gates restores to SUPERADMIN, so a
         // single PATCH covers every status transition (including delete/restore).
         return apiRequest<Customer>(`/customers/${id}`, {
           method: "PATCH",
@@ -1572,25 +1657,31 @@ function DashboardPageInner() {
     [],
   );
 
-  // Dual-mode rendering: if `?panel=` is in URL, render the new DashboardShell
-  // layout. Otherwise fall through to the legacy DashboardSidebarDemo below.
-  // This lets the redesign coexist with the live SPA during the rebuild.
+  // newLayoutPanel is always set (defaults to "overview"), so the V2 DashboardShell
+  // always renders. The `if` is a guard; the block below always returns.
   if (newLayoutPanel) {
     // Defensive render gate (pairs with the redirect effect above): never render
-    // the privileged panels for a non-MASTER, even for the frame before the
+    // the privileged panels for a non-SUPERADMIN, even for the frame before the
     // redirect fires. Role unknown (still loading) also counts as not-master.
-    const isMaster = (dashboardUser?.role ?? user?.role) === "MASTER";
+    const isSuperadmin = (dashboardUser?.role ?? user?.role) === "SUPERADMIN";
 
     const fullName =
       [dashboardUser?.firstName, dashboardUser?.lastName]
         .filter(Boolean)
         .join(" ") || "User";
+    // The tenant's plan, single source of truth. usage.planName carries it for
+    // ALL account types; the raw companyProfile is nulled for INDIVIDUAL accounts
+    // (setCompanyProfile by accountType above), so reading the plan from it drops
+    // it for individuals — the shared cause of the missing Topbar plan and the
+    // Billing "Launch" fallback. Reused by the Topbar (shellUser) and Billing below.
+    const effectivePlanKey = usage?.planName ?? companyProfile?.planName ?? null;
+
     const shellUser = {
       name: fullName,
       email: dashboardUser?.email ?? user?.email ?? "",
       role: ((dashboardUser?.role ?? user?.role) as
-        | "MASTER"
-        | "ADMIN"
+        | "SUPERADMIN"
+
         | "USER") || "USER",
       companyName:
         companyProfile?.companyName ||
@@ -1600,7 +1691,7 @@ function DashboardPageInner() {
       // Topbar shows name/company + plan beside the avatar. accountType
       // drives which name to show (INDIVIDUAL → person, else → company).
       accountType: dashboardUser?.accountType ?? null,
-      plan: companyProfile?.planName ?? null,
+      plan: effectivePlanKey,
     };
 
     // Adapters: backend NoaSign shapes → v2 panel interfaces.
@@ -1616,6 +1707,9 @@ function DashboardPageInner() {
             .join(" ") || backendUser.email,
         email: backendUser.email,
         role: backendUser.role,
+        // Lets the WelcomeCard show the person name (INDIVIDUAL) vs the company
+        // name (BUSINESS), matching the Topbar.
+        accountType: backendUser.accountType ?? null,
       };
     };
 
@@ -1631,9 +1725,22 @@ function DashboardPageInner() {
     const adaptUsageForPanel = (backendUsage: CurrentUsage | null) => {
       if (!backendUsage) return null;
       return {
+        // Plan key — the WelcomeCard reads it from here so it shows for
+        // INDIVIDUAL accounts too (their companyProfile is nulled).
+        planName: backendUsage.planName,
         documentsUsed: backendUsage.documentsUsed,
-        documentsLimit: backendUsage.monthlyDocLimit,
+        // null = unlimited → usage card shows ∞ instead of 0/0. Also null for
+        // receipts-only tenants (no contracts dimension to cap).
+        documentsLimit:
+          backendUsage.isUnlimited || !backendUsage.contractsEnabled
+            ? null
+            : backendUsage.monthlyDocLimit,
         overageCount: backendUsage.overageDocuments,
+        // Model C — receipt dimension (per-tenant, separate from contracts).
+        receiptsUsed: backendUsage.receiptsUsed,
+        monthlyReceiptLimit: backendUsage.monthlyReceiptLimit,
+        receiptsUnlimited: backendUsage.receiptsUnlimited,
+        receiptOveragePrice: backendUsage.receiptOveragePrice,
       };
     };
 
@@ -1653,15 +1760,42 @@ function DashboardPageInner() {
       backendDocs: DashboardDocument[] | null,
     ) => {
       if (!backendDocs) return null;
+      // The recipient/client name isn't a dedicated column and the docs aren't
+      // linked to a Customer record (customerId is null), so pull it from the
+      // form data: contracts use `customer_name`, receipts use `client`. Priority
+      // list + email fallback covers both without per-type branching.
+      const NAME_KEYS = [
+        "customer_name",
+        "client",
+        "client_name",
+        "customer_full_name",
+        "full_name",
+        "fullName",
+        "name",
+        "contact_full_name",
+      ];
+      const extractName = (doc: DashboardDocument): string => {
+        const dj = (doc.data?.dataJson ?? {}) as Record<string, unknown>;
+        for (const k of NAME_KEYS) {
+          const v = dj[k];
+          if (typeof v === "string" && v.trim()) return v.trim();
+        }
+        return doc.lastSentRecipientEmail || "—";
+      };
       return backendDocs.map((doc) => ({
         id: doc.id,
         documentNumber: doc.documentNumber,
         status: doc.status,
         recipientEmail: doc.lastSentRecipientEmail || "N/A",
+        recipientName: extractName(doc),
+        // System-level type: Receipt (PAYMENT_RECEIPT) vs Contract (everything else).
+        type: doc.documentType?.code === "PAYMENT_RECEIPT" ? "Receipt" : "Contract",
         createdAt: doc.createdAt,
         sentAt: doc.sentAt ?? null,
         viewedAt: doc.viewedAt ?? null,
         completedAt: doc.completedAt ?? null,
+        // A reissued/voided receipt keeps status SENT but is shown as VOID.
+        supersededAt: doc.supersededAt ?? null,
         customerId: (doc as DashboardDocument & { customerId?: string | null }).customerId ?? null,
       }));
     };
@@ -1774,25 +1908,38 @@ function DashboardPageInner() {
     };
 
     // BillingPanel V3 data shape. Plan price + features + non-doc limits come
-    // from frontend BILLING_PLAN_CONFIG (backend has no plan-price / max-users
-    // / max-templates columns). Doc limit is the live backend value. Users
-    // count = managedUsers length; templates count = documentTypes length as
-    // a proxy until backend tracks "templates in use".
-    const billingPlanCfg = getBillingPlanConfig(companyProfile?.planName);
-    const billingPlanKey = (companyProfile?.planName ?? "LAUNCH").toUpperCase();
+    // from the shared plan catalog (lib/plan-catalog — single source of truth;
+    // backend has no plan-price / max-users / max-templates columns). Doc limit
+    // is the live backend value (null when the tenant is on an unlimited plan,
+    // e.g. PRO_UNLIMITED). Users count = managedUsers length; templates count =
+    // documentTypes length as a proxy until backend tracks "templates in use".
+    const billingPlanCfg = getPlanEntry(effectivePlanKey);
+    const billingPlanKey = (effectivePlanKey ?? "LAUNCH").toUpperCase();
     const billingV3 = {
       currentPlan: {
         name: billingPlanCfg.name,
         plan: billingPlanKey,
         price: billingPlanCfg.price,
         documentsLimit:
-          usage?.monthlyDocLimit ??
-          companyProfile?.monthlyDocLimit ??
-          billingPlanCfg.docsLimit,
+          usage?.isUnlimited || usage?.contractsEnabled === false
+            ? null
+            : usage?.monthlyDocLimit ??
+              companyProfile?.monthlyDocLimit ??
+              billingPlanCfg.docsLimit,
         usersLimit: billingPlanCfg.usersLimit,
         templatesLimit: billingPlanCfg.templatesLimit,
         overageRate: billingPlanCfg.overageRate,
-        features: billingPlanCfg.features,
+        // Map the catalog's feature set to the BillingPanel shape (retention is
+        // a top-level catalog field; the panel nests it under features).
+        features: {
+          userManagement: billingPlanCfg.features.userManagement,
+          multiSigner: billingPlanCfg.features.multiSigner,
+          branding: billingPlanCfg.features.branding,
+          bulkSend: billingPlanCfg.features.bulkSend,
+          analytics: billingPlanCfg.features.analytics,
+          prioritySupport: billingPlanCfg.features.prioritySupport,
+          retention: billingPlanCfg.retention,
+        },
       },
       cycle: {
         month: formatBillingMonth(monthlySummary?.month),
@@ -1806,9 +1953,16 @@ function DashboardPageInner() {
         templates: documentTypes?.length ?? 0,
         overageCount: usage?.overageDocuments ?? 0,
       },
+      // Model C — receipt usage + plan allowance, kept separate from contracts.
+      receipts: {
+        used: usage?.receiptsUsed ?? 0,
+        limit: usage?.monthlyReceiptLimit ?? 0,
+        unlimited: usage?.receiptsUnlimited ?? false,
+        overagePrice: usage?.receiptOveragePrice ?? 0.25,
+      },
       role: ((dashboardUser?.role ?? "USER").toLowerCase() as
-        | "master"
-        | "admin"
+        | "superadmin"
+
         | "user"),
     };
 
@@ -1816,8 +1970,8 @@ function DashboardPageInner() {
     // above the `if (newLayoutPanel)` guard). Only the role string — a
     // primitive, safe to recompute — is derived here.
     const customersV2Role = ((dashboardUser?.role ?? "USER").toLowerCase() as
-      | "master"
-      | "admin"
+      | "superadmin"
+
       | "user");
 
     // MembersPanel V2 handlers. Reuses existing page.tsx handlers (no duplication
@@ -1826,8 +1980,8 @@ function DashboardPageInner() {
     // Only 2 new handlers are needed: fetch users and fetch account-requests
     // (page.tsx loads these via loadWorkspace, no standalone fetch existed).
     const membersV2Role = ((dashboardUser?.role ?? "USER").toLowerCase() as
-      | "master"
-      | "admin"
+      | "superadmin"
+
       | "user");
     const membersV2 = {
       role: membersV2Role,
@@ -1838,7 +1992,7 @@ function DashboardPageInner() {
       onCreateUser: async (data: {
         email: string;
         password: string;
-        role?: "MASTER" | "USER";
+        role?: "SUPERADMIN" | "USER";
         accountType?: "INDIVIDUAL" | "BUSINESS";
         firstName?: string;
         lastName?: string;
@@ -1862,7 +2016,7 @@ function DashboardPageInner() {
     type BackendLockedUser = {
       id: string;
       email: string;
-      role: "MASTER" | "ADMIN" | "USER";
+      role: "SUPERADMIN" | "USER";
       failedLoginAttempts: number;
       lockLevel: number;
       lockedUntil: string;
@@ -2008,18 +2162,21 @@ function DashboardPageInner() {
         if (payload.send) {
           // Optimistic: the form already closed; show the progress toast and
           // resolve it with the REAL SENT / SEND_FAILED result.
-          runReceiptSendWithToast(async () => {
-            const res = await apiRequest<{
-              message: string;
-              document: { status: string };
-              sendError: string | null;
-            }>("/documents/receipt", { method: "POST", body: payload });
-            await loadWorkspace();
-            return {
-              status: res.document?.status ?? "SENT",
-              sendError: res.sendError ?? null,
-            };
-          });
+          runSendWithToast(
+            async () => {
+              const res = await apiRequest<{
+                message: string;
+                document: { status: string };
+                sendError: string | null;
+              }>("/documents/receipt", { method: "POST", body: payload });
+              await loadWorkspace();
+              return {
+                status: res.document?.status ?? "SENT",
+                sendError: res.sendError ?? null,
+              };
+            },
+            { loading: "Sending receipt…", success: "Receipt sent successfully" },
+          );
           return { status: "SENT", sendError: null };
         }
         // Draft — no email, simple toast.
@@ -2131,6 +2288,8 @@ function DashboardPageInner() {
           documents={adaptDocumentsForPanel(documents)}
           customers={(customers ?? []).map((c) => ({ id: c.id, fullName: c.fullName }))}
           isLoading={isLoading}
+          contractsEnabled={usage?.contractsEnabled ?? true}
+          onFetchReceiptStats={fetchReceiptStats}
           onNewDocument={() => router.push("/dashboard?panel=documents&new=1")}
           onOpenDocument={(docId) => router.push(`/dashboard?panel=documents&doc=${docId}`)}
           onViewAllAttention={() => router.push("/dashboard?panel=documents&status=SENT")}
@@ -2159,6 +2318,8 @@ function DashboardPageInner() {
           currentPlan={billingV3.currentPlan}
           cycle={billingV3.cycle}
           usage={billingV3.usage}
+          receipts={billingV3.receipts}
+          contractsEnabled={usage?.contractsEnabled ?? true}
           role={billingV3.role}
           isLoading={isLoading}
         />
@@ -2176,7 +2337,7 @@ function DashboardPageInner() {
           onFetchDeletedCustomers={customersV2Handlers.onFetchDeletedCustomers}
           onRestoreCustomer={customersV2Handlers.onRestoreCustomer}
         />
-      ) : newLayoutPanel === "members" && isMaster ? (
+      ) : newLayoutPanel === "members" && isSuperadmin ? (
         <MembersPanel
           role={membersV2.role}
           currentUserId={membersV2.currentUserId}
@@ -2189,7 +2350,7 @@ function DashboardPageInner() {
           onResetPassword={membersV2.onResetPassword}
           onUpdateAccountRequestStatus={membersV2.onUpdateAccountRequestStatus}
         />
-      ) : newLayoutPanel === "lockedUsers" && isMaster ? (
+      ) : newLayoutPanel === "lockedUsers" && isSuperadmin ? (
         <LockedUsersPanel
           onFetchLockedUsers={lockedUsersV2.onFetchLockedUsers}
           onUnlockUser={lockedUsersV2.onUnlockUser}
@@ -2217,9 +2378,32 @@ function DashboardPageInner() {
           onReissueReceipt={documentsV2.onReissueReceipt}
           onVoidReceipt={documentsV2.onVoidReceipt}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
-          isMaster={(dashboardUser?.role ?? user?.role) === "MASTER"}
+          isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
+          contractsEnabled={usage?.contractsEnabled ?? true}
+          onFetchReceiptStats={fetchReceiptStats}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={handleFetchTypesAsUser}
+          receiptQuota={
+            usage
+              ? {
+                  remaining: usage.receiptsUnlimited
+                    ? null
+                    : usage.remainingReceipts,
+                  unlimited: usage.receiptsUnlimited,
+                  overagePrice: usage.receiptOveragePrice,
+                }
+              : undefined
+          }
+          receiptUsage={
+            usage
+              ? {
+                  used: usage.receiptsUsed,
+                  limit: usage.monthlyReceiptLimit,
+                  unlimited: usage.receiptsUnlimited,
+                  overagePrice: usage.receiptOveragePrice,
+                }
+              : undefined
+          }
         />
       ) : (
         <div
@@ -2255,161 +2439,10 @@ function DashboardPageInner() {
     );
   }
 
-  return (
-    <main className="min-h-screen bg-[color:var(--background)]">
-      {error ? (
-        <div className="border-b border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
-          {error}
-        </div>
-      ) : null}
-      <Suspense fallback={<div className="px-4 py-6 text-sm text-[color:var(--text-muted)]">Loading workspace...</div>}>
-        <DashboardSidebarDemo
-          user={dashboardUser ?? user}
-          companyProfile={companyProfile}
-          usage={usage}
-          monthlySummary={monthlySummary}
-          billingHistory={billingHistory}
-          users={managedUsers}
-          accountRequests={accountRequests}
-          documents={documents}
-          documentTypes={documentTypes}
-          documentDetail={documentDetail}
-          selectedDocumentId={selectedDocumentId}
-          isDocumentDetailLoading={isDocumentDetailLoading}
-          documentActionId={documentActionId}
-          isLoading={isLoading}
-          customers={customers}
-          customerDetail={customerDetail}
-          selectedCustomerId={selectedCustomerId}
-          isCustomerDetailLoading={isCustomerDetailLoading}
-          customerActionId={customerActionId}
-          onSelectCustomer={handleSelectCustomer}
-          onCloseCustomerDetail={handleCloseCustomerDetail}
-          onDeleteCustomer={handleDeleteCustomer}
-          onCreateCustomer={handleCreateCustomer}
-          onUpdateCustomer={handleUpdateCustomer}
-          onSelectDocument={handleSelectDocument}
-          onDocumentAction={handleDocumentAction}
-          onUpdateDraft={handleUpdateDraft}
-          onSyncDocumentStatus={handleSyncDocumentStatus}
-          onPreviewFinalPdf={handlePreviewFinalPdf}
-          onDownloadFinalPdf={handleDownloadFinalPdf}
-          onCreateDraft={handleCreateDraft}
-          onFetchTemplatesAsUser={handleFetchTemplatesAsUser}
-          onUpdateMe={handleUpdateMe}
-          onUpdateCompanyProfile={handleUpdateCompanyProfile}
-          onCreateUser={handleCreateUser}
-          onUpdateUser={handleUpdateUser}
-          onDeactivateUser={handleDeactivateUser}
-          onReactivateUser={handleReactivateUser}
-          onResetUserPassword={handleResetUserPassword}
-          onUpdateAccountRequestStatus={handleUpdateAccountRequestStatus}
-          onSignOut={handleSignOut}
-          onChangeOwnPassword={handleChangeOwnPassword}
-        />
-      </Suspense>
-    </main>
-  );
-}
-
-// BillingPanel V3 plan config. Mirrors ComparisonSection's PLANS table so the
-// current-plan limits + features stay consistent with the comparison view.
-// SCALE.usersLimit = 9999 is a sentinel: BillingPanel's interface types it as
-// `number` (non-nullable) but ComparisonSection's row renders "Unlimited" for
-// users via its own table — so the UX wart only shows up in the Plan Features
-// header line for actual Scale tenants. Acceptable for MVP.
-type BillingPlanConfig = {
-  name: string;
-  price: number;
-  docsLimit: number;
-  usersLimit: number;
-  templatesLimit: number | null;
-  overageRate: number;
-  features: {
-    userManagement: boolean;
-    multiSigner: boolean;
-    branding: boolean;
-    bulkSend: boolean;
-    analytics: boolean;
-    prioritySupport: boolean;
-    retention: string;
-  };
-};
-
-const BILLING_PLAN_CONFIG: Record<string, BillingPlanConfig> = {
-  STARTER: {
-    name: "Starter",
-    price: 19,
-    docsLimit: 10,
-    usersLimit: 2,
-    templatesLimit: 5,
-    overageRate: 5.0,
-    features: {
-      userManagement: false,
-      multiSigner: false,
-      branding: false,
-      bulkSend: false,
-      analytics: false,
-      prioritySupport: false,
-      retention: "1 year",
-    },
-  },
-  LAUNCH: {
-    name: "Launch",
-    price: 39,
-    docsLimit: 15,
-    usersLimit: 3,
-    templatesLimit: 8,
-    overageRate: 3.5,
-    features: {
-      userManagement: true,
-      multiSigner: true,
-      branding: false,
-      bulkSend: false,
-      analytics: false,
-      prioritySupport: false,
-      retention: "2 years",
-    },
-  },
-  PRO: {
-    name: "Pro",
-    price: 89,
-    docsLimit: 50,
-    usersLimit: 5,
-    templatesLimit: null,
-    overageRate: 2.5,
-    features: {
-      userManagement: true,
-      multiSigner: true,
-      branding: true,
-      bulkSend: true,
-      analytics: true,
-      prioritySupport: false,
-      retention: "5 years",
-    },
-  },
-  SCALE: {
-    name: "Scale",
-    price: 229,
-    docsLimit: 9999,
-    usersLimit: 9999,
-    templatesLimit: null,
-    overageRate: 0,
-    features: {
-      userManagement: true,
-      multiSigner: true,
-      branding: true,
-      bulkSend: true,
-      analytics: true,
-      prioritySupport: true,
-      retention: "Unlimited",
-    },
-  },
-};
-
-function getBillingPlanConfig(planName: string | null | undefined): BillingPlanConfig {
-  const key = (planName ?? "LAUNCH").toUpperCase();
-  return BILLING_PLAN_CONFIG[key] ?? BILLING_PLAN_CONFIG.LAUNCH;
+  // Unreachable: newLayoutPanel is always truthy, so the block above always
+  // returns. Kept to satisfy the function's return type — the legacy
+  // DashboardSidebarDemo layout that used to live here was removed.
+  return null;
 }
 
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocalStorageState } from "@/lib/use-local-storage-state";
 import {
   NAVIGATION_ITEMS,
   filterNavigationItems,
@@ -9,6 +10,7 @@ import {
   type NavigationItem,
 } from "./NavigationItems";
 import { useDirtyForm } from "@/components/dashboard/shared/dirty-form-context";
+import { ConfirmDialog } from "@/components/dashboard/shared/ConfirmDialog";
 import { DashboardFooter } from "./DashboardFooter";
 
 interface SidebarProps {
@@ -24,6 +26,9 @@ interface SidebarProps {
 }
 
 const STORAGE_KEY = "sidebar-collapsed";
+const OPEN_GROUPS_KEY = "sidebar-open-groups";
+// Stable default so the localStorage hook returns a steady identity pre-hydration.
+const EMPTY_GROUPS: Record<string, boolean> = {};
 
 // Modern collapsible sidebar (Linear/Notion/Discord style). Persists the
 // collapse state to localStorage. On first paint, defaults to expanded —
@@ -36,7 +41,14 @@ export function Sidebar({
   isLoading,
 }: SidebarProps) {
   const router = useRouter();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Persisted to localStorage via useSyncExternalStore. SSR-safe: the server
+  // snapshot is the default (expanded / no open groups), adopted from storage
+  // right after hydration — no setState-in-effect, no hydration mismatch. The
+  // brief expand->collapse flicker is inherent to SSR without a cookie.
+  const [isCollapsed, setIsCollapsed] = useLocalStorageState<boolean>(
+    STORAGE_KEY,
+    false,
+  );
   // Custom hover tooltip for collapsed mode. Positioned fixed (viewport
   // coords from the button's rect) so it escapes the sidebar's
   // overflow:hidden clipping — a normal absolute tooltip to the right
@@ -46,43 +58,23 @@ export function Sidebar({
     top: number;
     left: number;
   } | null>(null);
+  // Sign-out confirmation (custom dialog — replaces the native window.confirm).
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const items = filterNavigationItems(NAVIGATION_ITEMS, userRole);
 
   // Expand/collapse state for nav groups (e.g. "User management"), persisted.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved !== null) {
-      setIsCollapsed(saved === "true");
-    }
-    try {
-      const groups = window.localStorage.getItem("sidebar-open-groups");
-      if (groups) setOpenGroups(JSON.parse(groups));
-    } catch {
-      /* ignore malformed storage */
-    }
-  }, []);
+  const [openGroups, setOpenGroups] = useLocalStorageState<Record<string, boolean>>(
+    OPEN_GROUPS_KEY,
+    EMPTY_GROUPS,
+  );
 
   const toggleGroup = (key: string) => {
-    setOpenGroups((cur) => {
-      const next = { ...cur, [key]: !(cur[key] ?? false) };
-      try {
-        window.localStorage.setItem("sidebar-open-groups", JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    setOpenGroups((cur) => ({ ...cur, [key]: !(cur[key] ?? false) }));
   };
 
   const toggleCollapse = () => {
     setTooltip(null);
-    setIsCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(STORAGE_KEY, String(next));
-      return next;
-    });
+    setIsCollapsed((current) => !current);
   };
 
   const { requestNavigate } = useDirtyForm();
@@ -494,10 +486,9 @@ export function Sidebar({
               await onSignOut();
               return;
             }
-            // Fallback: no real session clear — flagged in props comment
-            if (window.confirm("Sign out?")) {
-              window.location.href = "/login";
-            }
+            // Fallback: no real session clear — flagged in props comment.
+            // Custom confirm dialog (not the native window.confirm).
+            setShowSignOutConfirm(true);
           }}
           style={{
             display: "flex",
@@ -582,6 +573,19 @@ export function Sidebar({
           {tooltip.label}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={showSignOutConfirm}
+        title="Sign out?"
+        message="You'll be returned to the login screen."
+        confirmLabel="Sign out"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          window.location.href = "/login";
+        }}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
     </aside>
   );
 }

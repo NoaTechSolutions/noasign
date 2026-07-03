@@ -1,10 +1,14 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Crown } from 'lucide-react';
+import { getPlanEntry } from '@/lib/plan-catalog';
+import { resolveAccountName } from '@/lib/account-identity';
 
 interface DashboardUser {
   name: string;
   email: string;
   role: string;
+  // INDIVIDUAL → show the person name; BUSINESS/SUPERADMIN → the company name.
+  accountType?: string | null;
 }
 
 interface CompanyProfile {
@@ -15,8 +19,13 @@ interface CompanyProfile {
 interface WelcomeCardProps {
   user: DashboardUser | null;
   company: CompanyProfile | null;
+  // Plan key, sourced from billing usage (NOT companyProfile) so it shows for
+  // INDIVIDUAL accounts too — their companyProfile is nulled in the dashboard.
+  plan?: string | null;
   isLoading: boolean;
   onNewDocument?: () => void;
+  // CTA wording — "New receipt" for receipts-only tenants, "New document" else.
+  ctaLabel?: string;
 }
 
 function greetingForHour(hour: number): string {
@@ -25,12 +34,8 @@ function greetingForHour(hour: number): string {
   return 'Good evening';
 }
 
-export function WelcomeCard({ user, company, isLoading, onNewDocument }: WelcomeCardProps) {
-  const now = new Date();
-  const dateLabel = now
-    .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-    .toUpperCase();
-  const greeting = greetingForHour(now.getHours());
+export function WelcomeCard({ user, company, plan, isLoading, onNewDocument, ctaLabel = 'New document' }: WelcomeCardProps) {
+  const greeting = greetingForHour(new Date().getHours());
 
   if (isLoading) {
     return (
@@ -42,29 +47,39 @@ export function WelcomeCard({ user, company, isLoading, onNewDocument }: Welcome
     );
   }
 
-  if (!user || !company) return null;
+  // Render as soon as we have the user. INDIVIDUAL accounts have no company
+  // profile (the dashboard nulls it), so company may be null here — the person
+  // name carries the card, and the plan line is simply omitted.
+  if (!user) return null;
 
-  const firstName = user.name.split(' ')[0] || user.name;
+  // Person vs business name — identical resolution to the Topbar, so a Receipts
+  // user and a Documents user of the same account type look the same here.
+  const displayName = resolveAccountName({
+    accountType: user.accountType,
+    personName: user.name,
+    companyName: company?.name,
+  });
 
   return (
     <div className="welcome-card">
       <div className="welcome-content">
-        <span className="welcome-date">{dateLabel}</span>
-        <h1 className="welcome-greeting">
-          {greeting}, <span className="welcome-user-name">{firstName}</span>
-        </h1>
-        <div className="welcome-company-info">
-          <span className="welcome-company-name">{company.name}</span>
-          <span className="welcome-separator">·</span>
-          <span className="welcome-plan">{company.plan} plan</span>
-        </div>
+        <span className="welcome-greeting">{greeting} 👋</span>
+        <h1 className="welcome-name">{displayName}</h1>
+        {plan ? (
+          <span className="welcome-plan-badge">
+            <Crown size={14} className="welcome-plan-crown" aria-hidden="true" />
+            {getPlanEntry(plan).name}
+          </span>
+        ) : null}
       </div>
 
       {onNewDocument ? (
-        <button type="button" className="welcome-cta" onClick={onNewDocument}>
-          <Plus size={16} />
-          New document
-        </button>
+        <div className="welcome-action">
+          <button type="button" className="welcome-cta" onClick={onNewDocument}>
+            <Plus size={16} />
+            {ctaLabel}
+          </button>
+        </div>
       ) : null}
     </div>
   );

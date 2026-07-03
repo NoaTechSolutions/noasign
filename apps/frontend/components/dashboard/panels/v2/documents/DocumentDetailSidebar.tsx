@@ -30,8 +30,22 @@ export function DocumentDetailSidebar({
   onFetchVersions,
 }: DocumentDetailSidebarProps) {
   const [versions, setVersions] = useState<DocumentVersion[] | null>(null);
-  const [versionsLoading, setVersionsLoading] = useState(false);
+  // Starts in the loading state when there is a fetch to run, so the first paint
+  // shows "Loading..." instead of a one-frame flash of the empty state.
+  const [versionsLoading, setVersionsLoading] = useState(Boolean(onFetchVersions));
   const [versionsError, setVersionsError] = useState<string | null>(null);
+
+  // When the sidebar swaps to a different document in place, restart the history
+  // fetch's loading state during render (prev-value compare) rather than setting
+  // it synchronously inside the fetch effect.
+  const [prevDocId, setPrevDocId] = useState(document.id);
+  if (prevDocId !== document.id) {
+    setPrevDocId(document.id);
+    if (onFetchVersions) {
+      setVersionsLoading(true);
+      setVersionsError(null);
+    }
+  }
 
   const availableActions = getAvailableActions(document);
   const actionButtons = availableActions.filter(
@@ -51,8 +65,6 @@ export function DocumentDetailSidebar({
   useEffect(() => {
     if (!onFetchVersions) return;
     let cancelled = false;
-    setVersionsLoading(true);
-    setVersionsError(null);
     onFetchVersions(document.id)
       .then((result) => {
         if (!cancelled) setVersions(result);

@@ -4,6 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DocumentsPanelHeader } from './DocumentsPanelHeader';
 import { DocumentsStats } from './DocumentsStats';
+import { ReceiptStatsPills } from './ReceiptStatsPills';
+import { ReceiptsUsageCard } from '../ReceiptsUsageCard';
+import type { ReceiptStats } from '../ReceiptMetricCards';
 import { DocumentsToolbar } from './DocumentsToolbar';
 import { DocumentsTable } from './DocumentsTable';
 import { DocumentsCards } from './DocumentsCards';
@@ -57,7 +60,24 @@ export interface DocumentsPanelProps {
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
   defaultReceivedBy?: string;
-  // Superadmin flow: MASTER picks any user (all tenants) to borrow templates.
+  // Model C — receipt quota, forwarded to the receipt form's quota/overage hint.
+  receiptQuota?: {
+    remaining: number | null;
+    unlimited: boolean;
+    overagePrice: number;
+  };
+  // Model C — receipt usage for the standalone usage card (X / Y this month).
+  receiptUsage?: {
+    used: number;
+    limit: number;
+    unlimited: boolean;
+    overagePrice: number;
+  };
+  // Receipts-only tenants (contractsEnabled === false) hide the document stats.
+  contractsEnabled?: boolean;
+  // Receipts-only: fetches GET /documents/receipt/stats for the stat pills.
+  onFetchReceiptStats?: () => Promise<ReceiptStats>;
+  // Superadmin flow: SUPERADMIN picks any user (all tenants) to borrow templates.
   selectableUsers?: SelectableUser[];
   onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
   onEditDocument: (docId: string) => void;
@@ -87,7 +107,7 @@ export interface DocumentsPanelProps {
   // Void (2c): mark a SENT receipt VOID with no replacement.
   onVoidReceipt?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
-  isMaster?: boolean;
+  isSuperadmin?: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -113,6 +133,10 @@ export function DocumentsPanel({
   onCreateDraft,
   onCreateReceipt,
   defaultReceivedBy,
+  receiptQuota,
+  receiptUsage,
+  contractsEnabled = true,
+  onFetchReceiptStats,
   selectableUsers,
   onFetchTypesAsUser,
   onEditDocument,
@@ -128,7 +152,7 @@ export function DocumentsPanel({
   onReissueReceipt,
   onVoidReceipt,
   onFetchReceiptPdf,
-  isMaster = false,
+  isSuperadmin = false,
 }: DocumentsPanelProps) {
   // Filters + search seeded from the URL so they survive a reload / can be shared.
   const searchParams = useSearchParams();
@@ -140,9 +164,19 @@ export function DocumentsPanel({
   const [currentPage, setCurrentPage] = useState(1);
   // `doc`/`new` are one-shot navigation params (e.g. from the Overview): open a
   // document's modal or the create modal on mount, then strip them from the URL.
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(
-    () => searchParams.get('doc'),
-  );
+  // Seed the open document from the URL so it survives navigation AND reload.
+  // Client navigation (router.push) populates useSearchParams but not yet
+  // window.location; a full page load of a statically-rendered route is the
+  // reverse (useSearchParams empty at first render, window.location correct).
+  // Reading both covers both paths.
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(() => {
+    const fromRouter = searchParams.get('doc');
+    if (fromRouter) return fromRouter;
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('doc');
+    }
+    return null;
+  });
   const [showCreateModal, setShowCreateModal] = useState(
     () => searchParams.get('new') === '1',
   );
@@ -183,8 +217,27 @@ export function DocumentsPanel({
     }
   });
 
-  // Persist filters + search in the URL via replaceState (NOT the Next router,
-  // so it never re-runs the page's data effects). Empty/"all" values are removed.
+  // Entrance animation for freshly-inserted rows: diff the document ids across
+  // renders and flag only the genuinely new ones. The first populated render is
+  // skipped (prev empty) so the whole table doesn't animate on initial load.
+  const seenDocIdsRef = useRef<Set<string> | null>(null);
+  const [newDocIds, setNewDocIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const currentIds = documents.map((d) => d.id);
+    const prev = seenDocIdsRef.current;
+    seenDocIdsRef.current = new Set(currentIds);
+    if (!prev) return; // first population — don't animate existing rows
+    const added = currentIds.filter((id) => !prev.has(id));
+    if (added.length === 0) return;
+    setNewDocIds(new Set(added));
+    const t = setTimeout(() => setNewDocIds(new Set()), 400);
+    return () => clearTimeout(t);
+  }, [documents]);
+
+  // Persist filters + search + the open document in the URL via replaceState (NOT
+  // the Next router, so it never re-runs the page's data effects). Empty/"all"
+  // values are removed. Keeping `doc` in sync with the open detail lets a reload
+  // reopen the same document (the lazy init above reads it back).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -194,17 +247,42 @@ export function DocumentsPanel({
     sync('search', search.trim());
     sync('status', statusFilter);
     sync('type', typeFilter);
-    // One-shot navigation params consumed by the initial state — strip them so
-    // they don't linger / re-trigger on reload.
-    params.delete('doc');
+    // Mirror the open document so it survives a reload; cleared when the detail
+    // closes (selectedDocId null -> removed).
+    sync('doc', selectedDocId ?? '');
+    // `new` stays one-shot — it opens the create modal on mount, then is stripped.
     params.delete('new');
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
-  }, [search, statusFilter, typeFilter]);
+  }, [search, statusFilter, typeFilter, selectedDocId]);
 
   // Reset to page 1 whenever the filters/search change.
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter, typeFilter]);
+
+  // Receipts-only: fetch the receipt stats for the stat pills.
+  const receiptsOnly = !contractsEnabled;
+  const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  useEffect(() => {
+    if (!receiptsOnly || !onFetchReceiptStats) return;
+    let active = true;
+    const load = async () => {
+      setStatsLoading(true);
+      try {
+        const s = await onFetchReceiptStats();
+        if (active) setReceiptStats(s);
+      } catch {
+        if (active) setReceiptStats(null);
+      } finally {
+        if (active) setStatsLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [receiptsOnly, onFetchReceiptStats]);
 
   const filteredDocuments = useMemo(() => {
     let filtered = documents;
@@ -382,9 +460,27 @@ export function DocumentsPanel({
 
   return (
     <div className="documents-v2-panel">
-      <DocumentsPanelHeader isLoading={isLoading} />
+      <DocumentsPanelHeader
+        isLoading={isLoading}
+        title={receiptsOnly ? 'Receipts' : 'Documents'}
+      />
 
-      <DocumentsStats stats={stats} isLoading={isLoading} />
+      {/* Counters: contract stats, or receipt stats for receipts-only tenants. */}
+      {receiptsOnly ? (
+        <ReceiptStatsPills stats={receiptStats} isLoading={isLoading || statsLoading} />
+      ) : (
+        <DocumentsStats stats={stats} isLoading={isLoading} />
+      )}
+
+      {receiptUsage ? (
+        <ReceiptsUsageCard
+          used={receiptUsage.used}
+          limit={receiptUsage.limit}
+          unlimited={receiptUsage.unlimited}
+          overagePrice={receiptUsage.overagePrice}
+          isLoading={isLoading}
+        />
+      ) : null}
 
       <DocumentsToolbar
         search={search}
@@ -392,6 +488,7 @@ export function DocumentsPanel({
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onCreateNew={() => setShowCreateModal(true)}
+        entity={receiptsOnly ? 'receipt' : 'document'}
       />
 
       {isLoading ? (
@@ -402,6 +499,7 @@ export function DocumentsPanel({
             onSelect={handleSelect}
             onAction={handleAction}
             isLoading
+            receiptsOnly={receiptsOnly}
           />
           <DocumentsCards
             documents={[]}
@@ -409,10 +507,14 @@ export function DocumentsPanel({
             onSelect={handleSelect}
             onAction={handleAction}
             isLoading
+            receiptsOnly={receiptsOnly}
           />
         </>
       ) : showEmpty ? (
-        <DocumentsEmptyState hasFilters={hasFilters} />
+        <DocumentsEmptyState
+          hasFilters={hasFilters}
+          entity={receiptsOnly ? 'receipt' : 'document'}
+        />
       ) : (
         <>
           <DocumentsTable
@@ -425,12 +527,15 @@ export function DocumentsPanel({
             availableTypes={availableTypes}
             onQuickFilterStatus={setStatusFilter}
             onQuickFilterType={setTypeFilter}
+            newIds={newDocIds}
+            receiptsOnly={receiptsOnly}
           />
           <DocumentsCards
             documents={pageItems}
             selectedId={selectedDocId}
             onSelect={handleSelect}
             onAction={handleAction}
+            receiptsOnly={receiptsOnly}
           />
 
           {totalPages > 1 && (
@@ -474,6 +579,7 @@ export function DocumentsPanel({
           onReissueReceipt={onReissueReceipt}
           autoOpenReissue={reissueOnOpen}
           onFetchReceiptPdf={onFetchReceiptPdf}
+          isSuperadmin={isSuperadmin}
         />
       ) : null}
 
@@ -482,13 +588,14 @@ export function DocumentsPanel({
           documentTypes={documentTypes}
           customers={customers}
           sessionId={sessionId}
-          isMaster={isMaster}
+          isSuperadmin={isSuperadmin}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={onFetchTypesAsUser}
           onClose={() => setShowCreateModal(false)}
           onCreate={onCreateDraft}
           onCreateReceipt={onCreateReceipt}
           defaultReceivedBy={defaultReceivedBy}
+          receiptQuota={receiptQuota}
         />
       ) : null}
 

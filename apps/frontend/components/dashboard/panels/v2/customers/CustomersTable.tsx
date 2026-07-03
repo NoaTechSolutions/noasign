@@ -6,7 +6,7 @@ import type { Customer } from './types';
 
 interface CustomersTableProps {
   customers: Customer[];
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   loading?: boolean;
   onView: (customer: Customer) => void;
@@ -146,7 +146,7 @@ export function CustomersTable({
   typeFilterActive = false,
   statusFilterActive = false,
 }: CustomersTableProps) {
-  const showOwner = role === 'master' || role === 'admin';
+  const showOwner = role === 'superadmin';
 
   return (
     <div className="customers-table-wrapper">
@@ -178,8 +178,8 @@ export function CustomersTable({
                     { value: 'all', label: 'All' },
                     { value: 'ACTIVE', label: 'Active' },
                     { value: 'INACTIVE', label: 'Inactive' },
-                    // Deleted is MASTER-only (matches the toolbar Status filter).
-                    ...(role === 'master' ? [{ value: 'DELETED', label: 'Deleted' }] : []),
+                    // Deleted is SUPERADMIN-only (matches the toolbar Status filter).
+                    ...(role === 'superadmin' ? [{ value: 'DELETED', label: 'Deleted' }] : []),
                   ]}
                   onSelect={(v) => onQuickFilterStatus(v as 'all' | 'ACTIVE' | 'INACTIVE' | 'DELETED')}
                 />

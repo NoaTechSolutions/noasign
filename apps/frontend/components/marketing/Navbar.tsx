@@ -8,7 +8,7 @@ import { APP_URL } from "../../lib/app-url";
 import { openChat } from "../../lib/open-chat";
 
 export function Navbar() {
-  const { lang, setLang } = useLang();
+  const { lang } = useLang();
   const [scrolled, setScrolled] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
   const [activeLink, setActiveLink] = useState("");

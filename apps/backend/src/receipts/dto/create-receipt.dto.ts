@@ -73,7 +73,7 @@ export class CreateReceiptDto {
   @IsUUID()
   customerId?: string;
 
-  // Superadmin flow: a MASTER may borrow another user's design by passing that
+  // Superadmin flow: a SUPERADMIN may borrow another user's design by passing that
   // user's ReceiptTemplate id. The document still belongs to the creator; only
   // the PDF/template is borrowed. Ignored for non-master callers.
   @IsOptional()

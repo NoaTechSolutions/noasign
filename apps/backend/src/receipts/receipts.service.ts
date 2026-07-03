@@ -8,6 +8,7 @@ import {
   DocumentFileType,
   DocumentStatus,
   Prisma,
+  ReceiptTemplate,
   StorageProvider,
 } from '@prisma/client';
 import type { Response } from 'express';
@@ -90,6 +91,38 @@ export class ReceiptsService {
     }
   }
 
+  private getBillingPeriod(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  /**
+   * Model C — receipt billing fields to stamp on a receipt's FIRST successful
+   * send. Receipt quota is a per-tenant monthly pool. MASTERs and
+   * receiptsUnlimited tenants never hit overage. Reissues never count (callers
+   * guard on supersedesId before calling this), so this only resolves the
+   * billingPeriod + whether the receipt lands in overage.
+   */
+  private async getReceiptBillingState(
+    companyProfileId: string,
+    isSuperadmin: boolean,
+  ): Promise<{ billingPeriod: string; isReceiptOverage: boolean }> {
+    const billingPeriod = this.getBillingPeriod();
+    const profile = await this.prisma.companyProfile.findUnique({
+      where: { id: companyProfileId },
+      select: { receiptsUnlimited: true, monthlyReceiptLimit: true },
+    });
+    const receiptsUnlimited = isSuperadmin || (profile?.receiptsUnlimited ?? false);
+    if (receiptsUnlimited) return { billingPeriod, isReceiptOverage: false };
+    const used = await this.prisma.document.count({
+      where: { companyProfileId, countedAsReceipt: true, billingPeriod },
+    });
+    return {
+      billingPeriod,
+      isReceiptOverage: used >= (profile?.monthlyReceiptLimit ?? 0),
+    };
+  }
+
   /**
    * Generate a receipt PDF from the tenant's ReceiptTemplate, persist it as a
    * PAYMENT_RECEIPT Document, and (optionally) email it. Returns the document +
@@ -121,12 +154,12 @@ export class ReceiptsService {
     if (!formDefinition) {
       throw new NotFoundException('No active receipt form definition');
     }
-    // Superadmin flow: a MASTER may borrow another user's design by passing that
+    // Superadmin flow: a SUPERADMIN may borrow another user's design by passing that
     // user's receiptTemplateId (any tenant). The document stays the creator's
     // (userId + the per-tenant REC- counter below both use the creator). Other
     // callers always get their own company's template.
-    let template;
-    if (dto.receiptTemplateId && user.role === 'MASTER') {
+    let template: ReceiptTemplate | null = null;
+    if (dto.receiptTemplateId && user.role === 'SUPERADMIN') {
       template = await this.prisma.receiptTemplate.findFirst({
         where: { id: dto.receiptTemplateId, isActive: true },
       });
@@ -256,6 +289,14 @@ export class ReceiptsService {
         pdfBuffer,
       });
 
+      // Model C — count the receipt toward the tenant's monthly quota on its
+      // first successful send. Reissues never count (decision C).
+      const billing = opts?.supersedesId
+        ? null
+        : await this.getReceiptBillingState(
+            companyProfileId,
+            user.role === 'SUPERADMIN',
+          );
       const sent = await this.prisma.document.update({
         where: { id: document.id },
         data: {
@@ -267,6 +308,13 @@ export class ReceiptsService {
           lastAttemptAt: new Date(),
           providerEmailId: providerEmailId || null,
           sendError: null,
+          ...(billing
+            ? {
+                countedAsReceipt: true,
+                billingPeriod: billing.billingPeriod,
+                isReceiptOverage: billing.isReceiptOverage,
+              }
+            : {}),
         },
       });
       return { document: sent, receiptNumber, pdf: pdfBuffer };
@@ -518,6 +566,29 @@ export class ReceiptsService {
         companyName: document.companyProfile?.companyName ?? 'NTSsign',
         pdfBuffer,
       });
+      // Model C — count on the FIRST successful send (covers a DRAFT sent from
+      // the kebab, and a SEND_FAILED first send that now succeeds). Guards keep
+      // it from double-counting (countedAsReceipt) or counting a reissue.
+      let receiptBilling: Prisma.DocumentUpdateInput | null = null;
+      if (
+        !document.countedAsReceipt &&
+        !document.supersedesId &&
+        document.companyProfileId
+      ) {
+        const owner = await this.prisma.user.findUnique({
+          where: { id: document.userId },
+          select: { role: true },
+        });
+        const state = await this.getReceiptBillingState(
+          document.companyProfileId,
+          owner?.role === 'SUPERADMIN',
+        );
+        receiptBilling = {
+          countedAsReceipt: true,
+          billingPeriod: state.billingPeriod,
+          isReceiptOverage: state.isReceiptOverage,
+        };
+      }
       const sent = await this.prisma.document.update({
         where: { id: document.id },
         data: {
@@ -528,6 +599,7 @@ export class ReceiptsService {
           lastAttemptAt: new Date(),
           providerEmailId: providerEmailId || null,
           sendError: null,
+          ...(receiptBilling ?? {}),
         },
       });
       return { document: sent };
@@ -768,5 +840,109 @@ export class ReceiptsService {
       if (!Number.isNaN(n) && n > max) max = n;
     }
     return `${prefix}${String(max + 1).padStart(6, '0')}`;
+  }
+
+  /**
+   * Receipt dashboard stats for a tenant: $ issued in the current billing period
+   * + counts by the REAL receipt statuses (DRAFT / SENT / SEND_FAILED / CANCELLED
+   * and the derived VOID = supersededAt set). Contracts' signature states
+   * (VIEWED/SIGNED/COMPLETED) never apply to receipts. Computed in memory over
+   * the tenant's receipts — fine at current volume.
+   */
+  async getReceiptStats(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { companyProfileId: true },
+    });
+    if (!user?.companyProfileId) {
+      throw new NotFoundException('Company profile not found');
+    }
+
+    const now = new Date();
+    const billingPeriod = `${now.getFullYear()}-${String(
+      now.getMonth() + 1,
+    ).padStart(2, '0')}`;
+
+    const receipts = await this.prisma.document.findMany({
+      where: {
+        companyProfileId: user.companyProfileId,
+        documentType: { code: RECEIPT_TYPE_CODE },
+      },
+      select: {
+        status: true,
+        supersededAt: true,
+        countedAsReceipt: true,
+        billingPeriod: true,
+        data: { select: { dataJson: true } },
+      },
+    });
+
+    let draft = 0;
+    let sent = 0;
+    let sendFailed = 0;
+    let cancelled = 0;
+    let voided = 0;
+    let amountThisMonth = 0;
+    let receiptsThisMonth = 0;
+
+    for (const r of receipts) {
+      // VOID is derived (supersededAt set); the internal status stays SENT.
+      if (r.supersededAt) {
+        voided++;
+      } else if (r.status === DocumentStatus.DRAFT) {
+        draft++;
+      } else if (r.status === DocumentStatus.SENT) {
+        sent++;
+      } else if (r.status === DocumentStatus.SEND_FAILED) {
+        sendFailed++;
+      } else if (r.status === DocumentStatus.CANCELLED) {
+        cancelled++;
+      }
+
+      // $ this month = amount of receipts counted toward billing this period.
+      if (r.countedAsReceipt && r.billingPeriod === billingPeriod) {
+        receiptsThisMonth++;
+        const dataJson = (r.data?.dataJson ?? {}) as Record<string, unknown>;
+        amountThisMonth += this.readNum(dataJson.amount, 0);
+      }
+    }
+
+    // Top 5 clients by receipt count (all-time). Grouped in the DB, then joined to
+    // the customer name. Receipts without a customer are excluded.
+    const grouped = await this.prisma.document.groupBy({
+      by: ['customerId'],
+      where: {
+        companyProfileId: user.companyProfileId,
+        documentType: { code: RECEIPT_TYPE_CODE },
+        customerId: { not: null },
+      },
+      _count: { customerId: true },
+      orderBy: { _count: { customerId: 'desc' } },
+      take: 5,
+    });
+    const topCustomerIds = grouped
+      .map((g) => g.customerId)
+      .filter((id): id is string => !!id);
+    const topCustomers = topCustomerIds.length
+      ? await this.prisma.customer.findMany({
+          where: { id: { in: topCustomerIds } },
+          select: { id: true, fullName: true },
+        })
+      : [];
+    const nameById = new Map(topCustomers.map((c) => [c.id, c.fullName]));
+    const topClients = grouped.map((g) => ({
+      name: (g.customerId && nameById.get(g.customerId)) || 'Unknown client',
+      count: g._count.customerId,
+    }));
+
+    return {
+      billingPeriod,
+      receiptsThisMonth,
+      // "Total issued" = active (non-void) sent receipts.
+      totalIssued: sent,
+      amountThisMonth,
+      byStatus: { draft, sent, sendFailed, cancelled, void: voided },
+      topClients,
+    };
   }
 }

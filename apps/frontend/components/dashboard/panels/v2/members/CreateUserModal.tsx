@@ -15,7 +15,7 @@ export function CreateUserModal({ onSubmit, onClose }: CreateUserModalProps) {
   useBlockScroll();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'MASTER' | 'USER'>('USER');
+  const [role, setRole] = useState<'SUPERADMIN' | 'USER'>('USER');
   const [accountType, setAccountType] = useState<'INDIVIDUAL' | 'BUSINESS'>('INDIVIDUAL');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -98,9 +98,9 @@ export function CreateUserModal({ onSubmit, onClose }: CreateUserModalProps) {
             <div className="form-grid">
               <div className="form-group">
                 <label htmlFor="role">Role</label>
-                <select id="role" value={role} onChange={(e) => setRole(e.target.value as 'MASTER' | 'USER')} className="form-select">
+                <select id="role" value={role} onChange={(e) => setRole(e.target.value as 'SUPERADMIN' | 'USER')} className="form-select">
                   <option value="USER">User</option>
-                  <option value="MASTER">Master</option>
+                  <option value="SUPERADMIN">Master</option>
                 </select>
               </div>
 

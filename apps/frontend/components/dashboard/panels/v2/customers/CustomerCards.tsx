@@ -6,7 +6,7 @@ import type { Customer } from './types';
 
 interface CustomerCardsProps {
   customers: Customer[];
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   loading?: boolean;
   onView: (customer: Customer) => void;

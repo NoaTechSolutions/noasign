@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import './profile-panel-v2.css';
 import { ProfileHeaderCard } from './ProfileHeaderCard';
 import { CompanyInformationSection } from './CompanyInformationSection';
@@ -67,6 +67,13 @@ export interface ProfilePanelProps {
   onNavigate?: (panel: string) => void;
 }
 
+// Copies one key from `source` into a Partial of the same shape. Binding the key
+// to a single type parameter K keeps the key↔value correlation that TypeScript
+// otherwise loses when indexing with a `keyof T` union, so no `any` is needed.
+function assignChangedKey<T, K extends keyof T>(target: Partial<T>, source: T, key: K): void {
+  target[key] = source[key];
+}
+
 export function ProfilePanel({
   user,
   companyProfile,
@@ -75,12 +82,29 @@ export function ProfilePanel({
   stats,
   onNavigate,
 }: ProfilePanelProps) {
-  const [draftUser, setDraftUser] = useState<User | null>(null);
-  const [draftCompany, setDraftCompany] = useState<CompanyProfile | null>(null);
+  const [draftUser, setDraftUser] = useState<User | null>(() =>
+    user ? { ...user } : null,
+  );
+  const [draftCompany, setDraftCompany] = useState<CompanyProfile | null>(() =>
+    companyProfile ? { ...companyProfile } : null,
+  );
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
 
-  useEffect(() => { if (user) setDraftUser({ ...user }); }, [user]);
-  useEffect(() => { if (companyProfile) setDraftCompany({ ...companyProfile }); }, [companyProfile]);
+  // Refresh the edit drafts when the source props change — derived during
+  // render (React's "you might not need an effect") instead of in an effect, to
+  // drop the cascading render. Equivalent to the old [user]/[companyProfile]
+  // effects: a new reference refreshes its draft; a null prop leaves the last
+  // draft intact.
+  const [syncedUser, setSyncedUser] = useState(user);
+  if (user !== syncedUser) {
+    setSyncedUser(user);
+    if (user) setDraftUser({ ...user });
+  }
+  const [syncedCompany, setSyncedCompany] = useState(companyProfile);
+  if (companyProfile !== syncedCompany) {
+    setSyncedCompany(companyProfile);
+    if (companyProfile) setDraftCompany({ ...companyProfile });
+  }
 
   const openGroup = useCallback((group: string) => {
     if (user) setDraftUser({ ...user });
@@ -120,12 +144,12 @@ export function ProfilePanel({
 
     if (draftCompany && companyProfile) {
       (Object.keys(draftCompany) as (keyof CompanyProfile)[]).forEach((k) => {
-        if (draftCompany[k] !== companyProfile[k]) companyChanges[k] = draftCompany[k] as any;
+        if (draftCompany[k] !== companyProfile[k]) assignChangedKey(companyChanges, draftCompany, k);
       });
     }
     if (draftUser && user) {
       (Object.keys(draftUser) as (keyof User)[]).forEach((k) => {
-        if (draftUser[k] !== user[k]) userChanges[k] = draftUser[k] as any;
+        if (draftUser[k] !== user[k]) assignChangedKey(userChanges, draftUser, k);
       });
     }
     if (Object.keys(companyChanges).length > 0 || Object.keys(userChanges).length > 0) {

@@ -17,6 +17,11 @@ interface DocumentsTableProps {
   availableTypes?: string[];
   onQuickFilterStatus?: (value: StatusFilter) => void;
   onQuickFilterType?: (value: string) => void;
+  // Ids of rows just inserted — they play the entrance animation once.
+  newIds?: Set<string>;
+  // Receipts-only tenants (contractsEnabled === false): col 1 becomes "Receipt #"
+  // (number only) and the redundant "Type" column becomes "Recipient".
+  receiptsOnly?: boolean;
 }
 
 // Skeleton row matching the 5 columns so there's no layout jump.
@@ -117,6 +122,8 @@ export function DocumentsTable({
   availableTypes = [],
   onQuickFilterStatus,
   onQuickFilterType,
+  newIds,
+  receiptsOnly = false,
 }: DocumentsTableProps) {
   const statusOptions = STATUS_FILTER_OPTIONS.map((o) => ({
     value: o.value,
@@ -132,9 +139,13 @@ export function DocumentsTable({
       <table className="documents-v2-table">
         <thead>
           <tr>
-            <th>Document</th>
+            <th>{receiptsOnly ? 'Receipt #' : 'Document'}</th>
             <th>
-              {onQuickFilterType ? (
+              {receiptsOnly ? (
+                // Receipts have a single type — the type quick-filter is moot.
+                // The column shows the recipient instead.
+                'Recipient'
+              ) : onQuickFilterType ? (
                 <QuickFilterTh
                   label="Type"
                   options={typeOptions}
@@ -171,6 +182,8 @@ export function DocumentsTable({
                   selected={doc.id === selectedId}
                   onSelect={onSelect}
                   onAction={onAction}
+                  isNew={newIds?.has(doc.id) ?? false}
+                  receiptsOnly={receiptsOnly}
                 />
               ))}
         </tbody>

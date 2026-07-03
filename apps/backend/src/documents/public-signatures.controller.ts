@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Redirect, Req, Res } from '@nestjs/common';
+import { Controller, Get, Param, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { DocumentsService } from './documents.service';
 

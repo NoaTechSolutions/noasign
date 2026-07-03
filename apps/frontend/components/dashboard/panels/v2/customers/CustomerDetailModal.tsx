@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User as UserIcon, MapPin, Building2, Phone, Mail, Pencil } from 'lucide-react';
+import { User as UserIcon, MapPin, Building2, Pencil } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
@@ -13,7 +13,7 @@ import { splitFullName, combineFullName } from './types';
 
 interface CustomerDetailModalProps {
   customer: Customer;
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   onUpdateCustomer: (id: string, data: CustomerFormData) => Promise<Customer>;
   onDelete: () => void;
@@ -94,7 +94,7 @@ export function CustomerDetailModal({
   const isBusiness = current.customerType === 'BUSINESS';
   const displayName = isBusiness ? (current.business?.businessName || current.fullName) : current.fullName;
 
-  const canAssign = role === 'master';
+  const canAssign = role === 'superadmin';
 
   const openGroup = (key: string) => {
     setDraft(seedDraft(current));

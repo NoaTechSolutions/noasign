@@ -39,80 +39,89 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  background: var(--surface-raised);
-  border: 0.5px solid var(--tx-border);
-  border-radius: 14px;
-  padding: 20px 22px;
+  gap: 20px;
+  /* LIGHT: soft pastel gradient + subtle sky border. */
+  background: linear-gradient(120deg, #eaf1ff 0%, #e3f5ff 100%);
+  border: 1px solid rgba(5, 165, 255, 0.18);
+  border-radius: 16px;
+  padding: 26px 30px;
+}
+:root[data-theme='dark'] .welcome-card {
+  /* DARK: brand gradient with transparency. */
+  background: linear-gradient(120deg, rgba(2, 41, 119, 0.85) 0%, rgba(5, 165, 255, 0.75) 100%);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .welcome-content {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
-.welcome-date {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
+/* Greeting — navy in light, near-white in dark. */
 .welcome-greeting {
-  font-size: 22px;
+  font-size: 14px;
   font-weight: 500;
+  color: #022977;
+}
+:root[data-theme='dark'] .welcome-greeting { color: rgba(255, 255, 255, 0.9); }
+
+/* Account name — the headline. Long company/person names wrap to a 2nd line and
+   show in FULL; only a truly huge name clamps with an ellipsis on line 2.
+   overflow-wrap:break-word stops a long unbroken token from overflowing (and
+   being clipped mid-word) on narrow phones. Applies in every breakpoint. */
+.welcome-name {
+  font-size: 26px;
+  font-weight: 700;
   margin: 0;
-  line-height: 1.25;
-  color: var(--text-heading);
+  line-height: 1.2;
+  color: #022977;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
 }
+:root[data-theme='dark'] .welcome-name { color: #ffffff; }
 
-.welcome-user-name {
-  color: var(--text-heading);
-}
-
-.welcome-cta {
+/* Plan badge — white pill + amber crown, in both themes. */
+.welcome-plan-badge {
+  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 14px;
-  border: none;
-  border-radius: 10px;
-  background: var(--brand);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  flex-shrink: 0;
+  margin-top: 2px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #022977;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(2, 41, 119, 0.14);
 }
-.welcome-cta:hover {
-  opacity: 0.92;
-}
+.welcome-plan-crown { color: #ff9900; flex-shrink: 0; }
 
-.welcome-company-info {
-  display: flex;
+.welcome-action { flex-shrink: 0; }
+
+/* CTA — solid sky in light, white (navy text) in dark. */
+.welcome-cta {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
+  padding: 11px 20px;
+  border: none;
+  border-radius: 10px;
+  background: #05a5ff;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
-
-.welcome-company-name {
-  font-weight: 500;
-}
-
-.welcome-separator {
-  opacity: 0.5;
-}
-
-.welcome-plan {
-  color: var(--brand);
-  font-weight: 500;
-}
+.welcome-cta:hover { background: #048fdd; }
+:root[data-theme='dark'] .welcome-cta { background: #ffffff; color: #022977; }
+:root[data-theme='dark'] .welcome-cta:hover { background: #eaf1ff; }
 
 /* Loading state */
 .welcome-card.loading {
@@ -130,47 +139,38 @@
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
-.welcome-skeleton-title {
-  width: 60%;
-  height: 28px;
-}
-
-.welcome-skeleton-subtitle {
-  width: 40%;
-}
-
-.welcome-skeleton-date {
-  width: 30%;
-  height: 16px;
-}
+.welcome-skeleton-title { width: 60%; height: 28px; }
+.welcome-skeleton-subtitle { width: 40%; }
+.welcome-skeleton-date { width: 30%; height: 16px; }
 
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
 
-@media (max-width: 1024px) {
+/* Responsive: stack the button below the text on small screens. */
+@media (max-width: 640px) {
   .welcome-card {
-    padding: 28px;
+    position: relative; /* anchor for the absolute plan badge */
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 22px;
   }
-
-  .welcome-greeting {
-    font-size: 22px;
+  /* Leave room on the right so the name never underlaps the corner badge. */
+  .welcome-content { padding-right: 76px; }
+  .welcome-name { font-size: 22px; }
+  /* Plan badge → smaller, pinned to the top-right corner; name only (no "plan"). */
+  .welcome-plan-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    margin-top: 0;
+    padding: 3px 9px;
+    font-size: 11px;
   }
-}
-
-@media (max-width: 768px) {
-  .welcome-card {
-    padding: 24px;
-  }
-
-  .welcome-greeting {
-    font-size: 20px;
-  }
-
-  .welcome-company-info {
-    flex-wrap: wrap;
-  }
+  .welcome-action { width: 100%; }
+  .welcome-cta { width: 100%; justify-content: center; }
 }
 
 /* ============================================
@@ -366,6 +366,13 @@
   gap: 14px;
 }
 
+/* Receipts have 4 statuses → a clean 2×2 grid (vs the contract card's 3-up).
+   Scoped so the shared contract StatusBreakdown is untouched. Higher specificity
+   than the base + media rules, so it holds 2 columns at all widths. */
+.status-breakdown--receipts .status-breakdown-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .status-pill {
   background: var(--bg-page);
   border: 0.5px solid var(--border-soft);
@@ -431,13 +438,13 @@
   color: var(--text-label);
 }
 
-/* Status colors */
-.status-draft .status-pill-bar { background: #94a3b8; }
-.status-sent .status-pill-bar { background: #3b82f6; }
-.status-viewed .status-pill-bar { background: #8b5cf6; }
-.status-signed .status-pill-bar { background: #f59e0b; }
-.status-completed .status-pill-bar { background: #22c55e; }
-.status-cancelled .status-pill-bar { background: #ef4444; }
+/* Status colors — from the SINGLE SOURCE (globals.css --status-*). */
+.status-draft .status-pill-bar { background: var(--status-draft); }
+.status-sent .status-pill-bar { background: var(--status-sent); }
+.status-viewed .status-pill-bar { background: var(--status-viewed); }
+.status-signed .status-pill-bar { background: var(--status-signed); }
+.status-completed .status-pill-bar { background: var(--status-completed); }
+.status-cancelled .status-pill-bar { background: var(--status-cancelled); }
 
 /* Loading state */
 .status-breakdown.loading {
@@ -608,6 +615,30 @@
   color: var(--text-heading);
 }
 
+/* Recent table — columns per entity. Documents: Name · Type · Date · Status ·
+   View (5). Receipts: Name · Status · Date · View (4) — Status earlier on purpose. */
+.recent-table--document .recent-documents-table-header,
+.recent-table--document .recent-doc-row {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.recent-table--receipt .recent-documents-table-header,
+.recent-table--receipt .recent-doc-row {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+.recent-doc-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.recent-doc-type { font-size: 13px; color: var(--text-body); }
+/* View button aligned to the right edge of its column (header label + cell). */
+.recent-col--view { display: flex; justify-content: flex-end; }
+
 .doc-status-badge {
   padding: 4px 10px;
   border-radius: 12px;
@@ -618,39 +649,53 @@
   letter-spacing: 0.03em;
 }
 
+/* Status colours — ALL from the SINGLE SOURCE (globals.css --status-*), so the
+   Recent badges, the status strip and the Documents module never drift. Draft =
+   navy, Signed = violet, etc. (bg = soft tint, fg = state colour). */
 .doc-status-draft {
-  background: rgba(148, 163, 184, 0.15);
-  color: #64748b;
+  background: var(--status-draft-bg);
+  color: var(--status-draft);
 }
 
 .doc-status-sent {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  background: var(--status-sent-bg);
+  color: var(--status-sent);
 }
 
 .doc-status-viewed {
-  background: rgba(139, 92, 246, 0.15);
-  color: #8b5cf6;
+  background: var(--status-viewed-bg);
+  color: var(--status-viewed);
 }
 
 .doc-status-signed {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  background: var(--status-signed-bg);
+  color: var(--status-signed);
 }
 
 .doc-status-completed {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  background: var(--status-completed-bg);
+  color: var(--status-completed);
 }
 
 .doc-status-cancelled {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
+}
+
+.doc-status-failed {
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
+}
+
+.doc-status-void {
+  background: var(--status-void-bg);
+  color: var(--status-void);
 }
 
 .doc-status-default {
-  background: rgba(100, 116, 139, 0.15);
-  color: #64748b;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
 }
 
 .recent-doc-email {
@@ -691,6 +736,73 @@
 .recent-documents-mobile {
   display: none;
 }
+
+/* Compact mobile row (icon · name / status·date · chevron). Only rendered on
+   mobile — the container is display:none on desktop, so desktop is untouched. */
+.recent-doc-mobile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 0.5px solid var(--border-soft);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+.recent-doc-mobile-row:last-child { border-bottom: none; }
+.recent-doc-mobile-row:active { background: var(--bg-hover); }
+.recent-doc-mobile-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent);
+}
+.recent-doc-mobile-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.recent-doc-mobile-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-doc-mobile-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  min-width: 0;
+}
+/* The row status uses the shared .doc-status-badge / .doc-status-{state} classes
+   (same single palette as the desktop table + the Documents module) — just sized
+   down to fit the compact row. */
+.recent-doc-mobile-row .doc-status-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  font-size: 10px;
+}
+.recent-doc-mobile-date {
+  color: rgba(2, 41, 119, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:root[data-theme='dark'] .recent-doc-mobile-date { color: rgba(226, 232, 240, 0.6); }
+.recent-doc-mobile-chevron { flex-shrink: 0; color: var(--text-muted); }
 
 /* Empty state */
 .recent-documents-empty {
@@ -743,7 +855,7 @@
   .recent-documents-mobile {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0; /* rows carry their own 0.5px separators */
   }
 
   .recent-doc-card {
@@ -887,26 +999,6 @@
 }
 
 /* ============================================
-   TWO-COLUMN LAYOUT (main + side) — TASK 4
-   ============================================ */
-.overview-columns {
-  display: grid;
-  /* minmax(0, ...) so the 1fr tracks can shrink below their content's
-     min-content size — otherwise long doc numbers / emails inside push the
-     column past the available width and overflow the page. */
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
-}
-.overview-columns__main,
-.overview-columns__side {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-
-/* ============================================
    NEEDS ATTENTION — TASK 3
    ============================================ */
 .needs-attention {
@@ -1016,11 +1108,6 @@
 /* ============================================
    RESPONSIVE — TASK 4
    ============================================ */
-/* Stack the bottom two columns a bit earlier (≤1180) so a small laptop doesn't
-   cram the recent-docs table + side cards into halves that feel too tight. */
-@media (max-width: 1180px) {
-  .overview-columns { grid-template-columns: minmax(0, 1fr); }
-}
 /* Tablet — keep 4 in a row (base), just tighten so they fit comfortably. */
 @media (min-width: 768px) and (max-width: 1023px) {
   .metric-cards { gap: 10px; }
@@ -1035,4 +1122,299 @@
   /* Header stacks: text block on top, CTA full width below. */
   .welcome-card { flex-direction: column; align-items: stretch; gap: 14px; }
   .welcome-cta { width: 100%; justify-content: center; }
+}
+
+/* ============================================
+   METRIC CARDS — 2-up "duo" variant (Overview)
+   Two prominent cards (redundant metrics removed) instead of the 4-up grid.
+   Appended after the base .metric-cards rules so it wins on source order.
+   ============================================ */
+.metric-cards--duo {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.metric-cards--duo .metric-card {
+  padding: 24px;
+  min-height: 132px;
+  gap: 10px;
+}
+.metric-cards--duo .metric-card__label {
+  font-size: 13px;
+}
+.metric-cards--duo .metric-card__value {
+  font-size: 34px;
+}
+
+/* Tablet — stay 2-up, a touch tighter. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .metric-cards--duo { gap: 16px; }
+  .metric-cards--duo .metric-card { padding: 20px; }
+  .metric-cards--duo .metric-card__value { font-size: 30px; }
+}
+
+/* Mobile — stack the two big cards full-width. */
+@media (max-width: 767px) {
+  .metric-cards--duo { grid-template-columns: 1fr; gap: 14px; }
+  .metric-cards--duo .metric-card { padding: 20px; min-height: 116px; }
+  .metric-cards--duo .metric-card__value { font-size: 30px; }
+}
+
+/* ============================================================
+   OVERVIEW REDESIGN — Row 2 (volume | highlight) + Row 3 (status strip)
+   Shared skeleton for the document and receipt overviews.
+   ============================================================ */
+
+/* Row 2 — two cards side by side; stack on mobile. */
+.overview-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* Base card for the row-2 cards. */
+.ov-card {
+  background: var(--surface-card, var(--bg-card));
+  border: 0.5px solid var(--tx-border);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 156px;
+}
+.ov-card__label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ov-card__value {
+  font-size: 38px;
+  font-weight: 600;
+  color: var(--text-heading);
+  line-height: 1.05;
+}
+.ov-card__value-sub { font-size: 20px; color: var(--text-muted); font-weight: 400; }
+.ov-card__value-strike { text-decoration: line-through; opacity: 0.75; }
+/* Text prompt in place of a "$0" figure (no usage yet this month). */
+.ov-card__value--prompt { font-size: 22px; font-weight: 600; }
+.ov-card__foot { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+/* Compact foot shown only on phone (the verbose foot is hidden there). */
+.ov-card__foot-compact { display: none; font-size: 11px; color: var(--text-muted); }
+
+/* Quota progress bar (limited document plans only). */
+.ov-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+.ov-bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand-accent);
+  transition: width 0.3s ease;
+}
+.ov-bar__fill--warning { background: #f59e0b; }
+.ov-bar__fill--danger { background: #ef4444; }
+
+/* Foot row: "X left" on the left, "Need more?" link on the right. */
+.ov-volume__foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+}
+.ov-need-more {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.ov-need-more:hover { color: var(--brand-accent-hover); text-decoration: underline; }
+
+/* Green "highlight" (value) card — savings / amount. */
+.ov-highlight {
+  background: var(--success-bg);
+  border-color: var(--success-border);
+}
+/* Explicit greens (not the --success-text token, which renders too pale on the
+   light success surface) — guaranteed contrast in both themes. */
+.ov-highlight .ov-card__label,
+.ov-highlight .ov-card__value,
+.ov-highlight .ov-card__foot { color: #0b6e4f; }
+:root[data-theme='dark'] .ov-highlight .ov-card__label,
+:root[data-theme='dark'] .ov-highlight .ov-card__value,
+:root[data-theme='dark'] .ov-highlight .ov-card__foot { color: #6ee7b7; }
+.ov-highlight .ov-card__foot { opacity: 0.9; }
+
+/* Receipt summary card — volume this month (top) + $ amount this month (bottom,
+   green), split by a thin divider. */
+.ov-receipt-summary { justify-content: center; gap: 0; }
+.ov-summary-block { display: flex; flex-direction: column; gap: 8px; }
+.ov-summary-divider { height: 1px; background: var(--tx-border); margin: 16px 0; }
+.ov-summary-amount { color: #0b6e4f; }
+:root[data-theme='dark'] .ov-summary-amount { color: #6ee7b7; }
+
+/* Top clients by receipts. */
+.ov-top-clients { gap: 14px; }
+.ov-trophy { color: #ff9900; }
+.ov-top-clients__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.ov-top-clients__row { display: flex; align-items: center; gap: 12px; }
+.ov-top-clients__pos {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent);
+}
+.ov-top-clients__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-top-clients__count { flex-shrink: 0; font-size: 15px; font-weight: 700; color: var(--brand-accent); }
+.ov-top-clients__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 96px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Row 3 — compact status strip (mini-cards; icon + big number + small label). */
+.status-strip {
+  background: var(--surface-card, var(--bg-card));
+  border: 0.5px solid var(--tx-border);
+  border-radius: 14px;
+  padding: 20px 22px;
+}
+.status-strip__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0 0 16px;
+}
+.status-strip__grid {
+  display: grid;
+  gap: 12px;
+}
+.status-strip__grid--documents { grid-template-columns: repeat(4, 1fr); }
+.status-strip__grid--receipts { grid-template-columns: repeat(4, 1fr); }
+.status-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 7px;
+  padding: 14px 10px;
+  border: 0.5px solid var(--border-soft, var(--tx-border));
+  border-radius: 10px;
+  /* Tint + accent driven by the per-status tone class (below). */
+  background: var(--mini-bg, transparent);
+}
+.status-mini__icon { color: var(--mini-color, var(--text-label)); display: inline-flex; }
+.status-mini__count {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mini-color, var(--text-heading));
+  line-height: 1;
+}
+.status-mini__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  /* Navy with opacity in light; softened light tone in dark — not a generic grey. */
+  color: rgba(2, 41, 119, 0.82);
+}
+:root[data-theme='dark'] .status-mini__label { color: rgba(226, 232, 240, 0.82); }
+
+/* Per-STATE tones — very light tint bg, icon + number in the state colour, ALL
+   from the SINGLE SOURCE (globals.css --status-*). Theme is handled by the vars,
+   so there is no per-theme override here. Same palette as the badges. */
+.status-mini--completed { --mini-color: var(--status-completed); --mini-bg: var(--status-completed-bg); }
+.status-mini--draft     { --mini-color: var(--status-draft);     --mini-bg: var(--status-draft-bg); }
+.status-mini--sent      { --mini-color: var(--status-sent);      --mini-bg: var(--status-sent-bg); }
+.status-mini--viewed    { --mini-color: var(--status-viewed);    --mini-bg: var(--status-viewed-bg); }
+.status-mini--signed    { --mini-color: var(--status-signed);    --mini-bg: var(--status-signed-bg); }
+.status-mini--cancelled { --mini-color: var(--status-cancelled); --mini-bg: var(--status-cancelled-bg); }
+.status-mini--failed    { --mini-color: var(--status-failed);    --mini-bg: var(--status-failed-bg); }
+
+/* Responsive: stack row-2 cards; reflow the status strip. */
+@media (max-width: 1023px) {
+  /* Tablet: Document status goes to ONE row of 4 (was 2×2), mildly compacted so
+     four fit across tablet widths. Phones get the tighter sizing below (≤560).
+     Receipts strip stays 2-up. */
+  .status-strip__grid--documents {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .status-strip__grid--documents .status-mini { padding: 12px 8px; }
+  .status-strip__grid--receipts { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 767px) {
+  /* Receipts overview stays stacked; the DOCUMENTS overview goes 2-up. */
+  .overview-row2 { grid-template-columns: 1fr; gap: 14px; }
+  .ov-card { padding: 20px; min-height: 132px; }
+  .ov-card__value { font-size: 32px; }
+
+  /* Documents Row-2: the two cards side by side, compacted so they fit a phone. */
+  .overview-row2--document { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .overview-row2--document .ov-card { padding: 14px; min-height: 0; gap: 8px; }
+  .overview-row2--document .ov-card__label { font-size: 10.5px; letter-spacing: 0.03em; gap: 6px; }
+  .overview-row2--document .ov-card__value { font-size: 26px; }
+  .overview-row2--document .ov-card__value-sub { font-size: 15px; }
+  /* Volume: keep number / bar / "X left"; drop the "Need more?" link. */
+  .overview-row2--document .ov-need-more { display: none; }
+  .overview-row2--document .ov-volume__foot-row { display: block; margin-top: 6px; }
+  .overview-row2--document .ov-card__foot { font-size: 11px; }
+  /* Savings: hide the verbose detail, show only the compact "vs pay-per-doc". */
+  .overview-row2--document .ov-highlight .ov-card__foot { display: none; }
+  .overview-row2--document .ov-highlight .ov-card__foot-compact { display: block; }
+}
+@media (max-width: 560px) {
+  /* Phone: the Document status strip goes to ONE row of 4 compact mini-cards
+     (was 2×2). Shrunk icon/number/label + tight padding so all four fit a
+     narrow screen. Scoped to --documents; the receipts strip is untouched.
+     Desktop + tablet keep their layout. */
+  .status-strip { padding: 16px 12px; }
+  .status-strip__grid--documents {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .status-strip__grid--documents .status-mini { padding: 10px 4px; gap: 4px; border-radius: 8px; }
+  .status-strip__grid--documents .status-mini__icon svg { width: 16px; height: 16px; }
+  .status-strip__grid--documents .status-mini__count { font-size: 18px; }
+  .status-strip__grid--documents .status-mini__label { font-size: 9px; letter-spacing: 0.02em; }
 }

@@ -1,4 +1,5 @@
 import type { DashboardDocument } from '@/app/dashboard/page';
+import { formatDocumentStatus } from '@/lib/document-status';
 
 export type { DashboardDocument };
 
@@ -282,20 +283,10 @@ export function getStatusBadgeClass(status: string): string {
   return classes[normalized] ?? 'doc-status-badge--draft';
 }
 
-/** Human-readable status label — avoids showing raw enum values like
- *  "SEND_FAILED" (underscored) in badges. */
+/** Human-readable status label — delegates to the canonical formatter so there
+ *  is ONE place that maps statuses (no raw "SEND_FAILED" leaking anywhere). */
 export function getStatusLabel(status: string): string {
-  const labels: Record<DocumentStatus, string> = {
-    DRAFT: 'Draft',
-    SENT: 'Sent',
-    SEND_FAILED: 'Send failed',
-    VIEWED: 'Viewed',
-    SIGNED: 'Signed',
-    COMPLETED: 'Completed',
-    CANCELLED: 'Cancelled',
-  };
-  const normalized = status.toUpperCase() as DocumentStatus;
-  return labels[normalized] ?? status;
+  return formatDocumentStatus(status);
 }
 
 export const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [

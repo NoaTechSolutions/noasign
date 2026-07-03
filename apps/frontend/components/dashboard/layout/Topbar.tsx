@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
+import { getPlanEntry } from "@/lib/plan-catalog";
+import { resolveAccountName } from "@/lib/account-identity";
 
 interface TopbarProps {
   user: {
     name: string;
     email: string;
-    role: "MASTER" | "ADMIN" | "USER";
+    role: "SUPERADMIN" | "USER";
     companyName: string;
     avatarUrl?: string | null;
     accountType?: string | null;
@@ -64,12 +66,15 @@ export function Topbar({ user, currentPanel, isLoading, children, onSignOut }: T
   const initial = user.name.charAt(0).toUpperCase();
 
   // Beside the avatar: INDIVIDUAL accounts show the person's name; everyone
-  // else (BUSINESS / MASTER) shows the company name. Plan sits underneath.
-  const isIndividual = user.accountType === "INDIVIDUAL";
-  const primaryLabel = isIndividual ? user.name : user.companyName;
-  const planLabel = user.plan
-    ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1).toLowerCase()
-    : null;
+  // else (BUSINESS / SUPERADMIN) shows the company name. Plan sits underneath.
+  // Shared resolver so the Topbar and WelcomeCard never drift apart.
+  const primaryLabel = resolveAccountName({
+    accountType: user.accountType,
+    personName: user.name,
+    companyName: user.companyName,
+  });
+  // Use the catalog display label (never the raw enum like "RECEIPTS_ONLY").
+  const planLabel = user.plan ? getPlanEntry(user.plan).name : null;
 
   return (
     <div
@@ -170,10 +175,11 @@ export function Topbar({ user, currentPanel, isLoading, children, onSignOut }: T
             aria-expanded={avatarOpen}
           >
             <div
-              className="w-8 h-8 rounded-full grid place-items-center text-xs font-medium flex-shrink-0 transition-transform duration-150 overflow-hidden"
+              className="topbar-avatar w-8 h-8 rounded-full grid place-items-center text-xs font-medium flex-shrink-0 transition-transform duration-150 overflow-hidden"
               style={{
-                background: "var(--brand)",
-                color: "#ffffff",
+                // Fill + initial colour live in .topbar-avatar CSS (transparent
+                // fill, brand-navy/white initial per theme) so the avatar reads
+                // as a hollow twin of the theme toggle. Keep only the dynamics.
                 letterSpacing: "0.02em",
                 transform: avatarOpen ? "scale(1.05)" : "scale(1)",
               }}

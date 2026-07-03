@@ -51,7 +51,7 @@ const tenantUser = {
 };
 const masterUser = {
   id: 'master-1',
-  role: 'MASTER' as const,
+  role: 'SUPERADMIN' as const,
   companyProfileId: 'cp-1',
 };
 const otherTenantUser = {
@@ -257,7 +257,12 @@ describe('CustomersService', () => {
       // Non-master callers always carry the userId filter — they can't see
       // teammates' customers even by id.
       expect(prismaMock.customer.findFirst).toHaveBeenCalledWith({
-        where: { id: 'c-1', companyProfileId: 'cp-1', userId: 'u-1' },
+        where: {
+          id: 'c-1',
+          companyProfileId: 'cp-1',
+          userId: 'u-1',
+          deletedAt: null,
+        },
         include: {
           _count: { select: { documents: true } },
           business: true,
@@ -275,9 +280,9 @@ describe('CustomersService', () => {
 
     it('throws NotFoundException when customer not in tenant', async () => {
       prismaMock.customer.findFirst.mockResolvedValue(null);
-      await expect(
-        service.findOne(tenantUser, 'other'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.findOne(tenantUser, 'other')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -287,7 +292,10 @@ describe('CustomersService', () => {
         id: 'c-1',
         business: null,
       });
-      prismaMock.customer.update.mockResolvedValue({ id: 'c-1', fullName: 'New' });
+      prismaMock.customer.update.mockResolvedValue({
+        id: 'c-1',
+        fullName: 'New',
+      });
       prismaMock.customer.findUniqueOrThrow.mockResolvedValue({
         id: 'c-1',
         fullName: 'New',
@@ -366,17 +374,19 @@ describe('CustomersService', () => {
     it('deletes after verifying ownership', async () => {
       prismaMock.customer.findFirst.mockResolvedValue({ id: 'c-1' });
       await service.delete(tenantUser, 'c-1');
-      expect(prismaMock.customer.delete).toHaveBeenCalledWith({
+      // Soft delete: status → DELETED + deletedAt audit timestamp (no hard delete).
+      expect(prismaMock.customer.update).toHaveBeenCalledWith({
         where: { id: 'c-1' },
+        data: { status: 'DELETED', deletedAt: expect.any(Date) },
       });
     });
 
     it('throws NotFoundException if customer not in tenant', async () => {
       prismaMock.customer.findFirst.mockResolvedValue(null);
-      await expect(
-        service.delete(tenantUser, 'other'),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      expect(prismaMock.customer.delete).not.toHaveBeenCalled();
+      await expect(service.delete(tenantUser, 'other')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prismaMock.customer.update).not.toHaveBeenCalled();
     });
   });
 

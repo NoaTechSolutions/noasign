@@ -9,6 +9,34 @@ on:
         description: 'One-shot: run the staging test-user seed after deploy'
         type: boolean
         default: false
+      set_tenant_plan:
+        description: 'One-shot: assign a plan + receipt fields to a staging tenant'
+        type: boolean
+        default: false
+      stp_company_id:
+        description: 'set_tenant_plan: CompanyProfile.id (default = World Pavers staging)'
+        type: string
+        default: '7aaad16a-6d76-4c36-97c7-b9ce3e45b801'
+      stp_plan:
+        description: 'set_tenant_plan: plan to assign'
+        type: choice
+        default: STARTER
+        options:
+          - STARTER
+          - LAUNCH
+          - PRO
+          - SCALE
+          - PRO_UNLIMITED
+          - PAY_PER_CONTRACT
+          - RECEIPTS_ONLY
+      stp_receipt_limit:
+        description: 'set_tenant_plan: receipt-limit override (blank = plan default; e.g. 2 for fast overage)'
+        type: string
+        default: ''
+      stp_dry_run:
+        description: 'set_tenant_plan: preview only (uncheck to apply)'
+        type: boolean
+        default: true
 
 # Only one deploy at a time
 concurrency:
@@ -93,11 +121,47 @@ jobs:
           # Receipt company-wide (getDocumentTypes), so no per-user config is needed.
           echo "--- Seeding World Pavers ReceiptTemplate ---"
           node scripts/dev-helpers/_seed-receipt-template.js 7aaad16a-6d76-4c36-97c7-b9ce3e45b801
+          # The other 3 of the 4 account/plan combinations (personal-individual,
+          # receipts-personal, receipts-business), each on its own company so plan +
+          # accountType are unambiguous. World Pavers stays the business-normal one.
+          echo "--- Seeding staging 4-type test users ---"
+          node scripts/dev-helpers/_seed-staging-4type-users.js
+          # Wire a per-tenant ReceiptTemplate for the two RECEIPTS_ONLY tenants so
+          # they can actually issue receipts (company ids from _seed-staging-4type-users.js).
+          echo "--- Wiring ReceiptTemplate for the RECEIPTS_ONLY staging tenants ---"
+          node scripts/dev-helpers/_seed-receipt-template.js 5ad11000-0000-4000-8000-000000000002
+          node scripts/dev-helpers/_seed-receipt-template.js 5ad11000-0000-4000-8000-000000000003
+
+      # Gated one-shot: assign a plan + receipt fields to a staging tenant so the
+      # owner can validate Model C (overage / RECEIPTS_ONLY). DRY_RUN by default;
+      # uncheck stp_dry_run to apply. Uses the built dist (PLAN_DEFAULTS) + prod
+      # deps that survive the prune above.
+      - name: Set tenant plan (one-shot, gated)
+        if: github.event.inputs.set_tenant_plan == 'true'
+        env:
+          COMPANY_ID: ${{ github.event.inputs.stp_company_id }}
+          PLAN: ${{ github.event.inputs.stp_plan }}
+          MONTHLY_RECEIPT_LIMIT: ${{ github.event.inputs.stp_receipt_limit }}
+          DRY_RUN: ${{ github.event.inputs.stp_dry_run }}
+        run: |
+          set -e
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DATABASE_URL="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d '=' -f2-)"
+          DATABASE_URL="${DATABASE_URL%\"}"; DATABASE_URL="${DATABASE_URL#\"}"
+          DATABASE_URL="${DATABASE_URL%\'}"; DATABASE_URL="${DATABASE_URL#\'}"
+          export DATABASE_URL
+          node scripts/set-tenant-plan.js
 
       - name: Deploy frontend
-        timeout-minutes: 20
+        # 40min (was 20): on a swap-bound VM the 512MB-capped front build hits
+        # exactly 20min intermittently. This build bakes the Sentry DSN, so a
+        # mid-build timeout would ship a DSN-less bundle. Headroom, not a fix.
+        timeout-minutes: 40
         env:
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          # Build-time tag so staging errors never mix with prod. NOT a secret.
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: staging
         run: |
           set -e
           export NVM_DIR="$HOME/.nvm"

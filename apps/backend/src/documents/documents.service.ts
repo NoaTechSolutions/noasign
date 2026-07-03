@@ -305,7 +305,7 @@ export class DocumentsService {
       throw new BadRequestException('User does not have a company profile');
     }
 
-    return user.role === 'MASTER'
+    return user.role === 'SUPERADMIN'
       ? { companyProfileId: user.companyProfileId }
       : { userId: user.id };
   }
@@ -487,8 +487,8 @@ export class DocumentsService {
     };
   }
 
-  // Superadmin flow: list EVERY user across ALL tenants so a MASTER can pick
-  // whose forms/templates to borrow. Gated to MASTER (tightens to a real
+  // Superadmin flow: list EVERY user across ALL tenants so a SUPERADMIN can pick
+  // whose forms/templates to borrow. Gated to SUPERADMIN (tightens to a real
   // superadmin role with the parked refactor).
   async getSelectableUsers(userId: string) {
     const caller = await this.prisma.user.findUnique({
@@ -496,7 +496,7 @@ export class DocumentsService {
       select: { role: true },
     });
     if (!caller) throw new NotFoundException('User not found');
-    if (caller.role !== 'MASTER') {
+    if (caller.role !== 'SUPERADMIN') {
       throw new ForbiddenException(
         'Only master users can list users across tenants',
       );
@@ -538,14 +538,14 @@ export class DocumentsService {
     let effectiveRole = user.role;
     let effectiveCompanyProfileId = user.companyProfileId;
     if (asUserId && asUserId !== userId) {
-      if (user.role !== 'MASTER') {
+      if (user.role !== 'SUPERADMIN') {
         throw new ForbiddenException(
           'Only master users can request templates as another user',
         );
       }
-      // Superadmin flow: a MASTER may select a user in ANY tenant to borrow their
+      // Superadmin flow: a SUPERADMIN may select a user in ANY tenant to borrow their
       // forms/templates (the document still becomes the master's, with the
-      // master's correlativo). Gated to MASTER — tightens to a superadmin role
+      // master's correlativo). Gated to SUPERADMIN — tightens to a superadmin role
       // with the parked refactor.
       const target = await this.prisma.user.findUnique({
         where: { id: asUserId },
@@ -559,7 +559,7 @@ export class DocumentsService {
       effectiveCompanyProfileId = target.companyProfileId;
     }
 
-    if (effectiveRole === 'MASTER') {
+    if (effectiveRole === 'SUPERADMIN') {
       const documentTypes = await this.prisma.documentType.findMany({
         include: {
           formDefinitions: {
@@ -588,6 +588,19 @@ export class DocumentsService {
       },
     });
 
+    // Model C — a RECEIPTS_ONLY tenant (contractsEnabled=false) cannot use
+    // BoldSign/contract types; only receipts (added further down). Masters are
+    // cross-tenant superadmins and exit via the early return above, so this
+    // only affects regular tenant users.
+    const tenantContractsEnabled = effectiveCompanyProfileId
+      ? (
+          await this.prisma.companyProfile.findUnique({
+            where: { id: effectiveCompanyProfileId },
+            select: { contractsEnabled: true },
+          })
+        )?.contractsEnabled ?? true
+      : true;
+
     const typeMap = new Map<
       string,
       {
@@ -613,6 +626,14 @@ export class DocumentsService {
       if (
         !config.formDefinition.isActive ||
         !config.signatureTemplate.isActive
+      ) {
+        continue;
+      }
+
+      // RECEIPTS_ONLY: hide contract (BoldSign) types.
+      if (
+        !tenantContractsEnabled &&
+        config.documentType.generationMode === 'BOLDSIGN'
       ) {
         continue;
       }
@@ -794,6 +815,18 @@ export class DocumentsService {
       );
     }
 
+    // Model C — RECEIPTS_ONLY tenants (contractsEnabled=false) cannot create
+    // contracts. Masters are cross-tenant superadmins and bypass this.
+    if (
+      user.role !== 'SUPERADMIN' &&
+      documentType.generationMode === 'BOLDSIGN' &&
+      user.companyProfile?.contractsEnabled === false
+    ) {
+      throw new ForbiddenException(
+        'Your plan does not include contracts.',
+      );
+    }
+
     // If caller linked a customer, verify it belongs to this tenant before
     // writing the FK. Unknown or cross-tenant ids → 404 so we never leak
     // existence across companies.
@@ -816,7 +849,7 @@ export class DocumentsService {
     // behalf of <user>". Non-master attempts to override are rejected.
     let ownerUserId: string = user.id;
     if (body.userId && body.userId !== user.id) {
-      if (user.role !== 'MASTER') {
+      if (user.role !== 'SUPERADMIN') {
         throw new ForbiddenException(
           'Only master users can create documents on behalf of another user',
         );

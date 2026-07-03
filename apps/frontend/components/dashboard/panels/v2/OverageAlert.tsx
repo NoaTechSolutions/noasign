@@ -6,16 +6,16 @@ interface OverageAlertProps {
   overageCount: number;
   overageRate: number;
   nextBilling: string;
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   onUpgrade: () => void;
 }
 
 export function OverageAlert({ overageCount, overageRate, nextBilling, role, onUpgrade }: OverageAlertProps) {
   const total = (overageCount * overageRate).toFixed(2);
-  const isMaster = role === 'master';
+  const isSuperadmin = role === 'superadmin';
 
   const handleUpgradeClick = () => {
-    if (!isMaster) {
+    if (!isSuperadmin) {
       // Show toast: "Only the workspace owner can change the plan"
       return;
     }
@@ -33,7 +33,7 @@ export function OverageAlert({ overageCount, overageRate, nextBilling, role, onU
               <line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
           </span>
-          You've exceeded your plan limit
+          You&apos;ve exceeded your plan limit
         </h2>
         <p className="overage-alert__calc">
           Extra documents: <strong>{overageCount} × ${overageRate.toFixed(2)} = ${total}</strong>

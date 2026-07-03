@@ -1,34 +1,62 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Check, X as XIcon } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
+import { PLAN_CATALOG } from '@/lib/plan-catalog';
 
 interface ChangePlanModalProps {
   currentPlan: string;
-  onSelectPlan: (planId: string) => void;
+  // Model C — drives the anti-downgrade rule: RECEIPTS_ONLY is only offered to
+  // tenants without a contracts plan (contractsEnabled === false). Tenants that
+  // already have contracts never see it (can't "downgrade" into receipts-only).
+  contractsEnabled: boolean;
   onClose: () => void;
 }
 
-// ─── Plan catalog (spec-defined values) ─────────────────────────────────────
+// ─── Plan data (derived from the shared catalog) ─────────────────────────────
+// All plan numbers come from lib/plan-catalog (single source of truth). This
+// modal only renders the public lineup + RECEIPTS_ONLY; the adapters below keep
+// the existing render shape without re-hardcoding any values.
 
-const PLAN_ORDER = ['STARTER', 'LAUNCH', 'PRO', 'SCALE'] as const;
-type PlanId = (typeof PLAN_ORDER)[number];
+const MODAL_PLAN_IDS = ['STARTER', 'LAUNCH', 'PRO', 'SCALE', 'RECEIPTS_ONLY'] as const;
+type PlanId = (typeof MODAL_PLAN_IDS)[number];
 
-const PLANS: Record<PlanId, { name: string; price: number; docs: number | null; users: number | null; templates: number | null }> = {
-  STARTER: { name: 'Starter', price: 19,  docs: 5,   users: 1,    templates: 1    },
-  LAUNCH:  { name: 'Launch',  price: 39,  docs: 15,  users: 2,    templates: 3    },
-  PRO:     { name: 'Pro',     price: 89,  docs: 50,  users: 5,    templates: 10   },
-  SCALE:   { name: 'Scale',   price: 229, docs: 150, users: 15,   templates: null },
-};
+interface PlanInfo {
+  name: string;
+  price: number;
+  docs: number | null;
+  users: number | null;
+  templates: number | null;
+  receiptsOnly?: boolean;
+}
 
-const PLAN_TIERS: Record<string, number> = {
-  STARTER: 1, LAUNCH: 2, PRO: 3, SCALE: 4,
-};
+const PLANS = MODAL_PLAN_IDS.reduce((acc, id) => {
+  const e = PLAN_CATALOG[id];
+  acc[id] = {
+    name: e.name,
+    price: e.price,
+    docs: e.docsLimit,
+    users: e.usersLimit,
+    templates: e.templatesLimit,
+    receiptsOnly: e.receiptsOnly,
+  };
+  return acc;
+}, {} as Record<PlanId, PlanInfo>);
+
+// Upgrades are not self-service yet (no billing endpoint / Stripe) — every
+// non-current plan routes to a contact request instead of a fake confirmation.
+const UPGRADE_EMAIL = 'support@noatechsolutions.com';
+function upgradeMailto(planName: string): string {
+  const subject = encodeURIComponent(`Upgrade request: ${planName} plan`);
+  const body = encodeURIComponent(
+    `Hi,\n\nI'd like to upgrade my NoaSign plan to ${planName}.\n\nThanks,`,
+  );
+  return `mailto:${UPGRADE_EMAIL}?subject=${subject}&body=${body}`;
+}
 
 // ─── Feature matrix (cumulative per plan) ────────────────────────────────────
-// Spec-defined: each plan gets a row of booleans for 5 features.
-// Features: Team management, Multi-signer, Auto reminders, Custom branding, Analytics
+// The 5 features shown on the cards map onto catalog feature flags.
 
 type FeatureKey = 'teamManagement' | 'multiSigner' | 'autoReminders' | 'customBranding' | 'analytics';
 
@@ -40,25 +68,50 @@ const FEATURE_LABELS: Record<FeatureKey, string> = {
   analytics:      'Analytics',
 };
 
-const PLAN_FEATURES: Record<PlanId, Record<FeatureKey, boolean>> = {
-  STARTER: { teamManagement: false, multiSigner: false, autoReminders: true,  customBranding: false, analytics: false },
-  LAUNCH:  { teamManagement: true,  multiSigner: true,  autoReminders: true,  customBranding: false, analytics: false },
-  PRO:     { teamManagement: true,  multiSigner: true,  autoReminders: true,  customBranding: true,  analytics: true  },
-  SCALE:   { teamManagement: true,  multiSigner: true,  autoReminders: true,  customBranding: true,  analytics: true  },
-};
+const PLAN_FEATURES = MODAL_PLAN_IDS.reduce((acc, id) => {
+  const f = PLAN_CATALOG[id].features;
+  acc[id] = {
+    teamManagement: f.userManagement,
+    multiSigner:    f.multiSigner,
+    autoReminders:  f.autoReminders,
+    customBranding: f.branding,
+    analytics:      f.analytics,
+  };
+  return acc;
+}, {} as Record<PlanId, Record<FeatureKey, boolean>>);
+
+// Receipts-only feature highlights (replaces the contract feature rows on its card).
+const RECEIPTS_ONLY_HIGHLIGHTS = [
+  'Unlimited receipts',
+  'No monthly receipt cap',
+  'Contract signing not included',
+];
+
+// Public contract plans in display order (RECEIPTS_ONLY is offered separately).
+const PUBLIC_ORDER: PlanId[] = MODAL_PLAN_IDS.filter((id) => id !== 'RECEIPTS_ONLY');
+
+// Plans offered to this tenant. Anti-downgrade: RECEIPTS_ONLY is hidden once the
+// tenant has a contracts plan; it stays visible for receipts-only / no-contracts
+// tenants (so their current plan still renders).
+function offeredPlans(contractsEnabled: boolean): PlanId[] {
+  return contractsEnabled
+    ? [...PUBLIC_ORDER]
+    : ['RECEIPTS_ONLY', ...PUBLIC_ORDER];
+}
+
+function priceText(plan: PlanInfo): string {
+  return `$${plan.price}/mo`;
+}
 
 // ─── PlanSlide (mobile carousel card) ────────────────────────────────────────
 
 interface PlanSlideProps {
   planId: PlanId;
   isCurrent: boolean;
-  isDowngrade: boolean;
-  isUpgrade: boolean;
-  onSelectPlan: (planId: string) => void;
 }
 
-function PlanSlide({ planId, isCurrent, isDowngrade, isUpgrade, onSelectPlan }: PlanSlideProps) {
-  const plan    = PLANS[planId];
+function PlanSlide({ planId, isCurrent }: PlanSlideProps) {
+  const plan     = PLANS[planId];
   const features = PLAN_FEATURES[planId];
 
   // Usage bar max values for visual representation (the plan's own limits as 100%)
@@ -81,63 +134,81 @@ function PlanSlide({ planId, isCurrent, isDowngrade, isUpgrade, onSelectPlan }: 
         {/* Plan name + price */}
         <div className="plan-slide__head">
           <span className="plan-slide__name">{plan.name}</span>
-          <span className="plan-slide__price">${plan.price}/mo</span>
+          <span className="plan-slide__price">{priceText(plan)}</span>
         </div>
 
-        {/* Usage bars */}
-        <div className="plan-slide__bars">
-          <div className="plan-slide__bar-row">
-            <div className="plan-slide__bar-labels">
-              <span className="plan-slide__bar-label">Documents</span>
-              <span className="plan-slide__bar-value">
-                {plan.docs === null ? '∞' : plan.docs}/mo
-              </span>
-            </div>
-            <div className="plan-slide__bar-track">
-              <div className="plan-slide__bar-fill" style={{ width: `${docsPct}%` }} />
-            </div>
+        {plan.receiptsOnly ? (
+          /* Receipts-only: highlight receipts instead of contract dimensions */
+          <div className="plan-slide__features">
+            {RECEIPTS_ONLY_HIGHLIGHTS.map((label, i) => (
+              <div key={label} className="plan-slide__feature-row">
+                {i < 2 ? (
+                  <Check size={13} className="plan-slide__feat-icon plan-slide__feat-icon--ok" />
+                ) : (
+                  <XIcon size={13} className="plan-slide__feat-icon plan-slide__feat-icon--no" />
+                )}
+                <span className="plan-slide__feature-label">{label}</span>
+              </div>
+            ))}
           </div>
+        ) : (
+          <>
+            {/* Usage bars */}
+            <div className="plan-slide__bars">
+              <div className="plan-slide__bar-row">
+                <div className="plan-slide__bar-labels">
+                  <span className="plan-slide__bar-label">Documents</span>
+                  <span className="plan-slide__bar-value">
+                    {plan.docs === null ? '∞' : plan.docs}/mo
+                  </span>
+                </div>
+                <div className="plan-slide__bar-track">
+                  <div className="plan-slide__bar-fill" style={{ width: `${docsPct}%` }} />
+                </div>
+              </div>
 
-          <div className="plan-slide__bar-row">
-            <div className="plan-slide__bar-labels">
-              <span className="plan-slide__bar-label">Users</span>
-              <span className="plan-slide__bar-value">
-                {plan.users === null ? '∞' : plan.users} seats
-              </span>
-            </div>
-            <div className="plan-slide__bar-track">
-              <div className="plan-slide__bar-fill" style={{ width: `${usersPct}%` }} />
-            </div>
-          </div>
+              <div className="plan-slide__bar-row">
+                <div className="plan-slide__bar-labels">
+                  <span className="plan-slide__bar-label">Users</span>
+                  <span className="plan-slide__bar-value">
+                    {plan.users === null ? '∞' : plan.users} seats
+                  </span>
+                </div>
+                <div className="plan-slide__bar-track">
+                  <div className="plan-slide__bar-fill" style={{ width: `${usersPct}%` }} />
+                </div>
+              </div>
 
-          <div className="plan-slide__bar-row">
-            <div className="plan-slide__bar-labels">
-              <span className="plan-slide__bar-label">Templates</span>
-              <span className="plan-slide__bar-value">
-                {plan.templates === null ? '∞' : plan.templates} active
-              </span>
+              <div className="plan-slide__bar-row">
+                <div className="plan-slide__bar-labels">
+                  <span className="plan-slide__bar-label">Templates</span>
+                  <span className="plan-slide__bar-value">
+                    {plan.templates === null ? '∞' : plan.templates} active
+                  </span>
+                </div>
+                <div className="plan-slide__bar-track">
+                  <div className="plan-slide__bar-fill" style={{ width: `${templatesPct}%` }} />
+                </div>
+              </div>
             </div>
-            <div className="plan-slide__bar-track">
-              <div className="plan-slide__bar-fill" style={{ width: `${templatesPct}%` }} />
-            </div>
-          </div>
-        </div>
 
-        {/* Feature matrix */}
-        <div className="plan-slide__features">
-          {(Object.keys(FEATURE_LABELS) as FeatureKey[]).map((key) => (
-            <div key={key} className="plan-slide__feature-row">
-              {features[key] ? (
-                <Check size={13} className="plan-slide__feat-icon plan-slide__feat-icon--ok" />
-              ) : (
-                <XIcon size={13} className="plan-slide__feat-icon plan-slide__feat-icon--no" />
-              )}
-              <span className="plan-slide__feature-label">{FEATURE_LABELS[key]}</span>
+            {/* Feature matrix */}
+            <div className="plan-slide__features">
+              {(Object.keys(FEATURE_LABELS) as FeatureKey[]).map((key) => (
+                <div key={key} className="plan-slide__feature-row">
+                  {features[key] ? (
+                    <Check size={13} className="plan-slide__feat-icon plan-slide__feat-icon--ok" />
+                  ) : (
+                    <XIcon size={13} className="plan-slide__feat-icon plan-slide__feat-icon--no" />
+                  )}
+                  <span className="plan-slide__feature-label">{FEATURE_LABELS[key]}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
 
-        {/* Action button */}
+        {/* Action — current is disabled, everything else is a contact CTA */}
         {isCurrent ? (
           <button
             type="button"
@@ -146,23 +217,14 @@ function PlanSlide({ planId, isCurrent, isDowngrade, isUpgrade, onSelectPlan }: 
           >
             Current plan
           </button>
-        ) : isDowngrade ? (
-          <button
-            type="button"
-            className="plan-slide__btn plan-slide__btn--downgrade"
-            onClick={() => onSelectPlan(planId)}
-          >
-            Downgrade
-          </button>
-        ) : isUpgrade ? (
-          <button
-            type="button"
+        ) : (
+          <a
             className="plan-slide__btn plan-slide__btn--upgrade"
-            onClick={() => onSelectPlan(planId)}
+            href={upgradeMailto(plan.name)}
           >
-            Upgrade ↗
-          </button>
-        ) : null}
+            Contact us to upgrade ↗
+          </a>
+        )}
       </div>
     </div>
   );
@@ -170,22 +232,19 @@ function PlanSlide({ planId, isCurrent, isDowngrade, isUpgrade, onSelectPlan }: 
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePlanModalProps) {
+export function ChangePlanModal({ currentPlan, contractsEnabled, onClose }: ChangePlanModalProps) {
   useBlockScroll(true);
 
-  const currentTier = PLAN_TIERS[currentPlan] ?? 0;
+  const planOrder = offeredPlans(contractsEnabled);
 
   // ── Mobile carousel state ─────────────────────────────────────────────────
-  const [activeSlide, setActiveSlide] = useState(0);
+  // Snap to the current plan on open. Props are fixed for the modal's lifetime
+  // (it remounts when reopened), so a lazy initializer beats a setState effect.
+  const [activeSlide, setActiveSlide] = useState(() => {
+    const idx = planOrder.findIndex((p) => p === currentPlan.toUpperCase());
+    return idx >= 0 ? idx : 0;
+  });
   const touchStartX = useRef<number>(0);
-
-  // Snap to current plan on mount/open
-  useEffect(() => {
-    const idx = PLAN_ORDER.findIndex(
-      (p) => p === currentPlan.toUpperCase()
-    );
-    setActiveSlide(idx >= 0 ? idx : 0);
-  }, [currentPlan]);
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX;
@@ -196,7 +255,7 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
     if (Math.abs(diff) > 50) {
       if (diff > 0) {
         // swipe left → next
-        setActiveSlide((prev) => Math.min(PLAN_ORDER.length - 1, prev + 1));
+        setActiveSlide((prev) => Math.min(planOrder.length - 1, prev + 1));
       } else {
         // swipe right → prev
         setActiveSlide((prev) => Math.max(0, prev - 1));
@@ -204,8 +263,8 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
     }
   }
 
-  const prevPlanName = activeSlide > 0 ? PLANS[PLAN_ORDER[activeSlide - 1]].name : null;
-  const nextPlanName = activeSlide < PLAN_ORDER.length - 1 ? PLANS[PLAN_ORDER[activeSlide + 1]].name : null;
+  const prevPlanName = activeSlide > 0 ? PLANS[planOrder[activeSlide - 1]].name : null;
+  const nextPlanName = activeSlide < planOrder.length - 1 ? PLANS[planOrder[activeSlide + 1]].name : null;
 
   return (
     <div
@@ -225,7 +284,7 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
         {/* header */}
         <header className="modal__head">
           <div className="modal__head-inner">
-            <h2 className="modal__title" id="changePlanTitle">Change plan</h2>
+            <h2 className="modal__title" id="changePlanTitle">Compare plans</h2>
             {/* Mobile subtitle — only allowed inside the sheet design */}
             <p className="modal__subtitle--mobile">Save ~17% annually</p>
           </div>
@@ -242,15 +301,12 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
           </button>
         </header>
 
-        {/* ── DESKTOP/TABLET: 4-card grid (unchanged) ── */}
+        {/* ── DESKTOP/TABLET: card grid ── */}
         <div className="modal__body change-plan-grid-wrapper">
           <div className="change-plan-grid">
-            {PLAN_ORDER.map((planId) => {
-              const plan = PLANS[planId];
-              const isCurrent  = planId === currentPlan.toUpperCase();
-              const planTier   = PLAN_TIERS[planId];
-              const isDowngrade = !isCurrent && planTier < currentTier;
-              const isUpgrade   = !isCurrent && planTier > currentTier;
+            {planOrder.map((planId) => {
+              const plan      = PLANS[planId];
+              const isCurrent = planId === currentPlan.toUpperCase();
 
               return (
                 <div
@@ -267,15 +323,25 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
                   </p>
 
                   <ul className="change-plan-card__features">
-                    <li>
-                      <strong>{plan.docs === null ? '∞' : plan.docs}</strong> docs/mo
-                    </li>
-                    <li>
-                      <strong>{plan.users === null ? '∞' : plan.users}</strong> user{plan.users !== 1 ? 's' : ''}
-                    </li>
-                    <li>
-                      <strong>{plan.templates === null ? '∞' : plan.templates}</strong> template{plan.templates !== 1 ? 's' : ''}
-                    </li>
+                    {plan.receiptsOnly ? (
+                      <>
+                        <li><strong>∞</strong> receipts/mo</li>
+                        <li>Unlimited — no monthly cap</li>
+                        <li>No contracts included</li>
+                      </>
+                    ) : (
+                      <>
+                        <li>
+                          <strong>{plan.docs === null ? '∞' : plan.docs}</strong> docs/mo
+                        </li>
+                        <li>
+                          <strong>{plan.users === null ? '∞' : plan.users}</strong> user{plan.users !== 1 ? 's' : ''}
+                        </li>
+                        <li>
+                          <strong>{plan.templates === null ? '∞' : plan.templates}</strong> template{plan.templates !== 1 ? 's' : ''}
+                        </li>
+                      </>
+                    )}
                   </ul>
 
                   {isCurrent ? (
@@ -286,23 +352,14 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
                     >
                       Current plan
                     </button>
-                  ) : isDowngrade ? (
-                    <button
-                      type="button"
-                      className="change-plan-card__btn change-plan-card__btn--downgrade"
-                      onClick={() => onSelectPlan(planId)}
-                    >
-                      Downgrade
-                    </button>
-                  ) : isUpgrade ? (
-                    <button
-                      type="button"
+                  ) : (
+                    <a
                       className="change-plan-card__btn change-plan-card__btn--upgrade"
-                      onClick={() => onSelectPlan(planId)}
+                      href={upgradeMailto(plan.name)}
                     >
-                      Upgrade ↗
-                    </button>
-                  ) : null}
+                      Contact us to upgrade ↗
+                    </a>
+                  )}
                 </div>
               );
             })}
@@ -317,7 +374,7 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
         >
           {/* Dot indicators */}
           <div className="plan-dots" role="tablist" aria-label="Plan slides">
-            {PLAN_ORDER.map((planId, idx) => (
+            {planOrder.map((planId, idx) => (
               <button
                 key={planId}
                 type="button"
@@ -336,23 +393,13 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
               className="plan-carousel__track"
               style={{ transform: `translateX(-${activeSlide * 100}%)` }}
             >
-              {PLAN_ORDER.map((planId) => {
-                const isCurrent   = planId === currentPlan.toUpperCase();
-                const planTier    = PLAN_TIERS[planId];
-                const isDowngrade = !isCurrent && planTier < currentTier;
-                const isUpgrade   = !isCurrent && planTier > currentTier;
-
-                return (
-                  <PlanSlide
-                    key={planId}
-                    planId={planId}
-                    isCurrent={isCurrent}
-                    isDowngrade={isDowngrade}
-                    isUpgrade={isUpgrade}
-                    onSelectPlan={onSelectPlan}
-                  />
-                );
-              })}
+              {planOrder.map((planId) => (
+                <PlanSlide
+                  key={planId}
+                  planId={planId}
+                  isCurrent={planId === currentPlan.toUpperCase()}
+                />
+              ))}
             </div>
           </div>
 
@@ -369,14 +416,14 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
             </button>
 
             <span className="plan-nav__counter">
-              {activeSlide + 1} of {PLAN_ORDER.length}
+              {activeSlide + 1} of {planOrder.length}
             </span>
 
             <button
               type="button"
               className="plan-nav__btn plan-nav__btn--next"
-              onClick={() => setActiveSlide((prev) => Math.min(PLAN_ORDER.length - 1, prev + 1))}
-              disabled={activeSlide === PLAN_ORDER.length - 1}
+              onClick={() => setActiveSlide((prev) => Math.min(planOrder.length - 1, prev + 1))}
+              disabled={activeSlide === planOrder.length - 1}
               aria-label="Next plan"
             >
               {nextPlanName ?? ''} →
@@ -386,7 +433,7 @@ export function ChangePlanModal({ currentPlan, onSelectPlan, onClose }: ChangePl
 
         {/* footer note */}
         <div className="change-plan-footer-note">
-          Save ~17% with annual billing · Changes take effect immediately
+          Save ~17% with annual billing · Upgrades are handled by our team
         </div>
       </div>
     </div>

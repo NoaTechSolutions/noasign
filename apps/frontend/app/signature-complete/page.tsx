@@ -1,19 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  ArrowRight,
-  BadgeCheck,
-  FileCheck2,
-  BarChart3,
-  Users,
-  FileText,
-  Bell,
-  ShieldCheck,
-  Zap,
-} from "lucide-react";
+import { BadgeCheck, ShieldCheck, Zap } from "lucide-react";
 import { API_URL } from "@/lib/api-url";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { DownloadSignedCopy } from "./DownloadSignedCopy";
+import { LeadCaptureForm } from "./LeadCaptureForm";
 
 type SearchParamValue = string | string[] | undefined;
 
@@ -43,174 +35,177 @@ export default async function SignatureCompletePage({
 }: SignatureCompletePageProps) {
   const params = (await searchParams) ?? {};
   const token = getSingleParam(params.token);
-  const publicSignature = token ? await loadPublicSignatureCompletion(token) : null;
+  const publicSignature = token
+    ? await loadPublicSignatureCompletion(token)
+    : null;
 
-  // BoldSign appends ?documentId=xxx to the redirect URL — strip anything after the email value
-  const signerEmail = getSingleParam(params.email)?.split('?')[0] ?? null;
-  const tokenError = token && !publicSignature;
+  // BoldSign appends ?documentId=xxx to the redirect URL — strip anything after
+  // the email value.
+  const signerEmail = getSingleParam(params.email)?.split("?")[0] ?? null;
+
+  const documentName = publicSignature?.documentName?.trim() || null;
+  const senderName = publicSignature?.senderName?.trim() || null;
 
   return (
-    <main className="relative min-h-screen w-full lg:h-screen lg:overflow-hidden flex flex-col lg:grid lg:grid-cols-2">
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,var(--bg-page)_0%,var(--bg-page-subtle)_52%,var(--bg-surface)_100%)]" />
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(5,165,255,0.08),transparent_30%),radial-gradient(circle_at_80%_20%,rgba(2,41,119,0.06),transparent_20%)]" />
+    // Responsive split (flexbox; columns fill the viewport height — no dead
+    // strip at the bottom):
+    //  • phone (<700): flex-col. Compact confirmation, promo flex-1 to fill.
+    //  • tablet (≥700): flex-row, two equal halves side by side (like desktop)
+    //    with generous padding + vertically-centered content. Breakpoint is
+    //    700 (not md/768) so real tablets reliably get 2-col with air.
+    //    min-h-screen (NOT h-screen) → 320px / very short viewports just
+    //    scroll; nothing clips (no overflow:hidden outside lg).
+    //  • desktop (lg+): locked full-screen split, each column scrolls inside.
+    // NOTE: left text colors are EXPLICIT navy (not var(--text-*)) — those
+    // tokens are hijacked further down globals.css to data-theme-only vars that
+    // don't exist on this class-themed page and resolve to black. See §1.
+    <main className="relative flex min-h-screen w-full flex-col min-[700px]:flex-row lg:h-screen lg:overflow-hidden">
+      {/* Theme toggle — page-level, fixed top-right, floats over both columns
+          at every width. Reads fine on both the light #f0f4ff and the dark
+          gradient (the toggle styles itself per theme). */}
+      <div className="fixed right-4 top-4 z-50 md:right-5 md:top-5">
+        <ThemeToggle />
+      </div>
 
-      {/* LEFT — Confirmation */}
-      <div className="relative flex flex-col min-h-screen lg:min-h-0 bg-white dark:bg-[#111827] border-b lg:border-b-0 lg:border-r border-[color:var(--border-strong)]">
-        <div className="absolute right-4 top-4 z-20 md:right-5 md:top-5">
-          <ThemeToggle />
-        </div>
-        {/* Header with enlarged logo */}
-        <div className="flex items-center px-6 pt-6 pb-2 shrink-0 md:px-10 md:pt-8">
+      {/* ============================================================
+          LEFT — Confirmation + download (primary outcome).
+          Light: #f0f4ff section bg + navy ink. Dark: deep navy #0b0f1a.
+          Phone: compact natural height. ≥700: half width, fills height.
+          ============================================================ */}
+      <div className="relative flex flex-col border-b border-[color:var(--border-strong)] bg-[#f0f4ff] dark:bg-[#0b0f1a] min-[700px]:w-1/2 min-[700px]:border-b-0 min-[700px]:border-r lg:min-h-0 lg:overflow-y-auto">
+        {/* Brand wash so the section reads with depth, not a flat sheet. */}
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_0%_0%,rgba(255,153,0,0.08),transparent_40%),radial-gradient(circle_at_100%_100%,rgba(5,165,255,0.10),transparent_44%)] dark:bg-[radial-gradient(circle_at_0%_0%,rgba(255,153,0,0.10),transparent_42%),radial-gradient(circle_at_100%_100%,rgba(5,165,255,0.14),transparent_46%)]" />
+
+        {/* NTSsign branding (ours, not the tenant's). Shares the same 2xl
+            max-width as the content below so the logo stays left-aligned with
+            it on very wide screens. */}
+        <div className="flex w-full shrink-0 items-center px-5 pb-2 pt-5 min-[700px]:px-10 min-[700px]:pt-10 lg:px-12 2xl:mx-auto 2xl:max-w-[680px]">
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-white shadow-[0_4px_16px_rgba(2,41,119,0.18)] border border-[color:var(--border-strong)]">
-              {/* Light mode logo */}
+            <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-white shadow-[0_4px_16px_rgba(2,41,119,0.18)] min-[700px]:h-14 min-[700px]:w-14">
               <Image
                 src="/ntssign-logo-light.svg"
                 alt="NTSsign"
                 fill
                 className="object-contain dark:hidden"
-                sizes="64px"
+                sizes="56px"
                 priority
               />
-              {/* Dark mode logo */}
               <Image
                 src="/ntssign-light.svg"
                 alt="NTSsign"
                 fill
-                className="object-contain hidden dark:block"
-                sizes="64px"
+                className="hidden object-contain dark:block"
+                sizes="56px"
                 priority
               />
             </div>
             <div>
-              <div className="text-lg font-semibold tracking-[-0.02em] text-[color:var(--text-primary)]">NTSsign</div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">by NoaTechSolutions</div>
+              <div className="text-lg font-medium tracking-[-0.02em] text-[#022977] dark:text-[#f0f4ff]">
+                NTSsign
+              </div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[rgba(2,41,119,0.5)] dark:text-[rgba(200,216,240,0.6)]">
+                by NoaTechSolutions
+              </div>
             </div>
           </Link>
         </div>
 
-        {/* Confirmation content */}
-        <div className="flex flex-col flex-1 justify-center px-6 py-8 md:px-10">
-          {/* Status badge — always success */}
+        {/* Phone: compact, top-aligned. ≥700: fill the column, centered, with
+            generous padding so it breathes. ≥2xl: cap + center the content so it
+            doesn't stretch on wide/2K/ultrawide monitors (bg stays full-bleed). */}
+        <div className="flex w-full flex-1 flex-col justify-start px-5 pb-7 pt-4 min-[700px]:justify-center min-[700px]:px-10 min-[700px]:py-12 lg:px-12 2xl:mx-auto 2xl:max-w-[680px]">
+          {/* Quality badge */}
           <div className="flex">
-            <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] border border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[#065f46] dark:text-[color:var(--success-text)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--success-border)] bg-[color:var(--success-bg)] px-3 py-1.5 text-xs font-medium uppercase tracking-[0.16em] text-[#0f7a58] dark:text-[color:var(--success-text)]">
               <BadgeCheck className="h-3.5 w-3.5" />
-              Document signed successfully
+              Signed &amp; legally binding
             </div>
           </div>
 
-          {/* Icon + Title */}
-          <div className="mt-5 flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.4rem] border border-[color:var(--success-border)] bg-[color:var(--success-bg)] shadow-[0_0_32px_rgba(34,197,94,0.15)]">
-              <FileCheck2 className="h-8 w-8 text-[#065f46] dark:text-[color:var(--success-text)]" />
-            </div>
-            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-primary)] md:text-3xl">
-              Your signature was received
-            </h1>
-          </div>
-
-          {/* Paragraph */}
-          <p className="mt-4 text-sm leading-6 text-[color:var(--text-secondary)]">
-            {signerEmail
-              ? <>A copy of this document will be sent to: <strong className="text-[color:var(--text-primary)]">{signerEmail}</strong></>
-              : "A copy of the signed document will be sent to your email."}
-          </p>
-        </div>
-
-        {/* Mobile/tablet — marketing strip, fills remaining space */}
-        <div className="relative lg:hidden flex-1 overflow-hidden bg-[linear-gradient(135deg,#05a5ff_0%,#022977_50%,#0400f0_100%)] dark:bg-[linear-gradient(135deg,#022977_0%,#011a55_50%,#010f33_100%)]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.12),transparent_40%),radial-gradient(circle_at_85%_80%,rgba(255,153,0,0.25),transparent_45%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(5,165,255,0.15),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(255,153,0,0.08),transparent_40%)]" />
-          <div className="relative flex flex-col h-full px-6 py-6 md:px-10 md:py-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50 mb-2">Powered by NTSsign</p>
-            <p className="text-sm font-semibold text-white leading-6 md:text-lg md:leading-8 mb-4">
-              Send contracts, invoices, and any document — with e-signatures and full tracking, all in one platform.
+          {/* Confirmation — document + sender context. Keyword in brand amber
+              per design-system §Hero ("palabra clave en #ff9900"). */}
+          <h1 className="mt-4 text-[1.375rem] font-medium leading-[1.2] tracking-[-0.03em] text-[#022977] dark:text-[#f0f4ff] min-[700px]:mt-5 min-[700px]:text-[1.75rem] min-[700px]:leading-[1.15] lg:text-[2rem] 2xl:text-[2.4rem]">
+            {documentName ? (
+              <>
+                You signed <span className="text-[#ff9900]">{documentName}</span>
+              </>
+            ) : (
+              "Your signature was received"
+            )}
+          </h1>
+          {senderName && (
+            <p className="mt-1.5 text-sm font-medium text-[rgba(2,41,119,0.7)] dark:text-[#c8d8f0] min-[700px]:mt-2 min-[700px]:text-base">
+              sent by {senderName}
             </p>
+          )}
 
-            {/* Feature list — 2 col. Mobile: 4 items, tablet: all 6 */}
-            <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4">
-              <StripFeatureItem icon={<FileText className="h-4 w-4" />} title="Any document type" description="Contracts, invoices, NDAs, service agreements — send anything with a signature." />
-              <StripFeatureItem icon={<Zap className="h-4 w-4" />} title="Automated sending" description="Build your workflow once. Send to hundreds of clients automatically." />
-              <StripFeatureItem icon={<Bell className="h-4 w-4" />} title="Real-time tracking" description="Know instantly when documents are opened, signed, or completed." />
-              <StripFeatureItem icon={<Users className="h-4 w-4" />} title="Team management" description="Invite your team, assign permissions, and manage everything centrally." />
-              <StripFeatureItem icon={<ShieldCheck className="h-4 w-4" />} title="Audit trail" description="Every signature is legally valid and backed by a complete audit history." mobileHidden />
-              <StripFeatureItem icon={<BarChart3 className="h-4 w-4" />} title="Usage dashboard" description="Full visibility of your document usage and costs — no surprises." mobileHidden />
-            </div>
+          <p className="mt-3 max-w-md text-sm leading-6 text-[rgba(2,41,119,0.7)] dark:text-[#c8d8f0] min-[700px]:leading-7 2xl:text-base">
+            Your signature was recorded with a complete audit trail.{" "}
+            {signerEmail ? (
+              <>
+                A copy was sent to{" "}
+                <strong className="font-medium text-[#022977] dark:text-[#f0f4ff]">
+                  {signerEmail}
+                </strong>
+                .
+              </>
+            ) : (
+              "A copy will be emailed to you."
+            )}
+          </p>
 
-            <div className="mt-auto pt-3">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#ff9900,#e67e00)] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(255,153,0,0.4)] transition hover:brightness-110 dark:bg-none dark:bg-white dark:text-[#022977] dark:shadow-none dark:hover:bg-white/90 md:px-6 md:py-4 md:text-base"
-              >
-                Get started with NTSsign
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
+          {/* Download the signed copy (polls until ready) — primary action */}
+          <div className="mt-5 min-[700px]:mt-7">
+            <DownloadSignedCopy
+              token={token}
+              initialDownloadUrl={publicSignature?.downloadUrl ?? null}
+            />
+          </div>
+
+          {/* Trust row */}
+          <div className="mt-5 flex items-center gap-2 text-xs text-[rgba(2,41,119,0.5)] dark:text-[rgba(200,216,240,0.6)] min-[700px]:mt-7">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+            Every signature is verifiable and tamper-evident.
           </div>
         </div>
       </div>
 
-      {/* RIGHT — Marketing (desktop only) */}
-      <div className="relative hidden lg:flex flex-col h-full overflow-hidden bg-[linear-gradient(135deg,#05a5ff_0%,#022977_50%,#0400f0_100%)] dark:bg-[linear-gradient(135deg,#022977_0%,#011a55_50%,#010f33_100%)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.12),transparent_40%),radial-gradient(circle_at_85%_80%,rgba(255,153,0,0.25),transparent_45%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(5,165,255,0.15),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(255,153,0,0.08),transparent_40%)]" />
+      {/* ============================================================
+          RIGHT — NTSsign invitation (focused on lead capture).
+          Eyebrow → headline → sub → email form → custom trust seals.
+          The amber CTA stays the focal point — the seals are amber-soft
+          chips, eye-catching but lighter weight than the solid CTA.
+          ============================================================ */}
+      <div className="relative flex flex-1 flex-col bg-[linear-gradient(135deg,#05a5ff_0%,#022977_52%,#0400f0_100%)] dark:bg-[linear-gradient(135deg,#022977_0%,#011a55_50%,#010f33_100%)] min-[700px]:w-1/2 min-[700px]:flex-none lg:min-h-0 lg:overflow-y-auto">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.12),transparent_40%),radial-gradient(circle_at_85%_80%,rgba(255,153,0,0.28),transparent_45%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(5,165,255,0.18),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(255,153,0,0.12),transparent_42%)]" />
 
-        <div className="relative flex flex-col flex-1 justify-center px-10 py-10">
-          {/* Eyebrow */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1.5 w-fit mb-6">
-            <Zap className="h-3.5 w-3.5 text-white/60" />
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Document automation</span>
+        <div className="relative flex w-full flex-1 flex-col justify-center px-5 py-8 min-[700px]:px-10 min-[700px]:py-12 lg:px-12 2xl:mx-auto 2xl:max-w-[680px]">
+          <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 min-[700px]:mb-5">
+            <Zap className="h-3.5 w-3.5 text-[#ff9900]" />
+            <span className="text-xs font-medium uppercase tracking-[0.16em] text-white/80">
+              Powered by NTSsign
+            </span>
           </div>
 
-          {/* Headline */}
-          <h2 className="text-3xl font-semibold tracking-[-0.05em] text-white leading-tight xl:text-4xl">
-            Send any document.<br />Get it signed.<br />Track everything.
+          <h2 className="text-2xl font-medium leading-tight tracking-[-0.04em] text-white min-[700px]:text-[1.75rem] xl:text-3xl 2xl:text-[2.4rem]">
+            Signing was <span className="text-[#ff9900]">that easy.</span>
           </h2>
-          <p className="mt-4 text-sm leading-6 text-white/55">
-            NTSsign automates your entire document workflow — from creation to e-signature to delivery. Contracts, invoices, service agreements, NDAs, and more.
+          <p className="mt-2.5 max-w-md text-sm leading-6 text-white/70 min-[700px]:leading-7 2xl:text-base">
+            Send your own documents for signature in minutes.
           </p>
 
-          {/* Features */}
-          <div className="mt-8 grid gap-3">
-            <FeatureItem
-              icon={<FileText className="h-4 w-4" />}
-              title="Any document type"
-              description="Contracts, invoices, NDAs, service agreements — send anything with a signature."
-            />
-            <FeatureItem
-              icon={<Zap className="h-4 w-4" />}
-              title="Automated sending to your clients"
-              description="Build your workflow once. Send to hundreds of clients automatically."
-            />
-            <FeatureItem
-              icon={<Bell className="h-4 w-4" />}
-              title="Real-time status tracking"
-              description="Know instantly when documents are opened, signed, or completed."
-            />
-            <FeatureItem
-              icon={<Users className="h-4 w-4" />}
-              title="Team and role management"
-              description="Invite your team, assign permissions, and manage everything centrally."
-            />
-            <FeatureItem
-              icon={<ShieldCheck className="h-4 w-4" />}
-              title="Legally binding with audit trail"
-              description="Every signature is legally valid and backed by a complete audit history."
-            />
-            <FeatureItem
-              icon={<BarChart3 className="h-4 w-4" />}
-              title="Billing and usage dashboard"
-              description="Full visibility of your document usage and costs — no surprises."
-            />
+          {/* Lead capture — input + "Get free access →" (the focal CTA) */}
+          <div className="relative mt-5 min-[700px]:mt-6">
+            <LeadCaptureForm />
           </div>
 
-          {/* CTA */}
-          <div className="mt-8 flex items-center gap-4">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#ff9900,#e67e00)] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(255,153,0,0.4)] transition hover:brightness-110 dark:bg-none dark:bg-white dark:text-[#022977] dark:shadow-[0_4px_24px_rgba(0,0,0,0.25)] dark:hover:bg-white/90"
-            >
-              Get started with NTSsign
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+          {/* Trust seals — custom branded SVGs, large with the label below,
+              three across. Amber-soft chip + glow makes them pop without
+              out-weighting the solid-amber CTA above. */}
+          <div className="mt-7 grid max-w-md grid-cols-3 gap-2 min-[700px]:mt-8 min-[700px]:gap-3">
+            <TrustSeal label="Fast" icon={<FastIcon />} />
+            <TrustSeal label="Secure" icon={<SecureIcon />} />
+            <TrustSeal label="Legal" icon={<LegalIcon />} />
           </div>
         </div>
       </div>
@@ -218,49 +213,92 @@ export default async function SignatureCompletePage({
   );
 }
 
-function FeatureItem({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
+/**
+ * A trust seal: large custom SVG inside an amber-soft chip with a brand glow,
+ * label centered below. Three of these sit across the promo column. The chip
+ * is intentionally amber-SOFT (not solid) so it reads as premium reassurance
+ * without competing with the solid-amber "Get free access" CTA.
+ */
+function TrustSeal({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/70">
+    <div className="flex flex-col items-center gap-2 text-center">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(255,153,0,0.28),rgba(255,153,0,0.06))] ring-1 ring-inset ring-[rgba(255,153,0,0.45)] shadow-[0_8px_24px_rgba(255,153,0,0.28)] min-[700px]:h-16 min-[700px]:w-16 2xl:h-[72px] 2xl:w-[72px]">
         {icon}
-      </div>
-      <div>
-        <div className="text-sm font-semibold text-white">{title}</div>
-        <div className="text-xs leading-5 text-white/55">{description}</div>
-      </div>
+      </span>
+      <span className="text-xs font-medium text-white min-[700px]:text-sm 2xl:text-base">
+        {label}
+      </span>
     </div>
   );
 }
 
-function StripFeatureItem({
-  icon,
-  title,
-  description,
-  mobileHidden = false,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  mobileHidden?: boolean;
-}) {
+const ICON_CLASS = "h-7 w-7 min-[700px]:h-8 min-[700px]:w-8 2xl:h-9 2xl:w-9";
+
+/** Fast — a filled amber lightning bolt with a bright leading edge. */
+function FastIcon() {
   return (
-    <div className={`flex items-start gap-3${mobileHidden ? " hidden md:flex" : ""}`}>
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/70">
-        {icon}
-      </div>
-      <div>
-        <div className="text-sm font-semibold text-white">{title}</div>
-        <div className="hidden md:block text-xs leading-5 text-white/55">{description}</div>
-      </div>
-    </div>
+    <svg viewBox="0 0 24 24" fill="none" className={ICON_CLASS} aria-hidden="true">
+      <path
+        d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"
+        fill="#ff9900"
+        stroke="#ffd596"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Secure — an amber shield with a crisp white checkmark. */
+function SecureIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={ICON_CLASS} aria-hidden="true">
+      <path
+        d="M12 22s7.5-3.7 7.5-9.4V5.2L12 2.3 4.5 5.2v7.4C4.5 18.3 12 22 12 22z"
+        fill="rgba(255,153,0,0.22)"
+        stroke="#ff9900"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m8.6 12.1 2.3 2.3 4.5-4.6"
+        stroke="#ffffff"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Legal — an amber medal/seal with a ribbon and a white check. */
+function LegalIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={ICON_CLASS} aria-hidden="true">
+      <path
+        d="m8.8 13.4-1.6 8.1 4.8-2.7 4.8 2.7-1.6-8.1"
+        fill="none"
+        stroke="#ff9900"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        cx="12"
+        cy="9"
+        r="6.4"
+        fill="rgba(255,153,0,0.22)"
+        stroke="#ff9900"
+        strokeWidth="1.6"
+      />
+      <path
+        d="m9.3 9 1.9 1.9L15 7.1"
+        stroke="#ffffff"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -281,4 +319,3 @@ async function loadPublicSignatureCompletion(token: string) {
     return null;
   }
 }
-

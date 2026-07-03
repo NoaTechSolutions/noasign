@@ -2,9 +2,10 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -27,40 +28,54 @@ interface DashboardThemeProviderProps {
 // for login/landing) — the two systems coexist without sync. Dashboard
 // components consume CSS tokens via `:root[data-theme="..."]` selectors.
 const STORAGE_KEY = "ntssign-dashboard-theme";
+const THEME_CHANGE_EVENT = "ntssign-dashboard-theme-change";
+
+// Reads the persisted theme, falling back to the OS preference. Only runs on the
+// client — during SSR the server snapshot below short-circuits it.
+function readStoredTheme(): Theme {
+  const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
+  if (stored === "light" || stored === "dark") return stored;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function subscribeToTheme(onStoreChange: () => void) {
+  window.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
+  return () => window.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
+}
 
 export function DashboardThemeProvider({
   children,
 }: DashboardThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  // The persisted theme IS the external store. useSyncExternalStore reads it
+  // hydration-safely: the server snapshot is "light" and the client snapshot
+  // upgrades to the stored/system value with no setState inside an effect.
+  const theme = useSyncExternalStore(
+    subscribeToTheme,
+    readStoredTheme,
+    () => "light" as Theme,
+  );
 
+  // Mirror the active theme onto the document element. Updating an external
+  // system (the DOM) from React state is the canonical, allowed use of an effect.
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const systemPreference = window.matchMedia(
-      "(prefers-color-scheme: dark)",
-    ).matches
-      ? "dark"
-      : "light";
-    const initialTheme = stored ?? systemPreference;
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
-    setThemeState(initialTheme);
-    document.documentElement.setAttribute("data-theme", initialTheme);
+  const setTheme = useCallback((newTheme: Theme) => {
+    window.localStorage.setItem(STORAGE_KEY, newTheme);
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }, []);
 
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
-    window.localStorage.setItem(STORAGE_KEY, newTheme);
-  };
-
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setTheme(theme === "light" ? "dark" : "light");
-  };
+  }, [theme, setTheme]);
 
-  // Always wrap children in the context provider — even on first render
-  // before useEffect runs. The defaults (`theme: "light"`) are used until
-  // the effect upgrades them with stored/system preference. Skipping the
-  // provider on first render would break any `useDashboardTheme()` call
-  // in the initial paint (e.g. ThemeToggle in Topbar).
+  // Always wrap children in the context provider — even on first render. The
+  // server/hydration value ("light") is used until the client snapshot upgrades
+  // it. Skipping the provider on first render would break any
+  // `useDashboardTheme()` call in the initial paint (e.g. ThemeToggle in Topbar).
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}

@@ -1,24 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useLang } from "./LandingContext";
+
+const THEME_KEY = "nts-theme";
+const THEME_CHANGE_EVENT = "nts-theme-change";
+
+// Reads the persisted theme, falling back to the OS preference. Client-only —
+// the server snapshot below short-circuits it during SSR.
+function readDark(): boolean {
+  const stored = window.localStorage.getItem(THEME_KEY);
+  if (stored === "dark") return true;
+  if (stored === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function subscribeTheme(onStoreChange: () => void) {
+  window.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
+  return () => window.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
+}
 
 export function FloatingControls() {
   const { lang, setLang } = useLang();
-  const [dark, setDark] = useState(false);
+  // Persisted theme read as an external store via useSyncExternalStore. SSR-safe:
+  // the server snapshot is `false` (light), adopted from storage/OS right after
+  // hydration — no setState inside an effect (#418), no hydration mismatch.
+  const dark = useSyncExternalStore(subscribeTheme, readDark, () => false);
 
-  // Read theme from localStorage on mount. Lazy useState initializer would cause
-  // a hydration mismatch (#418) because SSR cannot access window/localStorage and
-  // would return a different value than the client. Disabling the rule locally is
-  // the React-recommended escape hatch for syncing with external storage on mount.
-  useEffect(() => {
-    const stored = localStorage.getItem("nts-theme");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (stored === "dark") setDark(true);
-    else if (stored === "light") setDark(false);
-    else setDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
-  }, []);
-
+  // Reflect the theme onto the document + swap logo visibility. Updating an
+  // external system (the DOM) from state is the canonical, allowed use of an effect.
   useEffect(() => {
     const root = document.documentElement;
     if (!root) return;
@@ -37,9 +47,8 @@ export function FloatingControls() {
   }, [dark]);
 
   const toggleTheme = () => {
-    const next = !dark;
-    setDark(next);
-    localStorage.setItem("nts-theme", next ? "dark" : "light");
+    window.localStorage.setItem(THEME_KEY, !dark ? "dark" : "light");
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   };
 
   return (
@@ -47,7 +56,7 @@ export function FloatingControls() {
       {/* Theme toggle */}
       <div className="float-ctrl-btn-wrap">
         <button className="thm-btn" onClick={toggleTheme}>
-          <div className="thm-knob">{dark ? "\uD83C\uDF19" : "\u2600"}</div>
+          <div className="thm-knob">{dark ? "🌙" : "☀"}</div>
         </button>
       </div>
 

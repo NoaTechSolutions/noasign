@@ -25,7 +25,7 @@ function parseFilterParam<T extends string>(raw: string | null, allowed: readonl
 }
 
 export interface CustomersPanelProps {
-  role: 'master' | 'admin' | 'user';
+  role: 'superadmin' | 'user';
   currentUserId: string;
   // Handler props — wired from page.tsx via apiRequest (auth-aware).
   // Refactored from the tarball's raw fetch() calls which bypass JwtAuthGuard.
@@ -93,7 +93,7 @@ export function CustomersPanel({
   const reloadCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      // Single source: the backend returns all statuses for MASTER (including
+      // Single source: the backend returns all statuses for SUPERADMIN (including
       // DELETED) and excludes DELETED for USER/ADMIN. The DELETED visibility is
       // a client-side filter concern now — no separate "deleted" fetch.
       const list = await onFetchCustomers();
@@ -131,7 +131,7 @@ export function CustomersPanel({
     if (statusFilters.length > 0) {
       filtered = filtered.filter(c => statusFilters.includes(c.status ?? 'ACTIVE'));
     } else {
-      // Default view never surfaces DELETED clients — MASTER must explicitly
+      // Default view never surfaces DELETED clients — SUPERADMIN must explicitly
       // pick the "Deleted" filter to see them.
       filtered = filtered.filter(c => (c.status ?? 'ACTIVE') !== 'DELETED');
     }
@@ -248,7 +248,7 @@ export function CustomersPanel({
         statusFilters={statusFilters}
         onSetTypeFilters={setTypeFilters}
         onSetStatusFilters={setStatusFilters}
-        canSeeDeleted={role === 'master'}
+        canSeeDeleted={role === 'superadmin'}
         loading={loading}
       />
 

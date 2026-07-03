@@ -2,17 +2,18 @@
 
 import { Check, Loader2, X } from 'lucide-react';
 
-export type ReceiptToastState = 'loading' | 'success' | 'error';
+export type SendToastState = 'loading' | 'success' | 'error';
 
-// Custom react-hot-toast content with an animated progress bar. The bar is
-// purely visual (no real progress): it eases to ~90% while we wait, then the
-// success/error update fills it to 100% in its colour.
-export function ReceiptSendToast({
+// Custom react-hot-toast content with an animated progress bar, shared by the
+// receipt and contract send/resend flows. The bar is purely visual (no real
+// progress): it eases to ~90% while we wait, then the success/error update
+// fills it to 100% in its colour.
+export function SendToast({
   state,
   message,
   onDismiss,
 }: {
-  state: ReceiptToastState;
+  state: SendToastState;
   message: string;
   onDismiss?: () => void;
 }) {

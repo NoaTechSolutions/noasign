@@ -3,7 +3,7 @@ import { apiRequest } from "./api";
 export type LockedUser = {
   id: string;
   email: string;
-  role: "MASTER" | "ADMIN" | "USER";
+  role: "SUPERADMIN" | "USER";
   failedLoginAttempts: number;
   // ISO date string — Prisma's Date becomes string after JSON serialization
   lockedUntil: string;

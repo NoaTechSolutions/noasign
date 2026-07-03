@@ -23,6 +23,11 @@ interface DocumentTableRowProps {
   selected: boolean;
   onSelect: (docId: string) => void;
   onAction: (action: V2DocumentAction, docId: string) => void | Promise<void>;
+  // Plays the fade/slide-in entrance once when the row was just inserted.
+  isNew?: boolean;
+  // Receipts-only context: col 1 is just the receipt number (the recipient moves
+  // to its own "Recipient" column, so the secondary client line is dropped).
+  receiptsOnly?: boolean;
 }
 
 export function DocumentTableRow({
@@ -30,6 +35,8 @@ export function DocumentTableRow({
   selected,
   onSelect,
   onAction,
+  isNew = false,
+  receiptsOnly = false,
 }: DocumentTableRowProps) {
   const { open: menuOpen, toggle, close, style: menuStyle, triggerRef, menuRef } = useDropdownPosition();
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -67,18 +74,25 @@ export function DocumentTableRow({
 
   return (
     <tr
-      className={`documents-v2-row${selected ? ' documents-v2-row--selected' : ''}`}
+      className={`documents-v2-row${selected ? ' documents-v2-row--selected' : ''}${isNew ? ' docs-v2-row-in' : ''}`}
       onClick={() => onSelect(document.id)}
     >
-      {/* 1. Document = number (primary) + client (secondary), two-line + truncate */}
+      {/* 1. Document = number (primary) + client (secondary), two-line + truncate.
+          Receipts-only: just the receipt number — the client moves to col 2. */}
       <td className="documents-v2-row__doc">
         <div className="doc-cell">
           <span className="doc-number">{document.documentNumber}</span>
-          <span className="doc-client">{getCustomerDisplayName(document)}</span>
+          {!receiptsOnly && (
+            <span className="doc-client">{getCustomerDisplayName(document)}</span>
+          )}
         </div>
       </td>
-      {/* 2. Type */}
-      <td>{getDocumentTypeDisplayName(document)}</td>
+      {/* 2. Type — or Recipient for receipts-only tenants. */}
+      <td>
+        {receiptsOnly
+          ? getCustomerDisplayName(document)
+          : getDocumentTypeDisplayName(document)}
+      </td>
       {/* 3. Date (created) */}
       <td className="documents-v2-row__time">{formatDate(document.createdAt)}</td>
       {/* 4. Status */}

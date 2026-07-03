@@ -7,6 +7,21 @@ import { SignatureProviderService } from '../signature-provider/signature-provid
 import { EmailService } from '../email/email.service';
 import { R2Service } from '../storage/r2.service';
 
+// Mirror of documentDetailInclude in documents.service.ts — the shared shape
+// every document.update/create returns (the source const isn't exported, so we
+// keep a copy here for the detail-include assertions to track the real shape).
+const DOCUMENT_DETAIL_INCLUDE = {
+  documentType: true,
+  formDefinition: true,
+  signatureTemplate: true,
+  data: true,
+  customer: true,
+  companyProfile: true,
+  user: { select: { id: true, email: true, firstName: true, lastName: true } },
+  supersedes: { select: { id: true, documentNumber: true } },
+  supersededBy: { select: { id: true, documentNumber: true } },
+};
+
 const prismaMock = {
   documentType: {
     findMany: jest.fn(),
@@ -38,6 +53,9 @@ const prismaMock = {
   receiptTemplate: {
     findMany: jest.fn(),
   },
+  companyProfile: {
+    findUnique: jest.fn(),
+  },
 };
 
 const signatureProviderServiceMock = {
@@ -59,8 +77,12 @@ describe('DocumentsService', () => {
     );
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'user-1',
-      role: 'MASTER',
+      role: 'SUPERADMIN',
       companyProfileId: 'company-1',
+    });
+    // Model C — default tenant allows contracts unless a test overrides it.
+    prismaMock.companyProfile.findUnique.mockResolvedValue({
+      contractsEnabled: true,
     });
 
     const module: TestingModule = await Test.createTestingModule({
@@ -102,16 +124,18 @@ describe('DocumentsService', () => {
   });
 
   it('getDocumentTypes (asUserId) borrows a cross-tenant target user’s receipt template', async () => {
-    // caller = MASTER (company-1); target = USER in a DIFFERENT tenant (company-2).
+    // caller = SUPERADMIN (company-1); target = USER in a DIFFERENT tenant (company-2).
     prismaMock.user.findUnique
-      .mockResolvedValueOnce({ role: 'MASTER', companyProfileId: 'company-1' })
+      .mockResolvedValueOnce({ role: 'SUPERADMIN', companyProfileId: 'company-1' })
       .mockResolvedValueOnce({
         id: 'user-2',
         role: 'USER',
         companyProfileId: 'company-2',
       });
     prismaMock.userDocumentConfig.findMany.mockResolvedValue([]);
-    prismaMock.receiptTemplate.findMany.mockResolvedValue([{ id: 'rt-borrow' }]);
+    prismaMock.receiptTemplate.findMany.mockResolvedValue([
+      { id: 'rt-borrow' },
+    ]);
     prismaMock.documentType.findMany.mockResolvedValue([
       {
         id: 'dt-rec',
@@ -124,7 +148,7 @@ describe('DocumentsService', () => {
 
     const result = await service.getDocumentTypes('user-1', 'user-2');
 
-    // Target resolved WITHOUT a same-tenant constraint (cross-tenant for MASTER).
+    // Target resolved WITHOUT a same-tenant constraint (cross-tenant for SUPERADMIN).
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-2' },
       select: { id: true, role: true, companyProfileId: true },
@@ -211,7 +235,7 @@ describe('DocumentsService', () => {
       },
       user: {
         email: 'owner@ntssign.test',
-        role: 'MASTER',
+        role: 'SUPERADMIN',
       },
       documentType: {
         name: 'Contract',
@@ -288,12 +312,7 @@ describe('DocumentsService', () => {
         lastSentRecipientEmail: 'client@example.com',
         providerStatus: 'document.sent',
       }),
-      include: {
-        documentType: true,
-        formDefinition: true,
-        signatureTemplate: true,
-        data: true,
-      },
+      include: DOCUMENT_DETAIL_INCLUDE,
     });
     expect(result.isOverage).toBe(false);
     expect(result.document.status).toBe(DocumentStatus.SENT);
@@ -318,7 +337,7 @@ describe('DocumentsService', () => {
       },
       user: {
         email: 'owner@ntssign.test',
-        role: 'MASTER',
+        role: 'SUPERADMIN',
       },
       documentType: {
         name: 'Contract',
@@ -395,7 +414,7 @@ describe('DocumentsService', () => {
       },
       user: {
         email: 'owner@ntssign.test',
-        role: 'MASTER',
+        role: 'SUPERADMIN',
       },
       documentType: {
         name: 'Contract',
@@ -504,12 +523,7 @@ describe('DocumentsService', () => {
         isOverage: true,
         billingPeriod: expect.any(String),
       }),
-      include: {
-        documentType: true,
-        formDefinition: true,
-        signatureTemplate: true,
-        data: true,
-      },
+      include: DOCUMENT_DETAIL_INCLUDE,
     });
     expect(result.document.status).toBe(DocumentStatus.VIEWED);
   });
@@ -557,12 +571,7 @@ describe('DocumentsService', () => {
         isOverage: false,
         billingPeriod: null,
       },
-      include: {
-        documentType: true,
-        formDefinition: true,
-        signatureTemplate: true,
-        data: true,
-      },
+      include: DOCUMENT_DETAIL_INCLUDE,
     });
     expect(prismaMock.documentVersion.create).toHaveBeenCalledWith({
       data: {
@@ -608,12 +617,7 @@ describe('DocumentsService', () => {
         viewedAt,
         signedAt: expect.any(Date),
       }),
-      include: {
-        documentType: true,
-        formDefinition: true,
-        signatureTemplate: true,
-        data: true,
-      },
+      include: DOCUMENT_DETAIL_INCLUDE,
     });
     expect(result.document.status).toBe(DocumentStatus.SIGNED);
   });
