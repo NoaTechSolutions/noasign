@@ -67,13 +67,21 @@
 }
 :root[data-theme='dark'] .welcome-greeting { color: rgba(255, 255, 255, 0.9); }
 
-/* Account name — the headline. */
+/* Account name — the headline. Long company/person names wrap to a 2nd line and
+   show in FULL; only a truly huge name clamps with an ellipsis on line 2.
+   overflow-wrap:break-word stops a long unbroken token from overflowing (and
+   being clipped mid-word) on narrow phones. Applies in every breakpoint. */
 .welcome-name {
   font-size: 26px;
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
   color: #022977;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
 }
 :root[data-theme='dark'] .welcome-name { color: #ffffff; }
 
