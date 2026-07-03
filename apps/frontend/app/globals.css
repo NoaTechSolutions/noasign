@@ -425,10 +425,10 @@ input {
   --status-cancelled:    #ef4444;
   --status-cancelled-bg: rgba(239, 68, 68, 0.12);
   /* Receipt-only states */
-  --status-failed:       #dc2626;
-  --status-failed-bg:    rgba(220, 38, 38, 0.16);
-  --status-void:         #ffffff;
-  --status-void-bg:      #dc2626;
+  --status-failed:       #e08600;
+  --status-failed-bg:    rgba(224, 134, 0, 0.12);
+  --status-void:         #ef4444;
+  --status-void-bg:      rgba(239, 68, 68, 0.12);
 
   /* Gradients */
   --gradient-welcome: linear-gradient(135deg, #022977 0%, #0400f0 100%);
@@ -496,10 +496,10 @@ input {
   --status-cancelled:    #f87171;
   --status-cancelled-bg: rgba(239, 68, 68, 0.16);
   /* Receipt-only states */
-  --status-failed:       #f87171;
-  --status-failed-bg:    rgba(220, 38, 38, 0.22);
-  --status-void:         #ffffff;
-  --status-void-bg:      #dc2626;
+  --status-failed:       #fbbf24;
+  --status-failed-bg:    rgba(245, 158, 11, 0.16);
+  --status-void:         #f87171;
+  --status-void-bg:      rgba(239, 68, 68, 0.16);
 
   /* Gradients */
   --gradient-welcome: linear-gradient(135deg, #05a5ff 0%, #0291dd 100%);

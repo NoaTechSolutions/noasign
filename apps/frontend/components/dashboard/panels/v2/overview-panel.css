@@ -438,13 +438,13 @@
   color: var(--text-label);
 }
 
-/* Status colors */
-.status-draft .status-pill-bar { background: #94a3b8; }
-.status-sent .status-pill-bar { background: #3b82f6; }
-.status-viewed .status-pill-bar { background: #8b5cf6; }
-.status-signed .status-pill-bar { background: #f59e0b; }
-.status-completed .status-pill-bar { background: #22c55e; }
-.status-cancelled .status-pill-bar { background: #ef4444; }
+/* Status colors — from the SINGLE SOURCE (globals.css --status-*). */
+.status-draft .status-pill-bar { background: var(--status-draft); }
+.status-sent .status-pill-bar { background: var(--status-sent); }
+.status-viewed .status-pill-bar { background: var(--status-viewed); }
+.status-signed .status-pill-bar { background: var(--status-signed); }
+.status-completed .status-pill-bar { background: var(--status-completed); }
+.status-cancelled .status-pill-bar { background: var(--status-cancelled); }
 
 /* Loading state */
 .status-breakdown.loading {
