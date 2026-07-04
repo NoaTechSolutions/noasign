@@ -142,6 +142,9 @@ export type DashboardDocument = {
   providerLastSyncedAt?: string | null;
   lastManualReminderAt?: string | null;
   lastSentRecipientEmail?: string | null;
+  // Human-readable reason when status is SEND_FAILED (from Resend/BoldSign).
+  // Returned per-row by the list endpoint (serializeDocument spreads it).
+  sendError?: string | null;
   sendAvailableAt?: string | null;
   sendAvailableInSeconds?: number;
   canSend?: boolean;

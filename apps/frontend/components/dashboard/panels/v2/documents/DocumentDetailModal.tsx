@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { X, User, FileText, Calendar, FileSignature, DollarSign, MapPin, Wrench, Pencil } from 'lucide-react';
+import { X, User, FileText, Calendar, FileSignature, DollarSign, MapPin, Wrench, Pencil, AlertTriangle } from 'lucide-react';
+import { friendlySendError } from '@/lib/send-error';
 import toast from 'react-hot-toast';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { formatUsPhone } from '@/lib/format-phone';
@@ -633,6 +634,15 @@ export function DocumentDetailModal({
               ))}
             </div>
 
+            {/* Send-failed reason — prominent banner (F6), so the "why" isn't
+                buried in the timeline. Shown for contracts AND receipts. */}
+            {status === 'SEND_FAILED' && friendlySendError(detail?.sendError) ? (
+              <div className="doc-detail-send-failed" role="alert">
+                <AlertTriangle size={15} />
+                <span>{friendlySendError(detail?.sendError)}</span>
+              </div>
+            ) : null}
+
             {/* Content */}
             <div className="doc-detail-modal-content">
               {activeTab === 'timeline' ? (
@@ -1125,7 +1135,7 @@ function TimelineTab({
                 {
                   label: 'Send failed',
                   ts: detail.updatedAt ?? detail.sentAt ?? detail.createdAt,
-                  hint: detail.sendError ?? '',
+                  hint: friendlySendError(detail.sendError) ?? '',
                 },
               ]
             : []),
