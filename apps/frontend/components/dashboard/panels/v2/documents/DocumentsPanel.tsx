@@ -242,7 +242,9 @@ export function DocumentsPanel({
     const added = currentIds.filter((id) => !prev.has(id));
     if (added.length === 0) return;
     setNewDocIds(new Set(added));
-    const t = setTimeout(() => setNewDocIds(new Set()), 400);
+    // Keep the flag on for the full entrance animation (F8: fade/slide + fading
+    // sky highlight, ~1.6s). Too short and the highlight gets cut off.
+    const t = setTimeout(() => setNewDocIds(new Set()), 1700);
     return () => clearTimeout(t);
   }, [documents]);
 
