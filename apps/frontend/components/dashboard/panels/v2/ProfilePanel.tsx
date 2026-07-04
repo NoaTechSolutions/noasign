@@ -95,15 +95,23 @@ export function ProfilePanel({
   // drop the cascading render. Equivalent to the old [user]/[companyProfile]
   // effects: a new reference refreshes its draft; a null prop leaves the last
   // draft intact.
+  // NEVER overwrite an in-progress edit: while a group is being edited
+  // (editingGroup set), a NEW source-prop reference — e.g. a background refetch
+  // that re-adapts the SAME data (the parent builds the prop with an inline
+  // adapter, so it's a fresh object every render) — must NOT reset the draft.
+  // That reference-change reset was wiping what the user typed mid-edit (and, by
+  // save time, making the diff empty so nothing persisted). Track the ref always,
+  // but only refresh the draft when nothing is being edited: openGroup seeds the
+  // draft on open, and after a save the parent refetches with editingGroup null.
   const [syncedUser, setSyncedUser] = useState(user);
   if (user !== syncedUser) {
     setSyncedUser(user);
-    if (user) setDraftUser({ ...user });
+    if (user && editingGroup === null) setDraftUser({ ...user });
   }
   const [syncedCompany, setSyncedCompany] = useState(companyProfile);
   if (companyProfile !== syncedCompany) {
     setSyncedCompany(companyProfile);
-    if (companyProfile) setDraftCompany({ ...companyProfile });
+    if (companyProfile && editingGroup === null) setDraftCompany({ ...companyProfile });
   }
 
   const openGroup = useCallback((group: string) => {

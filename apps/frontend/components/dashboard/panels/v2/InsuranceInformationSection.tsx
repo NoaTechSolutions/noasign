@@ -73,10 +73,15 @@ export function InsuranceInformationSection({
       </div>
 
       <GroupEditPopup title="Policy" isOpen={editingGroup === 'ins-policy'} onClose={onCloseGroup} onSave={onSaveGroup} isDirty={isDirty}>
-        <div className="form-field"><label className="form-label">Insurance Company</label><input type="text" className="form-input" value={insurance.company || ''} onChange={(e) => onInsuranceChange('insuranceCompany', formatTitleCase(e.target.value))} placeholder="e.g., State Farm" /></div>
-        <div className="form-field"><label className="form-label">Policy Number</label><input type="text" className="form-input" value={insurance.policyNumber || ''} onChange={(e) => onInsuranceChange('insurancePolicyNumber', e.target.value)} /></div>
-        <div className="form-field"><label className="form-label">Phone</label><input type="tel" className="form-input" value={insurance.phone || ''} onChange={(e) => onInsuranceChange('insurancePhone', formatUsPhone(e.target.value))} placeholder="(555) 000-0000" /></div>
-        <div className="form-field"><label className="form-label">Expiry Date</label><input type="date" className="form-input" value={insurance.expiryDate || ''} onChange={(e) => onInsuranceChange('insuranceExpiryDate', e.target.value)} /></div>
+        {/* autoComplete="off" + distinct name on each input stops the browser
+            from cross-autofilling one field with another's value (e.g. company
+            name leaking into Policy number on focus). */}
+        <div className="form-field"><label className="form-label">Insurance Company</label><input type="text" name="insurance-company" autoComplete="off" className="form-input" value={insurance.company || ''} onChange={(e) => onInsuranceChange('insuranceCompany', formatTitleCase(e.target.value))} placeholder="e.g., State Farm" /></div>
+        {/* Policy Number: alphanumeric, capped at 15 (US policy numbers are short
+            and may contain letters). Sanitize on input so pasted junk is stripped. */}
+        <div className="form-field"><label className="form-label">Policy Number</label><input type="text" name="insurance-policy" autoComplete="off" className="form-input" value={insurance.policyNumber || ''} maxLength={15} onChange={(e) => onInsuranceChange('insurancePolicyNumber', e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 15))} placeholder="e.g., ABC123456789" /></div>
+        <div className="form-field"><label className="form-label">Phone</label><input type="tel" name="insurance-phone" autoComplete="off" className="form-input" value={insurance.phone || ''} onChange={(e) => onInsuranceChange('insurancePhone', formatUsPhone(e.target.value))} placeholder="(555) 000-0000" /></div>
+        <div className="form-field"><label className="form-label">Expiry Date</label><input type="date" name="insurance-expiry" autoComplete="off" className="form-input" value={insurance.expiryDate || ''} onChange={(e) => onInsuranceChange('insuranceExpiryDate', e.target.value)} /></div>
       </GroupEditPopup>
     </CollapsibleSection>
   );
