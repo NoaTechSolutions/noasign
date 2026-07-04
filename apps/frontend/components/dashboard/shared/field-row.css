@@ -89,6 +89,17 @@
 
 /* Mobile */
 @media (max-width: 767px) {
+  /* The 2-column group-pair collapses to one column, but its 12px column gap
+     left a phantom blank where the (now stacked) 2nd column used to be. Drop the
+     gap so the fields read as ONE clean, uniform list; restore the separator on
+     the last row of the first column so the join still has a divider line. */
+  .group-pair {
+    gap: 0;
+  }
+  .group-pair > .field-rows:not(:last-child) .field-row:last-child {
+    border-bottom: 0.5px solid var(--border-soft);
+  }
+
   .field-row {
     grid-template-columns: 1fr;
     gap: 2px;
