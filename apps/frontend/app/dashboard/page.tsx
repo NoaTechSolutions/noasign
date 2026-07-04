@@ -1657,6 +1657,21 @@ function DashboardPageInner() {
     [],
   );
 
+  // Refresh the page-level `customers` list — the SINGLE source the New-document
+  // "Client" selector reads from. Called when the create-document modal opens so a
+  // client created elsewhere (e.g. the Clients module, which uses its own handlers
+  // and never touches this state) shows up without a full page reload.
+  const refreshCustomers = useCallback(async () => {
+    try {
+      const r = await apiRequest<CustomerListResponse>(
+        "/customers?limit=500&offset=0",
+      );
+      setCustomers(r.customers);
+    } catch {
+      /* keep the last good list on a transient failure */
+    }
+  }, []);
+
   // newLayoutPanel is always set (defaults to "overview"), so the V2 DashboardShell
   // always renders. The `if` is a guard; the block below always returns.
   if (newLayoutPanel) {
@@ -2361,6 +2376,7 @@ function DashboardPageInner() {
           documents={documentsV2.items}
           documentTypes={documentsV2.types}
           customers={documentsV2.customers}
+          onRefreshCustomers={refreshCustomers}
           onCreateDraft={documentsV2.onCreateDraft}
           onCreateReceipt={documentsV2.onCreateReceipt}
           defaultReceivedBy={documentsV2.defaultReceivedBy}
