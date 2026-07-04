@@ -44,25 +44,33 @@ export function ClientSelectPopup({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return customers.filter((c) => {
-      if (q) {
-        const hay = `${c.fullName} ${c.email ?? ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      switch (filter) {
-        case 'personal':
-          return c.customerType === 'PERSONAL';
-        case 'business':
-          return c.customerType === 'BUSINESS';
-        // Missing status is treated as Active (it's the default).
-        case 'active':
-          return c.status !== 'INACTIVE';
-        case 'inactive':
-          return c.status === 'INACTIVE';
-        default:
-          return true;
-      }
-    });
+    return customers
+      .filter((c) => {
+        if (q) {
+          const hay = `${c.fullName} ${c.email ?? ''}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        switch (filter) {
+          case 'personal':
+            return c.customerType === 'PERSONAL';
+          case 'business':
+            return c.customerType === 'BUSINESS';
+          // Missing status is treated as Active (it's the default).
+          case 'active':
+            return c.status !== 'INACTIVE';
+          case 'inactive':
+            return c.status === 'INACTIVE';
+          default:
+            return true;
+        }
+      })
+      // Alphabetical by name (case-insensitive, locale-aware) so the list is
+      // predictable regardless of creation order.
+      .sort((a, b) =>
+        (a.fullName ?? '').localeCompare(b.fullName ?? '', undefined, {
+          sensitivity: 'base',
+        }),
+      );
   }, [customers, search, filter]);
 
   return (
