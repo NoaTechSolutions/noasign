@@ -1,0 +1,57 @@
+/* History module — placeholder screen. Centered card with icon + "Coming soon".
+   Theme-aware via shared tokens (same surface/border as the other panels). */
+.history-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 24px;
+}
+
+.history-panel__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 420px;
+  padding: 40px 32px;
+  background: var(--surface-card, var(--bg-card));
+  border: 0.5px solid var(--tx-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.history-panel__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  color: var(--brand-accent);
+  background: var(--brand-accent-soft);
+}
+
+.history-panel__title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 0 0 6px;
+}
+
+.history-panel__soon {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand-accent);
+  margin: 0 0 14px;
+}
+
+.history-panel__desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}

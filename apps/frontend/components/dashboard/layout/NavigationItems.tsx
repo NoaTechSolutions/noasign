@@ -79,6 +79,13 @@ export const NAVIGATION_ITEMS: NavEntry[] = [
     ),
   },
   {
+    label: "History",
+    shortLabel: "History",
+    panel: "history",
+    // Clock with a counter-clockwise arrow — activity/history.
+    icon: <Icon path="M3 3v5h5M3.05 13a9 9 0 105.36-8.36L3 8m9 1v4l3 2" />,
+  },
+  {
     label: "Profile",
     shortLabel: "Profile",
     panel: "profile",

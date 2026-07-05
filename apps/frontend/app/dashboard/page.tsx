@@ -9,7 +9,7 @@ import { API_URL, apiRequest } from "../../lib/api";
 import { getPlanEntry } from "../../lib/plan-catalog";
 import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
-import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel } from "../../components/dashboard/panels/v2";
+import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel, HistoryPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
 import type {
   V2DocumentItem,
@@ -2311,6 +2311,7 @@ function DashboardPageInner() {
           onNewDocument={() => router.push("/dashboard?panel=documents&new=1")}
           onOpenDocument={(docId) => router.push(`/dashboard?panel=documents&doc=${docId}`)}
           onViewAllAttention={() => router.push("/dashboard?panel=documents&status=SENT")}
+          onViewHistory={() => router.push("/dashboard?panel=history")}
         />
       ) : newLayoutPanel === "profile" ? (
         <ProfilePanel
@@ -2424,6 +2425,8 @@ function DashboardPageInner() {
               : undefined
           }
         />
+      ) : newLayoutPanel === "history" ? (
+        <HistoryPanel />
       ) : (
         <div
           className="rounded-xl p-8"

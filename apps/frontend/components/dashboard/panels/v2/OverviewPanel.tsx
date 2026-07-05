@@ -85,6 +85,9 @@ export interface OverviewPanelProps {
   onNewDocument?: () => void;
   onOpenDocument?: (docId: string) => void;
   onViewAllAttention?: () => void;
+  // Navigates to the History module (placeholder for now). Drives the status
+  // card's "View history →" link.
+  onViewHistory?: () => void;
 }
 
 export function OverviewPanel({
@@ -97,6 +100,7 @@ export function OverviewPanel({
   onFetchReceiptStats,
   onNewDocument,
   onOpenDocument,
+  onViewHistory,
 }: OverviewPanelProps) {
   const receiptsOnly = !contractsEnabled;
   const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
@@ -247,6 +251,11 @@ export function OverviewPanel({
         items={receiptsOnly ? receiptStatus : docStatus}
         variant={receiptsOnly ? 'receipts' : 'documents'}
         isLoading={receiptsOnly ? isLoading || statsLoading : isLoading}
+        footerLink={
+          onViewHistory
+            ? { label: 'View history', onClick: onViewHistory }
+            : undefined
+        }
       />
 
       {/* Row 4 — recent documents / receipts. */}

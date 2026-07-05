@@ -1337,6 +1337,30 @@
   display: grid;
   gap: 12px;
 }
+.status-strip__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--tx-border);
+}
+.status-strip__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-accent);
+  transition: color 0.15s ease;
+}
+.status-strip__link:hover {
+  color: var(--brand-accent-hover);
+}
 .status-strip__grid--documents { grid-template-columns: repeat(4, 1fr); }
 .status-strip__grid--receipts { grid-template-columns: repeat(4, 1fr); }
 .status-mini {

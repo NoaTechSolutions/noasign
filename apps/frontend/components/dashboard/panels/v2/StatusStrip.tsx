@@ -18,6 +18,8 @@ interface StatusStripProps {
   isLoading: boolean;
   // Drives the grid density: documents = 6 mini-cards, receipts = 4.
   variant?: 'documents' | 'receipts';
+  // Optional bottom-right link (thin separator above), e.g. "View history →".
+  footerLink?: { label: string; onClick: () => void };
 }
 
 /**
@@ -25,7 +27,7 @@ interface StatusStripProps {
  * Replaces the old per-status breakdown with bars: statuses have no quota, so a
  * count is all that's needed. Shared by the document and receipt overviews.
  */
-export function StatusStrip({ title, subtitle, items, isLoading, variant = 'documents' }: StatusStripProps) {
+export function StatusStrip({ title, subtitle, items, isLoading, variant = 'documents', footerLink }: StatusStripProps) {
   return (
     <div className="status-strip">
       <div className="status-strip__header">
@@ -41,6 +43,13 @@ export function StatusStrip({ title, subtitle, items, isLoading, variant = 'docu
           </div>
         ))}
       </div>
+      {footerLink ? (
+        <div className="status-strip__footer">
+          <button type="button" className="status-strip__link" onClick={footerLink.onClick}>
+            {footerLink.label} <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
