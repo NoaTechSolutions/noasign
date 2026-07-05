@@ -1318,11 +1318,20 @@
   border-radius: 14px;
   padding: 20px 22px;
 }
+.status-strip__header {
+  margin: 0 0 16px;
+}
 .status-strip__title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-heading);
-  margin: 0 0 16px;
+  margin: 0;
+}
+.status-strip__subtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 2px 0 0;
 }
 .status-strip__grid {
   display: grid;

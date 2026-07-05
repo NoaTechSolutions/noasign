@@ -11,6 +11,9 @@ export interface StatusStripItem {
 
 interface StatusStripProps {
   title: string;
+  // Optional caption under the title (e.g. "July 2026 · current month"). Small,
+  // text-secondary. When present, the counts below are scoped to that period.
+  subtitle?: string;
   items: StatusStripItem[];
   isLoading: boolean;
   // Drives the grid density: documents = 6 mini-cards, receipts = 4.
@@ -22,10 +25,13 @@ interface StatusStripProps {
  * Replaces the old per-status breakdown with bars: statuses have no quota, so a
  * count is all that's needed. Shared by the document and receipt overviews.
  */
-export function StatusStrip({ title, items, isLoading, variant = 'documents' }: StatusStripProps) {
+export function StatusStrip({ title, subtitle, items, isLoading, variant = 'documents' }: StatusStripProps) {
   return (
     <div className="status-strip">
-      <h2 className="status-strip__title">{title}</h2>
+      <div className="status-strip__header">
+        <h2 className="status-strip__title">{title}</h2>
+        {subtitle ? <p className="status-strip__subtitle">{subtitle}</p> : null}
+      </div>
       <div className={`status-strip__grid status-strip__grid--${variant}`}>
         {items.map((it) => (
           <div key={it.key} className={`status-mini status-mini--${it.tone}`}>
