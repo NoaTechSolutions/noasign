@@ -54,6 +54,9 @@ export interface DocumentsPanelProps {
   documents: V2DocumentItem[];
   documentTypes: DocumentTypeOption[];
   customers: CustomerOption[];
+  // Refetch the customers list — called when the create modal opens so a client
+  // created elsewhere (e.g. the Clients module) appears without a page reload.
+  onRefreshCustomers?: () => void;
   onCreateDraft: (payload: CreateDraftPayload) => Promise<void>;
   // Phase 2 — direct PDF receipts. When provided, a "New Receipt" action shows.
   onCreateReceipt?: (
@@ -130,6 +133,7 @@ export function DocumentsPanel({
   documents,
   documentTypes,
   customers,
+  onRefreshCustomers,
   onCreateDraft,
   onCreateReceipt,
   defaultReceivedBy,
@@ -180,6 +184,14 @@ export function DocumentsPanel({
   const [showCreateModal, setShowCreateModal] = useState(
     () => searchParams.get('new') === '1',
   );
+  // When the create modal opens (toolbar "New Document" OR the Overview's
+  // ?new=1 deep-link — both set showCreateModal), refetch the customers so the
+  // "Client" selector reflects clients created since this page loaded (the
+  // Clients module mutates via its own handlers and never touched this list).
+  // The modal reads `customers` from props live, so a refetch updates it in place.
+  useEffect(() => {
+    if (showCreateModal) onRefreshCustomers?.();
+  }, [showCreateModal, onRefreshCustomers]);
   const [confirmAction, setConfirmAction] = useState<{
     action: 'send' | 'cancel';
     docId: string;
@@ -230,7 +242,9 @@ export function DocumentsPanel({
     const added = currentIds.filter((id) => !prev.has(id));
     if (added.length === 0) return;
     setNewDocIds(new Set(added));
-    const t = setTimeout(() => setNewDocIds(new Set()), 400);
+    // Keep the flag on for the full entrance animation (F8: fade/slide + fading
+    // sky highlight, ~1.6s). Too short and the highlight gets cut off.
+    const t = setTimeout(() => setNewDocIds(new Set()), 1700);
     return () => clearTimeout(t);
   }, [documents]);
 

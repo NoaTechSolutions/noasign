@@ -16,6 +16,7 @@ import {
   isReceiptDoc,
   isVoidedReceipt,
 } from './types';
+import { friendlySendError } from '@/lib/send-error';
 import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
 
 interface DocumentTableRowProps {
@@ -100,7 +101,15 @@ export function DocumentTableRow({
         {isVoidedReceipt(document) ? (
           <span className="doc-status-badge doc-status-badge--void">VOID</span>
         ) : (
-          <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
+          <span
+            className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}
+            // Desktop: hover the "Send failed" badge to see why it failed.
+            title={
+              document.status === 'SEND_FAILED'
+                ? friendlySendError(document.sendError) ?? undefined
+                : undefined
+            }
+          >
             {getStatusLabel(document.status)}
           </span>
         )}

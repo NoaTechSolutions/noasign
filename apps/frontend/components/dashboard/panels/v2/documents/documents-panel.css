@@ -845,26 +845,61 @@
   }
 }
 
-/* Entrance for a freshly-inserted table row (fade + slight slide down). Matches
-   the app's 0.2s ease-out entrance timing. Applied once via the .docs-v2-row-in
-   class flagged by DocumentsPanel. */
+/* Entrance for a freshly-inserted row (F8): fade + slide in fast, then a sky
+   highlight that lingers briefly and fades out — draws the eye to the just-created
+   contract/receipt without being loud. ~1.6s total; DocumentsPanel keeps the
+   .docs-v2-row-in class on for the same duration so it isn't cut short. */
 .docs-v2-row-in {
-  animation: docs-v2-row-in 0.2s ease-out;
+  animation: docs-v2-row-in 1.6s ease-out;
 }
 @keyframes docs-v2-row-in {
-  from {
+  0% {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-6px);
+    background-color: var(--sky-soft);
   }
-  to {
+  12% {
     opacity: 1;
     transform: translateY(0);
+  }
+  25% {
+    background-color: var(--sky-soft);
+  }
+  100% {
+    background-color: transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .docs-v2-row-in {
     animation: none;
   }
+}
+
+/* F6 — "Send failed" reason. Detail modal banner (clear, not a buried hint) and
+   the mobile card's inline reason (no hover on touch). Both use the shared
+   failed palette. */
+.doc-detail-send-failed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
+  border: 0.5px solid var(--status-failed);
+  font-size: 13px;
+  font-weight: 500;
+}
+.doc-detail-send-failed svg {
+  flex-shrink: 0;
+}
+.documents-v2-card__send-error {
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--status-failed);
 }
 
 .documents-v2-detail__close {

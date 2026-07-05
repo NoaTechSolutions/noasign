@@ -17,6 +17,7 @@ import {
   isReceiptDoc,
   isVoidedReceipt,
 } from './types';
+import { friendlySendError } from '@/lib/send-error';
 import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
 
 interface DocumentCardProps {
@@ -109,6 +110,12 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
                 </span>
               )}
             </div>
+            {/* Mobile has no hover — show the failure reason inline, always visible. */}
+            {document.status === 'SEND_FAILED' && friendlySendError(document.sendError) ? (
+              <div className="documents-v2-card__send-error">
+                {friendlySendError(document.sendError)}
+              </div>
+            ) : null}
           </div>
           <ChevronDown
             size={20}
