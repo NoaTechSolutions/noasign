@@ -6,6 +6,7 @@ import {
   NAVIGATION_ITEMS,
   filterNavigationItems,
   isNavGroup,
+  NavBadge,
   type NavigationItem,
 } from "./NavigationItems";
 import { ConfirmDialog } from "@/components/dashboard/shared/ConfirmDialog";
@@ -43,13 +44,20 @@ export function MobileMenu({
   // Single nav item button (also used for group children, with `indented`).
   const renderItem = (item: NavigationItem, indented: boolean) => {
     const isActive = currentPanel === item.panel;
+    const isDisabled = item.disabled ?? false;
     return (
       <button
         key={item.panel}
-        onClick={() => handleNavigate(item.panel)}
+        type="button"
+        aria-disabled={isDisabled || undefined}
+        onClick={() => {
+          if (isDisabled) return;
+          handleNavigate(item.panel);
+        }}
         style={{
           display: "flex",
           alignItems: "center",
+          gap: "8px",
           width: "100%",
           padding: indented ? "12px 24px 12px 44px" : "12px 24px",
           background: isActive ? "var(--bg-hover)" : "transparent",
@@ -57,15 +65,20 @@ export function MobileMenu({
           borderLeft: isActive
             ? "3px solid var(--brand)"
             : "3px solid transparent",
-          color: isActive ? "var(--brand)" : "var(--text-body)",
+          color: isDisabled
+            ? "var(--text-label)"
+            : isActive
+              ? "var(--brand)"
+              : "var(--text-body)",
           fontSize: "15px",
           fontWeight: isActive ? 500 : 400,
-          cursor: "pointer",
+          cursor: isDisabled ? "not-allowed" : "pointer",
           textAlign: "left",
           transition: "all 0.15s",
         }}
         onMouseEnter={(e) => {
-          if (!isActive) e.currentTarget.style.background = "var(--bg-hover)";
+          if (!isActive && !isDisabled)
+            e.currentTarget.style.background = "var(--bg-hover)";
         }}
         onMouseLeave={(e) => {
           if (!isActive) e.currentTarget.style.background = "transparent";
@@ -77,13 +90,15 @@ export function MobileMenu({
               marginRight: "12px",
               display: "flex",
               alignItems: "center",
+              opacity: isDisabled ? 0.45 : 1,
               color: isActive ? "var(--brand)" : "var(--text-body)",
             }}
           >
             {item.icon}
           </span>
         )}
-        {item.label}
+        <span style={{ opacity: isDisabled ? 0.7 : 1 }}>{item.label}</span>
+        {item.badge && <NavBadge label={item.badge} />}
       </button>
     );
   };

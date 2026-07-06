@@ -7,9 +7,6 @@ export { StatsGrid } from './StatsGrid';
 export { StatusBreakdown } from './StatusBreakdown';
 export { RecentDocumentsTable } from './RecentDocumentsTable';
 
-// History module (placeholder — F1 activity timeline lands later).
-export { HistoryPanel } from './HistoryPanel';
-
 // Profile panel V2 (collapsible cards) exports
 export { ProfilePanel } from './ProfilePanel';
 export type { ProfilePanelProps } from './ProfilePanel';

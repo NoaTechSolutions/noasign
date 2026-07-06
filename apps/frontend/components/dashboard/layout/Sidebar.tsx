@@ -7,6 +7,7 @@ import {
   NAVIGATION_ITEMS,
   filterNavigationItems,
   isNavGroup,
+  NavBadge,
   type NavigationItem,
 } from "./NavigationItems";
 import { useDirtyForm } from "@/components/dashboard/shared/dirty-form-context";
@@ -86,11 +87,15 @@ export function Sidebar({
   // Single nav item button. `indented` adds left padding for group children.
   const renderNavButton = (item: NavigationItem, indented: boolean) => {
     const isActive = currentPanel === item.panel;
+    const isDisabled = item.disabled ?? false;
     return (
       <button
         key={item.panel}
+        type="button"
+        aria-disabled={isDisabled || undefined}
         onClick={(e) => {
           e.stopPropagation();
+          if (isDisabled) return;
           handleNavigate(item.panel);
         }}
         style={{
@@ -118,16 +123,20 @@ export function Sidebar({
               ? "3px solid var(--brand)"
               : "3px solid transparent",
           borderRadius: "8px",
-          color: isActive ? "var(--brand)" : "var(--text-body)",
+          color: isDisabled
+            ? "var(--text-label)"
+            : isActive
+              ? "var(--brand)"
+              : "var(--text-body)",
           fontSize: "14px",
           fontWeight: isActive ? 500 : 400,
-          cursor: "pointer",
+          cursor: isDisabled ? "not-allowed" : "pointer",
           textAlign: isCollapsed ? "center" : "left",
           transition: "background 0.15s ease, color 0.15s ease",
           position: "relative",
         }}
         onMouseEnter={(e) => {
-          if (!isActive) {
+          if (!isActive && !isDisabled) {
             e.currentTarget.style.background = "var(--bg-card-soft)";
           }
           if (isCollapsed) {
@@ -153,7 +162,7 @@ export function Sidebar({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              opacity: isActive ? 1 : 0.8,
+              opacity: isDisabled ? 0.45 : isActive ? 1 : 0.8,
               color: isActive ? "var(--brand)" : "var(--text-body)",
             }}
           >
@@ -180,12 +189,24 @@ export function Sidebar({
           <span
             style={{
               marginLeft: "10px",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              minWidth: 0,
+              flex: 1,
             }}
           >
-            {item.label}
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                opacity: isDisabled ? 0.7 : 1,
+              }}
+            >
+              {item.label}
+            </span>
+            {item.badge && <NavBadge label={item.badge} />}
           </span>
         )}
       </button>

@@ -10,6 +10,7 @@ import { StatusStrip, type StatusStripItem } from './StatusStrip';
 import { RecentDocumentsTable } from './RecentDocumentsTable';
 import type { ReceiptStats } from './ReceiptMetricCards';
 import { getPlanEntry } from '@/lib/plan-catalog';
+import { ComingSoonModal } from '@/components/dashboard/shared/ComingSoonModal';
 
 interface DashboardUser {
   id: string;
@@ -85,9 +86,6 @@ export interface OverviewPanelProps {
   onNewDocument?: () => void;
   onOpenDocument?: (docId: string) => void;
   onViewAllAttention?: () => void;
-  // Navigates to the History module (placeholder for now). Drives the status
-  // card's "View history →" link.
-  onViewHistory?: () => void;
 }
 
 export function OverviewPanel({
@@ -100,11 +98,13 @@ export function OverviewPanel({
   onFetchReceiptStats,
   onNewDocument,
   onOpenDocument,
-  onViewHistory,
 }: OverviewPanelProps) {
   const receiptsOnly = !contractsEnabled;
   const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  // "View history →" on the status card is a heads-up popup for now — the
+  // History module isn't available yet (see the muted "SOON" nav entry).
+  const [showHistorySoon, setShowHistorySoon] = useState(false);
   // Skeletons only on the FIRST load — a background refetch updates the numbers
   // in place (no flash/flicker). "Refresco suave."
   const statsLoadedRef = useRef(false);
@@ -251,11 +251,10 @@ export function OverviewPanel({
         items={receiptsOnly ? receiptStatus : docStatus}
         variant={receiptsOnly ? 'receipts' : 'documents'}
         isLoading={receiptsOnly ? isLoading || statsLoading : isLoading}
-        footerLink={
-          onViewHistory
-            ? { label: 'View history', onClick: onViewHistory }
-            : undefined
-        }
+        footerLink={{
+          label: 'View history',
+          onClick: () => setShowHistorySoon(true),
+        }}
       />
 
       {/* Row 4 — recent documents / receipts. */}
@@ -264,6 +263,12 @@ export function OverviewPanel({
         isLoading={isLoading}
         entity={receiptsOnly ? 'receipt' : 'document'}
         onView={onOpenDocument}
+      />
+
+      <ComingSoonModal
+        isOpen={showHistorySoon}
+        message="Document history is under construction. It'll be available here soon."
+        onClose={() => setShowHistorySoon(false)}
       />
     </div>
   );

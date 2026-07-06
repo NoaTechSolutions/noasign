@@ -12,6 +12,11 @@ export interface NavigationItem {
   panel: string;
   icon?: ReactNode;
   requiresRole?: "SUPERADMIN";
+  // When true, the entry renders muted/non-clickable (no navigation). Used for
+  // features that are visible but not available yet.
+  disabled?: boolean;
+  // Optional small pill shown after the label (e.g. "SOON").
+  badge?: string;
 }
 
 // A collapsible group of sub-items (e.g. "User management" → Members, Locked
@@ -53,6 +58,30 @@ function Icon({ path, size = 20 }: { path: string; size?: number }) {
   );
 }
 
+// Small pill shown after a nav label (e.g. "SOON"). Accent tokens, theme-aware.
+export function NavBadge({ label }: { label: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "1px 6px",
+        borderRadius: "10px",
+        fontSize: "9px",
+        fontWeight: 500,
+        letterSpacing: "0.06em",
+        lineHeight: 1.5,
+        textTransform: "uppercase",
+        background: "var(--brand-accent-soft)",
+        color: "var(--brand-accent)",
+        flexShrink: 0,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
 export const NAVIGATION_ITEMS: NavEntry[] = [
   {
     label: "Overview",
@@ -82,6 +111,9 @@ export const NAVIGATION_ITEMS: NavEntry[] = [
     label: "History",
     shortLabel: "History",
     panel: "history",
+    // Visible but not available yet — muted + "SOON" pill, no navigation.
+    disabled: true,
+    badge: "SOON",
     // Clock with a counter-clockwise arrow — activity/history.
     icon: <Icon path="M3 3v5h5M3.05 13a9 9 0 105.36-8.36L3 8m9 1v4l3 2" />,
   },
