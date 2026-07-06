@@ -80,6 +80,13 @@ enum PlanName {
   RECEIPTS_ONLY
 }
 
+// Template feature: two document categories with different backing engines.
+// RECEIPT = DIRECT_PDF (base PDF + coordinates). CONTRACT = BoldSign template.
+enum TemplateCategory {
+  RECEIPT
+  CONTRACT
+}
+
 model CompanyProfile {
   id                    String  @id @default(uuid())
   companyName           String
@@ -133,11 +140,15 @@ model CompanyProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users            User[]
-  documents        Document[]
-  customers        Customer[]
-  receiptTemplates ReceiptTemplate[]
-  receiptCounters  ReceiptCounter[]
+  users              User[]
+  documents          Document[]
+  customers          Customer[]
+  receiptTemplates   ReceiptTemplate[]
+  receiptCounters    ReceiptCounter[]
+  // Custom (per-tenant) contract templates — global standards have a null FK.
+  signatureTemplates SignatureTemplate[]
+  // Templates this tenant is eligible for (default/active per category).
+  companyTemplates   CompanyTemplate[]
 
   @@map("company_profiles")
 }
@@ -382,13 +393,24 @@ model SignatureTemplate {
   sendSubjectTemplate String?
   sendMessageTemplate String?
   isActive            Boolean  @default(true)
+  // Template feature (additive): a null companyProfileId = a GLOBAL standard
+  // template (shared catalog); a set value = a CUSTOM template owned by that
+  // tenant. isStandard marks the curated global catalog; slug is its stable id;
+  // isDefault marks the default standard within the CONTRACT category.
+  companyProfileId    String?
+  isStandard          Boolean  @default(false)
+  slug                String?  @unique
+  isDefault           Boolean  @default(false)
   createdAt           DateTime @default(now())
 
-  documentType DocumentType         @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
-  userConfigs  UserDocumentConfig[]
-  documents    Document[]
+  documentType     DocumentType         @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  companyProfile   CompanyProfile?      @relation(fields: [companyProfileId], references: [id], onDelete: SetNull)
+  userConfigs      UserDocumentConfig[]
+  documents        Document[]
+  companyTemplates CompanyTemplate[]
 
   @@index([documentTypeId])
+  @@index([companyProfileId])
   @@map("signature_templates")
 }
 
@@ -405,14 +427,79 @@ model ReceiptTemplate {
   fieldMappingJson Json
   numberFormat     String   @default("REC-{YYYY}-{NNNN}")
   isActive         Boolean  @default(true)
+  // Template feature (additive): standardId links this per-tenant instance back
+  // to the global catalog design it was provisioned from (null = fully custom).
+  // isDefault marks the tenant's default receipt template (multi-template ready).
+  standardId       String?
+  isDefault        Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
-  documents      Document[]
+  companyProfile   CompanyProfile           @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  standard         ReceiptTemplateStandard? @relation(fields: [standardId], references: [id], onDelete: SetNull)
+  documents        Document[]
+  companyTemplates CompanyTemplate[]
 
   @@index([companyProfileId])
+  @@index([standardId])
   @@map("receipt_templates")
+}
+
+// Global catalog of STANDARD receipt designs (base PDF + coordinates), shared
+// across tenants. Decision 1: a single source of truth instead of replicating a
+// design row per tenant. A tenant gets a concrete per-tenant ReceiptTemplate
+// instance provisioned FROM one of these (see ReceiptTemplate.standardId), which
+// is what the PDF engine consumes today — this catalog is the design source.
+model ReceiptTemplateStandard {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  description      String?
+  basePdfPath      String
+  pageWidth        Float    @default(612)
+  pageHeight       Float    @default(792)
+  mediaBoxOffsetY  Float    @default(0)
+  fieldMappingJson Json
+  numberFormat     String   @default("REC-{YYYY}-{NNNN}")
+  isActive         Boolean  @default(true)
+  // Default standard within the RECEIPT category (used by onboarding when no
+  // explicit standard is chosen).
+  isDefault        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  instances        ReceiptTemplate[]
+  companyTemplates CompanyTemplate[]
+
+  @@map("receipt_template_standards")
+}
+
+// Tenant <-> template eligibility. One row per (tenant, template) the tenant may
+// use; isDefault marks the active/default one for that category. Supports one or
+// many templates per category (multi-template ready). Exactly one source ref is
+// set per row (validated in application code), matching the category.
+model CompanyTemplate {
+  id                  String           @id @default(cuid())
+  companyProfileId    String
+  category            TemplateCategory
+  receiptStandardId   String?
+  receiptTemplateId   String?
+  signatureTemplateId String?
+  isDefault           Boolean          @default(false)
+  isActive            Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  companyProfile    CompanyProfile           @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  receiptStandard   ReceiptTemplateStandard? @relation(fields: [receiptStandardId], references: [id], onDelete: Cascade)
+  receiptTemplate   ReceiptTemplate?         @relation(fields: [receiptTemplateId], references: [id], onDelete: Cascade)
+  signatureTemplate SignatureTemplate?       @relation(fields: [signatureTemplateId], references: [id], onDelete: Cascade)
+
+  @@index([companyProfileId, category])
+  @@index([receiptStandardId])
+  @@index([receiptTemplateId])
+  @@index([signatureTemplateId])
+  @@map("company_templates")
 }
 
 // Per-tenant, per-year correlative counter (resets each year via the unique key).
