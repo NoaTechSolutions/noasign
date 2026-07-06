@@ -32,7 +32,7 @@ const USERS = [
     key: 'MASTER',
     email: 'master@staging.ntssign.com',
     password: 'MasterStg2026!',
-    role: 'MASTER',
+    role: 'SUPERADMIN',
     firstName: 'Staging',
     lastName: 'Master',
   },
@@ -234,7 +234,7 @@ async function main() {
   // Single-superadmin cleanup: master@staging.ntssign.com is the only MASTER.
   // Demote the stray .test master so there is exactly one superadmin on staging.
   const demoted = await prisma.user.updateMany({
-    where: { email: 'master@ntssign.test', role: 'MASTER' },
+    where: { email: 'master@ntssign.test', role: 'SUPERADMIN' },
     data: { role: 'USER' },
   });
   console.log(`Demoted stray masters (master@ntssign.test): ${demoted.count}`);

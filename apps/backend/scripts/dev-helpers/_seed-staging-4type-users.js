@@ -144,7 +144,7 @@ async function main() {
         update: {
           companyProfileId: t.id,
           passwordHash,
-          role: UserRole.ADMIN,
+          role: UserRole.USER,
           status: UserStatus.ACTIVE,
           ...accountFields,
         },
@@ -152,7 +152,7 @@ async function main() {
           email: t.email,
           companyProfileId: t.id,
           passwordHash,
-          role: UserRole.ADMIN,
+          role: UserRole.USER,
           status: UserStatus.ACTIVE,
           ...accountFields,
         },
@@ -164,7 +164,7 @@ async function main() {
         plan: t.plan,
         accountType: t.accountType,
         contractsEnabled: rd.contractsEnabled,
-        login: { email: t.email, password: t.password, role: 'ADMIN' },
+        login: { email: t.email, password: t.password, role: 'USER' },
         userId: user.id,
       });
     }

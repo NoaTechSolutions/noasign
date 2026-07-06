@@ -126,8 +126,8 @@ async function main() {
 
   assert(registerResult.data.user.email === email, 'Registered email mismatch');
   assert(
-    registerResult.data.user.role === 'MASTER',
-    'Register should assign MASTER role',
+    registerResult.data.user.role === 'USER',
+    'Register should assign USER role',
   );
 
   const loginResult = await request('POST', '/auth/login', {
@@ -143,7 +143,7 @@ async function main() {
   });
 
   assert(meResult.data.email === email, 'GET /users/me email mismatch');
-  assert(meResult.data.role === 'MASTER', 'GET /users/me role mismatch');
+  assert(meResult.data.role === 'USER', 'GET /users/me role mismatch');
 
   const companyProfileResult = await request('GET', '/company-profile/me', {
     expectedStatus: 200,

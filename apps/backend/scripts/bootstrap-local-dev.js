@@ -202,14 +202,14 @@ async function main() {
     update: {
       companyProfileId: companyProfile.id,
       passwordHash,
-      role: UserRole.MASTER,
+      role: UserRole.SUPERADMIN,
       status: UserStatus.ACTIVE,
     },
     create: {
       email: masterEmail,
       companyProfileId: companyProfile.id,
       passwordHash,
-      role: UserRole.MASTER,
+      role: UserRole.SUPERADMIN,
       status: UserStatus.ACTIVE,
     },
   });
