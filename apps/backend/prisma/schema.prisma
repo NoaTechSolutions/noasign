@@ -149,6 +149,8 @@ model CompanyProfile {
   signatureTemplates SignatureTemplate[]
   // Templates this tenant is eligible for (default/active per category).
   companyTemplates   CompanyTemplate[]
+  // Generic per-(type, year) visible-series counters (REC-/INV-…).
+  documentSeriesCounters DocumentSeriesCounter[]
 
   @@map("company_profiles")
 }
@@ -364,6 +366,7 @@ model DocumentType {
   // Generic DIRECT_PDF templates keyed by this type (receipts today; invoices next).
   receiptTemplates         ReceiptTemplate[]
   receiptTemplateStandards ReceiptTemplateStandard[]
+  documentSeriesCounters   DocumentSeriesCounter[]
 
   @@map("document_types")
 }
@@ -529,6 +532,25 @@ model ReceiptCounter {
 
   @@unique([companyProfileId, year])
   @@map("receipt_counters")
+}
+
+// Generic visible-series counter: per tenant, per document type, per year
+// (REC-2026-0001, INV-2026-0001, …). Generalizes ReceiptCounter (kept as a frozen
+// legacy table after backfill). Atomic increment via upsert. Resets each year.
+model DocumentSeriesCounter {
+  id               String @id @default(cuid())
+  companyProfileId String
+  documentTypeId   String
+  year             Int
+  lastNumber       Int    @default(0)
+
+  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  documentType   DocumentType   @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([companyProfileId, documentTypeId, year])
+  @@index([companyProfileId])
+  @@index([documentTypeId])
+  @@map("document_series_counters")
 }
 
 model UserDocumentConfig {

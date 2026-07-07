@@ -181,6 +181,7 @@ export class ReceiptsService {
     const year = new Date().getFullYear();
     const receiptNumber = await this.nextReceiptNumber(
       companyProfileId,
+      docType.id,
       year,
       template.numberFormat,
     );
@@ -805,13 +806,24 @@ export class ReceiptsService {
    */
   private nextReceiptNumber(
     companyProfileId: string,
+    documentTypeId: string,
     year: number,
     format: string,
   ): Promise<string> {
+    // Generic per-(tenant, documentType, year) visible series (REC-/INV-…).
+    // Atomic increment via upsert. Backfilled from the legacy ReceiptCounter so
+    // the receipt series continues at the same next number (see migration
+    // 20260706140000). ReceiptCounter is now frozen legacy.
     return this.prisma.$transaction(async (tx) => {
-      const counter = await tx.receiptCounter.upsert({
-        where: { companyProfileId_year: { companyProfileId, year } },
-        create: { companyProfileId, year, lastNumber: 1 },
+      const counter = await tx.documentSeriesCounter.upsert({
+        where: {
+          companyProfileId_documentTypeId_year: {
+            companyProfileId,
+            documentTypeId,
+            year,
+          },
+        },
+        create: { companyProfileId, documentTypeId, year, lastNumber: 1 },
         update: { lastNumber: { increment: 1 } },
       });
       return format
