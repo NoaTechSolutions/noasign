@@ -188,6 +188,7 @@ model User {
   documentConfigs     UserDocumentConfig[]
   documents           Document[]
   documentVersions    DocumentVersion[]
+  documentSequences   UserDocumentSequence[]
   passwordResetTokens PasswordResetToken[]
   createdCustomers    Customer[] @relation("CustomerCreatedBy")
   ownedCustomers      Customer[] @relation("CustomerOwner")
@@ -367,6 +368,7 @@ model DocumentType {
   receiptTemplates         ReceiptTemplate[]
   receiptTemplateStandards ReceiptTemplateStandard[]
   documentSeriesCounters   DocumentSeriesCounter[]
+  userDocumentSequences    UserDocumentSequence[]
 
   @@map("document_types")
 }
@@ -551,6 +553,25 @@ model DocumentSeriesCounter {
   @@index([companyProfileId])
   @@index([documentTypeId])
   @@map("document_series_counters")
+}
+
+// Per-(user, documentType) atomic sequence for the INTERNAL document number
+// ({code}-000001, per-user lifetime, no yearly reset). Replaces an O(n)
+// max-in-memory scan that also raced under concurrency against the composite
+// unique on Document. Backfilled from existing documents (migration 20260706150000).
+model UserDocumentSequence {
+  id             String @id @default(cuid())
+  userId         String
+  documentTypeId String
+  lastNumber     Int    @default(0)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentTypeId])
+  @@index([userId])
+  @@index([documentTypeId])
+  @@map("user_document_sequences")
 }
 
 model UserDocumentConfig {

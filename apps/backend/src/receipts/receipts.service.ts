@@ -841,17 +841,16 @@ export class ReceiptsService {
     code: string,
     userId: string,
   ): Promise<string> {
-    const prefix = `${code}-`;
-    const existing = await this.prisma.document.findMany({
-      where: { userId, documentTypeId, documentNumber: { startsWith: prefix } },
-      select: { documentNumber: true },
-    });
-    let max = 0;
-    for (const d of existing) {
-      const n = parseInt(d.documentNumber.slice(prefix.length), 10);
-      if (!Number.isNaN(n) && n > max) max = n;
-    }
-    return `${prefix}${String(max + 1).padStart(6, '0')}`;
+    // Atomic per-(user, type) increment (replaces an O(n) max-in-memory scan that
+    // raced under concurrency). Backfilled continuity — migration 20260706150000.
+    const counter = await this.prisma.$transaction((tx) =>
+      tx.userDocumentSequence.upsert({
+        where: { userId_documentTypeId: { userId, documentTypeId } },
+        create: { userId, documentTypeId, lastNumber: 1 },
+        update: { lastNumber: { increment: 1 } },
+      }),
+    );
+    return `${code}-${String(counter.lastNumber).padStart(6, '0')}`;
   }
 
   /**

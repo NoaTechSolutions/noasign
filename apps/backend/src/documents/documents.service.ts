@@ -745,30 +745,21 @@ export class DocumentsService {
       throw new NotFoundException('Document type not found');
     }
 
-    // Correlativo is PER USER: the max is scoped to (userId, documentTypeId), so
-    // each user numbers their own documents from 000001 — a master creating with
-    // another user's global form gets a number from THEIR OWN sequence, not the
-    // form owner's. Uniqueness is the composite @@unique([userId, documentTypeId,
-    // documentNumber]). Take the NUMERIC max of same-prefix rows: a plain
-    // string-sort "latest" breaks when dev/seed data mixes other formats (e.g.
-    // "SEED-LOCAL-PERSONAL-…-3"), which would be picked as latest and then
-    // collide on the unique constraint.
-    const prefix = `${documentType.code}-`;
-    const existing = await this.prisma.document.findMany({
-      where: {
-        userId,
-        documentTypeId,
-        documentNumber: { startsWith: prefix },
-      },
-      select: { documentNumber: true },
-    });
-    const maxNumber = existing.reduce((max, doc) => {
-      const suffix = doc.documentNumber.slice(prefix.length);
-      if (!/^\d+$/.test(suffix)) return max;
-      return Math.max(max, Number(suffix));
-    }, 0);
-
-    return `${documentType.code}-${String(maxNumber + 1).padStart(6, '0')}`;
+    // Correlativo is PER USER, from an atomic per-(user, type) sequence: each user
+    // numbers their own documents from 000001 — a master creating with another
+    // user's global form gets a number from THEIR OWN sequence. Replaces an O(n)
+    // max-in-memory scan that also raced under concurrency against the composite
+    // @@unique([userId, documentTypeId, documentNumber]). Backfilled continuity —
+    // migration 20260706150000 (non-numeric formats like SEED-… were ignored then
+    // and are excluded from the backfill max the same way).
+    const counter = await this.prisma.$transaction((tx) =>
+      tx.userDocumentSequence.upsert({
+        where: { userId_documentTypeId: { userId, documentTypeId } },
+        create: { userId, documentTypeId, lastNumber: 1 },
+        update: { lastNumber: { increment: 1 } },
+      }),
+    );
+    return `${documentType.code}-${String(counter.lastNumber).padStart(6, '0')}`;
   }
 
   async createDraftDocument(userId: string, body: CreateDraftDocumentDto) {
