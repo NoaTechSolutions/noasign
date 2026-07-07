@@ -357,10 +357,13 @@ model DocumentType {
   // (receipts) using a ReceiptTemplate — no signature flow.
   generationMode GenerationMode @default(BOLDSIGN)
 
-  formDefinitions    FormDefinition[]
-  signatureTemplates SignatureTemplate[]
-  userConfigs        UserDocumentConfig[]
-  documents          Document[]
+  formDefinitions          FormDefinition[]
+  signatureTemplates       SignatureTemplate[]
+  userConfigs              UserDocumentConfig[]
+  documents                Document[]
+  // Generic DIRECT_PDF templates keyed by this type (receipts today; invoices next).
+  receiptTemplates         ReceiptTemplate[]
+  receiptTemplateStandards ReceiptTemplateStandard[]
 
   @@map("document_types")
 }
@@ -432,16 +435,23 @@ model ReceiptTemplate {
   // isDefault marks the tenant's default receipt template (multi-template ready).
   standardId       String?
   isDefault        Boolean  @default(false)
+  // Decision A — generalize: this is a generic DIRECT_PDF template, not
+  // receipt-specific. category/documentTypeId scope it to a document type
+  // (RECEIPT today, INVOICE next). The receipt_* table name is legacy only.
+  category         TemplateCategory?
+  documentTypeId   String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   companyProfile   CompanyProfile           @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
   standard         ReceiptTemplateStandard? @relation(fields: [standardId], references: [id], onDelete: SetNull)
+  documentType     DocumentType?            @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
   documents        Document[]
   companyTemplates CompanyTemplate[]
 
   @@index([companyProfileId])
   @@index([standardId])
+  @@index([documentTypeId])
   @@map("receipt_templates")
 }
 
@@ -462,15 +472,21 @@ model ReceiptTemplateStandard {
   fieldMappingJson Json
   numberFormat     String   @default("REC-{YYYY}-{NNNN}")
   isActive         Boolean  @default(true)
-  // Default standard within the RECEIPT category (used by onboarding when no
-  // explicit standard is chosen).
+  // Default standard within its category (used by onboarding when no explicit
+  // standard is chosen).
   isDefault        Boolean  @default(false)
+  // Decision A — generalize: a generic DIRECT_PDF standard, scoped by category /
+  // document type (RECEIPT today, INVOICE next). The receipt_* name is legacy.
+  category         TemplateCategory?
+  documentTypeId   String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   instances        ReceiptTemplate[]
   companyTemplates CompanyTemplate[]
+  documentType     DocumentType?     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
 
+  @@index([documentTypeId])
   @@map("receipt_template_standards")
 }
 
