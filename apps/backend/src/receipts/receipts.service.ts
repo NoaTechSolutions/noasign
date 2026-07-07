@@ -10,6 +10,7 @@ import {
   Prisma,
   ReceiptTemplate,
   StorageProvider,
+  TemplateCategory,
 } from '@prisma/client';
 import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -167,10 +168,10 @@ export class ReceiptsService {
         throw new NotFoundException('Selected receipt template not found');
       }
     } else {
-      template = await this.prisma.receiptTemplate.findFirst({
-        where: { companyProfileId, isActive: true },
-        orderBy: { createdAt: 'desc' },
-      });
+      template = await this.resolveActivePdfTemplate(
+        companyProfileId,
+        TemplateCategory.RECEIPT,
+      );
       if (!template) {
         throw new NotFoundException(
           'No receipt template configured for this company',
@@ -804,6 +805,34 @@ export class ReceiptsService {
    * is keyed by year. The transaction + atomic upsert/increment prevents two
    * concurrent receipts from getting the same number.
    */
+  /**
+   * Resolve the active per-tenant DIRECT_PDF template for a category (generic —
+   * RECEIPT today, INVOICE next). V2 (behind RECEIPT_TEMPLATE_RESOLVER_V2) reads
+   * the CompanyTemplate catalog default; it ALWAYS falls back to the legacy
+   * "newest active per-tenant template" so tenants without a CompanyTemplate keep
+   * working. With the flag off it is pure-legacy. The backfill (migration
+   * 20260706160000) makes V2 return the same template as legacy for every tenant,
+   * so flipping the flag is a no-op. Does not touch the SUPERADMIN borrow path.
+   */
+  private async resolveActivePdfTemplate(
+    companyProfileId: string,
+    category: TemplateCategory,
+  ): Promise<ReceiptTemplate | null> {
+    if (process.env.RECEIPT_TEMPLATE_RESOLVER_V2 === 'true') {
+      const assignment = await this.prisma.companyTemplate.findFirst({
+        where: { companyProfileId, category, isDefault: true, isActive: true },
+        include: { receiptTemplate: true },
+      });
+      if (assignment?.receiptTemplate?.isActive) {
+        return assignment.receiptTemplate;
+      }
+    }
+    return this.prisma.receiptTemplate.findFirst({
+      where: { companyProfileId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   private nextReceiptNumber(
     companyProfileId: string,
     documentTypeId: string,
