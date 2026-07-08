@@ -104,6 +104,19 @@ async function data(baseFile, mappingFile, outFile) {
     buf = Buffer.from(await doc.save());
   }
 
+  // DRAW_VGUIDES=1: vertical line at each text field's x (same x the engine draws
+  // from). Compare it to the art's label left edge to align values horizontally.
+  if (process.env.DRAW_VGUIDES) {
+    const doc = await PDFDocument.load(buf);
+    const page = doc.getPages()[0];
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    for (const [key, m] of Object.entries(fieldMappingJson)) {
+      if (m.type === 'checkbox_group' || m.x == null) continue;
+      page.drawLine({ start: { x: m.x, y: 0 }, end: { x: m.x, y: 792 }, thickness: 0.4, color: rgb(0.1, 0.4, 0.95) });
+    }
+    buf = Buffer.from(await doc.save());
+  }
+
   fs.writeFileSync(outFile, buf);
   console.log('data render written:', outFile);
 }
