@@ -85,7 +85,25 @@ async function data(baseFile, mappingFile, outFile) {
     fieldMappingJson,
   };
   const pdf = new ReceiptPdfService();
-  const buf = await pdf.generate(template, TEST_DATA);
+  let buf = await pdf.generate(template, TEST_DATA);
+
+  // DRAW_GUIDES=1: overlay a thin horizontal line at each text field's BASELINE
+  // (same y the engine draws the value). Comparing this line to the art's printed
+  // underline (line-to-line) is far more precise than judging text-vs-line by eye.
+  if (process.env.DRAW_GUIDES) {
+    const doc = await PDFDocument.load(buf);
+    const page = doc.getPages()[0];
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    for (const [key, m] of Object.entries(fieldMappingJson)) {
+      if (m.type === 'checkbox_group') continue;
+      const gap = m.gap != null ? m.gap : 2.5;
+      const y = m.baseline != null ? m.baseline : 792 - (m.lineTop || 0) + gap;
+      page.drawLine({ start: { x: 0, y }, end: { x: 612, y }, thickness: 0.4, color: rgb(0.9, 0.1, 0.1) });
+      page.drawText(`${key} lt=${m.lineTop != null ? m.lineTop : 'b' + m.baseline}`, { x: 2, y: y + 1, size: 5, font, color: rgb(0.9, 0.1, 0.1) });
+    }
+    buf = Buffer.from(await doc.save());
+  }
+
   fs.writeFileSync(outFile, buf);
   console.log('data render written:', outFile);
 }
