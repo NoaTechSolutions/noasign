@@ -19,8 +19,26 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// The one validated receipt design today (WPC). Same hand-measured coordinates
-// used by _seed-receipt-template.js — kept in sync intentionally.
+// enum -> friendly label for payment_method drawn as TEXT (moderno / basic-v2).
+// basic-v1 draws it as a checkbox instead, so it doesn't need labels.
+const METHOD_LABELS = {
+  CASH: 'Cash',
+  CREDIT_DEBIT_CARD: 'Credit/Debit Card',
+  CHEQUE: 'Cheque',
+  BANK_TRANSFER: 'Bank Transfer',
+  ZELLE: 'Zelle',
+  OTHER: 'Other',
+};
+
+// The 3 owner-designed standard receipts (US Letter, 612x792). Coordinates are
+// hand-calibrated per design via _calibrate-receipt.js (render + compare) against
+// the PRODUCTION engine. NOTE: these base PDFs were exported with an unbalanced
+// content-stream transform (a horizontal scale on stamped content, unlike the
+// WPC base), so the x values here are calibrated to THIS base as-is — re-export a
+// base and its slug's coordinates must be re-calibrated. Single shared series
+// number: numberFormat "{NNNN}" (0001, 4 digits). Signature slots are left empty
+// (Phase 3 — business-owner signature). WPC 'receipt-classic' kept as a non-
+// default legacy standard.
 const WPC_FIELD_MAPPING = {
   receipt_number: { type: 'text', x: 387, baseline: 488.5, font: 'Montserrat-Regular', size: 16, color: '#000000', autoShiftRightLimit: 558 },
   date: { type: 'text', x: 428, lineTop: 331, font: 'Carlito', size: 11.5 },
@@ -36,33 +54,98 @@ const WPC_FIELD_MAPPING = {
   },
 };
 
-// Standard receipt catalog. Add more entries here as the owner delivers designs.
 const RECEIPT_STANDARDS = [
   {
-    slug: 'receipt-classic',
-    name: 'Classic Receipt',
-    description: 'Default standard payment-receipt design (WPC base PDF).',
-    basePdfPath: 'assets/templates/wpc_receipt.pdf',
-    pageWidth: 612,
-    pageHeight: 792,
-    mediaBoxOffsetY: 7.92,
-    numberFormat: 'REC-{YYYY}-{NNNN}',
-    isActive: true,
+    slug: 'receipt-basic-v1',
+    name: 'Basic (checkboxes)',
+    description: 'Classic receipt with payment-method checkboxes. Zelle marks "Other".',
+    basePdfPath: 'assets/templates/receipt-basic-v1.pdf',
+    numberFormat: '{NNNN}',
     isDefault: true,
+    fieldMappingJson: {
+      receipt_number: { type: 'text', x: 430, lineTop: 200, font: 'Montserrat-Black', size: 20, autoShiftRightLimit: 572 },
+      client: { type: 'text', x: 158, lineTop: 225, font: 'Carlito', size: 11.5 },
+      date: { type: 'text', x: 420, lineTop: 225, font: 'Carlito', size: 11.5 },
+      amount: { type: 'currency', x: 138, lineTop: 250, font: 'Carlito', size: 11.5 },
+      payment_method: {
+        type: 'checkbox_group', lineTop: 276, mark: 'X', font: 'Carlito-Bold', size: 12,
+        options: { CASH: 68, CREDIT_DEBIT_CARD: 132, CHEQUE: 268, BANK_TRANSFER: 343, OTHER: 462, ZELLE: 462 },
+      },
+      other_label: { type: 'text', x: 482, lineTop: 278, font: 'Carlito', size: 9 },
+      payment_for: { type: 'text', x: 142, lineTop: 320, font: 'Carlito', size: 11.5 },
+      received_by: { type: 'text', x: 140, lineTop: 344, font: 'Carlito', size: 11.5 },
+    },
+  },
+  {
+    slug: 'receipt-moderno-v1',
+    name: 'Moderno (blocks + notes)',
+    description: 'Styled block design with a Notes field. Method printed as text.',
+    basePdfPath: 'assets/templates/receipt-moderno-v1.pdf',
+    numberFormat: '{NNNN}',
+    isDefault: false,
+    fieldMappingJson: {
+      receipt_number: { type: 'text', x: 135, lineTop: 190, font: 'Carlito-Bold', size: 11, color: '#12235c' },
+      date: { type: 'text', x: 355, lineTop: 190, font: 'Carlito-Bold', size: 11, color: '#12235c' },
+      client: { type: 'text', x: 250, lineTop: 237, font: 'Carlito', size: 11, color: '#12235c' },
+      payment_for: { type: 'text', x: 250, lineTop: 290, font: 'Carlito', size: 11, color: '#12235c' },
+      amount: { type: 'currency', x: 210, lineTop: 358, font: 'Carlito-Bold', size: 11, color: '#12235c' },
+      payment_method: { type: 'text', x: 490, lineTop: 358, font: 'Carlito', size: 10, color: '#12235c', labels: METHOD_LABELS },
+      received_by: { type: 'text', x: 490, lineTop: 375, font: 'Carlito', size: 9, color: '#12235c' },
+      notes: { type: 'text', x: 210, lineTop: 400, font: 'Carlito', size: 10, color: '#12235c' },
+    },
+  },
+  {
+    slug: 'receipt-basic-v2',
+    name: 'Minimal',
+    description: 'Minimal "Payment Receipt". Method printed as text; large number by the signature.',
+    basePdfPath: 'assets/templates/receipt-basic-v2.pdf',
+    numberFormat: '{NNNN}',
+    isDefault: false,
+    fieldMappingJson: {
+      client: { type: 'text', x: 158, lineTop: 270, font: 'Carlito', size: 12 },
+      payment_for: { type: 'text', x: 138, lineTop: 303, font: 'Carlito', size: 12 },
+      date: { type: 'text', x: 465, lineTop: 303, font: 'Carlito', size: 12 },
+      amount: { type: 'currency', x: 152, lineTop: 338, font: 'Carlito', size: 12 },
+      payment_method: { type: 'text', x: 472, lineTop: 338, font: 'Carlito', size: 11, labels: METHOD_LABELS },
+      received_by: { type: 'text', x: 142, lineTop: 366, font: 'Carlito', size: 12 },
+      receipt_number: { type: 'text', x: 180, lineTop: 412, font: 'Montserrat-Black', size: 18 },
+    },
+  },
+  {
+    slug: 'receipt-classic',
+    name: 'Classic (WPC — legacy)',
+    description: 'Original World Pavers design. Kept as a non-default legacy standard.',
+    basePdfPath: 'assets/templates/wpc_receipt.pdf',
+    numberFormat: 'REC-{YYYY}-{NNNN}',
+    isDefault: false,
     fieldMappingJson: WPC_FIELD_MAPPING,
   },
-];
+].map((s) => ({
+  pageWidth: 612,
+  pageHeight: 792,
+  mediaBoxOffsetY: 7.92,
+  isActive: true,
+  ...s,
+}));
 
 const CONTRACT_STANDARD_SLUG = 'contract-standard-a';
 
 (async () => {
   try {
     // --- Receipts ---
+    const receiptType = await prisma.documentType.findUnique({
+      where: { code: 'PAYMENT_RECEIPT' },
+    });
     for (const s of RECEIPT_STANDARDS) {
+      const data = {
+        ...s,
+        category: 'RECEIPT',
+        documentTypeId: receiptType ? receiptType.id : null,
+      };
       const up = await prisma.receiptTemplateStandard.upsert({
         where: { slug: s.slug },
-        update: s,
-        create: s,
+        update: data,
+        create: data,
       });
       console.log(`ReceiptTemplateStandard upserted: ${up.slug} (${up.id}) default=${up.isDefault}`);
     }
