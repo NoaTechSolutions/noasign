@@ -18,6 +18,7 @@ export const PAYMENT_METHODS = [
   'CREDIT_DEBIT_CARD',
   'CHEQUE',
   'BANK_TRANSFER',
+  'ZELLE',
   'OTHER',
 ] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];

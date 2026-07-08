@@ -46,15 +46,19 @@ type PaymentMethod =
   | 'CREDIT_DEBIT_CARD'
   | 'CHEQUE'
   | 'BANK_TRANSFER'
+  | 'ZELLE'
   | 'OTHER';
 
 // Visual order mirrors the printed receipt (CASH · CREDIT/DEBIT CARD · CHEQUE ·
-// BANK TRANSFER · OTHER). Single-select: ticking one unticks the rest.
+// BANK TRANSFER · ZELLE · OTHER). Single-select: ticking one unticks the rest.
+// Note: basic-v1's printed art has no Zelle checkbox — a Zelle receipt there is
+// marked "Other". Text templates (moderno/basic-v2) print "Zelle" via the label map.
 const METHODS: Array<{ value: PaymentMethod; label: string }> = [
   { value: 'CASH', label: 'Cash' },
   { value: 'CREDIT_DEBIT_CARD', label: 'Credit/Debit Card' },
   { value: 'CHEQUE', label: 'Cheque' },
   { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'ZELLE', label: 'Zelle' },
   { value: 'OTHER', label: 'Other' },
 ];
 
