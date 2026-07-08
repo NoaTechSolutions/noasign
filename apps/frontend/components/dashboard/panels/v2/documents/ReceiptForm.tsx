@@ -28,6 +28,8 @@ export interface CreateReceiptPayload {
   payment_current?: number;
   payment_total?: number;
   received_by?: string;
+  // Free-form notes. Only printed on templates that map `notes` (moderno today).
+  notes?: string;
   send: boolean;
   // Superadmin flow: borrow the selected user's receipt template (the doc still
   // becomes the creator's). Omitted for normal users (their company template).
@@ -123,6 +125,7 @@ export function ReceiptForm({
 
   const [receivedBy, setReceivedBy] = useState(defaultReceivedBy);
   const [editingReceivedBy, setEditingReceivedBy] = useState(false);
+  const [notes, setNotes] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   // Sending emails the receipt to the client — confirm first (irreversible).
@@ -187,6 +190,7 @@ export function ReceiptForm({
       payment_current: multiPayment ? Number(paymentCurrent) : 1,
       payment_total: multiPayment ? Number(paymentTotal) : 1,
       received_by: receivedBy.trim() || undefined,
+      notes: notes.trim() || undefined,
       send,
       receiptTemplateId,
     });
@@ -371,6 +375,16 @@ export function ReceiptForm({
               </button>
             </div>
           )}
+        </BaseField>
+
+        <BaseField label="Notes" icon={<FileText size={14} />}>
+          <textarea
+            className="wizard-field__input"
+            value={notes}
+            rows={2}
+            placeholder="Optional — printed only on templates that show notes"
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </BaseField>
       </section>
 

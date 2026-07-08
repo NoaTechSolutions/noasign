@@ -41,6 +41,7 @@ interface ReceiptPdfSource {
   received_by?: string | null;
   other_label?: string | null;
   payment_method: string;
+  notes?: string | null;
 }
 
 @Injectable()
@@ -199,6 +200,7 @@ export class ReceiptsService {
       received_by: dto.received_by,
       other_label: dto.other_label,
       payment_method: dto.payment_method,
+      notes: dto.notes,
     });
 
     // Stored record, keyed to MATCH the form schema so the detail view renders
@@ -216,6 +218,7 @@ export class ReceiptsService {
       payment_total: dto.payment_total ?? 1,
       received_by: dto.received_by ?? '',
       phone: dto.phone ?? '',
+      notes: dto.notes ?? '',
       receipt_number: receiptNumber,
     };
 
@@ -361,6 +364,7 @@ export class ReceiptsService {
       received_by: src.received_by ?? '',
       other_label: src.other_label ?? '',
       payment_method: src.payment_method,
+      notes: src.notes ?? '',
     };
   }
 

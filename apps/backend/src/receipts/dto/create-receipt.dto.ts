@@ -50,6 +50,13 @@ export class CreateReceiptDto {
   @IsString()
   other_label?: string;
 
+  // Free-form notes. Generic optional field — only drawn on templates whose
+  // fieldMappingJson maps `notes` (today: the "moderno" design). Stored in
+  // dataJson regardless so the detail view can show it.
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
   // Required — every receipt states what the payment was for.
   @IsString()
   @IsNotEmpty()
