@@ -11,7 +11,11 @@ import * as path from 'path';
  * World Pavers preview (mediaBoxOffsetY=7.92, full font embed).
  */
 
-export type ReceiptFieldType = 'text' | 'currency' | 'checkbox_group';
+export type ReceiptFieldType =
+  | 'text'
+  | 'currency'
+  | 'checkbox_group'
+  | 'signature_image';
 
 export interface ReceiptFieldMapping {
   type: ReceiptFieldType;
@@ -29,6 +33,11 @@ export interface ReceiptFieldMapping {
   // text instead of a checkbox_group): maps the raw value to a friendly label
   // ("CREDIT_DEBIT_CARD" -> "Credit/Debit Card"). Falls back to the raw value.
   labels?: Record<string, string>;
+  // For a `signature_image` field: box (points) the PNG is drawn into. lineTop is
+  // the box's TOP; w/h its size. The image source comes from data[key] (a PNG path
+  // or bytes) — Phase 3 supplies the owner's signature; not drawn when absent.
+  w?: number;
+  h?: number;
 }
 
 export interface ReceiptTemplateLike {
@@ -55,7 +64,7 @@ export class ReceiptPdfService {
 
   async generate(
     template: ReceiptTemplateLike,
-    data: Record<string, string | number>,
+    data: Record<string, string | number | Uint8Array>,
     opts?: { watermark?: string },
   ): Promise<Buffer> {
     const baseBytes = fs.readFileSync(
@@ -91,6 +100,28 @@ export class ReceiptPdfService {
     };
 
     for (const [key, m] of Object.entries(template.fieldMappingJson)) {
+      if (m.type === 'signature_image') {
+        // Signature PNG drawn into the box (lineTop=top, w/h size). Source is
+        // data[key] (a PNG file path or bytes). Not drawn when absent, so real
+        // receipts stay blank until Phase 3 supplies the owner's signature.
+        const src = data[key];
+        if (src == null || src === '' || typeof src === 'number') continue;
+        const bytes =
+          typeof src === 'string'
+            ? fs.readFileSync(path.resolve(process.cwd(), src))
+            : src;
+        const img = await pdfDoc.embedPng(bytes);
+        const w = m.w ?? img.width;
+        const h = m.h ?? img.height;
+        page.drawImage(img, {
+          x: m.x ?? 0,
+          y: template.pageHeight - (m.lineTop ?? 0) - h,
+          width: w,
+          height: h,
+        });
+        continue;
+      }
+
       if (m.type === 'checkbox_group') {
         const selected = data[key];
         const optionX = m.options?.[String(selected)];
@@ -107,7 +138,7 @@ export class ReceiptPdfService {
       }
 
       const raw = data[key];
-      if (raw == null || raw === '') continue;
+      if (raw == null || raw === '' || typeof raw === 'object') continue;
       const value =
         m.type === 'currency'
           ? this.formatCurrency(raw)

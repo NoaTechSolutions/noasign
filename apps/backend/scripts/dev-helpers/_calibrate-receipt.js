@@ -28,6 +28,7 @@ const TEST_DATA = {
   other_label: 'Venmo',
   payment_method: 'BANK_TRANSFER',
   notes: 'Balance due on completion. Thank you!',
+  signature_image: 'assets/sample-signature.png',
 };
 
 async function grid(baseFile, outFile) {
@@ -95,7 +96,7 @@ async function data(baseFile, mappingFile, outFile) {
     const page = doc.getPages()[0];
     const font = await doc.embedFont(StandardFonts.Helvetica);
     for (const [key, m] of Object.entries(fieldMappingJson)) {
-      if (m.type === 'checkbox_group') continue;
+      if (m.type === 'checkbox_group' || m.type === 'signature_image') continue;
       const gap = m.gap != null ? m.gap : 2.5;
       const y = m.baseline != null ? m.baseline : 792 - (m.lineTop || 0) + gap;
       page.drawLine({ start: { x: 0, y }, end: { x: 612, y }, thickness: 0.4, color: rgb(0.9, 0.1, 0.1) });
