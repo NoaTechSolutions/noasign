@@ -25,6 +25,10 @@ export interface ReceiptFieldMapping {
   autoShiftRightLimit?: number;
   mark?: string;
   options?: Record<string, number>;
+  // For a `text` field whose value is an enum (e.g. payment_method rendered as
+  // text instead of a checkbox_group): maps the raw value to a friendly label
+  // ("CREDIT_DEBIT_CARD" -> "Credit/Debit Card"). Falls back to the raw value.
+  labels?: Record<string, string>;
 }
 
 export interface ReceiptTemplateLike {
@@ -105,7 +109,9 @@ export class ReceiptPdfService {
       const raw = data[key];
       if (raw == null || raw === '') continue;
       const value =
-        m.type === 'currency' ? this.formatCurrency(raw) : String(raw);
+        m.type === 'currency'
+          ? this.formatCurrency(raw)
+          : (m.labels?.[String(raw)] ?? String(raw));
       const font = await getFont(m.font);
       const size = m.size ?? 11.5;
       let x = m.x ?? 0;
