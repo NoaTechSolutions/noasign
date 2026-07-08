@@ -18,7 +18,7 @@ const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const { ReceiptPdfService } = require('../../dist/receipts/receipt-pdf.service');
 
 const TEST_DATA = {
-  receipt_number: '0007',
+  receipt_number: 'N° 0001',
   date: '07/07/2026',
   client: 'Maria Rodriguez',
   amount: 1450.5,
@@ -62,6 +62,21 @@ async function grid(baseFile, outFile) {
 
 async function data(baseFile, mappingFile, outFile) {
   const fieldMappingJson = JSON.parse(fs.readFileSync(mappingFile, 'utf8'));
+  // Verification helper: MARK_ALL_CHECKBOXES=1 draws a mark in EVERY option of a
+  // checkbox_group (so all boxes can be checked at once to confirm alignment).
+  if (process.env.MARK_ALL_CHECKBOXES) {
+    for (const [key, m] of Object.entries({ ...fieldMappingJson })) {
+      if (m.type === 'checkbox_group') {
+        let i = 0;
+        for (const ox of Object.values(m.options)) {
+          const k = `_mk_${key}_${i++}`;
+          fieldMappingJson[k] = { type: 'text', x: ox + 3.5, lineTop: m.lineTop, gap: m.gap, font: m.font, size: m.size, color: m.color };
+          TEST_DATA[k] = m.mark || 'X';
+        }
+        delete fieldMappingJson[key];
+      }
+    }
+  }
   const template = {
     basePdfPath: path.relative(process.cwd(), baseFile).replace(/\\/g, '/'),
     pageWidth: 612,
