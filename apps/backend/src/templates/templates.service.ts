@@ -21,7 +21,10 @@ export interface TemplateCatalogItem {
   category: TemplateCategory | null;
   // Path (relative to the API base) of the pre-generated PNG preview. The
   // frontend joins it with the API URL. Public route — no auth needed.
+  // previewUrl = the cropped receipt band (card thumbnail).
+  // fullPreviewUrl = the full Letter page render (the "Preview" modal).
   previewUrl: string;
+  fullPreviewUrl: string;
   // True when THIS standard is the tenant's active/default for the category.
   isActive: boolean;
 }
@@ -32,6 +35,10 @@ export class TemplatesService {
 
   static previewUrlFor(slug: string): string {
     return `/templates/previews/${slug}.png`;
+  }
+
+  static fullPreviewUrlFor(slug: string): string {
+    return `/templates/previews/${slug}-full.png`;
   }
 
   private async companyProfileIdFor(userId: string): Promise<string> {
@@ -82,6 +89,7 @@ export class TemplatesService {
       renderMode: s.renderMode,
       category: s.category,
       previewUrl: TemplatesService.previewUrlFor(s.slug),
+      fullPreviewUrl: TemplatesService.fullPreviewUrlFor(s.slug),
       isActive: s.id === activeId,
     }));
   }

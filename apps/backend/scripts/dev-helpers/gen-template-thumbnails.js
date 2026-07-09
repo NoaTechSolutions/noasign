@@ -146,10 +146,14 @@ async function cropToReceipt(pngBuffer) {
       const buffer = await engine.generate(s, sampleData(s.numberFormat));
       const doc = await pdf(buffer, { scale: SCALE });
       const fullPage = await doc.getPage(1);
+      // Full Letter page render (the "Preview" modal shows the whole document).
+      fs.writeFileSync(path.join(OUT_DIR, `${s.slug}-full.png`), fullPage);
+      // Cropped receipt band (the card thumbnail — no page whitespace/footer).
       const cropped = await cropToReceipt(fullPage);
-      const outPath = path.join(OUT_DIR, `${s.slug}.png`);
-      fs.writeFileSync(outPath, cropped);
-      console.log(`thumbnail: ${s.slug}.png (${cropped.length} bytes, cropped)`);
+      fs.writeFileSync(path.join(OUT_DIR, `${s.slug}.png`), cropped);
+      console.log(
+        `thumbnail: ${s.slug}.png (${cropped.length}b cropped) + ${s.slug}-full.png (${fullPage.length}b full)`,
+      );
     }
 
     await prisma.$disconnect();
