@@ -132,6 +132,41 @@ const RECEIPT_STANDARDS = [
   ...s,
 }));
 
+// Invoice standards (Phase 2, DIRECT_PDF via AcroForm fill). renderMode 'acroform':
+// the engine fills the base PDF's NAMED form fields and flattens — no coordinate
+// calibration. A4 base (595.2 x 841.9), clean mediaBox origin. fieldMappingJson maps
+// each data key to its form field (name defaults to the key) + appearance. The base
+// PDF supports ONE line item today; a bounded multi-row base is an owner decision
+// (see docs/architecture/invoice-pdf-strategy.md).
+const INVOICE_STANDARDS = [
+  {
+    slug: 'invoice-standard-v1',
+    name: 'Invoice (standard)',
+    description: 'Single line-item invoice, rendered by AcroForm fill.',
+    basePdfPath: 'assets/templates/INVOCE_LauraBravo.pdf',
+    numberFormat: 'INV-{YYYY}-{NNNN}',
+    isDefault: true,
+    renderMode: 'acroform',
+    fieldMappingJson: {
+      billed_to: { multiline: true, size: 9 },
+      number: { size: 9 },
+      date: { size: 9 },
+      service: { multiline: true, size: 9 },
+      quantity: { size: 9 },
+      price: { type: 'currency', size: 9 },
+      total: { type: 'currency', size: 9 },
+      subtotal: { type: 'currency', size: 9 },
+      gran_total: { type: 'currency', size: 11 },
+    },
+  },
+].map((s) => ({
+  pageWidth: 595.2,
+  pageHeight: 841.9,
+  mediaBoxOffsetY: 0,
+  isActive: true,
+  ...s,
+}));
+
 const CONTRACT_STANDARD_SLUG = 'contract-standard-a';
 
 (async () => {
@@ -152,6 +187,24 @@ const CONTRACT_STANDARD_SLUG = 'contract-standard-a';
         create: data,
       });
       console.log(`ReceiptTemplateStandard upserted: ${up.slug} (${up.id}) default=${up.isDefault}`);
+    }
+
+    // --- Invoices (DIRECT_PDF via AcroForm; separate category + document type) ---
+    const invoiceType = await prisma.documentType.findUnique({
+      where: { code: 'INVOICE' },
+    });
+    for (const s of INVOICE_STANDARDS) {
+      const data = {
+        ...s,
+        category: 'INVOICE',
+        documentTypeId: invoiceType ? invoiceType.id : null,
+      };
+      const up = await prisma.receiptTemplateStandard.upsert({
+        where: { slug: s.slug },
+        update: data,
+        create: data,
+      });
+      console.log(`ReceiptTemplateStandard upserted: ${up.slug} (${up.id}) category=INVOICE mode=${up.renderMode}`);
     }
 
     // --- Contracts (best-effort tag of an existing global template) ---
