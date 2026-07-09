@@ -118,6 +118,27 @@ tenant's active template because the backend resolves it server-side.
 - UI (Edge): screen renders, click moves the active selection with a success
   toast, zero console errors.
 
+## Round 2 — owner adjustments (validated Capa 1)
+
+Commits `1c4d46f` (backend), `2b346f1` (frontend).
+
+- **Always one active (invariant).** `listForCategory` self-heals: a tenant with
+  zero active default gets the catalog default forced (shared `applyActive`
+  helper). Idempotent — never overrides an explicit/custom choice. Guarantees the
+  screen always shows exactly one selected template.
+- **Auto-cropped previews.** Thumbnails are cropped to the receipt band (not the
+  full Letter page): scan the render for the non-white content bbox, and drop the
+  ntssign branding footer by cutting at the largest white gap that still has
+  content below. Per-design, zero config (`@napi-rs/canvas`). Each receipt sits
+  in a different band and is handled automatically.
+- **Category tabs.** "Recibos" (the grid) + "Invoice" (a "coming soon"
+  placeholder, no fetch). Config-array driven — a 3rd category is a one-line add.
+- **"Personaliza tu recibo" CTA.** Prominent accent button, VISUAL ONLY → shows a
+  "Coming soon" toast. Owner finalizes copy/flow later.
+- **Cleaner cards.** Removed the per-card description and the screen subtitle;
+  cards show only preview + name + status. Media box is fixed-height with
+  `object-fit: contain` so the varying-aspect cropped previews stay even.
+
 ## Not in scope / next
 
 - **Capa 2:** dynamic per-template form (fields per design). Owner confirmed the
