@@ -14,9 +14,9 @@ interface TemplateCardProps {
   onPreview: (template: TemplateCatalogItem) => void;
 }
 
-// Horizontal (landscape) feature card: cropped preview band on the left, name +
-// status + actions on the right. The card itself is NOT clickable — actions are
-// the explicit "Preview" and "Set as active" buttons.
+// Vertical feature card: full-width preview image on top (uncropped, contain),
+// then name + status, then the actions row. The card itself is NOT clickable —
+// actions are the explicit "Preview" and "Set as active" buttons.
 export function TemplateCard({
   template,
   activating,
