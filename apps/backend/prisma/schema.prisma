@@ -80,11 +80,13 @@ enum PlanName {
   RECEIPTS_ONLY
 }
 
-// Template feature: two document categories with different backing engines.
+// Template feature: document categories with different backing engines.
 // RECEIPT = DIRECT_PDF (base PDF + coordinates). CONTRACT = BoldSign template.
+// INVOICE = DIRECT_PDF via AcroForm fill (base PDF + named form fields).
 enum TemplateCategory {
   RECEIPT
   CONTRACT
+  INVOICE
 }
 
 model CompanyProfile {
@@ -476,6 +478,11 @@ model ReceiptTemplateStandard {
   mediaBoxOffsetY  Float    @default(0)
   fieldMappingJson Json
   numberFormat     String   @default("REC-{YYYY}-{NNNN}")
+  // How the PDF engine renders this template:
+  //   "overlay"  = stamp text at absolute coordinates over the base PDF (receipts).
+  //   "acroform" = fill named AcroForm fields on the base PDF, then flatten (invoices).
+  // For "acroform", fieldMappingJson maps dataKey -> { field, size, color, ... }.
+  renderMode       String   @default("overlay")
   isActive         Boolean  @default(true)
   // Default standard within its category (used by onboarding when no explicit
   // standard is chosen).
