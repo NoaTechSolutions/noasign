@@ -66,6 +66,9 @@ export class TemplatesService {
     category: SelectableCategory,
   ): Promise<TemplateCatalogItem[]> {
     const companyProfileId = await this.companyProfileIdFor(userId);
+    // Invariant: a tenant always has exactly one active template per category.
+    // Self-heal any tenant with zero before we read.
+    await this.ensureActive(companyProfileId, category);
     const standards = await this.prisma.receiptTemplateStandard.findMany({
       where: { category, isActive: true },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
@@ -103,6 +106,39 @@ export class TemplatesService {
       );
     }
 
+    await this.applyActive(companyProfileId, category, standard);
+
+    return this.listForCategory(userId, category);
+  }
+
+  // Guarantee the "exactly one active per category" invariant: if the tenant has
+  // no active default, force the catalog default (isDefault standard, else the
+  // first active one). Idempotent — a no-op when a default already exists (even
+  // a fully-custom one), so it never overrides an explicit choice.
+  private async ensureActive(
+    companyProfileId: string,
+    category: TemplateCategory,
+  ): Promise<void> {
+    const existing = await this.prisma.companyTemplate.findFirst({
+      where: { companyProfileId, category, isDefault: true, isActive: true },
+    });
+    if (existing) return;
+    const fallback = await this.prisma.receiptTemplateStandard.findFirst({
+      where: { category, isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+    });
+    if (!fallback) return;
+    await this.applyActive(companyProfileId, category, fallback);
+  }
+
+  // Provision-or-reuse the tenant's instance of `standard` and make it the sole
+  // active default for the category (demote the rest). Shared by an explicit
+  // selection (setActive) and the invariant self-heal (ensureActive).
+  private async applyActive(
+    companyProfileId: string,
+    category: TemplateCategory,
+    standard: ReceiptTemplateStandard,
+  ): Promise<void> {
     const instance = await this.provisionInstance(companyProfileId, standard);
 
     await this.prisma.$transaction(async (tx) => {
@@ -132,8 +168,6 @@ export class TemplatesService {
         });
       }
     });
-
-    return this.listForCategory(userId, category);
   }
 
   // Reuse the tenant's existing instance of this standard if one exists (a tenant
