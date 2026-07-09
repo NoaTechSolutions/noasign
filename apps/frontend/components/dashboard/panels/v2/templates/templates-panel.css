@@ -13,12 +13,87 @@
 /* Panel-head classes (.panel-head, .panel-head__main, .panel-head__title) are
    global — shared across V2 panels. Reused here, not redefined. */
 
-.templates-panel__intro {
-  margin: 0;
+/* ============================================
+   TAB BAR + CTA ROW
+   ============================================ */
+
+.templates-tabbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+/* Segmented control — pill container with an active-tab fill. */
+.templates-tabs {
+  display: inline-flex;
+  gap: var(--sp-1);
+  padding: 4px;
+  border: 1px solid var(--br);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+}
+
+.templates-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius-full);
   font-size: var(--text-sm);
+  font-weight: 500;
   color: var(--tx-2);
-  max-width: 60ch;
-  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.templates-tab:hover:not(.templates-tab--active) {
+  color: var(--tx);
+}
+
+.templates-tab--active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--shadow-card);
+}
+
+.templates-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+/* Prominent accent CTA (visual only). Highlight gradient so it stands out
+   against the primary/secondary buttons used elsewhere. */
+.templates-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border: none;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    135deg,
+    var(--brand-accent) 0%,
+    var(--brand-accent-strong) 100%
+  );
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 10px var(--brand-accent-soft);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.templates-cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 4px 16px var(--brand-accent-soft);
+}
+
+.templates-cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
 /* ============================================
@@ -73,19 +148,28 @@
 .template-card__thumb {
   position: relative;
   width: 100%;
-  /* US-Letter portrait preview (~918x1188). */
-  aspect-ratio: 918 / 1188;
+  /* Backend now serves CROPPED previews (just the receipt band) whose aspect
+     ratios VARY per design. A fixed-height media box + object-fit:contain keeps
+     the grid visually even: short-wide and taller images both center-fit on a
+     neutral, theme-aware surface with no cropping or stretching. */
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-3);
   background: var(--surface-raised);
   overflow: hidden;
   border-bottom: 1px solid var(--br);
 }
 
 .template-card__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top center;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   display: block;
+  border-radius: 2px;
 }
 
 .template-card__badge {
@@ -145,13 +229,6 @@
   font-weight: 600;
   color: var(--tx);
   line-height: 1.3;
-}
-
-.template-card__desc {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--tx-2);
-  line-height: 1.45;
 }
 
 .template-card__foot {

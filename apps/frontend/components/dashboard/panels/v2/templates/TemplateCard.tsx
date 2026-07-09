@@ -19,7 +19,7 @@ export function TemplateCard({
   busy,
   onActivate,
 }: TemplateCardProps) {
-  const { slug, name, description, isActive, previewUrl } = template;
+  const { slug, name, isActive, previewUrl } = template;
 
   // Preview is served from a PUBLIC, cross-origin route (:3000) — no cookie
   // needed. previewUrl is relative, so prefix the API base.
@@ -87,9 +87,6 @@ export function TemplateCard({
 
       <div className="template-card__body">
         <div className="template-card__title">{name}</div>
-        {description && (
-          <p className="template-card__desc">{description}</p>
-        )}
 
         <div className="template-card__foot">
           {isActive ? (
