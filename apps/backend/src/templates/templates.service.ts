@@ -41,12 +41,32 @@ export class TemplatesService {
     return `/templates/previews/${slug}-full.png`;
   }
 
-  private async companyProfileIdFor(userId: string): Promise<string> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  private async userContext(
+    userId: string,
+  ): Promise<{ companyProfileId: string; isSuperadmin: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { companyProfileId: true, role: true },
+    });
     if (!user?.companyProfileId) {
       throw new BadRequestException('User has no company profile');
     }
-    return user.companyProfileId;
+    return {
+      companyProfileId: user.companyProfileId,
+      isSuperadmin: user.role === 'SUPERADMIN',
+    };
+  }
+
+  // Visibility filter for the catalog: a tenant sees GLOBAL standards
+  // (ownerCompanyProfileId null) plus the ones PRIVATE to itself. SUPERADMIN
+  // bypasses this (sees all). Spread into a Prisma `where`.
+  private visibleToTenant(companyProfileId: string) {
+    return {
+      OR: [
+        { ownerCompanyProfileId: null },
+        { ownerCompanyProfileId: companyProfileId },
+      ],
+    };
   }
 
   // Resolve which catalog standard is the tenant's active default for a category.
@@ -72,12 +92,17 @@ export class TemplatesService {
     userId: string,
     category: SelectableCategory,
   ): Promise<TemplateCatalogItem[]> {
-    const companyProfileId = await this.companyProfileIdFor(userId);
+    const { companyProfileId, isSuperadmin } = await this.userContext(userId);
     // Invariant: a tenant always has exactly one active template per category.
     // Self-heal any tenant with zero before we read.
     await this.ensureActive(companyProfileId, category);
     const standards = await this.prisma.receiptTemplateStandard.findMany({
-      where: { category, isActive: true },
+      where: {
+        category,
+        isActive: true,
+        // SUPERADMIN sees every template; a tenant sees global + its own private.
+        ...(isSuperadmin ? {} : this.visibleToTenant(companyProfileId)),
+      },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     });
     const activeId = await this.activeStandardId(companyProfileId, category);
@@ -103,10 +128,17 @@ export class TemplatesService {
     category: SelectableCategory,
     slug: string,
   ): Promise<TemplateCatalogItem[]> {
-    const companyProfileId = await this.companyProfileIdFor(userId);
+    const { companyProfileId, isSuperadmin } = await this.userContext(userId);
 
+    // A tenant may only activate a template it can SEE (global or its own
+    // private) — otherwise the list filter would be bypassable via this call.
     const standard = await this.prisma.receiptTemplateStandard.findFirst({
-      where: { slug, category, isActive: true },
+      where: {
+        slug,
+        category,
+        isActive: true,
+        ...(isSuperadmin ? {} : this.visibleToTenant(companyProfileId)),
+      },
     });
     if (!standard) {
       throw new NotFoundException(
@@ -131,8 +163,14 @@ export class TemplatesService {
       where: { companyProfileId, category, isDefault: true, isActive: true },
     });
     if (existing) return;
+    // Only force a template the tenant can actually see (global or its own
+    // private) — never a template private to a DIFFERENT tenant.
     const fallback = await this.prisma.receiptTemplateStandard.findFirst({
-      where: { category, isActive: true },
+      where: {
+        category,
+        isActive: true,
+        ...this.visibleToTenant(companyProfileId),
+      },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     });
     if (!fallback) return;

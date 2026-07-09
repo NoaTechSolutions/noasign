@@ -153,6 +153,9 @@ model CompanyProfile {
   companyTemplates   CompanyTemplate[]
   // Generic per-(type, year) visible-series counters (REC-/INV-…).
   documentSeriesCounters DocumentSeriesCounter[]
+  // Catalog standards PRIVATE to this tenant (owner-only visibility). Global
+  // standards have a null owner and are visible to everyone.
+  ownedTemplateStandards ReceiptTemplateStandard[] @relation("OwnedTemplateStandards")
 
   @@map("company_profiles")
 }
@@ -491,14 +494,20 @@ model ReceiptTemplateStandard {
   // document type (RECEIPT today, INVOICE next). The receipt_* name is legacy.
   category         TemplateCategory?
   documentTypeId   String?
+  // Visibility/ownership: null = GLOBAL (every tenant sees it); a set value =
+  // PRIVATE to that tenant (only its users see it; SUPERADMIN sees all). Kept on
+  // the standard so the catalog list can filter by tenant without per-tenant rows.
+  ownerCompanyProfileId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   instances        ReceiptTemplate[]
   companyTemplates CompanyTemplate[]
   documentType     DocumentType?     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  ownerCompanyProfile CompanyProfile? @relation("OwnedTemplateStandards", fields: [ownerCompanyProfileId], references: [id], onDelete: SetNull)
 
   @@index([documentTypeId])
+  @@index([ownerCompanyProfileId])
   @@map("receipt_template_standards")
 }
 
