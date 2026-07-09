@@ -184,6 +184,41 @@ To use a custom design, drop your own PNG at
 `assets/templates/previews/<slug>.png` (same filename). ⚠️ Do NOT re-run the
 generator afterward — it overwrites these files.
 
+## Round 5 — template visibility (global vs tenant-private)
+
+Commit `5c8938e` (backend). Migration `20260709040000_template_owner_visibility`.
+
+Prevents a tenant from seeing another tenant's private template in the catalog.
+
+- **Model.** `ReceiptTemplateStandard.ownerCompanyProfileId String?` (FK →
+  CompanyProfile, `onDelete: SetNull`, indexed). `null` = GLOBAL (all tenants);
+  a value = PRIVATE to that tenant. Additive migration — existing rows stay
+  global. Applied via `db execute` + `migrate resolve` (never `migrate dev`).
+- **Filter.** `GET /templates`: a USER sees global + its own private
+  (`ownerCompanyProfileId null OR = own`); a SUPERADMIN sees all. `setActive`
+  enforces the same visibility (a hidden template returns 404, not activatable).
+  `ensureActive` only forces a VISIBLE standard, so the one-active invariant never
+  assigns another tenant's private template. The receipt **resolver is untouched**
+  (it reads per-tenant CompanyTemplate/ReceiptTemplate, not the catalog).
+- **Ownership is a per-environment DATA step**, not carried by the migration or
+  the catalog seed (tenant ids differ per env, and the seed does not touch
+  `ownerCompanyProfileId` so manual ownership survives re-seeding):
+  `node scripts/associate-template-owner.js <slug> <companyProfileId|global>`
+  (validates the tenant exists in THIS db).
+  - LOCAL: `receipt-classic` → `7aaad16a-6d76-4c36-97c7-b9ce3e45b801` (World
+    Pavers local).
+  - STAGING/PROD: `receipt-classic` → `a6150399-8bd8-4b26-88fc-0f3d38acc1ea`
+    (real World Pavers).
+
+### Staging deploy steps for this module (order matters)
+
+1. Apply migrations (includes `20260709040000`).
+2. `node scripts/seed-template-catalog.js` (idempotent — creates/updates the
+   catalog rows; does NOT touch ownership or the card PNGs).
+3. `node scripts/associate-template-owner.js receipt-classic a6150399-8bd8-4b26-88fc-0f3d38acc1ea`
+   (make WPC's design private on staging/prod).
+4. Do NOT run `gen-template-thumbnails.js` — the card PNGs are owner-managed.
+
 ## Not in scope / next
 
 - **Capa 2:** dynamic per-template form (fields per design). Owner confirmed the
