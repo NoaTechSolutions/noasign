@@ -83,7 +83,7 @@ const RECEIPT_STANDARDS = [
     name: 'Moderno (blocks + notes)',
     description: 'Styled block design with a Notes field. Method printed as text.',
     basePdfPath: 'assets/templates/receipt-moderno-v1.pdf',
-    numberFormat: 'N° {NNNN}',
+    numberFormat: '{NNNN}',
     isDefault: false,
     fieldMappingJson: {
       receipt_number: { type: 'text', x: 82.5, lineTop: 184, font: 'Carlito-Bold', size: 11, color: '#12235c' },
