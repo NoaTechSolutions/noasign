@@ -37,6 +37,22 @@ on:
         description: 'set_tenant_plan: preview only (uncheck to apply)'
         type: boolean
         default: true
+      seed_receipt_catalog:
+        description: 'One-shot: seed the 3 standard receipt designs + wire them per-tenant'
+        type: boolean
+        default: false
+      rc_company_id:
+        description: 'seed_receipt_catalog: CompanyProfile.id to wire (default = World Pavers staging)'
+        type: string
+        default: '7aaad16a-6d76-4c36-97c7-b9ce3e45b801'
+      rc_default_slug:
+        description: 'seed_receipt_catalog: which design becomes the tenant default'
+        type: choice
+        default: receipt-basic-v1
+        options:
+          - receipt-basic-v1
+          - receipt-moderno-v1
+          - receipt-basic-v2
 
 # Only one deploy at a time
 concurrency:
@@ -91,6 +107,29 @@ jobs:
           pm2 reload ntssign-backend --update-env
 
           echo "--- Backend deploy complete ---"
+
+      # Gated one-shot: seed the 3 standard receipt designs into the catalog and
+      # wire them per-tenant (unlike _seed-receipt-template.js which hardcodes the
+      # legacy WPC classic). ONLY runs with seed_receipt_catalog=true — never on
+      # normal pushes. Idempotent (upserts). Runs after the backend build so the
+      # built dist + prod deps are present; sources the VM .env for DATABASE_URL.
+      - name: Seed receipt catalog + wire designs (one-shot, gated)
+        if: github.event.inputs.seed_receipt_catalog == 'true'
+        env:
+          RC_COMPANY_ID: ${{ github.event.inputs.rc_company_id }}
+          RC_DEFAULT_SLUG: ${{ github.event.inputs.rc_default_slug }}
+        run: |
+          set -e
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DATABASE_URL="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d '=' -f2-)"
+          DATABASE_URL="${DATABASE_URL%\"}"; DATABASE_URL="${DATABASE_URL#\"}"
+          DATABASE_URL="${DATABASE_URL%\'}"; DATABASE_URL="${DATABASE_URL#\'}"
+          export DATABASE_URL
+          echo "--- Seeding the 3 standard receipt designs into the catalog ---"
+          node scripts/seed-template-catalog.js
+          echo "--- Wiring per-tenant receipt templates from the new standards (default=$RC_DEFAULT_SLUG) ---"
+          node scripts/dev-helpers/_wire-receipt-standards.js "$RC_COMPANY_ID" "$RC_DEFAULT_SLUG"
 
       # Gated one-shot seed. ONLY runs when triggered via workflow_dispatch with
       # seed_test_users=true — never on normal pushes to develop. Idempotent +
