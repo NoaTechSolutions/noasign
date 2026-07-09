@@ -126,6 +126,8 @@ jobs:
           DATABASE_URL="${DATABASE_URL%\"}"; DATABASE_URL="${DATABASE_URL#\"}"
           DATABASE_URL="${DATABASE_URL%\'}"; DATABASE_URL="${DATABASE_URL#\'}"
           export DATABASE_URL
+          echo "--- PRE-SEED safety dump of affected tables (captured in run logs) ---"
+          node scripts/dev-helpers/_dump-receipt-tables.js "$RC_COMPANY_ID"
           echo "--- Seeding the 3 standard receipt designs into the catalog ---"
           node scripts/seed-template-catalog.js
           echo "--- Wiring per-tenant receipt templates from the new standards (default=$RC_DEFAULT_SLUG) ---"
