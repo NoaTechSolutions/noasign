@@ -7,7 +7,8 @@ export interface TemplateCatalogItem {
   description: string | null;
   renderMode: string; // "overlay" | "acroform"
   category: string | null; // "RECEIPT"
-  previewUrl: string; // RELATIVE path, e.g. "/templates/previews/receipt-basic-v1.png"
+  previewUrl: string; // CROPPED receipt band (card thumbnail), relative path
+  fullPreviewUrl: string; // FULL Letter-page render (modal), relative path
   isActive: boolean; // true = the tenant's currently-selected template
 }
 

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { apiRequest } from '@/lib/api';
 import { TemplateCard } from './TemplateCard';
+import { TemplatePreviewModal } from './TemplatePreviewModal';
 import type { TemplateCatalogItem, SetActiveTemplateResponse } from './types';
 import './templates-panel.css';
 
@@ -32,6 +33,8 @@ export function TemplatesPanel() {
   const [error, setError] = useState('');
   // slug currently being activated (null = idle). Gates all card interactions.
   const [activatingSlug, setActivatingSlug] = useState<string | null>(null);
+  // Template whose full-page preview modal is open (null = closed).
+  const [previewTemplate, setPreviewTemplate] = useState<TemplateCatalogItem | null>(null);
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
@@ -186,6 +189,7 @@ export function TemplatesPanel() {
                   activating={activatingSlug === template.slug}
                   busy={busy}
                   onActivate={handleActivate}
+                  onPreview={setPreviewTemplate}
                 />
               ))}
             </div>
@@ -220,6 +224,13 @@ export function TemplatesPanel() {
             We&apos;re working on invoice designs. Check back later.
           </p>
         </div>
+      )}
+
+      {previewTemplate && (
+        <TemplatePreviewModal
+          template={previewTemplate}
+          onClose={() => setPreviewTemplate(null)}
+        />
       )}
     </div>
   );
