@@ -139,6 +139,25 @@ Commits `1c4d46f` (backend), `2b346f1` (frontend).
   cards show only preview + name + status. Media box is fixed-height with
   `object-fit: contain` so the varying-aspect cropped previews stay even.
 
+## Round 3 — card redesign + Preview modal
+
+Commits `082178d` (backend), `90f6919` (frontend).
+
+- **Horizontal cards, 2 per row.** Each card is landscape: the cropped receipt
+  band as a left media column + name/status/actions on the right. Collapses to 1
+  column on narrow screens. Card = design-system feature card.
+- **Preview modal.** Each card has a "Preview" button opening a modal (portal)
+  that shows the **full Letter-page render** of the document. Backend now emits
+  `fullPreviewUrl` (`<slug>-full.png`) next to `previewUrl` (`<slug>.png`, the
+  crop). The gen script writes both from the same engine + sample data.
+- **Design-system styling.** Amber secondary CTA (#ff9900 / hover #cc7a00), ghost
+  navy "Preview", primary navy "Set as active", navy-opacity tabs.
+- **Theming gotcha (fixed).** Dark styles must be scoped to
+  `:root[data-theme="dark"]` ONLY. The `<html>` element carries a stale `.dark`
+  class even in light mode (`data-theme` is the real source of truth), so keying
+  dark styles off `.dark` renders dark cards in light mode. Convention matches
+  the other v2 panels (which use `[data-theme="dark"]`). Verified in both modes.
+
 ## Not in scope / next
 
 - **Capa 2:** dynamic per-template form (fields per design). Owner confirmed the
