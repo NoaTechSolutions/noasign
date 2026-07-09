@@ -5,7 +5,7 @@ import {
   Get,
   NotFoundException,
   Param,
-  Put,
+  Patch,
   Query,
   Req,
   Res,
@@ -39,8 +39,9 @@ export class TemplatesController {
   }
 
   // Set the tenant's active template for a category (flips CompanyTemplate
-  // default via provision-or-reuse of a per-tenant instance).
-  @Put('active')
+  // default via provision-or-reuse of a per-tenant instance). PATCH (not PUT):
+  // the app's CORS allowlist + update convention use PATCH, no PUT anywhere.
+  @Patch('active')
   @UseGuards(JwtAuthGuard)
   async setActive(
     @Req() req: { user: { id: string } },

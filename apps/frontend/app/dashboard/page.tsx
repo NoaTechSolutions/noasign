@@ -9,7 +9,7 @@ import { API_URL, apiRequest } from "../../lib/api";
 import { getPlanEntry } from "../../lib/plan-catalog";
 import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
-import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel } from "../../components/dashboard/panels/v2";
+import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel, TemplatesPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
 import type {
   V2DocumentItem,
@@ -2355,6 +2355,8 @@ function DashboardPageInner() {
           onFetchDeletedCustomers={customersV2Handlers.onFetchDeletedCustomers}
           onRestoreCustomer={customersV2Handlers.onRestoreCustomer}
         />
+      ) : newLayoutPanel === "templates" ? (
+        <TemplatesPanel />
       ) : newLayoutPanel === "members" && isSuperadmin ? (
         <MembersPanel
           role={membersV2.role}
