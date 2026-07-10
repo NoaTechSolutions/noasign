@@ -19,7 +19,7 @@ interface TemplateTab {
 }
 
 const TABS: readonly TemplateTab[] = [
-  { key: 'receipts', label: 'Recibos' },
+  { key: 'receipts', label: 'Receipts' },
   { key: 'invoice', label: 'Invoice' },
 ];
 
@@ -94,36 +94,16 @@ export function TemplatesPanel() {
 
   return (
     <div className="templates-panel">
-      <header className="panel-head">
-        <div className="panel-head__main">
-          {/* GLOBAL RULE: panel headers have title only — NO subtitle line. */}
-          <h1 className="panel-head__title">Templates</h1>
-        </div>
-      </header>
-
-      {/* Tab bar + (on Recibos) the customize CTA share one row. */}
-      <div className="templates-tabbar-row">
-        <div className="templates-tabs" role="tablist" aria-label="Template categories">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              id={`templates-tab-${tab.key}`}
-              aria-selected={activeTab === tab.key}
-              aria-controls={`templates-tabpanel-${tab.key}`}
-              className={`templates-tab${activeTab === tab.key ? ' templates-tab--active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      {/* Header grid (grid-areas): desktop = title on its own row, then tabs
+          (left) + CTA (right). Mobile = title (left) + CTA (right) on one row,
+          tabs full-width below. Reuses the global panel-head__title styling. */}
+      <div className="templates-header">
+        <h1 className="panel-head__title templates-header__title">Templates</h1>
 
         {activeTab === 'receipts' && (
           <button
             type="button"
-            className="templates-cta"
+            className="templates-cta templates-header__cta"
             onClick={() => toast('Coming soon', { icon: '✨' })}
           >
             <svg
@@ -140,9 +120,30 @@ export function TemplatesPanel() {
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
             </svg>
-            Personaliza tu recibo
+            Personalize your receipt
           </button>
         )}
+
+        <div
+          className="templates-tabs templates-header__tabs"
+          role="tablist"
+          aria-label="Template categories"
+        >
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              id={`templates-tab-${tab.key}`}
+              aria-selected={activeTab === tab.key}
+              aria-controls={`templates-tabpanel-${tab.key}`}
+              className={`templates-tab${activeTab === tab.key ? ' templates-tab--active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {activeTab === 'receipts' ? (

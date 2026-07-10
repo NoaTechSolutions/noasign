@@ -20,12 +20,30 @@
    TAB BAR + CTA ROW
    ============================================ */
 
-.templates-tabbar-row {
-  display: flex;
+/* Header grid. Desktop: title spans row 1; tabs (left) + CTA (right) on row 2.
+   Mobile: title (left) + CTA (right) on row 1; tabs full-width on row 2. */
+.templates-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'title title'
+    'tabs cta';
   align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-4);
-  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.templates-header__title {
+  grid-area: title;
+}
+
+.templates-header__tabs {
+  grid-area: tabs;
+  justify-self: start;
+}
+
+.templates-header__cta {
+  grid-area: cta;
+  justify-self: end;
 }
 
 /* Segmented control — navy with opacities (design-system: no generic grays). */
@@ -103,8 +121,36 @@
 }
 
 @media (max-width: 720px) {
+  /* One card per row so the receipt image reads on a narrow screen. */
   .templates-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Title (left) + CTA (right) share the top row; tabs full-width below. */
+  .templates-header {
+    grid-template-areas:
+      'title cta'
+      'tabs tabs';
+  }
+
+  .templates-header__title {
+    align-self: center;
+  }
+
+  .templates-header__cta {
+    padding: 9px 16px;
+    white-space: nowrap;
+  }
+
+  /* Tabs fill the row and split evenly. */
+  .templates-header__tabs {
+    justify-self: stretch;
+    display: flex;
+  }
+
+  .templates-header__tabs .templates-tab {
+    flex: 1;
+    text-align: center;
   }
 }
 
