@@ -232,6 +232,36 @@ Commit `eb3df5d` (frontend).
   receipt". Everything else (Active, Preview, Set as active, Coming soon…) was
   already English.
 
+## Round 7 — deployed to STAGING (verified)
+
+Pushed `develop` → 20 commits (incl. the invoice scaffolding, additive/dormant).
+Deploy runs on push (`prisma migrate deploy` auto-applies migrations). The
+Templates go-live data steps run via a NEW gated `workflow_dispatch` input
+`templates_visibility_setup` (safety dump → seed-catalog → associate-owner; never
+runs the thumbnail generator).
+
+**⚠️ WPC company id differs per env — verified live:**
+- **STAGING** World Pavers = `7aaad16a-6d76-4c36-97c7-b9ce3e45b801` (business@ and
+  master@ staging JWTs both resolve here). The gated step was run with
+  `tvs_wpc_company_id=7aaad16a`.
+- **PROD** World Pavers = `a6150399-8bd8-4b26-88fc-0f3d38acc1ea` (the gated input's
+  default). Use this only on the prod deploy.
+- The `associate-template-owner.js` refuses a dangling id, so passing the wrong
+  env's id fails safe (no silent global-leak).
+
+Also confirmed: `master@staging` role is `SUPERADMIN` (the "MASTER" wording is
+loose) — the `role === 'SUPERADMIN'` filter works.
+
+Verified on staging (live API + Edge screenshots, desktop + 390px):
+- Visibility: WP sees classic; another tenant does NOT (3 vs 4); superadmin sees
+  all; other-tenant PATCH classic → 404; WP → 200; created receipt used the active
+  (REC-2026-0026, classic's format).
+- UI: grid + previews render, tabs/CTA/buttons English, mobile header (title+CTA
+  one row, tabs full-width), zero console errors.
+
+Prod push is DEFERRED (owner decides; goes with receipts C1+C2 all together). For
+prod, run the gated step with `tvs_wpc_company_id=a6150399-…`.
+
 ## Not in scope / next
 
 - **Capa 2:** dynamic per-template form (fields per design). Owner confirmed the
