@@ -219,6 +219,19 @@ Prevents a tenant from seeing another tenant's private template in the catalog.
    (make WPC's design private on staging/prod).
 4. Do NOT run `gen-template-thumbnails.js` — the card PNGs are owner-managed.
 
+## Round 6 — mobile responsive + English copy
+
+Commit `eb3df5d` (frontend).
+
+- Header is a grid (`grid-areas`). Desktop: title row, then tabs (left) + CTA
+  (right). Mobile (≤720px): title (left) + CTA (right) on the top row, tabs
+  full-width below (split evenly). Cards already go 1-per-row on mobile. No
+  horizontal overflow at 390px.
+- **All module copy is English (US)** — SaaS rule. Fixed the two Spanish leftovers:
+  tab "Recibos" → "Receipts"; CTA "Personaliza tu recibo" → "Personalize your
+  receipt". Everything else (Active, Preview, Set as active, Coming soon…) was
+  already English.
+
 ## Not in scope / next
 
 - **Capa 2:** dynamic per-template form (fields per design). Owner confirmed the
