@@ -56,6 +56,13 @@ const prismaMock = {
   companyProfile: {
     findUnique: jest.fn(),
   },
+  // Correlativo numbering now runs through an atomic per-(user, type) sequence
+  // inside a transaction (migration 20260706150000), replacing the old
+  // document.findMany max-scan.
+  userDocumentSequence: {
+    upsert: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 const signatureProviderServiceMock = {
@@ -84,6 +91,13 @@ describe('DocumentsService', () => {
     prismaMock.companyProfile.findUnique.mockResolvedValue({
       contractsEnabled: true,
     });
+    // Numbering: $transaction runs its callback with the mock itself as the tx
+    // client, so tx.userDocumentSequence.upsert resolves to the mocked fn. Default
+    // sequence → lastNumber 1 (first doc for that user/type); tests override it.
+    prismaMock.$transaction.mockImplementation(
+      (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+    );
+    prismaMock.userDocumentSequence.upsert.mockResolvedValue({ lastNumber: 1 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -126,7 +140,10 @@ describe('DocumentsService', () => {
   it('getDocumentTypes (asUserId) borrows a cross-tenant target user’s receipt template', async () => {
     // caller = SUPERADMIN (company-1); target = USER in a DIFFERENT tenant (company-2).
     prismaMock.user.findUnique
-      .mockResolvedValueOnce({ role: 'SUPERADMIN', companyProfileId: 'company-1' })
+      .mockResolvedValueOnce({
+        role: 'SUPERADMIN',
+        companyProfileId: 'company-1',
+      })
       .mockResolvedValueOnce({
         id: 'user-2',
         role: 'USER',
@@ -689,8 +706,8 @@ describe('DocumentsService', () => {
       documentTypeId: 'type-1',
     });
     prismaMock.document.findFirst.mockResolvedValue(null);
-    // Per-user numbering scopes the max to (userId, type).
-    prismaMock.document.findMany.mockResolvedValue([]);
+    // First doc for (user-1, type-1) → the per-user sequence starts at 1.
+    prismaMock.userDocumentSequence.upsert.mockResolvedValue({ lastNumber: 1 });
     prismaMock.document.create.mockResolvedValue({
       id: 'doc-new',
       documentNumber: 'CON-000001',
@@ -772,10 +789,9 @@ describe('DocumentsService', () => {
       id: 'tpl-1',
       documentTypeId: 'type-1',
     });
-    // This user already has CON-000002 → next must be CON-000003 for this user.
-    prismaMock.document.findMany.mockResolvedValue([
-      { documentNumber: 'CON-000002' },
-    ]);
+    // This user's sequence is already at 2 → the atomic increment returns 3, so
+    // the next number is CON-000003 for this user.
+    prismaMock.userDocumentSequence.upsert.mockResolvedValue({ lastNumber: 3 });
     prismaMock.document.findFirst.mockResolvedValue(null);
     prismaMock.document.create.mockResolvedValue({
       id: 'doc-new',
@@ -795,10 +811,13 @@ describe('DocumentsService', () => {
       dataJson: {},
     });
 
-    // The max lookup is scoped to the creator's userId (not the tenant).
-    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+    // The correlativo comes from the per-(user, type) sequence, scoped to the
+    // creator's userId (not the tenant) via the composite unique key.
+    expect(prismaMock.userDocumentSequence.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ userId: 'user-1' }),
+        where: {
+          userId_documentTypeId: { userId: 'user-1', documentTypeId: 'type-1' },
+        },
       }),
     );
     expect(prismaMock.document.create).toHaveBeenCalledWith(
@@ -826,7 +845,8 @@ describe('DocumentsService', () => {
       id: 'tpl-owned-by-someone-else',
       documentTypeId: 'type-1',
     });
-    prismaMock.document.findMany.mockResolvedValue([]); // master owns no CON docs
+    // Master (user-1) owns no CON docs → their own sequence starts at 1.
+    prismaMock.userDocumentSequence.upsert.mockResolvedValue({ lastNumber: 1 });
     prismaMock.document.findFirst.mockResolvedValue(null);
     prismaMock.document.create.mockResolvedValue({
       id: 'doc-new',
@@ -846,11 +866,13 @@ describe('DocumentsService', () => {
       dataJson: {},
     });
 
-    // Number scoped to the master (user-1) — NOT a guard rejection, NOT the form
-    // owner's sequence.
-    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+    // Number drawn from the master's OWN sequence (user-1) — NOT a guard
+    // rejection, NOT the form owner's sequence.
+    expect(prismaMock.userDocumentSequence.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ userId: 'user-1' }),
+        where: {
+          userId_documentTypeId: { userId: 'user-1', documentTypeId: 'type-1' },
+        },
       }),
     );
     expect(result.document.documentNumber).toBe('CON-000001');
