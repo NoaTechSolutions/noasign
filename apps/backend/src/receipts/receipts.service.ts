@@ -468,7 +468,79 @@ export class ReceiptsService {
       );
     }
 
-    return { document, receiptNumber, pdf: pdfBuffer };
+    // Draft — no email (same shape as createReceipt).
+    if (!dto.send) {
+      return { document, receiptNumber, pdf: pdfBuffer };
+    }
+
+    // Send: email the invoice PDF to the recipient. SAME mechanism as receipts —
+    // never throws on delivery failure; flips SENT / SEND_FAILED and returns the
+    // real status so the UI toast reflects the truth. (No receipt-quota counting.)
+    const recipientEmail = (
+      dto.recipientEmail ??
+      dataJson.recipient_email ??
+      ''
+    ).trim();
+    if (!recipientEmail) {
+      throw new BadRequestException(
+        'recipientEmail is required when send=true',
+      );
+    }
+    const company = await this.prisma.companyProfile.findUnique({
+      where: { id: companyProfileId },
+      select: { companyName: true },
+    });
+    const clientName =
+      (dataJson.company_name ?? '').trim() ||
+      [dataJson.first_name, dataJson.last_name]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ') ||
+      'Customer';
+
+    try {
+      const { id: providerEmailId } = await this.email.sendInvoice({
+        to: recipientEmail,
+        receiptNumber,
+        clientName,
+        companyName: company?.companyName ?? 'NTSsign',
+        pdfBuffer,
+      });
+      const sent = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SENT,
+          sentAt: new Date(),
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
+          providerEmailId: providerEmailId || null,
+          sendError: null,
+        },
+      });
+      return { document: sent, receiptNumber, pdf: pdfBuffer };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[ReceiptsService] Invoice ${receiptNumber} email failed: ${reason}`,
+      );
+      const failed = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: reason,
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
+        },
+      });
+      return {
+        document: failed,
+        receiptNumber,
+        pdf: pdfBuffer,
+        sendError: reason,
+      };
+    }
   }
 
   /**

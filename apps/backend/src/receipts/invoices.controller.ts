@@ -29,9 +29,20 @@ export class InvoicesController {
     @Req() req: { user: { id: string } },
     @Body() body: CreateInvoiceDto,
   ) {
-    const { document, receiptNumber } =
-      await this.receiptsService.createInvoice(req.user.id, body);
-    return { message: 'Invoice created', receiptNumber, document };
+    const result = await this.receiptsService.createInvoice(req.user.id, body);
+    const { document, receiptNumber } = result;
+    const sendError = 'sendError' in result ? result.sendError : null;
+    const failed = document.status === 'SEND_FAILED';
+    return {
+      message: failed
+        ? 'Invoice created, but the email could not be sent'
+        : body.send
+          ? 'Invoice sent'
+          : 'Invoice created',
+      receiptNumber,
+      document,
+      sendError: sendError ?? null,
+    };
   }
 
   // Edit a DRAFT invoice — merges the wizard's flat data over the stored data,

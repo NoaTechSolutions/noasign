@@ -46,6 +46,9 @@ export function DocumentWizard({
   isSubmitting = false,
   canSubmit = true,
   submitLabel,
+  onSend,
+  sendLabel,
+  sendRequiredFields,
 }: DocumentWizardProps) {
   const { fields, setFields, updateField } = useFormFields(schema, initialValues);
   // Synchronous in-flight guard: the submit button's `disabled` is driven by the
@@ -182,7 +185,7 @@ export function DocumentWizard({
     if (next) setActiveSection(next.key);
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(mode: 'submit' | 'send' = 'submit') {
     if (submittingRef.current) return;
     const allErrors: Record<string, string> = {};
     for (const section of schema.sections) {
@@ -208,9 +211,31 @@ export function DocumentWizard({
       }
     }
 
+    // Send-only required fields (e.g. the recipient email): required + format
+    // checked only for the send action; a draft may leave them empty.
+    if (mode === 'send' && sendRequiredFields) {
+      for (const key of sendRequiredFields) {
+        if (allErrors[key]) continue;
+        if (!(fields[key] ?? '').trim()) {
+          const f = schema.sections
+            .flatMap((s) => s.fields)
+            .find((fld) => fld.key === key);
+          allErrors[key] = `${f?.label ?? 'This field'} is required`;
+        }
+      }
+    }
+
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
       setTabError('Complete the required fields to continue.');
+      // Jump to the first tab that has an error so the user can fix it (e.g. the
+      // recipient email in "Billed to" when sending without one).
+      const firstBad = schema.sections.find((s) =>
+        s.fields.some((f) => allErrors[f.key] !== undefined),
+      );
+      if (firstBad && firstBad.key !== activeSection) {
+        setActiveSection(firstBad.key);
+      }
       return;
     }
 
@@ -281,7 +306,11 @@ export function DocumentWizard({
 
     submittingRef.current = true;
     try {
-      await onSubmit(filtered);
+      if (mode === 'send' && onSend) {
+        await onSend(filtered);
+      } else {
+        await onSubmit(filtered);
+      }
       clearPersistedArrays(persistKey);
     } finally {
       submittingRef.current = false;
@@ -374,8 +403,10 @@ export function DocumentWizard({
           tabError={tabError}
           onCancel={handleCancel}
           onContinue={handleNextSection}
-          onSubmit={() => void handleSubmit()}
+          onSubmit={() => void handleSubmit('submit')}
           submitLabel={submitLabel}
+          onSend={onSend ? () => void handleSubmit('send') : undefined}
+          sendLabel={sendLabel}
         />
       ) : null}
     </div>

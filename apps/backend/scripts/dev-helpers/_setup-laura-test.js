@@ -52,6 +52,9 @@ const INVOICE_SCHEMA = {
         { key: 'city', label: 'City', type: 'text', required: true, row: 'csz' },
         { key: 'state', label: 'State', type: 'text', required: true, row: 'csz' },
         { key: 'zip', label: 'Zip code', type: 'text', required: true, row: 'csz' },
+        // Recipient email — optional for a draft; required + format-checked only on
+        // "Create and send" (validated by the wizard's sendRequiredFields).
+        { key: 'recipient_email', label: 'Recipient email', type: 'email', validation: { isEmail: true }, placeholder: 'name@example.com' },
       ],
     },
     {

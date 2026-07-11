@@ -85,6 +85,14 @@ export interface DocumentWizardProps {
   canSubmit?: boolean;
   /** Label of the wizard's final submit button (defaults to "Create draft"). */
   submitLabel?: string;
+  /** Optional SECOND primary action on the last section (e.g. "Create and send").
+   *  When provided, a second button appears; it validates `sendRequiredFields`
+   *  first (jumping to the offending tab) before calling onSend with the data. */
+  onSend?: (dataJson: Record<string, string>) => Promise<void>;
+  sendLabel?: string;
+  /** Field keys that are required ONLY for the onSend action (e.g. the recipient
+   *  email). Empty/invalid → the wizard navigates to that field's tab + errors it. */
+  sendRequiredFields?: string[];
 }
 
 export interface FieldRenderProps {

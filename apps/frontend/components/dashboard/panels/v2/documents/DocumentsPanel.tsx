@@ -69,9 +69,12 @@ export interface DocumentsPanelProps {
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
   // Phase 2 — invoices (DIRECT_PDF, schema-driven wizard). POST /documents/invoice.
+  // `send` + `recipientEmail` drive "Create and send" (reuses the receipt email).
   onCreateInvoice?: (payload: {
     data: Record<string, string>;
     customerId?: string;
+    send?: boolean;
+    recipientEmail?: string;
   }) => Promise<void>;
   // Edit a DRAFT invoice — PATCH /documents/invoice/:id (same body shape).
   onUpdateInvoice?: (

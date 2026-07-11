@@ -1181,25 +1181,6 @@ function DashboardPageInner() {
     return window.URL.createObjectURL(blob);
   }
 
-  // Invoice PDF is regenerated + streamed inline by the backend (same pipeline as
-  // create). Returns a blob URL for opening/downloading.
-  async function handleFetchInvoicePdf(documentId: string): Promise<string> {
-    const response = await fetch(
-      `${API_URL}/documents/invoice/${documentId}/pdf`,
-      { credentials: "include" },
-    );
-    if (!response.ok) {
-      if (response.status === 401) {
-        clearSession();
-        router.replace("/");
-        return "";
-      }
-      throw new Error(`Request failed with status ${response.status}`);
-    }
-    const blob = await response.blob();
-    return window.URL.createObjectURL(blob);
-  }
-
   // Optimistic send: show a top-right toast with an animated bar that resolves
   // to the REAL result (SENT → success; SEND_FAILED / cooldown 400 → error with
   // the reason). The caller has already closed the popup. Fire-and-forget.
@@ -2241,49 +2222,46 @@ function DashboardPageInner() {
       onCreateInvoice: async (payload: {
         data: Record<string, string>;
         customerId?: string;
+        send?: boolean;
+        recipientEmail?: string;
       }) => {
+        // "Create and send": reuse the receipt send feedback (animated toast that
+        // resolves to the REAL SENT / SEND_FAILED result). Optimistic — the modal
+        // has already closed. No PDF is opened automatically.
+        if (payload.send) {
+          runSendWithToast(
+            async () => {
+              const res = await apiRequest<{
+                message: string;
+                document: { status: string };
+                sendError: string | null;
+              }>("/documents/invoice", { method: "POST", body: payload });
+              await loadWorkspace();
+              return {
+                status: res.document?.status ?? "SENT",
+                sendError: res.sendError ?? null,
+              };
+            },
+            { loading: "Sending invoice…", success: "Invoice sent successfully" },
+          );
+          return;
+        }
+        // Draft — plain create toast, NO auto-opened PDF (standard doc feedback).
         const tid = toast.loading("Creating invoice…");
-        let res: {
-          message: string;
-          receiptNumber: string;
-          document: { id: string };
-        };
         try {
-          res = await apiRequest<typeof res>("/documents/invoice", {
+          await apiRequest("/documents/invoice", {
             method: "POST",
             body: payload,
           });
         } catch (e) {
-          // Nothing was created — dismiss the loader and let the modal surface
-          // the error inline (and stay open for a retry).
           toast.dismiss(tid);
-          throw e;
+          throw e; // modal surfaces the error inline + stays open for a retry
         }
-        // Created — confirm immediately so the feedback never depends on the
-        // follow-up refresh/PDF (those are best-effort).
-        toast.success(`Invoice ${res.receiptNumber} created`, { id: tid });
+        toast.success("Invoice created", { id: tid });
         try {
           await loadWorkspace();
         } catch {
           /* list refresh is best-effort */
-        }
-        // Show the generated PDF (open in a tab; fall back to a download if the
-        // browser blocks the popup).
-        try {
-          const url = await handleFetchInvoicePdf(res.document.id);
-          if (url) {
-            const win = window.open(url, "_blank", "noopener");
-            if (!win) {
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `${res.receiptNumber}.pdf`;
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-            }
-          }
-        } catch {
-          /* PDF view is best-effort */
         }
       },
       onUpdateInvoice: async (
@@ -2305,13 +2283,6 @@ function DashboardPageInner() {
           await loadWorkspace();
         } catch {
           /* list refresh is best-effort */
-        }
-        // Show the updated PDF.
-        try {
-          const url = await handleFetchInvoicePdf(docId);
-          if (url) window.open(url, "_blank", "noopener");
-        } catch {
-          /* PDF view is best-effort */
         }
       },
       defaultReceivedBy: (() => {

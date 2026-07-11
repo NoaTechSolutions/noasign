@@ -57,6 +57,8 @@ interface DocumentCreationModalProps {
   onCreateInvoice?: (payload: {
     data: Record<string, string>;
     customerId?: string;
+    send?: boolean;
+    recipientEmail?: string;
   }) => Promise<void>;
   // Edit mode for an existing DRAFT invoice: preload its data into the wizard and
   // PATCH on submit instead of creating a new one.
@@ -328,6 +330,28 @@ export function DocumentCreationModal({
     }
   }
 
+  // "Create and send": the wizard has already validated the recipient email
+  // (sendRequiredFields) before calling this. Reuses the receipt send feedback.
+  async function handleInvoiceSend(dataJson: Record<string, string>) {
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await onCreateInvoice!({
+        data: dataJson,
+        customerId: setup.customerId || undefined,
+        send: true,
+        recipientEmail: (dataJson.recipient_email ?? '').trim() || undefined,
+      });
+      onClose();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Unable to send invoice',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   // DIRECT_PDF (receipt) types render the receipt form below the setup card
   // instead of the BoldSign wizard — the setup card stays for type + client.
   const isReceipt =
@@ -425,6 +449,13 @@ export function DocumentCreationModal({
                   onSubmit={handleInvoiceSubmit}
                   onCancel={onClose}
                   submitLabel={editInvoice ? 'Save changes' : 'Create invoice'}
+                  onSend={
+                    !editInvoice && onCreateInvoice
+                      ? handleInvoiceSend
+                      : undefined
+                  }
+                  sendLabel="Create and send"
+                  sendRequiredFields={['recipient_email']}
                 />
               ) : (
                 <div className="docs-v2-creation-modal__placeholder">
