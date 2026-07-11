@@ -83,6 +83,8 @@ export interface OverviewPanelProps {
   contractsEnabled?: boolean;
   // Receipts-only: fetches GET /documents/receipt/stats (provided by the page).
   onFetchReceiptStats?: () => Promise<ReceiptStats>;
+  // Bumped by the page after a create/send so the stats effect refetches.
+  receiptStatsRefreshKey?: number;
   onNewDocument?: () => void;
   onOpenDocument?: (docId: string) => void;
   onViewAllAttention?: () => void;
@@ -96,6 +98,7 @@ export function OverviewPanel({
   isLoading,
   contractsEnabled = true,
   onFetchReceiptStats,
+  receiptStatsRefreshKey,
   onNewDocument,
   onOpenDocument,
 }: OverviewPanelProps) {
@@ -130,7 +133,7 @@ export function OverviewPanel({
     return () => {
       active = false;
     };
-  }, [receiptsOnly, onFetchReceiptStats]);
+  }, [receiptsOnly, onFetchReceiptStats, receiptStatsRefreshKey]);
 
   // Savings maths for the document highlight card: pay-per-doc ($12/doc) vs the
   // plan's monthly price.

@@ -99,6 +99,8 @@ export interface DocumentsPanelProps {
   contractsEnabled?: boolean;
   // Receipts-only: fetches GET /documents/receipt/stats for the stat pills.
   onFetchReceiptStats?: () => Promise<ReceiptStats>;
+  // Bumped by the page after a create/send so the stats effect refetches.
+  receiptStatsRefreshKey?: number;
   // Superadmin flow: SUPERADMIN picks any user (all tenants) to borrow templates.
   selectableUsers?: SelectableUser[];
   onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
@@ -162,6 +164,7 @@ export function DocumentsPanel({
   receiptUsage,
   contractsEnabled = true,
   onFetchReceiptStats,
+  receiptStatsRefreshKey,
   selectableUsers,
   onFetchTypesAsUser,
   onEditDocument,
@@ -331,7 +334,7 @@ export function DocumentsPanel({
     return () => {
       active = false;
     };
-  }, [receiptsOnly, onFetchReceiptStats]);
+  }, [receiptsOnly, onFetchReceiptStats, receiptStatsRefreshKey]);
 
   const filteredDocuments = useMemo(() => {
     let filtered = documents;

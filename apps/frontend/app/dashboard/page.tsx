@@ -495,6 +495,9 @@ function DashboardPageInner() {
   const [error, setError] = useState("");
 
   const staticDataLoaded = useRef(false);
+  // Bumped on every loadWorkspace so the panels' mount-only receipt-stats effect
+  // refetches after a create/send (loadWorkspace itself doesn't fetch that stat).
+  const [workspaceVersion, setWorkspaceVersion] = useState(0);
 
   const loadWorkspace = useCallback(
     async (currentSelectedId?: string | null) => {
@@ -564,6 +567,11 @@ function DashboardPageInner() {
           : myDocuments[0]?.id ?? null;
 
       setSelectedDocumentId(nextSelectedId);
+
+      // Bump so the panels' receipt-stats effect refetches /documents/receipt/stats
+      // (that stat isn't part of loadWorkspace) — keeps the Documents/Overview
+      // cards in sync after creating/sending a receipt OR invoice.
+      setWorkspaceVersion((v) => v + 1);
 
       return {
         myDocuments,
@@ -2374,6 +2382,7 @@ function DashboardPageInner() {
           isLoading={isLoading}
           contractsEnabled={usage?.contractsEnabled ?? true}
           onFetchReceiptStats={fetchReceiptStats}
+          receiptStatsRefreshKey={workspaceVersion}
           onNewDocument={() => router.push("/dashboard?panel=documents&new=1")}
           onOpenDocument={(docId) => router.push(`/dashboard?panel=documents&doc=${docId}`)}
           onViewAllAttention={() => router.push("/dashboard?panel=documents&status=SENT")}
@@ -2470,6 +2479,7 @@ function DashboardPageInner() {
           isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
           contractsEnabled={usage?.contractsEnabled ?? true}
           onFetchReceiptStats={fetchReceiptStats}
+          receiptStatsRefreshKey={workspaceVersion}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={handleFetchTypesAsUser}
           receiptQuota={

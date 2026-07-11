@@ -1346,16 +1346,22 @@ export class ReceiptsService {
       now.getMonth() + 1,
     ).padStart(2, '0')}`;
 
+    // Count the tenant's DIRECT_PDF documents — receipts AND invoices. Both are
+    // the "documents" this dashboard summarizes for a receipts-only tenant.
     const receipts = await this.prisma.document.findMany({
       where: {
         companyProfileId: user.companyProfileId,
-        documentType: { code: RECEIPT_TYPE_CODE },
+        documentType: {
+          code: { in: [RECEIPT_TYPE_CODE, INVOICE_TYPE_CODE] },
+        },
       },
       select: {
         status: true,
         supersededAt: true,
         countedAsReceipt: true,
         billingPeriod: true,
+        sentAt: true,
+        documentType: { select: { code: true } },
         data: { select: { dataJson: true } },
       },
     });
@@ -1382,8 +1388,24 @@ export class ReceiptsService {
         cancelled++;
       }
 
-      // $ this month = amount of receipts counted toward billing this period.
-      if (r.countedAsReceipt && r.billingPeriod === billingPeriod) {
+      // $ + count this month. Receipts: billing-counted this period (Model C).
+      // Invoices don't consume the receipt quota (not countedAsReceipt), so they
+      // count here when SENT with sentAt in the current period — reading their
+      // gran_total (a formatted "1,234.56" string), not the receipt `amount`.
+      const isInvoice = r.documentType?.code === INVOICE_TYPE_CODE;
+      if (isInvoice) {
+        const sentPeriod =
+          r.status === DocumentStatus.SENT && r.sentAt
+            ? `${r.sentAt.getFullYear()}-${String(
+                r.sentAt.getMonth() + 1,
+              ).padStart(2, '0')}`
+            : null;
+        if (sentPeriod === billingPeriod) {
+          receiptsThisMonth++;
+          const dataJson = (r.data?.dataJson ?? {}) as Record<string, unknown>;
+          amountThisMonth += this.toMoney(this.readStr(dataJson.gran_total));
+        }
+      } else if (r.countedAsReceipt && r.billingPeriod === billingPeriod) {
         receiptsThisMonth++;
         const dataJson = (r.data?.dataJson ?? {}) as Record<string, unknown>;
         amountThisMonth += this.readNum(dataJson.amount, 0);
@@ -1396,7 +1418,9 @@ export class ReceiptsService {
       by: ['customerId'],
       where: {
         companyProfileId: user.companyProfileId,
-        documentType: { code: RECEIPT_TYPE_CODE },
+        documentType: {
+          code: { in: [RECEIPT_TYPE_CODE, INVOICE_TYPE_CODE] },
+        },
         customerId: { not: null },
       },
       _count: { customerId: true },
