@@ -58,10 +58,18 @@ const INVOICE_SCHEMA = {
       key: 'service',
       label: 'Service',
       fields: [
-        { key: 'service_type', label: 'Service', type: 'text', required: true, placeholder: 'e.g. Acoustic Performance' },
+        // titleCase: same auto-capitalization as first_name. NOT on event_location
+        // (it holds "City, ST" and titleCase would lowercase the state, e.g. FL->Fl).
+        { key: 'service_type', label: 'Service', type: 'text', required: true, transform: 'titleCase', placeholder: 'e.g. Acoustic Performance' },
         { key: 'event_date', label: 'Event date', type: 'date', required: true },
-        { key: 'event_name', label: 'Event name', type: 'text', required: true },
+        { key: 'event_name', label: 'Event name', type: 'text', required: true, transform: 'titleCase' },
         { key: 'event_location', label: 'Event location', type: 'text', required: true, placeholder: 'e.g. Miami, FL' },
+      ],
+    },
+    {
+      key: 'pricing',
+      label: 'Pricing',
+      fields: [
         { key: 'quantity', label: 'Quantity', type: 'number', required: true, transform: 'digitsOnly', validation: { min: 1 }, row: 'qp' },
         { key: 'price', label: 'Price', type: 'currency', required: true, row: 'qp' },
         { key: 'total', label: 'Total', type: 'currency', autoCalculate: { type: 'multiply', fields: ['quantity', 'price'] } },
