@@ -195,6 +195,14 @@ export function isReceiptDoc(doc: {
   return doc.documentType?.code === 'PAYMENT_RECEIPT';
 }
 
+/** An invoice (DIRECT_PDF, code INVOICE) — DIRECT_PDF like a receipt but with its
+ *  own create/edit pipeline (POST/PATCH /documents/invoice), not the BoldSign flow. */
+export function isInvoiceDoc(doc: {
+  documentType?: { code?: string | null } | null;
+}): boolean {
+  return doc.documentType?.code === 'INVOICE';
+}
+
 /** A reissued receipt — its internal status stays SENT, but it is DISPLAYED as
  *  VOID (status, badge) and is terminal (no resend / reissue). Derived from
  *  supersededAt so DocumentStatus (shared with contracts) is never polluted. */
@@ -224,6 +232,12 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
         break;
     }
     return actions;
+  }
+
+  // Invoices (DIRECT_PDF): a DRAFT invoice is edited in the wizard. No BoldSign
+  // send/cancel actions. (The PDF opens on create/edit; list PDF view is TBD.)
+  if (isInvoiceDoc(doc)) {
+    return (doc.status as DocumentStatus) === 'DRAFT' ? ['edit'] : [];
   }
 
   const actions: V2DocumentAction[] = ['view'];

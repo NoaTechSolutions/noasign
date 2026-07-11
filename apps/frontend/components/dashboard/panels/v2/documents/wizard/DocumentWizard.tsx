@@ -48,6 +48,10 @@ export function DocumentWizard({
   submitLabel,
 }: DocumentWizardProps) {
   const { fields, setFields, updateField } = useFormFields(schema, initialValues);
+  // Synchronous in-flight guard: the submit button's `disabled` is driven by the
+  // `isSubmitting` prop, which only reflects after a render — a fast second click
+  // (or re-fire) could POST twice before that. This ref blocks re-entry instantly.
+  const submittingRef = useRef(false);
   const {
     arrays,
     addItem,
@@ -179,6 +183,7 @@ export function DocumentWizard({
   }
 
   async function handleSubmit() {
+    if (submittingRef.current) return;
     const allErrors: Record<string, string> = {};
     for (const section of schema.sections) {
       Object.assign(allErrors, getSectionFieldErrors(section.key));
@@ -274,8 +279,13 @@ export function DocumentWizard({
       Object.entries(dataJson).filter(([, v]) => v.trim() !== ''),
     );
 
-    await onSubmit(filtered);
-    clearPersistedArrays(persistKey);
+    submittingRef.current = true;
+    try {
+      await onSubmit(filtered);
+      clearPersistedArrays(persistKey);
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   function handleCancel() {

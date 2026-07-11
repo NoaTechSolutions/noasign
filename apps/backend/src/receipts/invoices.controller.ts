@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Req,
   Res,
@@ -31,6 +32,22 @@ export class InvoicesController {
     const { document, receiptNumber } =
       await this.receiptsService.createInvoice(req.user.id, body);
     return { message: 'Invoice created', receiptNumber, document };
+  }
+
+  // Edit a DRAFT invoice — merges the wizard's flat data over the stored data,
+  // recomputes money, re-renders the PDF. Same body shape as create.
+  @Patch(':id')
+  async updateInvoice(
+    @Req() req: { user: { id: string } },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: CreateInvoiceDto,
+  ) {
+    const { document } = await this.receiptsService.updateInvoice(
+      req.user.id,
+      id,
+      body,
+    );
+    return { message: 'Invoice updated', document };
   }
 
   // Regenerated-on-the-fly invoice PDF, streamed inline (same pipeline as create).

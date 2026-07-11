@@ -2243,36 +2243,75 @@ function DashboardPageInner() {
         customerId?: string;
       }) => {
         const tid = toast.loading("Creating invoice…");
+        let res: {
+          message: string;
+          receiptNumber: string;
+          document: { id: string };
+        };
         try {
-          const res = await apiRequest<{
-            message: string;
-            receiptNumber: string;
-            document: { id: string };
-          }>("/documents/invoice", { method: "POST", body: payload });
+          res = await apiRequest<typeof res>("/documents/invoice", {
+            method: "POST",
+            body: payload,
+          });
+        } catch (e) {
+          // Nothing was created — dismiss the loader and let the modal surface
+          // the error inline (and stay open for a retry).
+          toast.dismiss(tid);
+          throw e;
+        }
+        // Created — confirm immediately so the feedback never depends on the
+        // follow-up refresh/PDF (those are best-effort).
+        toast.success(`Invoice ${res.receiptNumber} created`, { id: tid });
+        try {
           await loadWorkspace();
-          toast.success(`Invoice ${res.receiptNumber} created`, { id: tid });
-          // Show the generated PDF right away (open in a tab; fall back to a
-          // download if the browser blocks the popup). Best-effort — the invoice
-          // is already created and listed regardless.
-          try {
-            const url = await handleFetchInvoicePdf(res.document.id);
-            if (url) {
-              const win = window.open(url, "_blank", "noopener");
-              if (!win) {
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${res.receiptNumber}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-              }
+        } catch {
+          /* list refresh is best-effort */
+        }
+        // Show the generated PDF (open in a tab; fall back to a download if the
+        // browser blocks the popup).
+        try {
+          const url = await handleFetchInvoicePdf(res.document.id);
+          if (url) {
+            const win = window.open(url, "_blank", "noopener");
+            if (!win) {
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `${res.receiptNumber}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
             }
-          } catch {
-            /* PDF view is best-effort */
           }
+        } catch {
+          /* PDF view is best-effort */
+        }
+      },
+      onUpdateInvoice: async (
+        docId: string,
+        payload: { data: Record<string, string>; customerId?: string },
+      ) => {
+        const tid = toast.loading("Saving invoice…");
+        try {
+          await apiRequest(`/documents/invoice/${docId}`, {
+            method: "PATCH",
+            body: payload,
+          });
         } catch (e) {
           toast.dismiss(tid);
-          throw e; // let the creation modal surface the error inline
+          throw e; // modal keeps the inline error + stays open
+        }
+        toast.success("Invoice updated", { id: tid });
+        try {
+          await loadWorkspace();
+        } catch {
+          /* list refresh is best-effort */
+        }
+        // Show the updated PDF.
+        try {
+          const url = await handleFetchInvoicePdf(docId);
+          if (url) window.open(url, "_blank", "noopener");
+        } catch {
+          /* PDF view is best-effort */
         }
       },
       defaultReceivedBy: (() => {
@@ -2441,6 +2480,7 @@ function DashboardPageInner() {
           onCreateDraft={documentsV2.onCreateDraft}
           onCreateReceipt={documentsV2.onCreateReceipt}
           onCreateInvoice={documentsV2.onCreateInvoice}
+          onUpdateInvoice={documentsV2.onUpdateInvoice}
           defaultReceivedBy={documentsV2.defaultReceivedBy}
           onEditDocument={documentsV2.onEditDocument}
           onDocumentAction={documentsV2.onDocumentAction}

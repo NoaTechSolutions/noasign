@@ -58,6 +58,13 @@ interface DocumentCreationModalProps {
     data: Record<string, string>;
     customerId?: string;
   }) => Promise<void>;
+  // Edit mode for an existing DRAFT invoice: preload its data into the wizard and
+  // PATCH on submit instead of creating a new one.
+  onUpdateInvoice?: (
+    docId: string,
+    payload: { data: Record<string, string>; customerId?: string },
+  ) => Promise<void>;
+  editInvoice?: { documentId: string; data: Record<string, string> };
   // When opened from the Templates → Invoice tab, preselect this document type by
   // code (+ its first form definition) so the user lands straight on the form.
   initialDocumentTypeCode?: string;
@@ -113,6 +120,8 @@ export function DocumentCreationModal({
   onCreate,
   onCreateReceipt,
   onCreateInvoice,
+  onUpdateInvoice,
+  editInvoice,
   initialDocumentTypeCode,
   defaultReceivedBy,
   receiptQuota,
@@ -273,21 +282,46 @@ export function DocumentCreationModal({
   // POST /documents/invoice. It MUST be checked before isReceipt so a DIRECT_PDF
   // invoice isn't captured by the receipt branch. Invoices need neither a signature
   // template nor a contract date, so they use their own submit gate.
-  const isInvoice = selectedDocType?.code === 'INVOICE' && !!onCreateInvoice;
+  const isInvoice =
+    selectedDocType?.code === 'INVOICE' &&
+    (!!onCreateInvoice || !!onUpdateInvoice);
   const canSubmitInvoice = !!setup.documentTypeId && !!setup.formDefinitionId;
+
+  // Edit mode: reconstruct the "business" toggle from the saved data (a non-empty
+  // company_name means the invoice was created as a business).
+  const editToggles = useMemo<Record<string, boolean> | undefined>(() => {
+    if (!editInvoice || !schema) return undefined;
+    const isBusiness = Boolean((editInvoice.data.company_name ?? '').trim());
+    const overrides: Record<string, boolean> = {};
+    for (const section of schema.sections) {
+      for (const toggle of section.toggles ?? []) {
+        if (toggle.key === 'business') {
+          overrides[`${section.key}:${toggle.key}`] = isBusiness;
+        }
+      }
+    }
+    return Object.keys(overrides).length > 0 ? overrides : undefined;
+  }, [editInvoice, schema]);
 
   async function handleInvoiceSubmit(dataJson: Record<string, string>) {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
-      await onCreateInvoice!({
-        data: dataJson,
-        customerId: setup.customerId || undefined,
-      });
+      if (editInvoice && onUpdateInvoice) {
+        await onUpdateInvoice(editInvoice.documentId, {
+          data: dataJson,
+          customerId: setup.customerId || undefined,
+        });
+      } else {
+        await onCreateInvoice!({
+          data: dataJson,
+          customerId: setup.customerId || undefined,
+        });
+      }
       onClose();
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : 'Unable to create invoice',
+        err instanceof Error ? err.message : 'Unable to save invoice',
       );
     } finally {
       setIsSubmitting(false);
@@ -317,7 +351,7 @@ export function DocumentCreationModal({
             id="docs-v2-creation-modal-title"
             className="docs-v2-creation-modal__title"
           >
-            New Document
+            {editInvoice ? 'Edit Invoice' : 'New Document'}
           </h2>
           <button
             type="button"
@@ -361,7 +395,7 @@ export function DocumentCreationModal({
             customers={customers}
             value={setup}
             onChange={setSetup}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !!editInvoice}
             isSuperadmin={isSuperadmin}
           />
 
@@ -375,17 +409,22 @@ export function DocumentCreationModal({
 
               {hasValidSchema ? (
                 <DocumentWizard
-                  key={`${setup.documentTypeId}-${setup.formDefinitionId}`}
+                  key={
+                    editInvoice
+                      ? `edit-${editInvoice.documentId}`
+                      : `${setup.documentTypeId}-${setup.formDefinitionId}`
+                  }
                   schema={schema!}
-                  clientPrefill={clientPrefill}
+                  initialValues={editInvoice?.data}
+                  clientPrefill={editInvoice ? undefined : clientPrefill}
                   onDirtyChange={setWizardDirty}
-                  initialToggles={initialToggles}
-                  persistKey={persistKey}
+                  initialToggles={editInvoice ? editToggles : initialToggles}
+                  persistKey={editInvoice ? undefined : persistKey}
                   canSubmit={canSubmitInvoice}
                   isSubmitting={isSubmitting}
                   onSubmit={handleInvoiceSubmit}
                   onCancel={onClose}
-                  submitLabel="Create invoice"
+                  submitLabel={editInvoice ? 'Save changes' : 'Create invoice'}
                 />
               ) : (
                 <div className="docs-v2-creation-modal__placeholder">

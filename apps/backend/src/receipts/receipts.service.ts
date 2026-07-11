@@ -507,6 +507,93 @@ export class ReceiptsService {
     res.end(pdfBuffer);
   }
 
+  /**
+   * Edit a DRAFT invoice: merge the new form data over the stored data, recompute
+   * the money server-side, re-render + re-persist the PDF, and keep the same
+   * number + issue date. Mirrors updateReceipt (DRAFT-only, tenant-scoped).
+   */
+  async updateInvoice(
+    userId: string,
+    documentId: string,
+    dto: CreateInvoiceDto,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+      include: { data: true, receiptTemplate: true },
+    });
+    if (!document) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (document.status !== DocumentStatus.DRAFT) {
+      throw new BadRequestException('Only draft invoices can be edited');
+    }
+
+    // Start from the stored form data (string-coerced), overwrite with the edit.
+    const stored: Record<string, string> = {};
+    const raw = document.data?.dataJson;
+    if (raw && typeof raw === 'object') {
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof v === 'string') stored[k] = v;
+        else if (typeof v === 'number') stored[k] = String(v);
+      }
+    }
+    const mergedForm = { ...stored, ...dto.data };
+    // Preserve the original number + issue date; recompute totals from qty×price.
+    const receiptNumber = stored.receipt_number ?? '';
+    const issueDate = stored.invoice_date ?? this.formatInvoiceDate(new Date());
+    const dataJson = this.buildInvoiceDataJson(
+      mergedForm,
+      receiptNumber,
+      issueDate,
+    );
+
+    const updated = await this.prisma.document.update({
+      where: { id: document.id },
+      data: {
+        customerId: dto.customerId ?? document.customerId,
+        lastEditedAt: new Date(),
+        data: { update: { dataJson } },
+      },
+      include: { data: true },
+    });
+
+    // Re-render + overwrite the stored PDF so a view/download reflects the edit.
+    const template =
+      document.receiptTemplate ??
+      (await this.resolveActivePdfTemplate(
+        user.companyProfileId,
+        TemplateCategory.INVOICE,
+      ));
+    if (template) {
+      try {
+        const pdfBuffer = await this.renderInvoice(
+          template,
+          this.buildInvoicePdfData(dataJson),
+        );
+        await this.persistReceiptToR2(
+          document.id,
+          user.companyProfileId,
+          pdfBuffer,
+          `${receiptNumber || document.documentNumber}.pdf`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `[ReceiptsService] invoice re-render/persist failed for ${document.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return { document: updated };
+  }
+
   // Dispatch the render by the template's standard renderMode:
   //   'acroform-overlay' → generateFromAcroFormOverlay (hybrid — invoices)
   //   'acroform'         → generateFromAcroForm (legacy AcroForm fill)

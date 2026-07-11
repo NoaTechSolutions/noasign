@@ -29,7 +29,13 @@ import type {
   DocumentVersion,
   DocumentDetail,
 } from './types';
-import { BACKEND_ACTIONS, isReceiptDoc, isVoidedReceipt } from './types';
+import toast from 'react-hot-toast';
+import {
+  BACKEND_ACTIONS,
+  isInvoiceDoc,
+  isReceiptDoc,
+  isVoidedReceipt,
+} from './types';
 // Reuse the Clients bottom-sheet styles (card-actions-*) for the mobile document
 // card's Actions sheet — same pattern, no duplication. customer-card-* rules
 // target customer elements only, so they don't affect documents.
@@ -67,6 +73,11 @@ export interface DocumentsPanelProps {
     data: Record<string, string>;
     customerId?: string;
   }) => Promise<void>;
+  // Edit a DRAFT invoice — PATCH /documents/invoice/:id (same body shape).
+  onUpdateInvoice?: (
+    docId: string,
+    payload: { data: Record<string, string>; customerId?: string },
+  ) => Promise<void>;
   defaultReceivedBy?: string;
   // Model C — receipt quota, forwarded to the receipt form's quota/overage hint.
   receiptQuota?: {
@@ -142,6 +153,7 @@ export function DocumentsPanel({
   onCreateDraft,
   onCreateReceipt,
   onCreateInvoice,
+  onUpdateInvoice,
   defaultReceivedBy,
   receiptQuota,
   receiptUsage,
@@ -196,6 +208,12 @@ export function DocumentsPanel({
     if (typeof window === 'undefined') return null;
     return new URLSearchParams(window.location.search).get('newType');
   });
+  // When editing an invoice, the creation modal opens with its data preloaded and
+  // submits a PATCH instead of a POST (null = create mode).
+  const [editInvoice, setEditInvoice] = useState<{
+    documentId: string;
+    data: Record<string, string>;
+  } | null>(null);
   // When the create modal opens (toolbar "New Document" OR the Overview's
   // ?new=1 deep-link — both set showCreateModal), refetch the customers so the
   // "Client" selector reflects clients created since this page loaded (the
@@ -402,6 +420,23 @@ export function DocumentsPanel({
       return;
     }
     if (action === 'edit') {
+      // Invoices reopen the schema-driven wizard prefilled (PATCH on submit);
+      // everything else keeps the legacy edit route.
+      if (doc && isInvoiceDoc(doc)) {
+        try {
+          const detail = await onFetchDocument(docId);
+          const raw = (detail?.data?.dataJson ?? {}) as Record<string, unknown>;
+          const flat: Record<string, string> = {};
+          for (const [k, v] of Object.entries(raw)) {
+            if (typeof v === 'string' || typeof v === 'number') flat[k] = String(v);
+          }
+          setEditInvoice({ documentId: docId, data: flat });
+          setShowCreateModal(true);
+        } catch {
+          toast.error('Could not load the invoice for editing');
+        }
+        return;
+      }
       onEditDocument(docId);
       return;
     }
@@ -619,11 +654,18 @@ export function DocumentsPanel({
           isSuperadmin={isSuperadmin}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={onFetchTypesAsUser}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => {
+            setShowCreateModal(false);
+            setEditInvoice(null);
+          }}
           onCreate={onCreateDraft}
           onCreateReceipt={onCreateReceipt}
           onCreateInvoice={onCreateInvoice}
-          initialDocumentTypeCode={createTypeCode ?? undefined}
+          onUpdateInvoice={onUpdateInvoice}
+          editInvoice={editInvoice ?? undefined}
+          initialDocumentTypeCode={
+            editInvoice ? 'INVOICE' : (createTypeCode ?? undefined)
+          }
           defaultReceivedBy={defaultReceivedBy}
           receiptQuota={receiptQuota}
         />
