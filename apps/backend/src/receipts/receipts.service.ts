@@ -18,6 +18,7 @@ import { EmailService } from '../email/email.service';
 import { R2Service } from '../storage/r2.service';
 import { ReceiptPdfService, ReceiptTemplateLike } from './receipt-pdf.service';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
+import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateReceiptDto } from './dto/update-receipt.dto';
 import { normalizeEmail } from '../common/resend-cooldown';
 import {
@@ -27,6 +28,7 @@ import {
 } from '../common/receipt-resend-policy';
 
 const RECEIPT_TYPE_CODE = 'PAYMENT_RECEIPT';
+const INVOICE_TYPE_CODE = 'INVOICE';
 
 // Fields the generator draws onto the base PDF — shared shape between a fresh
 // create (from the DTO) and a regenerate (from the stored dataJson).
@@ -354,6 +356,283 @@ export class ReceiptsService {
 
   // Build the generator input (keys match fieldMappingJson). Shared by a fresh
   // create (from the DTO) and a regenerate (from the stored dataJson).
+  // ───────────────────────────────────────────────────────────────────────────
+  // INVOICES (Phase 2) — DIRECT_PDF, NEVER BoldSign. Parallel to createReceipt:
+  // reuses the same numbering / documentNumber / R2-persist helpers, but (a) uses
+  // the INVOICE document type + template category, (b) dispatches the render by the
+  // template's standard renderMode (acroform-overlay = the hybrid engine), and
+  // (c) adapts the schema-driven wizard form data into the invoice base PDF's flat
+  // AcroForm fields. Kept OUT of createReceipt so the receipt path is untouched.
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Create an invoice PDF from the tenant's active INVOICE template, persist it as
+   * a DRAFT Document, and (best-effort) store the PDF in R2. Money is recomputed
+   * server-side from quantity × price — the client's totals are never trusted.
+   * Returns the document + the correlative INV- number + the generated buffer.
+   */
+  async createInvoice(userId: string, dto: CreateInvoiceDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const companyProfileId = user.companyProfileId;
+
+    const docType = await this.prisma.documentType.findUnique({
+      where: { code: INVOICE_TYPE_CODE },
+    });
+    if (!docType) {
+      throw new NotFoundException(
+        `Document type ${INVOICE_TYPE_CODE} not found — run the invoice seed`,
+      );
+    }
+    // Shadow-BoldSign guard: an invoice is DIRECT_PDF. If the type is still
+    // BOLDSIGN, creating it here would produce a broken signature-less row — refuse
+    // instead. (The seed sets generationMode=DIRECT_PDF; this catches a stale row.)
+    if (docType.generationMode !== 'DIRECT_PDF') {
+      throw new BadRequestException(
+        'INVOICE document type is not DIRECT_PDF — fix its generationMode',
+      );
+    }
+    const formDefinition = await this.prisma.formDefinition.findFirst({
+      where: { documentTypeId: docType.id, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!formDefinition) {
+      throw new NotFoundException('No active invoice form definition');
+    }
+
+    const template = await this.resolveActivePdfTemplate(
+      companyProfileId,
+      TemplateCategory.INVOICE,
+    );
+    if (!template) {
+      throw new NotFoundException(
+        'No invoice template configured for this company',
+      );
+    }
+
+    const year = new Date().getFullYear();
+    const receiptNumber = await this.nextReceiptNumber(
+      companyProfileId,
+      docType.id,
+      year,
+      template.numberFormat,
+    );
+    const issueDate = this.formatInvoiceDate(new Date());
+
+    // Stored dataJson = the raw wizard data + the server-authoritative number,
+    // issue date and recomputed money. It is the SINGLE source the create render
+    // and any re-render both read from (buildInvoicePdfData).
+    const dataJson = this.buildInvoiceDataJson(
+      dto.data,
+      receiptNumber,
+      issueDate,
+    );
+    const pdfData = this.buildInvoicePdfData(dataJson);
+    const pdfBuffer = await this.renderInvoice(template, pdfData);
+
+    const documentNumber = await this.generateReceiptDocumentNumber(
+      docType.id,
+      docType.code,
+      userId,
+    );
+
+    const document = await this.prisma.document.create({
+      data: {
+        documentNumber,
+        userId,
+        companyProfileId,
+        customerId: dto.customerId ?? null,
+        documentTypeId: docType.id,
+        formDefinitionId: formDefinition.id,
+        receiptTemplateId: template.id,
+        status: DocumentStatus.DRAFT,
+        contractDate: new Date(),
+        countedInBilling: false,
+        isOverage: false,
+        data: { create: { dataJson } },
+      },
+    });
+
+    try {
+      await this.persistReceiptToR2(
+        document.id,
+        companyProfileId,
+        pdfBuffer,
+        `${receiptNumber}.pdf`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[ReceiptsService] R2 persist failed for invoice ${receiptNumber}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    return { document, receiptNumber, pdf: pdfBuffer };
+  }
+
+  /**
+   * Stream a freshly-regenerated invoice PDF from the stored form data, using the
+   * SAME renderMode dispatch + adapter as create — a view/download is byte-for-byte
+   * the same pipeline. (Invoices are not emailed in this phase.)
+   */
+  async streamInvoicePdf(
+    userId: string,
+    documentId: string,
+    res: Response,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, companyProfileId: user.companyProfileId },
+      include: { data: true, receiptTemplate: true },
+    });
+    if (!document || !document.receiptTemplate) {
+      throw new NotFoundException('Invoice not found');
+    }
+    const dataJson =
+      (document.data?.dataJson as Record<string, string> | undefined) ?? {};
+    const pdfData = this.buildInvoicePdfData(dataJson);
+    const pdfBuffer = await this.renderInvoice(
+      document.receiptTemplate,
+      pdfData,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${document.documentNumber}.pdf"`,
+    );
+    res.end(pdfBuffer);
+  }
+
+  // Dispatch the render by the template's standard renderMode:
+  //   'acroform-overlay' → generateFromAcroFormOverlay (hybrid — invoices)
+  //   'acroform'         → generateFromAcroForm (legacy AcroForm fill)
+  //   'overlay'/other    → generate (coordinate stamp — receipts)
+  // renderMode lives on ReceiptTemplateStandard (not the per-tenant instance), so
+  // resolve it via the instance's standardId. Defaults to the hybrid engine.
+  private async renderInvoice(
+    template: ReceiptTemplate,
+    pdfData: Record<string, string | number>,
+  ): Promise<Buffer> {
+    const like = template as unknown as ReceiptTemplateLike;
+    const standard = template.standardId
+      ? await this.prisma.receiptTemplateStandard.findUnique({
+          where: { id: template.standardId },
+          select: { renderMode: true },
+        })
+      : null;
+    const mode = standard?.renderMode ?? 'acroform-overlay';
+    if (mode === 'acroform-overlay') {
+      return this.receiptPdf.generateFromAcroFormOverlay(like, pdfData);
+    }
+    if (mode === 'acroform') {
+      return this.receiptPdf.generateFromAcroForm(like, pdfData);
+    }
+    return this.receiptPdf.generate(like, pdfData);
+  }
+
+  // ── Invoice data adapters ───────────────────────────────────────────────────
+
+  private formatInvoiceDate(d: Date): string {
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${mm}/${dd}/${d.getFullYear()}`;
+  }
+
+  private toMoney(raw: string | number | null | undefined): number {
+    const n = Number(String(raw ?? '').replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  private fmtMoney(n: number): string {
+    return n.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  // Merge the raw wizard form data with the server number, issue date and the
+  // recomputed money (total = qty × price; subtotal = total; gran_total = subtotal,
+  // since Laura is a single line). This is exactly what is stored in dataJson and
+  // the only input to buildInvoicePdfData — create and re-render stay consistent.
+  private buildInvoiceDataJson(
+    form: Record<string, string>,
+    receiptNumber: string,
+    issueDate: string,
+  ): Record<string, string> {
+    const qty = Math.max(
+      0,
+      Math.trunc(
+        Number(String(form.quantity ?? '').replace(/[^0-9]/g, '')) || 0,
+      ),
+    );
+    const price = this.toMoney(form.price);
+    const total = qty * price;
+    return {
+      ...form,
+      quantity: String(qty),
+      price: this.fmtMoney(price),
+      total: this.fmtMoney(total),
+      subtotal: this.fmtMoney(total),
+      gran_total: this.fmtMoney(total),
+      receipt_number: receiptNumber,
+      invoice_date: issueDate,
+    };
+  }
+
+  // Adapt the stored invoice data into the base PDF's flat AcroForm fields:
+  // billed_to = 3 composed lines, service = 4 composed lines, the SHORT display
+  // number ("0001" — the label already reads "Invoice No."), and money already
+  // formatted with NO "$" (the base art draws the "$"). Field names MUST match the
+  // template's fieldMappingJson — note gran_total (not grand_total).
+  private buildInvoicePdfData(
+    data: Record<string, string>,
+  ): Record<string, string | number> {
+    const name =
+      (data.company_name ?? '').trim() ||
+      [data.first_name, data.middle_name, data.last_name]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ');
+    const cityState = [data.city, data.state]
+      .map((s) => (s ?? '').trim())
+      .filter(Boolean)
+      .join(', ');
+    const cityStateZip = [cityState, (data.zip ?? '').trim()]
+      .filter(Boolean)
+      .join(' ');
+    const billed_to = [name, (data.street ?? '').trim(), cityStateZip]
+      .filter((l) => l && l.length)
+      .join('\n');
+
+    const service = [
+      (data.service_type ?? '').trim(),
+      `Event Date: ${(data.event_date ?? '').trim()}`,
+      `Event Name: ${(data.event_name ?? '').trim()}`,
+      `Event Location: ${(data.event_location ?? '').trim()}`,
+    ].join('\n');
+
+    // Short number for the small box; the canonical INV-YYYY-NNNN stays in dataJson.
+    const numberShort =
+      (data.receipt_number ?? '').split('-').pop() ||
+      (data.receipt_number ?? '');
+
+    return {
+      billed_to,
+      number: numberShort,
+      date: data.invoice_date ?? '',
+      service,
+      quantity: data.quantity ?? '',
+      price: data.price ?? '',
+      total: data.total ?? '',
+      subtotal: data.subtotal ?? '',
+      gran_total: data.gran_total ?? '',
+    };
+  }
+
   private buildPdfData(src: ReceiptPdfSource): Record<string, string | number> {
     return {
       receipt_number: src.receipt_number,

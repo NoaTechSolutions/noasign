@@ -132,31 +132,37 @@ const RECEIPT_STANDARDS = [
   ...s,
 }));
 
-// Invoice standards (Phase 2, DIRECT_PDF via AcroForm fill). renderMode 'acroform':
-// the engine fills the base PDF's NAMED form fields and flattens — no coordinate
-// calibration. A4 base (595.2 x 841.9), clean mediaBox origin. fieldMappingJson maps
-// each data key to its form field (name defaults to the key) + appearance. The base
-// PDF supports ONE line item today; a bounded multi-row base is an owner decision
-// (see docs/architecture/invoice-pdf-strategy.md).
+// Invoice standards (Phase 2, DIRECT_PDF). renderMode 'acroform-overlay' = the
+// HYBRID engine: read each form field's rect/alignment/multiline from the base PDF,
+// flatten the fields, then stamp the text with drawText at the mapping size (no box
+// clipping/shrink). A4 base (595.2 x 841.9), clean mediaBox origin. The base PDF
+// supports ONE line item today; a bounded multi-row base is an owner decision (see
+// docs/architecture/invoice-pdf-strategy.md).
+//
+// fieldMappingJson below is the owner-approved calibration for INVOCE_LauraBravo.pdf:
+// all text BLACK; general 14, line-item row 13, gran_total 17; money fields carry NO
+// 'currency' type because the base art already prints the "$" (the adapter feeds
+// unprefixed amounts). padX evens the "$"-to-number gap; baselineNudge lifts a few
+// single-line fields to line up with their base-art labels.
 const INVOICE_STANDARDS = [
   {
     slug: 'invoice-standard-v1',
     name: 'Invoice (standard)',
-    description: 'Single line-item invoice, rendered by AcroForm fill.',
+    description: 'Single line-item invoice, rendered by the AcroForm overlay engine.',
     basePdfPath: 'assets/templates/INVOCE_LauraBravo.pdf',
     numberFormat: 'INV-{YYYY}-{NNNN}',
     isDefault: true,
-    renderMode: 'acroform',
+    renderMode: 'acroform-overlay',
     fieldMappingJson: {
-      billed_to: { multiline: true, size: 9 },
-      number: { size: 9 },
-      date: { size: 9 },
-      service: { multiline: true, size: 9 },
-      quantity: { size: 9 },
-      price: { type: 'currency', size: 9 },
-      total: { type: 'currency', size: 9 },
-      subtotal: { type: 'currency', size: 9 },
-      gran_total: { type: 'currency', size: 11 },
+      billed_to: { type: 'text', size: 14, color: '#000000', multiline: true },
+      number: { type: 'text', size: 14, color: '#000000', baselineNudge: 4 },
+      date: { type: 'text', size: 14, color: '#000000' },
+      service: { type: 'text', size: 13, color: '#000000', multiline: true },
+      quantity: { type: 'text', size: 13, color: '#000000' },
+      price: { type: 'text', size: 13, color: '#000000', padX: -1 },
+      total: { type: 'text', size: 13, color: '#000000', padX: 2 },
+      subtotal: { type: 'text', size: 14, color: '#000000', padX: 2, baselineNudge: 4 },
+      gran_total: { type: 'text', size: 17, color: '#000000', padX: 2, baselineNudge: 4 },
     },
   },
 ].map((s) => ({
