@@ -83,6 +83,8 @@ export interface DocumentWizardProps {
   onCancel: () => void;
   isSubmitting?: boolean;
   canSubmit?: boolean;
+  /** Label of the wizard's final submit button (defaults to "Create draft"). */
+  submitLabel?: string;
 }
 
 export interface FieldRenderProps {

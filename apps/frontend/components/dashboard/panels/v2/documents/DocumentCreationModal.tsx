@@ -52,6 +52,15 @@ interface DocumentCreationModalProps {
   onCreateReceipt?: (
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
+  // INVOICE types (also DIRECT_PDF) render the schema-driven wizard and submit
+  // here instead of the receipt form. Payload matches POST /documents/invoice.
+  onCreateInvoice?: (payload: {
+    data: Record<string, string>;
+    customerId?: string;
+  }) => Promise<void>;
+  // When opened from the Templates → Invoice tab, preselect this document type by
+  // code (+ its first form definition) so the user lands straight on the form.
+  initialDocumentTypeCode?: string;
   defaultReceivedBy?: string;
   // Model C — receipt quota for the receipt form's quota/overage hint.
   receiptQuota?: {
@@ -103,6 +112,8 @@ export function DocumentCreationModal({
   onClose,
   onCreate,
   onCreateReceipt,
+  onCreateInvoice,
+  initialDocumentTypeCode,
   defaultReceivedBy,
   receiptQuota,
 }: DocumentCreationModalProps) {
@@ -128,6 +139,19 @@ export function DocumentCreationModal({
   >(null);
   const [loadingTypes, setLoadingTypes] = useState(false);
   const effectiveTypes = overrideTypes ?? documentTypes;
+
+  // Preselect a document type by code (Templates → Invoice "Create invoice") once
+  // the catalog is available, so the user lands straight on the form.
+  useEffect(() => {
+    if (!initialDocumentTypeCode || setup.documentTypeId) return;
+    const t = effectiveTypes.find((d) => d.code === initialDocumentTypeCode);
+    if (!t) return;
+    setSetup((prev) => ({
+      ...prev,
+      documentTypeId: t.id,
+      formDefinitionId: t.formDefinitions[0]?.id ?? '',
+    }));
+  }, [initialDocumentTypeCode, effectiveTypes, setup.documentTypeId]);
 
   async function handleAsUserChange(userId: string) {
     setAsUserId(userId);
@@ -245,6 +269,31 @@ export function DocumentCreationModal({
     }
   }
 
+  // INVOICE is also DIRECT_PDF but renders the schema-driven wizard and submits to
+  // POST /documents/invoice. It MUST be checked before isReceipt so a DIRECT_PDF
+  // invoice isn't captured by the receipt branch. Invoices need neither a signature
+  // template nor a contract date, so they use their own submit gate.
+  const isInvoice = selectedDocType?.code === 'INVOICE' && !!onCreateInvoice;
+  const canSubmitInvoice = !!setup.documentTypeId && !!setup.formDefinitionId;
+
+  async function handleInvoiceSubmit(dataJson: Record<string, string>) {
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await onCreateInvoice!({
+        data: dataJson,
+        customerId: setup.customerId || undefined,
+      });
+      onClose();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Unable to create invoice',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   // DIRECT_PDF (receipt) types render the receipt form below the setup card
   // instead of the BoldSign wizard — the setup card stays for type + client.
   const isReceipt =
@@ -316,7 +365,35 @@ export function DocumentCreationModal({
             isSuperadmin={isSuperadmin}
           />
 
-          {isReceipt ? (
+          {isInvoice ? (
+            <>
+              {submitError ? (
+                <div className="docs-v2-creation-modal__error" role="alert">
+                  {submitError}
+                </div>
+              ) : null}
+
+              {hasValidSchema ? (
+                <DocumentWizard
+                  key={`${setup.documentTypeId}-${setup.formDefinitionId}`}
+                  schema={schema!}
+                  clientPrefill={clientPrefill}
+                  onDirtyChange={setWizardDirty}
+                  initialToggles={initialToggles}
+                  persistKey={persistKey}
+                  canSubmit={canSubmitInvoice}
+                  isSubmitting={isSubmitting}
+                  onSubmit={handleInvoiceSubmit}
+                  onCancel={onClose}
+                  submitLabel="Create invoice"
+                />
+              ) : (
+                <div className="docs-v2-creation-modal__placeholder">
+                  No form schema configured for this invoice type.
+                </div>
+              )}
+            </>
+          ) : isReceipt ? (
             <ReceiptForm
               defaultReceivedBy={defaultReceivedBy ?? ''}
               prefillClient={selectedCustomer?.fullName}

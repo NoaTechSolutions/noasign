@@ -62,6 +62,11 @@ export interface DocumentsPanelProps {
   onCreateReceipt?: (
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
+  // Phase 2 — invoices (DIRECT_PDF, schema-driven wizard). POST /documents/invoice.
+  onCreateInvoice?: (payload: {
+    data: Record<string, string>;
+    customerId?: string;
+  }) => Promise<void>;
   defaultReceivedBy?: string;
   // Model C — receipt quota, forwarded to the receipt form's quota/overage hint.
   receiptQuota?: {
@@ -136,6 +141,7 @@ export function DocumentsPanel({
   onRefreshCustomers,
   onCreateDraft,
   onCreateReceipt,
+  onCreateInvoice,
   defaultReceivedBy,
   receiptQuota,
   receiptUsage,
@@ -184,6 +190,12 @@ export function DocumentsPanel({
   const [showCreateModal, setShowCreateModal] = useState(
     () => searchParams.get('new') === '1',
   );
+  // One-shot: preselect a document type by code in the create modal (Templates →
+  // Invoice "Create invoice" deep-links here with ?new=1&newType=INVOICE).
+  const [createTypeCode] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('newType');
+  });
   // When the create modal opens (toolbar "New Document" OR the Overview's
   // ?new=1 deep-link — both set showCreateModal), refetch the customers so the
   // "Client" selector reflects clients created since this page loaded (the
@@ -264,8 +276,10 @@ export function DocumentsPanel({
     // Mirror the open document so it survives a reload; cleared when the detail
     // closes (selectedDocId null -> removed).
     sync('doc', selectedDocId ?? '');
-    // `new` stays one-shot — it opens the create modal on mount, then is stripped.
+    // `new`/`newType` stay one-shot — they open + preset the create modal on
+    // mount, then are stripped.
     params.delete('new');
+    params.delete('newType');
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
   }, [search, statusFilter, typeFilter, selectedDocId]);
 
@@ -608,6 +622,8 @@ export function DocumentsPanel({
           onClose={() => setShowCreateModal(false)}
           onCreate={onCreateDraft}
           onCreateReceipt={onCreateReceipt}
+          onCreateInvoice={onCreateInvoice}
+          initialDocumentTypeCode={createTypeCode ?? undefined}
           defaultReceivedBy={defaultReceivedBy}
           receiptQuota={receiptQuota}
         />

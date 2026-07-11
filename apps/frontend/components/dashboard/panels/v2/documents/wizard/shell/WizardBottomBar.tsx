@@ -10,6 +10,8 @@ interface WizardBottomBarProps {
   onCancel: () => void;
   onContinue: () => void;
   onSubmit: () => void;
+  // Label of the final submit button (defaults to "Create draft").
+  submitLabel?: string;
 }
 
 export function WizardBottomBar({
@@ -20,6 +22,7 @@ export function WizardBottomBar({
   onCancel,
   onContinue,
   onSubmit,
+  submitLabel = 'Create draft',
 }: WizardBottomBarProps) {
   const disabledSubmit = isSubmitting || !canSubmit;
   return (
@@ -44,7 +47,7 @@ export function WizardBottomBar({
             disabled={disabledSubmit}
             className={`wizard-btn wizard-btn--primary${disabledSubmit ? ' wizard-btn--primary-disabled' : ''}`}
           >
-            {isSubmitting ? 'Creating...' : 'Create draft'}
+            {isSubmitting ? 'Creating...' : submitLabel}
           </button>
         ) : (
           <button

@@ -1181,6 +1181,25 @@ function DashboardPageInner() {
     return window.URL.createObjectURL(blob);
   }
 
+  // Invoice PDF is regenerated + streamed inline by the backend (same pipeline as
+  // create). Returns a blob URL for opening/downloading.
+  async function handleFetchInvoicePdf(documentId: string): Promise<string> {
+    const response = await fetch(
+      `${API_URL}/documents/invoice/${documentId}/pdf`,
+      { credentials: "include" },
+    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearSession();
+        router.replace("/");
+        return "";
+      }
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+    const blob = await response.blob();
+    return window.URL.createObjectURL(blob);
+  }
+
   // Optimistic send: show a top-right toast with an animated bar that resolves
   // to the REAL result (SENT → success; SEND_FAILED / cooldown 400 → error with
   // the reason). The caller has already closed the popup. Fire-and-forget.
@@ -2219,6 +2238,43 @@ function DashboardPageInner() {
           return { status: "DRAFT", sendError: null };
         }
       },
+      onCreateInvoice: async (payload: {
+        data: Record<string, string>;
+        customerId?: string;
+      }) => {
+        const tid = toast.loading("Creating invoice…");
+        try {
+          const res = await apiRequest<{
+            message: string;
+            receiptNumber: string;
+            document: { id: string };
+          }>("/documents/invoice", { method: "POST", body: payload });
+          await loadWorkspace();
+          toast.success(`Invoice ${res.receiptNumber} created`, { id: tid });
+          // Show the generated PDF right away (open in a tab; fall back to a
+          // download if the browser blocks the popup). Best-effort — the invoice
+          // is already created and listed regardless.
+          try {
+            const url = await handleFetchInvoicePdf(res.document.id);
+            if (url) {
+              const win = window.open(url, "_blank", "noopener");
+              if (!win) {
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${res.receiptNumber}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              }
+            }
+          } catch {
+            /* PDF view is best-effort */
+          }
+        } catch (e) {
+          toast.dismiss(tid);
+          throw e; // let the creation modal surface the error inline
+        }
+      },
       defaultReceivedBy: (() => {
         const userName = [dashboardUser?.firstName, dashboardUser?.lastName]
           .filter(Boolean)
@@ -2384,6 +2440,7 @@ function DashboardPageInner() {
           onRefreshCustomers={refreshCustomers}
           onCreateDraft={documentsV2.onCreateDraft}
           onCreateReceipt={documentsV2.onCreateReceipt}
+          onCreateInvoice={documentsV2.onCreateInvoice}
           defaultReceivedBy={documentsV2.defaultReceivedBy}
           onEditDocument={documentsV2.onEditDocument}
           onDocumentAction={documentsV2.onDocumentAction}

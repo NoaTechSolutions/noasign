@@ -45,6 +45,7 @@ export function DocumentWizard({
   onCancel,
   isSubmitting = false,
   canSubmit = true,
+  submitLabel,
 }: DocumentWizardProps) {
   const { fields, setFields, updateField } = useFormFields(schema, initialValues);
   const {
@@ -364,6 +365,7 @@ export function DocumentWizard({
           onCancel={handleCancel}
           onContinue={handleNextSection}
           onSubmit={() => void handleSubmit()}
+          submitLabel={submitLabel}
         />
       ) : null}
     </div>
