@@ -129,6 +129,20 @@
 
 /* Reuse btn-cancel/btn-save from profile-panel-v2.css */
 
+/* Section label — groups fields inside a longer edit popup (e.g. the invoice
+   edit: Billed to / Service / Pricing). Matches the popup's muted-label style. */
+.gep-section-label {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.gep-section-label:first-child {
+  margin-top: 0;
+}
+
 /* ── Typed field inputs (currency / date) ─────────────────────────────
    Used by DocumentDetailModal's FieldInput. Phone/number/state reuse the
    plain .form-input — only currency (prefix) and date (picker icon) need

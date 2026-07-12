@@ -12,6 +12,7 @@ import { FieldRow } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
 import { ReceiptEditPopup } from './ReceiptEditPopup';
+import { InvoiceEditPopup } from './InvoiceEditPopup';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import type {
   V2DocumentItem,
@@ -55,6 +56,12 @@ interface DocumentDetailModalProps {
   // once the invoice is SENT (regenerated from a dedicated endpoint).
   isInvoice?: boolean;
   onFetchInvoicePdf?: (docId: string) => Promise<string>;
+  // Edit a DRAFT invoice in place (PATCH /documents/invoice/:id) — mirrors the
+  // receipt edit popup instead of reopening the full creation wizard.
+  onUpdateInvoice?: (
+    docId: string,
+    payload: { data: Record<string, string>; customerId?: string },
+  ) => Promise<void>;
   onUpdateReceipt?: (
     docId: string,
     payload: Record<string, unknown>,
@@ -274,6 +281,7 @@ export function DocumentDetailModal({
   isReceipt = false,
   isInvoice = false,
   onFetchInvoicePdf,
+  onUpdateInvoice,
   onUpdateReceipt,
   onReissueReceipt,
   autoOpenReissue = false,
@@ -294,6 +302,9 @@ export function DocumentDetailModal({
   const [financeOn, setFinanceOn] = useState(false);
   // Receipt edit popup (DRAFT/SEND_FAILED only — a SENT receipt is immutable).
   const [receiptEditOpen, setReceiptEditOpen] = useState(false);
+  // Invoice edit popup (DRAFT only — mirrors the receipt edit flow: in-place
+  // PATCH over the detail, never a re-created document).
+  const [invoiceEditOpen, setInvoiceEditOpen] = useState(false);
   // Reissue popup (SENT receipt only — corrects + voids the original).
   const [reissueOpen, setReissueOpen] = useState(false);
   // Irreversible-action warning shown before the reissue form opens.
@@ -358,6 +369,7 @@ export function DocumentDetailModal({
         e.key === 'Escape' &&
         !editGroup &&
         !receiptEditOpen &&
+        !invoiceEditOpen &&
         !reissueOpen &&
         !reissueConfirm
       ) {
@@ -366,7 +378,7 @@ export function DocumentDetailModal({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, editGroup, receiptEditOpen, reissueOpen, reissueConfirm]);
+  }, [onClose, editGroup, receiptEditOpen, invoiceEditOpen, reissueOpen, reissueConfirm]);
 
   // Header info — prefer the loaded detail, fall back to the list item.
   const status = (detail?.status ?? listItem?.status ?? 'DRAFT') as string;
@@ -468,11 +480,10 @@ export function DocumentDetailModal({
     isReceipt &&
     (status === 'DRAFT' || status === 'SEND_FAILED') &&
     Boolean(onUpdateReceipt);
-  // Invoices edit via the schema-driven wizard (reopened prefilled by the panel's
-  // 'edit' action), not an inline popup. Mirrors the receipt edit states: DRAFT
-  // (incl. scheduled) or SEND_FAILED — a SENT invoice is immutable.
-  const canEditInvoice =
-    isInvoice && (status === 'DRAFT' || status === 'SEND_FAILED');
+  // Invoices edit in place via InvoiceEditPopup (mirrors the receipt edit flow:
+  // a compact popup over the detail that PATCHes the SAME document). The backend
+  // only allows editing a DRAFT invoice (incl. scheduled), so gate on DRAFT.
+  const canEditInvoice = isInvoice && status === 'DRAFT' && Boolean(onUpdateInvoice);
 
   // Reissue (2c): a SENT receipt is corrected by reissuing (never edited). Once
   // voided (supersededAt) it can't be reissued again.
@@ -747,7 +758,9 @@ export function DocumentDetailModal({
                         section={section}
                         dataJson={dataJson}
                         onEdit={
-                          canEditInvoice ? () => runAction('edit') : undefined
+                          canEditInvoice
+                            ? () => setInvoiceEditOpen(true)
+                            : undefined
                         }
                       />
                     );
@@ -845,6 +858,19 @@ export function DocumentDetailModal({
           onSave={async (payload) => {
             await onUpdateReceipt(documentId, payload);
             setReceiptEditOpen(false);
+            loadDetail();
+          }}
+        />
+      ) : null}
+
+      {invoiceEditOpen && onUpdateInvoice ? (
+        <InvoiceEditPopup
+          dataJson={dataJson as Record<string, unknown>}
+          onClose={() => setInvoiceEditOpen(false)}
+          onSave={async (data) => {
+            // PATCH the SAME invoice (never creates a new one); refresh in place.
+            await onUpdateInvoice(documentId, { data });
+            setInvoiceEditOpen(false);
             loadDetail();
           }}
         />

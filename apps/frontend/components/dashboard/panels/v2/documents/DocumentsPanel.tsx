@@ -669,6 +669,7 @@ export function DocumentsPanel({
           isReceipt={selectedDocument ? isReceiptDoc(selectedDocument) : false}
           isInvoice={selectedDocument ? isInvoiceDoc(selectedDocument) : false}
           onFetchInvoicePdf={onFetchInvoicePdf}
+          onUpdateInvoice={onUpdateInvoice}
           onUpdateReceipt={onUpdateReceipt}
           onReissueReceipt={onReissueReceipt}
           autoOpenReissue={reissueOnOpen}
