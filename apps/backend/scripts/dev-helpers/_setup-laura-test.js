@@ -42,22 +42,31 @@ const INVOICE_SCHEMA = {
     {
       key: 'billed_to',
       label: 'Billed to',
-      toggles: [{ key: 'business', label: 'Business customer', defaultValue: false }],
+      // Row 1 = the two toggles side by side (rendered in one row by the wizard):
+      // Business customer (name<->company) + Different day (reveals Issue date).
+      toggles: [
+        { key: 'business', label: 'Business customer', defaultValue: false },
+        { key: 'different_day', label: 'Different day', defaultValue: false },
+      ],
       fields: [
-        // Editable issue date. minDate 'yearStart' = not before Jan 1 of the tenant's
-        // current year. A future date defers the invoice to DRAFT (handled server-side).
-        { key: 'issueDate', label: 'Issue date', type: 'date', required: true, defaultValue: 'today', validation: { minDate: 'yearStart' } },
+        // Issue date — shown ONLY when "Different day" is on. Off (default) → the
+        // field is hidden and the issue date is TODAY (no disclaimer). On → editable
+        // with min = Jan 1 of the tenant's current year; a future date defers the
+        // invoice to DRAFT (handled server-side). Appears near the toggles.
+        { key: 'issueDate', label: 'Issue date', type: 'date', defaultValue: 'today', showWhen: 'different_day', validation: { minDate: 'yearStart' } },
+        // Row 2 — names (or company name when Business is on).
         { key: 'first_name', label: 'First name', type: 'text', required: true, transform: 'titleCase', hideWhen: 'business', row: 'name' },
         { key: 'middle_name', label: 'Middle name', type: 'text', transform: 'titleCase', hideWhen: 'business', row: 'name' },
         { key: 'last_name', label: 'Last name', type: 'text', required: true, transform: 'titleCase', hideWhen: 'business', row: 'name' },
         { key: 'company_name', label: 'Company name', type: 'text', required: true, showWhen: 'business' },
+        // Row 3 — recipient email (optional for a draft; required + format-checked
+        // only on "Create and send", via the wizard's sendRequiredFields).
+        { key: 'recipient_email', label: 'Recipient email', type: 'email', validation: { isEmail: true }, placeholder: 'name@example.com' },
+        // Row 4 — address.
         { key: 'street', label: 'Street address', type: 'text', required: true },
         { key: 'city', label: 'City', type: 'text', required: true, row: 'csz' },
         { key: 'state', label: 'State', type: 'text', required: true, row: 'csz' },
         { key: 'zip', label: 'Zip code', type: 'text', required: true, row: 'csz' },
-        // Recipient email — optional for a draft; required + format-checked only on
-        // "Create and send" (validated by the wizard's sendRequiredFields).
-        { key: 'recipient_email', label: 'Recipient email', type: 'email', validation: { isEmail: true }, placeholder: 'name@example.com' },
       ],
     },
     {

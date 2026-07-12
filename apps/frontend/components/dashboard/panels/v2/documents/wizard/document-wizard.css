@@ -123,6 +123,14 @@
 }
 
 /* ===== TOGGLE ROW ===== */
+/* Two+ section toggles side by side (e.g. Business customer + Different day),
+   wrapping on narrow screens. */
+.wizard-section__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .wizard-toggle-row {
   display: inline-flex;
   align-items: center;

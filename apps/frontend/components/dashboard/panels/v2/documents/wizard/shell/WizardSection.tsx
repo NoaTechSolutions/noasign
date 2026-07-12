@@ -169,15 +169,19 @@ export function WizardSection({
         />
       ) : null}
 
-      {otherToggles.map((toggle) => (
-        <WizardToggleRow
-          key={toggle.key}
-          label={toggle.label}
-          checked={customToggles[`${section.key}:${toggle.key}`] ?? false}
-          disabled={readOnly}
-          onChange={(value) => onSetCustomToggle(toggle.key, value)}
-        />
-      ))}
+      {otherToggles.length > 0 ? (
+        <div className="wizard-section__toggles">
+          {otherToggles.map((toggle) => (
+            <WizardToggleRow
+              key={toggle.key}
+              label={toggle.label}
+              checked={customToggles[`${section.key}:${toggle.key}`] ?? false}
+              disabled={readOnly}
+              onChange={(value) => onSetCustomToggle(toggle.key, value)}
+            />
+          ))}
+        </div>
+      ) : null}
 
       <div className="wizard-section__fields">
         {financeToggle ? (
