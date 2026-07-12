@@ -278,6 +278,51 @@ export class EmailService {
     return { id: data?.id ?? '' };
   }
 
+  /**
+   * Self-notification to the document's CREATOR: a deferred (future-dated) receipt
+   * or invoice has reached its issue date and is ready to be finalized/sent. No
+   * attachment — it's a heads-up, not the document itself.
+   */
+  async sendDeferredReadyNotification(payload: {
+    to: string;
+    documentNumber: string;
+    docKind: 'invoice' | 'receipt';
+  }): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(
+        `[EmailService] Skipping deferred-ready notice to ${payload.to} — Resend not configured`,
+      );
+      return;
+    }
+    const kind = payload.docKind === 'invoice' ? 'Invoice' : 'Receipt';
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: payload.to,
+      subject: `${kind} ${payload.documentNumber} is ready to finalize`,
+      html: this.buildDeferredReadyHtml(payload.documentNumber, kind),
+    });
+    if (error) {
+      this.logger.error(
+        `[EmailService] Failed deferred-ready notice for ${payload.documentNumber} to ${payload.to}: ${JSON.stringify(error)}`,
+      );
+      throw new Error(`Email delivery failed: ${error.message}`);
+    }
+    this.logger.log(
+      `[EmailService] Deferred-ready notice for ${payload.documentNumber} sent to ${payload.to}`,
+    );
+  }
+
+  private buildDeferredReadyHtml(documentNumber: string, kind: string): string {
+    return `
+      <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#111">
+        <h2 style="font-weight:600">Ready to finalize</h2>
+        <p>Your ${kind.toLowerCase()} <strong>${documentNumber}</strong> has reached its issue date and is ready to be finalized and sent.</p>
+        <p>Open NTSsign and use <strong>Send</strong> on the document to finalize it.</p>
+        <p style="color:#666;font-size:12px">NTSsign keeps an internal record of the real date and time each document was created, independently of the issue date you chose.</p>
+      </div>
+    `;
+  }
+
   async sendSignatureProcessing(
     payload: SignatureProcessingPayload,
   ): Promise<void> {

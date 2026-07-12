@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -14,6 +15,7 @@ import { LeadsModule } from './leads/leads.module';
 import { CustomersModule } from './customers/customers.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 import { TemplatesModule } from './templates/templates.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -21,6 +23,7 @@ import { TemplatesModule } from './templates/templates.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -33,6 +36,7 @@ import { TemplatesModule } from './templates/templates.module';
     CustomersModule,
     ReceiptsModule,
     TemplatesModule,
+    NotificationsModule,
   ],
   providers: [
     {
