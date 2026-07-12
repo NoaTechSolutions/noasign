@@ -402,6 +402,7 @@ describe('ReceiptsService — getReceiptStats', () => {
       sendFailed: 1,
       cancelled: 1,
       void: 1,
+      scheduled: 0,
     });
     expect(stats.amountThisMonth).toBeCloseTo(1149.5); // 100 + 50.5 + 999 (counted this period)
     expect(stats.receiptsThisMonth).toBe(3);
@@ -424,6 +425,7 @@ describe('ReceiptsService — getReceiptStats', () => {
       sendFailed: 0,
       cancelled: 0,
       void: 0,
+      scheduled: 0,
     });
     expect(stats.amountThisMonth).toBe(0);
     expect(stats.totalIssued).toBe(0);

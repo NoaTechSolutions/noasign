@@ -1596,6 +1596,7 @@ export class ReceiptsService {
         countedAsReceipt: true,
         billingPeriod: true,
         sentAt: true,
+        isDeferred: true,
         documentType: { select: { code: true } },
         data: { select: { dataJson: true } },
       },
@@ -1606,6 +1607,9 @@ export class ReceiptsService {
     let sendFailed = 0;
     let cancelled = 0;
     let voided = 0;
+    // Deferred (future-dated) drafts — a SUBSET of `draft` (kept whole for the
+    // Overview breakdown); the Documents pills split it out into its own card.
+    let scheduled = 0;
     let amountThisMonth = 0;
     let receiptsThisMonth = 0;
     // Tenant-wide type split for the dashboard's separated cards (owner spec
@@ -1631,6 +1635,7 @@ export class ReceiptsService {
         voided++;
       } else if (r.status === DocumentStatus.DRAFT) {
         draft++;
+        if (r.isDeferred) scheduled++;
       } else if (r.status === DocumentStatus.SENT) {
         sent++;
       } else if (r.status === DocumentStatus.SEND_FAILED) {
@@ -1712,7 +1717,7 @@ export class ReceiptsService {
       // "Total issued" = active (non-void) sent receipts.
       totalIssued: sent,
       amountThisMonth,
-      byStatus: { draft, sent, sendFailed, cancelled, void: voided },
+      byStatus: { draft, sent, sendFailed, cancelled, void: voided, scheduled },
       topClients,
       // Separated per-type counters for the dashboard cards (informational).
       documentCounts: {

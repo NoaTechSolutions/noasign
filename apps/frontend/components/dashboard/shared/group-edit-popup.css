@@ -24,7 +24,7 @@
 
 .gep-panel {
   width: 90%;
-  max-width: 420px;
+  max-width: 460px;
   max-height: 90vh;
   background: var(--bg-card);
   border: 0.5px solid var(--border-soft);
@@ -141,6 +141,16 @@
 }
 .gep-section-label:first-child {
   margin-top: 0;
+}
+
+/* Two toggles side by side (Business customer + Different day), wrapping to a
+   column on a narrow popup. */
+.gep-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.25rem;
 }
 
 /* ── Typed field inputs (currency / date) ─────────────────────────────

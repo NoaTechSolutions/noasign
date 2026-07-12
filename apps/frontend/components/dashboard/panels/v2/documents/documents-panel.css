@@ -66,6 +66,26 @@
   border-left: 4px solid var(--amber);
 }
 
+/* Receipt/invoice status pills — driven by the SAME --status-* tokens as the
+   badges (single source of truth for the state colour map): Draft = neutral,
+   Sent = green, Scheduled = teal, Void = red. */
+.documents-v2-stat-pill--sent {
+  background: linear-gradient(135deg, var(--status-sent-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-sent);
+}
+.documents-v2-stat-pill--draft {
+  background: linear-gradient(135deg, var(--status-draft-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-draft);
+}
+.documents-v2-stat-pill--scheduled {
+  background: linear-gradient(135deg, var(--status-scheduled-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-scheduled);
+}
+.documents-v2-stat-pill--void {
+  background: linear-gradient(135deg, var(--status-void-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-void);
+}
+
 .documents-v2-stat-pill__label {
   font-size: 13px;
   font-weight: 600;

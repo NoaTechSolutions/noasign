@@ -261,11 +261,36 @@ export function InvoiceEditPopup({
         </div>
       ) : (
         <>
-          <WizardToggleRow
-            label="Business customer"
-            checked={business}
-            onChange={toggleBusiness}
-          />
+          <div className="gep-toggle-row">
+            <WizardToggleRow
+              label="Business customer"
+              checked={business}
+              onChange={toggleBusiness}
+            />
+            <WizardToggleRow
+              label="Different day"
+              checked={differentDay}
+              onChange={toggleDifferentDay}
+            />
+          </div>
+          {differentDay ? (
+            <div className="form-field">
+              <label className="form-label">Issue date</label>
+              <div className="gep-date-wrapper">
+                <input
+                  className="form-input gep-input-date"
+                  type="date"
+                  value={issueDate}
+                  min={yearStart}
+                  onChange={(e) => {
+                    setIssueDate(e.target.value);
+                    setDirty(true);
+                  }}
+                />
+                <Calendar className="gep-date-icon" size={15} aria-hidden="true" />
+              </div>
+            </div>
+          ) : null}
 
           {business ? (
             <div className="form-field">
@@ -354,30 +379,6 @@ export function InvoiceEditPopup({
               onChange={(e) => touch(setZip)(e.target.value)}
             />
           </div>
-
-          <WizardToggleRow
-            label="Different day"
-            checked={differentDay}
-            onChange={toggleDifferentDay}
-          />
-          {differentDay ? (
-            <div className="form-field">
-              <label className="form-label">Issue date</label>
-              <div className="gep-date-wrapper">
-                <input
-                  className="form-input gep-input-date"
-                  type="date"
-                  value={issueDate}
-                  min={yearStart}
-                  onChange={(e) => {
-                    setIssueDate(e.target.value);
-                    setDirty(true);
-                  }}
-                />
-                <Calendar className="gep-date-icon" size={15} aria-hidden="true" />
-              </div>
-            </div>
-          ) : null}
         </>
       )}
     </GroupEditPopup>

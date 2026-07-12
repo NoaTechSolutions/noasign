@@ -13,8 +13,9 @@ export type DocumentStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
-// 'VOID' is a derived filter (receipts with supersededAt) — not a DocumentStatus.
-export type StatusFilter = 'all' | DocumentStatus | 'VOID';
+// 'VOID' (receipts with supersededAt) and 'SCHEDULED' (deferred future-dated
+// drafts) are derived filters — neither is a real DocumentStatus.
+export type StatusFilter = 'all' | DocumentStatus | 'VOID' | 'SCHEDULED';
 
 /** Internal V2 action vocabulary. Dispatch logic in DocumentsPanel maps each
  *  to its corresponding handler prop — view/edit/sync/preview/download are
@@ -377,6 +378,7 @@ export function getStatusLabel(status: string): string {
 export const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'all', label: 'All statuses' },
   { value: 'DRAFT', label: 'Draft' },
+  { value: 'SCHEDULED', label: 'Scheduled' },
   { value: 'SENT', label: 'Sent' },
   { value: 'VOID', label: 'Void' },
   { value: 'SEND_FAILED', label: 'Send failed' },

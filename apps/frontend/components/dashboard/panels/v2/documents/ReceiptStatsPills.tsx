@@ -6,8 +6,6 @@ import type { ReceiptStats } from '../ReceiptMetricCards';
 interface ReceiptStatsPillsProps {
   stats: ReceiptStats | null;
   isLoading?: boolean;
-  // When set, the "Total" pill shows a "Detail →" link opening the by-type popup.
-  onTotalDetail?: () => void;
 }
 
 function PillValue({ value, isLoading }: { value: number; isLoading?: boolean }) {
@@ -27,24 +25,21 @@ function PillValue({ value, isLoading }: { value: number; isLoading?: boolean })
  * Receipt counters for the receipts-only Documents module — replaces the
  * contract-oriented DocumentsStats. Reuses the .documents-v2-stat-pill styles.
  */
-export function ReceiptStatsPills({
-  stats,
-  isLoading,
-  onTotalDetail,
-}: ReceiptStatsPillsProps) {
+export function ReceiptStatsPills({ stats, isLoading }: ReceiptStatsPillsProps) {
   const by = stats?.byStatus;
-  const total =
-    (by?.draft ?? 0) +
-    (by?.sent ?? 0) +
-    (by?.sendFailed ?? 0) +
-    (by?.cancelled ?? 0) +
-    (by?.void ?? 0);
+  // Scheduled (deferred drafts) is a subset of the backend `draft` count; split
+  // it out so the Draft pill shows only the non-scheduled drafts and the two
+  // partition cleanly (Overview keeps using the full `draft` count untouched).
+  const scheduled = by?.scheduled ?? 0;
+  const draft = Math.max(0, (by?.draft ?? 0) - scheduled);
 
+  // One colour per state, from the shared --status-* token map (see the pill
+  // tone classes). Row: Sent · Draft · Scheduled · Void.
   const pills = [
-    { label: 'Total', value: total, hint: 'receipts', tone: 'blue' },
-    { label: 'Sent', value: by?.sent ?? 0, hint: 'issued', tone: 'green' },
-    { label: 'Draft', value: by?.draft ?? 0, hint: 'editable', tone: 'slate' },
-    { label: 'Void', value: by?.void ?? 0, hint: 'cancelled', tone: 'amber' },
+    { label: 'Sent', value: by?.sent ?? 0, hint: 'issued', tone: 'sent' },
+    { label: 'Draft', value: draft, hint: 'editable', tone: 'draft' },
+    { label: 'Scheduled', value: scheduled, hint: 'future-dated', tone: 'scheduled' },
+    { label: 'Void', value: by?.void ?? 0, hint: 'cancelled', tone: 'void' },
   ];
 
   return (
@@ -56,15 +51,6 @@ export function ReceiptStatsPills({
         >
           <div className="documents-v2-stat-pill__head">
             <div className="documents-v2-stat-pill__label">{p.label}</div>
-            {p.label === 'Total' && onTotalDetail ? (
-              <button
-                type="button"
-                className="documents-v2-stat-pill__detail"
-                onClick={onTotalDetail}
-              >
-                Detail →
-              </button>
-            ) : null}
           </div>
           <div className="documents-v2-stat-pill__value">
             <PillValue value={p.value} isLoading={isLoading} />

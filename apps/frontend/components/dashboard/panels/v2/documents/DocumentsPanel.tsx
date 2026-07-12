@@ -33,6 +33,7 @@ import type {
 import toast from 'react-hot-toast';
 import {
   BACKEND_ACTIONS,
+  isDeferredPending,
   isInvoiceDoc,
   isReceiptDoc,
   isVoidedReceipt,
@@ -369,6 +370,19 @@ export function DocumentsPanel({
     if (statusFilter === 'VOID') {
       // Derived state: a voided receipt keeps internal status SENT.
       filtered = filtered.filter((doc) => isVoidedReceipt(doc));
+    } else if (statusFilter === 'SCHEDULED') {
+      // Derived state: a deferred (future-dated) draft awaiting its issue date.
+      filtered = filtered.filter(
+        (doc) => isDeferredPending(doc) && !isVoidedReceipt(doc),
+      );
+    } else if (statusFilter === 'DRAFT') {
+      // A scheduled (deferred) draft shows under Scheduled, not Draft.
+      filtered = filtered.filter(
+        (doc) =>
+          doc.status === 'DRAFT' &&
+          !isDeferredPending(doc) &&
+          !isVoidedReceipt(doc),
+      );
     } else if (statusFilter !== 'all') {
       // A voided receipt shows under VOID, not under its internal status.
       filtered = filtered.filter(
@@ -554,14 +568,13 @@ export function DocumentsPanel({
         title={receiptsOnly ? 'Receipts' : 'Documents'}
       />
 
-      {/* Status counters (kept). The "Total" pill carries a "Detail →" link that
-          opens the by-type TOTALS popup (Receipts / Invoices / Total, plus
-          Documents for tipo-documento tenants). */}
+      {/* Status counters. Receipts/invoices module: Sent · Draft · Scheduled ·
+          Void (no Total pill / by-type popup — that lives on the Overview). The
+          contract module keeps its Total pill with the by-type "Detail →" popup. */}
       {receiptsOnly ? (
         <ReceiptStatsPills
           stats={receiptStats}
           isLoading={isLoading || statsLoading}
-          onTotalDetail={() => setShowTotalsModal(true)}
         />
       ) : (
         <DocumentsStats

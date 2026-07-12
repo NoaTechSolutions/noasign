@@ -13,6 +13,9 @@ export interface ReceiptStats {
     sendFailed: number;
     cancelled: number;
     void: number;
+    // Deferred (future-dated) drafts — a subset of `draft`. Optional so older
+    // callers/tests keep type-checking.
+    scheduled?: number;
   };
   // Top 5 clients by all-time receipt count (backend groupBy). Optional so older
   // callers/tests keep type-checking.
