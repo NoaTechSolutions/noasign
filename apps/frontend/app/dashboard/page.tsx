@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import toast from "react-hot-toast";
 import { SendToast } from "../../components/dashboard/panels/v2/documents/SendToast";
 import { API_URL, apiRequest } from "../../lib/api";
+import { detectBrowserTimeZone } from "../../lib/tenant-date";
 import { getPlanEntry } from "../../lib/plan-catalog";
 import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
@@ -496,6 +497,8 @@ function DashboardPageInner() {
   const [error, setError] = useState("");
 
   const staticDataLoaded = useRef(false);
+  // Fires the browser-timezone auto-detect once per session (see effect below).
+  const tzSyncedRef = useRef(false);
   // Bumped on every loadWorkspace so the panels' mount-only receipt-stats effect
   // refetches after a create/send (loadWorkspace itself doesn't fetch that stat).
   const [workspaceVersion, setWorkspaceVersion] = useState(0);
@@ -601,6 +604,19 @@ function DashboardPageInner() {
     localStorage.setItem("theme", "dark");
     setTheme("dark");
   }, [setTheme]);
+
+  // Auto-detect the tenant's timezone from the browser and save it once, after the
+  // user is authenticated. The backend sets it only if the tenant has none yet
+  // (first-write-wins), so this is safe to fire on every login. Best-effort — a
+  // failure never blocks the dashboard, and no timezone → America/New_York fallback.
+  useEffect(() => {
+    if (!dashboardUser?.id || tzSyncedRef.current) return;
+    tzSyncedRef.current = true;
+    apiRequest("/company-profile/timezone", {
+      method: "PATCH",
+      body: { timezone: detectBrowserTimeZone() },
+    }).catch(() => {});
+  }, [dashboardUser?.id]);
 
   useEffect(() => {
     function syncUser() {
