@@ -15,6 +15,7 @@ import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { applyTransform } from './wizard/types';
 import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
+import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
 import { detectBrowserTimeZone, tenantCurrentYear } from '@/lib/tenant-date';
 
 export interface CreateReceiptPayload {
@@ -116,6 +117,8 @@ export function ReceiptForm({
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(todayIso());
   const [paymentFor, setPaymentFor] = useState('');
+  // Pending send flag while the issue-date disclaimer is open (null = closed).
+  const [disclaimerSend, setDisclaimerSend] = useState<boolean | null>(null);
   // Issue-date floor: Jan 1 of the tenant's current year. Browser zone as a hint;
   // the backend enforces with the authoritative tenant timezone.
   const yearStart = `${tenantCurrentYear(detectBrowserTimeZone())}-01-01`;
@@ -181,6 +184,15 @@ export function ReceiptForm({
       return;
     }
     setError(null);
+    // Issue date ≠ today → require the disclaimer acknowledgement before creating.
+    if (date !== todayIso()) {
+      setDisclaimerSend(send);
+      return;
+    }
+    doCreate(send);
+  }
+
+  function doCreate(send: boolean) {
     // Optimistic: close immediately; the parent shows the progress toast (a
     // top-right animated bar for send, a simple toast for draft) with the REAL
     // result. No in-form spinner/overlay — the popup is already gone.
@@ -456,6 +468,18 @@ export function ReceiptForm({
         }}
         onCancel={() => setConfirmSend(false)}
       />
+
+      {/* Issue date ≠ today → mandatory acknowledgement before creating. */}
+      {disclaimerSend !== null ? (
+        <IssueDateDisclaimerModal
+          onCancel={() => setDisclaimerSend(null)}
+          onConfirm={() => {
+            const send = disclaimerSend ?? false;
+            setDisclaimerSend(null);
+            doCreate(send);
+          }}
+        />
+      ) : null}
     </>
   );
 }

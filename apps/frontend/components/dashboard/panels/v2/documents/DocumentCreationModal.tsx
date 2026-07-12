@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { useBeforeUnload } from '@/lib/use-before-unload';
 import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
+import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
 import { DocumentSetupCard } from './DocumentSetupCard';
 import {
   ReceiptForm,
@@ -137,6 +138,11 @@ export function DocumentCreationModal({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Pending invoice action while the issue-date disclaimer is open (null = closed).
+  const [pendingInvoice, setPendingInvoice] = useState<{
+    send: boolean;
+    dataJson: Record<string, string>;
+  } | null>(null);
   // Wizard's unsaved-changes state, lifted up so backdrop/Escape/X can gate close.
   const [wizardDirty, setWizardDirty] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
@@ -305,7 +311,16 @@ export function DocumentCreationModal({
     return Object.keys(overrides).length > 0 ? overrides : undefined;
   }, [editInvoice, schema]);
 
-  async function handleInvoiceSubmit(dataJson: Record<string, string>) {
+  // Issue date ≠ today → require the disclaimer acknowledgement before saving.
+  function handleInvoiceSubmit(dataJson: Record<string, string>) {
+    if (dataJson.issueDate && dataJson.issueDate !== todayIso()) {
+      setPendingInvoice({ send: false, dataJson });
+      return Promise.resolve();
+    }
+    return doInvoiceSubmit(dataJson);
+  }
+
+  async function doInvoiceSubmit(dataJson: Record<string, string>) {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
@@ -332,7 +347,15 @@ export function DocumentCreationModal({
 
   // "Create and send": the wizard has already validated the recipient email
   // (sendRequiredFields) before calling this. Reuses the receipt send feedback.
-  async function handleInvoiceSend(dataJson: Record<string, string>) {
+  function handleInvoiceSend(dataJson: Record<string, string>) {
+    if (dataJson.issueDate && dataJson.issueDate !== todayIso()) {
+      setPendingInvoice({ send: true, dataJson });
+      return Promise.resolve();
+    }
+    return doInvoiceSend(dataJson);
+  }
+
+  async function doInvoiceSend(dataJson: Record<string, string>) {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
@@ -514,6 +537,20 @@ export function DocumentCreationModal({
         }}
         onCancel={() => setShowDiscard(false)}
       />
+
+      {/* Issue date ≠ today → mandatory acknowledgement before saving the invoice. */}
+      {pendingInvoice !== null ? (
+        <IssueDateDisclaimerModal
+          onCancel={() => setPendingInvoice(null)}
+          onConfirm={() => {
+            const pending = pendingInvoice;
+            setPendingInvoice(null);
+            void (pending.send
+              ? doInvoiceSend(pending.dataJson)
+              : doInvoiceSubmit(pending.dataJson));
+          }}
+        />
+      ) : null}
     </div>
   );
 }
