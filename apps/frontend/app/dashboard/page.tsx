@@ -11,6 +11,7 @@ import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptM
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel, TemplatesPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
+import { invoiceRecipientName } from "../../components/dashboard/panels/v2/documents/types";
 import type {
   V2DocumentItem,
   DocumentVersion as V2DocumentVersion,
@@ -1806,6 +1807,10 @@ function DashboardPageInner() {
           const v = dj[k];
           if (typeof v === "string" && v.trim()) return v.trim();
         }
+        // Invoices keep the recipient in the billed_to fields (company_name or
+        // first/last), not the NAME_KEYS above.
+        const invoiceName = invoiceRecipientName(dj);
+        if (invoiceName) return invoiceName;
         return doc.lastSentRecipientEmail || "—";
       };
       return backendDocs.map((doc) => ({

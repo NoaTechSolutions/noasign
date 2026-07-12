@@ -60,24 +60,28 @@ const INVOICE_SCHEMA = {
     {
       key: 'service',
       label: 'Service',
+      // 2x2 grid: row 'svc_1' = service_type + event_date, row 'svc_2' =
+      // event_name + event_location.
       fields: [
-        // titleCase: same auto-capitalization as first_name. NOT on event_location
-        // (it holds "City, ST" and titleCase would lowercase the state, e.g. FL->Fl).
-        { key: 'service_type', label: 'Service', type: 'text', required: true, transform: 'titleCase', placeholder: 'e.g. Acoustic Performance' },
-        { key: 'event_date', label: 'Event date', type: 'date', required: true },
-        { key: 'event_name', label: 'Event name', type: 'text', required: true, transform: 'titleCase' },
-        { key: 'event_location', label: 'Event location', type: 'text', required: true, placeholder: 'e.g. Miami, FL' },
+        { key: 'service_type', label: 'Service', type: 'text', required: true, transform: 'titleCase', placeholder: 'e.g. Acoustic Performance', row: 'svc_1' },
+        { key: 'event_date', label: 'Event date', type: 'date', required: true, row: 'svc_1' },
+        { key: 'event_name', label: 'Event name', type: 'text', required: true, transform: 'titleCase', row: 'svc_2' },
+        // capitalizeFirst (NOT titleCase): holds "City, ST" — titleCase would
+        // lowercase the state ("Miami, FL" -> "Miami, Fl").
+        { key: 'event_location', label: 'Event location', type: 'text', required: true, transform: 'capitalizeFirst', placeholder: 'e.g. Miami, FL', row: 'svc_2' },
       ],
     },
     {
       key: 'pricing',
       label: 'Pricing',
+      // quantity + price up top (row 'qp'); the 3 computed money fields share one
+      // row ('money') so total / subtotal / grand total sit in a single line.
       fields: [
         { key: 'quantity', label: 'Quantity', type: 'number', required: true, transform: 'digitsOnly', validation: { min: 1 }, row: 'qp' },
         { key: 'price', label: 'Price', type: 'currency', required: true, row: 'qp' },
-        { key: 'total', label: 'Total', type: 'currency', autoCalculate: { type: 'multiply', fields: ['quantity', 'price'] } },
-        { key: 'subtotal', label: 'Subtotal', type: 'currency', autoCalculate: { type: 'copy', source: 'total' } },
-        { key: 'gran_total', label: 'Grand total', type: 'currency', autoCalculate: { type: 'copy', source: 'subtotal' } },
+        { key: 'total', label: 'Total', type: 'currency', autoCalculate: { type: 'multiply', fields: ['quantity', 'price'] }, row: 'money' },
+        { key: 'subtotal', label: 'Subtotal', type: 'currency', autoCalculate: { type: 'copy', source: 'total' }, row: 'money' },
+        { key: 'gran_total', label: 'Grand total', type: 'currency', autoCalculate: { type: 'copy', source: 'subtotal' }, row: 'money' },
       ],
     },
   ],

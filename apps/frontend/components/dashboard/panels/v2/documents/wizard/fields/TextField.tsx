@@ -30,12 +30,13 @@ export function TextField({
     } else if (DIGITS_ONLY_KEYS.has(field.key)) {
       next = applyDigitsOnly(next);
     }
-    if (
-      field.transform === 'titleCase' ||
-      NO_DIGITS_KEYS.has(field.key) ||
-      LETTERS_ONLY_KEYS.has(field.key)
-    ) {
+    if (NO_DIGITS_KEYS.has(field.key) || LETTERS_ONLY_KEYS.has(field.key)) {
       next = applyTransform(next, 'titleCase');
+    } else if (
+      field.transform === 'titleCase' ||
+      field.transform === 'capitalizeFirst'
+    ) {
+      next = applyTransform(next, field.transform);
     }
     onChange(next);
   }

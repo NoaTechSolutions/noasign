@@ -30,7 +30,7 @@ export interface SchemaField {
   type: FieldType;
   required?: boolean;
   placeholder?: string;
-  transform?: 'titleCase' | 'phone' | 'currency' | 'digitsOnly';
+  transform?: 'titleCase' | 'capitalizeFirst' | 'phone' | 'currency' | 'digitsOnly';
   validation?: FieldValidation;
   row?: string;
   copyFrom?: string;
@@ -143,6 +143,12 @@ export function applyTransform(
   if (!transform) return value;
   if (transform === 'titleCase') {
     return value.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  // Upper-cases ONLY the first character, leaving the rest untouched — for fields
+  // like "City, ST" where titleCase would wrongly lowercase the state ("Miami, FL"
+  // → "Miami, Fl"). "miami, FL" → "Miami, FL".
+  if (transform === 'capitalizeFirst') {
+    return value.length ? value[0].toUpperCase() + value.slice(1) : value;
   }
   if (transform === 'phone') {
     const digits = value.replace(/\D/g, '').slice(0, 10);

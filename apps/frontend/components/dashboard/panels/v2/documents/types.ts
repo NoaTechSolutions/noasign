@@ -136,6 +136,26 @@ export interface DocumentVersion {
   } | null;
 }
 
+/**
+ * Recipient name held in an invoice's form data. Invoices don't use
+ * `customer_name`/`client` — the billed_to recipient lives in the wizard fields:
+ * `company_name` (business) or `first_name` + `last_name` (individual). Mirrors
+ * the backend's buildInvoicePdfData name composition. Returns '' when absent.
+ */
+export function invoiceRecipientName(
+  dataJson: Record<string, unknown> | null | undefined,
+): string {
+  if (!dataJson) return '';
+  const company = dataJson.company_name;
+  if (typeof company === 'string' && company.trim()) return company.trim();
+  const composed = ['first_name', 'last_name']
+    .map((k) => dataJson[k])
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    .map((v) => v.trim())
+    .join(' ');
+  return composed;
+}
+
 export function getCustomerDisplayName(doc: V2DocumentItem): string {
   if (doc.customer?.name) return doc.customer.name;
   if (doc.customer?.email) return doc.customer.email;
@@ -144,6 +164,10 @@ export function getCustomerDisplayName(doc: V2DocumentItem): string {
   const dataJson = doc.data?.dataJson;
   const fromData = dataJson?.customer_name ?? dataJson?.client;
   if (typeof fromData === 'string' && fromData.trim()) return fromData.trim();
+  // Invoices carry the recipient in the billed_to fields (company_name or
+  // first/last), not customer_name/client.
+  const invoiceName = invoiceRecipientName(dataJson);
+  if (invoiceName) return invoiceName;
   return 'No customer';
 }
 
