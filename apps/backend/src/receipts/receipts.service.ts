@@ -749,13 +749,48 @@ export class ReceiptsService {
       }
     }
     const mergedForm = { ...stored, ...dto.data };
-    // Preserve the original number + issue date; recompute totals from qty×price.
+    // Preserve the original number; recompute totals from qty×price.
     const receiptNumber = stored.receipt_number ?? '';
-    const issueDate = stored.invoice_date ?? this.formatInvoiceDate(new Date());
+
+    // Issue date + schedule. Only when the edit actually carries an issueDate
+    // (the "Billed to" section) do we re-resolve it — which enforces the same
+    // past-year rule as create and recomputes the defer/schedule state. Editing
+    // any other section leaves the date and schedule untouched.
+    const editHasIssueDate =
+      typeof dto.data.issueDate === 'string' && dto.data.issueDate.trim() !== '';
+    let issueDateStr =
+      stored.invoice_date ?? this.formatInvoiceDate(new Date());
+    let issueDateColumn = document.issueDate;
+    let isDeferred = document.isDeferred;
+    let notifyOnIssueDate = document.notifyOnIssueDate;
+    let deferredNotifiedAt = document.deferredNotifiedAt;
+
+    if (editHasIssueDate) {
+      const resolved = await this.resolveIssueDate(
+        user.companyProfileId,
+        dto.data.issueDate,
+      );
+      const parts = parseCalendarDate(dto.data.issueDate);
+      issueDateStr = parts
+        ? this.formatInvoicePartsUS(parts)
+        : this.formatInvoiceDate(new Date());
+      issueDateColumn = resolved.column;
+      isDeferred = resolved.isFuture;
+      // Automatic state transitions driven by the new date:
+      //  • future  → (re)schedule: keep/refresh the opt-in.
+      //  • today/past → un-defer: clear the opt-in.
+      // Always reset deferredNotifiedAt so the hourly scanner notifies at the NEW
+      // date and never fires (again) for a stale/cancelled schedule.
+      notifyOnIssueDate = isDeferred
+        ? (dto.notifyOnIssueDate ?? document.notifyOnIssueDate ?? false)
+        : false;
+      deferredNotifiedAt = null;
+    }
+
     const dataJson = this.buildInvoiceDataJson(
       mergedForm,
       receiptNumber,
-      issueDate,
+      issueDateStr,
     );
 
     const updated = await this.prisma.document.update({
@@ -763,6 +798,10 @@ export class ReceiptsService {
       data: {
         customerId: dto.customerId ?? document.customerId,
         lastEditedAt: new Date(),
+        issueDate: issueDateColumn,
+        isDeferred,
+        notifyOnIssueDate,
+        deferredNotifiedAt,
         data: { update: { dataJson } },
       },
       include: { data: true },

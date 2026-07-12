@@ -60,7 +60,11 @@ interface DocumentDetailModalProps {
   // receipt edit popup instead of reopening the full creation wizard.
   onUpdateInvoice?: (
     docId: string,
-    payload: { data: Record<string, string>; customerId?: string },
+    payload: {
+      data: Record<string, string>;
+      customerId?: string;
+      notifyOnIssueDate?: boolean;
+    },
   ) => Promise<void>;
   onUpdateReceipt?: (
     docId: string,
@@ -870,10 +874,11 @@ export function DocumentDetailModal({
           section={invoiceEditSection}
           dataJson={dataJson as Record<string, unknown>}
           onClose={() => setInvoiceEditSection(null)}
-          onSave={async (data) => {
+          onSave={async (data, notifyOnIssueDate) => {
             // PATCH the SAME invoice with ONLY this section's fields (never
-            // creates a new one); refresh the detail in place.
-            await onUpdateInvoice(documentId, { data });
+            // creates a new one). A Billed to edit may carry a new issue date +
+            // the notify opt-in, which the backend uses to (re)schedule.
+            await onUpdateInvoice(documentId, { data, notifyOnIssueDate });
             setInvoiceEditSection(null);
             loadDetail();
           }}

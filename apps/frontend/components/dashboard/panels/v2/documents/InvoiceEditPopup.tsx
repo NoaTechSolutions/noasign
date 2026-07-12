@@ -1,9 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { Calendar } from 'lucide-react';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
+import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
+import { detectBrowserTimeZone, tenantCurrentYear } from '@/lib/tenant-date';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { CurrencyInput } from './CurrencyInput';
+import { todayIso } from './wizard/types';
 
 interface InvoiceEditPopupProps {
   // Which invoice section is being edited — the popup is SCOPED to it (mirrors
@@ -13,9 +17,13 @@ interface InvoiceEditPopupProps {
   // Stored invoice data (DocumentData.dataJson).
   dataJson: Record<string, unknown>;
   // PATCHes the SAME invoice with ONLY the edited section's fields (the backend
-  // merges over the stored data, recomputes the money fields and preserves the
-  // number + issue date). Resolves once saved — the parent closes + reloads.
-  onSave: (data: Record<string, string>) => Promise<void>;
+  // merges over the stored data, recomputes the money fields, and — when the
+  // Billed to edit carries a new issueDate — re-resolves the schedule). Resolves
+  // once saved — the parent closes + reloads.
+  onSave: (
+    data: Record<string, string>,
+    notifyOnIssueDate?: boolean,
+  ) => Promise<void>;
   onClose: () => void;
 }
 
@@ -53,6 +61,19 @@ export function InvoiceEditPopup({
   const [quantity, setQuantity] = useState(str(dataJson.quantity));
   const [price, setPrice] = useState(str(dataJson.price));
 
+  // Issue date (Billed to only) — mirrors the wizard's "Different day" toggle +
+  // date field. Different day is ON when the stored issue date isn't today.
+  const storedIssue = str(dataJson.issueDate).trim();
+  const [differentDay, setDifferentDay] = useState(
+    Boolean(storedIssue) && storedIssue !== todayIso(),
+  );
+  const [issueDate, setIssueDate] = useState(storedIssue || todayIso());
+  // Queued payload while the issue-date disclaimer is open (null = closed).
+  const [pending, setPending] = useState<Record<string, string> | null>(null);
+  // Floor for the date picker: Jan 1 of the tenant's current year (backend
+  // re-enforces the past-year rule authoritatively).
+  const yearStart = `${tenantCurrentYear(detectBrowserTimeZone())}-01-01`;
+
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +87,11 @@ export function InvoiceEditPopup({
 
   const toggleBusiness = (on: boolean): void => {
     setBusiness(on);
+    setDirty(true);
+  };
+
+  const toggleDifferentDay = (on: boolean): void => {
+    setDifferentDay(on);
     setDirty(true);
   };
 
@@ -109,7 +135,8 @@ export function InvoiceEditPopup({
       return null;
     }
     // Clear the unused name fields so switching business <-> individual overrides
-    // the stored ones (the backend merges).
+    // the stored ones (the backend merges). issueDate drives the schedule: the
+    // chosen date when "Different day" is on, else today (which un-defers).
     return {
       company_name: business ? companyName.trim() : '',
       first_name: business ? '' : firstName.trim(),
@@ -120,21 +147,38 @@ export function InvoiceEditPopup({
       city: city.trim(),
       state: state.trim(),
       zip: zip.trim(),
+      issueDate: differentDay ? issueDate : todayIso(),
     };
+  };
+
+  const commit = (data: Record<string, string>, notify: boolean): void => {
+    setSaving(true);
+    void onSave(data, notify).catch((e) => {
+      setError(e instanceof Error ? e.message : 'Could not save the invoice');
+      setSaving(false);
+    });
   };
 
   const handleSave = (): void => {
     const data = buildData();
     if (!data) return;
     setError(null);
-    setSaving(true);
-    void onSave(data).catch((e) => {
-      setError(e instanceof Error ? e.message : 'Could not save the invoice');
-      setSaving(false);
-    });
+    // Billed to can move the issue date → require the disclaimer whenever the
+    // effective date isn't today (past = backdate, future = schedule). The notify
+    // opt-in inside the disclaimer only applies to a future date.
+    if (
+      section.key === 'billed_to' &&
+      data.issueDate &&
+      data.issueDate !== todayIso()
+    ) {
+      setPending(data);
+      return;
+    }
+    commit(data, false);
   };
 
   return (
+    <>
     <GroupEditPopup
       title={`Edit ${section.label.toLowerCase()}`}
       isOpen
@@ -310,8 +354,45 @@ export function InvoiceEditPopup({
               onChange={(e) => touch(setZip)(e.target.value)}
             />
           </div>
+
+          <WizardToggleRow
+            label="Different day"
+            checked={differentDay}
+            onChange={toggleDifferentDay}
+          />
+          {differentDay ? (
+            <div className="form-field">
+              <label className="form-label">Issue date</label>
+              <div className="gep-date-wrapper">
+                <input
+                  className="form-input gep-input-date"
+                  type="date"
+                  value={issueDate}
+                  min={yearStart}
+                  onChange={(e) => {
+                    setIssueDate(e.target.value);
+                    setDirty(true);
+                  }}
+                />
+                <Calendar className="gep-date-icon" size={15} aria-hidden="true" />
+              </div>
+            </div>
+          ) : null}
         </>
       )}
     </GroupEditPopup>
+
+    {pending ? (
+      <IssueDateDisclaimerModal
+        showNotifyOptIn={pending.issueDate > todayIso()}
+        onCancel={() => setPending(null)}
+        onConfirm={(notify) => {
+          const p = pending;
+          setPending(null);
+          commit(p, notify);
+        }}
+      />
+    ) : null}
+    </>
   );
 }

@@ -80,7 +80,11 @@ export interface DocumentsPanelProps {
   // Edit a DRAFT invoice — PATCH /documents/invoice/:id (same body shape).
   onUpdateInvoice?: (
     docId: string,
-    payload: { data: Record<string, string>; customerId?: string },
+    payload: {
+      data: Record<string, string>;
+      customerId?: string;
+      notifyOnIssueDate?: boolean;
+    },
   ) => Promise<void>;
   // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send.
   onSendInvoice?: (docId: string) => Promise<void>;

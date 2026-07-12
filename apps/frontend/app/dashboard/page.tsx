@@ -2321,7 +2321,11 @@ function DashboardPageInner() {
       },
       onUpdateInvoice: async (
         docId: string,
-        payload: { data: Record<string, string>; customerId?: string },
+        payload: {
+          data: Record<string, string>;
+          customerId?: string;
+          notifyOnIssueDate?: boolean;
+        },
       ) => {
         const tid = toast.loading("Saving invoice…");
         try {
