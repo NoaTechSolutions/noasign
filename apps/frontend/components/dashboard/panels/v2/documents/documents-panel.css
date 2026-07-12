@@ -343,6 +343,13 @@
   text-transform: uppercase;
 }
 
+/* Scheduled — a deferred (future-dated) doc waiting for its issue date. Teal,
+   deliberately distinct from navy Draft so the two states never read alike. */
+.doc-status-badge--scheduled {
+  background: var(--status-scheduled-bg);
+  color: var(--status-scheduled);
+}
+
 .doc-detail-modal-header__actions {
   display: inline-flex;
   align-items: center;

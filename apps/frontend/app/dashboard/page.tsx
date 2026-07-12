@@ -1211,6 +1211,25 @@ function DashboardPageInner() {
     return window.URL.createObjectURL(blob);
   }
 
+  // Invoice PDF is regenerated on the fly (GET /documents/invoice/:id/pdf), same
+  // as the receipt flow — powers the SENT invoice's Preview tab in the detail.
+  async function handleFetchInvoicePdf(documentId: string): Promise<string> {
+    const response = await fetch(
+      `${API_URL}/documents/invoice/${documentId}/pdf`,
+      { credentials: "include" },
+    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearSession();
+        router.replace("/");
+        return "";
+      }
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+    const blob = await response.blob();
+    return window.URL.createObjectURL(blob);
+  }
+
   // Optimistic send: show a top-right toast with an animated bar that resolves
   // to the REAL result (SENT → success; SEND_FAILED / cooldown 400 → error with
   // the reason). The caller has already closed the popup. Fire-and-forget.
@@ -2415,6 +2434,7 @@ function DashboardPageInner() {
       onReissueReceipt: handleReissueReceipt,
       onVoidReceipt: handleVoidReceipt,
       onFetchReceiptPdf: handleFetchReceiptPdf,
+      onFetchInvoicePdf: handleFetchInvoicePdf,
     };
 
     const panelContent =
@@ -2524,6 +2544,7 @@ function DashboardPageInner() {
           onReissueReceipt={documentsV2.onReissueReceipt}
           onVoidReceipt={documentsV2.onVoidReceipt}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
+          onFetchInvoicePdf={documentsV2.onFetchInvoicePdf}
           isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
           contractsEnabled={usage?.contractsEnabled ?? true}
           onFetchReceiptStats={fetchReceiptStats}

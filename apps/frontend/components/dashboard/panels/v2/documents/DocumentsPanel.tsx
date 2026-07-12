@@ -134,6 +134,9 @@ export interface DocumentsPanelProps {
   // Void (2c): mark a SENT receipt VOID with no replacement.
   onVoidReceipt?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
+  // Invoice-specific (DIRECT_PDF, code INVOICE): regenerated PDF for the SENT
+  // invoice's Preview tab (GET /documents/invoice/:id/pdf).
+  onFetchInvoicePdf?: (docId: string) => Promise<string>;
   isSuperadmin?: boolean;
 }
 
@@ -183,6 +186,7 @@ export function DocumentsPanel({
   onReissueReceipt,
   onVoidReceipt,
   onFetchReceiptPdf,
+  onFetchInvoicePdf,
   isSuperadmin = false,
 }: DocumentsPanelProps) {
   // Filters + search seeded from the URL so they survive a reload / can be shared.
@@ -663,6 +667,8 @@ export function DocumentsPanel({
           onFetchPdfUrl={onFetchPdfUrl}
           onUpdateDraft={onUpdateDraft}
           isReceipt={selectedDocument ? isReceiptDoc(selectedDocument) : false}
+          isInvoice={selectedDocument ? isInvoiceDoc(selectedDocument) : false}
+          onFetchInvoicePdf={onFetchInvoicePdf}
           onUpdateReceipt={onUpdateReceipt}
           onReissueReceipt={onReissueReceipt}
           autoOpenReissue={reissueOnOpen}

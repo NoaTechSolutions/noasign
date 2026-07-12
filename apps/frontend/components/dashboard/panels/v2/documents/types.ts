@@ -281,13 +281,34 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     return actions;
   }
 
-  // Invoices (DIRECT_PDF): a DRAFT invoice is edited in the wizard. No BoldSign
-  // send/cancel actions. (The PDF opens on create/edit; list PDF view is TBD.)
+  // Invoices (DIRECT_PDF): the kebab EXACTLY MIRRORS the receipt kebab, adapted to
+  // invoice semantics. Like receipts, Edit is a per-card pencil in the detail —
+  // NOT a kebab action. The one adaptation: the PDF ('viewPdf') only appears once
+  // SENT (a draft/scheduled invoice has no issued PDF yet), whereas a receipt's
+  // PDF always regenerates. Receipt-2c actions (resend/reissue/void/retry) have no
+  // invoice equivalent, so none are invented. Every status keeps "View details".
   if (isInvoiceDoc(doc)) {
-    if ((doc.status as DocumentStatus) !== 'DRAFT') return [];
-    // Draft invoice: always editable; add "send" (finalize) once it's not a
-    // still-pending deferred invoice.
-    return isDeferredPending(doc) ? ['edit'] : ['edit', 'send'];
+    const actions: V2DocumentAction[] = ['view'];
+    switch (doc.status as DocumentStatus) {
+      case 'DRAFT':
+        // Mirrors receipt DRAFT (send + discard); a scheduled invoice can't send
+        // until its issue date arrives.
+        actions.push(
+          ...((isDeferredPending(doc)
+            ? ['discard']
+            : ['send', 'discard']) as V2DocumentAction[]),
+        );
+        break;
+      case 'SENT':
+        // Mirrors receipt SENT's base (view + viewPdf).
+        actions.push('viewPdf');
+        break;
+      case 'SEND_FAILED':
+        // Mirrors receipt SEND_FAILED's discard; re-sending is via edit → send.
+        actions.push('discard');
+        break;
+    }
+    return actions;
   }
 
   const actions: V2DocumentAction[] = ['view'];

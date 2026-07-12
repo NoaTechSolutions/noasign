@@ -104,7 +104,7 @@ export function DocumentTableRow({
           <span className="doc-status-badge doc-status-badge--void">VOID</span>
         ) : isDeferredPending(document) ? (
           <span
-            className="doc-status-badge doc-status-badge--draft"
+            className="doc-status-badge doc-status-badge--scheduled"
             title={scheduledLabel(document) ?? undefined}
           >
             Scheduled
