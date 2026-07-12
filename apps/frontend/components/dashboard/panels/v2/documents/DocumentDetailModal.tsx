@@ -303,8 +303,10 @@ export function DocumentDetailModal({
   // Receipt edit popup (DRAFT/SEND_FAILED only — a SENT receipt is immutable).
   const [receiptEditOpen, setReceiptEditOpen] = useState(false);
   // Invoice edit popup (DRAFT only — mirrors the receipt edit flow: in-place
-  // PATCH over the detail, never a re-created document).
-  const [invoiceEditOpen, setInvoiceEditOpen] = useState(false);
+  // PATCH over the detail, never a re-created document). Holds the SECTION being
+  // edited so the popup is scoped to it (like the contract GroupEditPopup), not
+  // the whole invoice.
+  const [invoiceEditSection, setInvoiceEditSection] = useState<SchemaSection | null>(null);
   // Reissue popup (SENT receipt only — corrects + voids the original).
   const [reissueOpen, setReissueOpen] = useState(false);
   // Irreversible-action warning shown before the reissue form opens.
@@ -369,7 +371,7 @@ export function DocumentDetailModal({
         e.key === 'Escape' &&
         !editGroup &&
         !receiptEditOpen &&
-        !invoiceEditOpen &&
+        !invoiceEditSection &&
         !reissueOpen &&
         !reissueConfirm
       ) {
@@ -378,7 +380,7 @@ export function DocumentDetailModal({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, editGroup, receiptEditOpen, invoiceEditOpen, reissueOpen, reissueConfirm]);
+  }, [onClose, editGroup, receiptEditOpen, invoiceEditSection, reissueOpen, reissueConfirm]);
 
   // Header info — prefer the loaded detail, fall back to the list item.
   const status = (detail?.status ?? listItem?.status ?? 'DRAFT') as string;
@@ -758,8 +760,8 @@ export function DocumentDetailModal({
                         section={section}
                         dataJson={dataJson}
                         onEdit={
-                          canEditInvoice
-                            ? () => setInvoiceEditOpen(true)
+                          canEditInvoice && section
+                            ? () => setInvoiceEditSection(section)
                             : undefined
                         }
                       />
@@ -863,14 +865,16 @@ export function DocumentDetailModal({
         />
       ) : null}
 
-      {invoiceEditOpen && onUpdateInvoice ? (
+      {invoiceEditSection && onUpdateInvoice ? (
         <InvoiceEditPopup
+          section={invoiceEditSection}
           dataJson={dataJson as Record<string, unknown>}
-          onClose={() => setInvoiceEditOpen(false)}
+          onClose={() => setInvoiceEditSection(null)}
           onSave={async (data) => {
-            // PATCH the SAME invoice (never creates a new one); refresh in place.
+            // PATCH the SAME invoice with ONLY this section's fields (never
+            // creates a new one); refresh the detail in place.
             await onUpdateInvoice(documentId, { data });
-            setInvoiceEditOpen(false);
+            setInvoiceEditSection(null);
             loadDetail();
           }}
         />
