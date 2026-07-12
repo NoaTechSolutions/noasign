@@ -93,6 +93,12 @@ export class CreateReceiptDto {
   @IsBoolean()
   send?: boolean;
 
+  // Opt-in (only meaningful for a future issue date): email the creator when the
+  // deferred receipt reaches its issue date and is ready to finalize.
+  @IsOptional()
+  @IsBoolean()
+  notifyOnIssueDate?: boolean;
+
   @ValidateIf((o: CreateReceiptDto) => o.send === true)
   @IsEmail()
   recipientEmail?: string;

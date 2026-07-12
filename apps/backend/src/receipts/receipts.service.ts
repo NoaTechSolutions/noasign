@@ -28,6 +28,8 @@ import {
   receiptResendBlockMessage,
 } from '../common/receipt-resend-policy';
 import {
+  isDueInTenantTz,
+  isFutureCalendarDate,
   parseCalendarDate,
   tenantCurrentYear,
   toDateOnly,
@@ -245,11 +247,10 @@ export class ReceiptsService {
 
     // Editable issue date (receipt `date`, MM/DD/YYYY): validated against the
     // tenant's rule (>= Jan 1 of the tenant's current year) and stored on the
-    // issueDate column. The dataJson/PDF keep using dto.date as before.
-    const issueDateColumn = await this.resolveIssueDate(
-      companyProfileId,
-      dto.date,
-    );
+    // issueDate column. The dataJson/PDF keep using dto.date as before. A FUTURE
+    // date defers the receipt: it stays DRAFT and is not sent until the date.
+    const { column: issueDateColumn, isFuture: isDeferred } =
+      await this.resolveIssueDate(companyProfileId, dto.date);
 
     // FASE 1 — honest send state: the receipt is ALWAYS created as DRAFT first.
     // We only flip it to SENT after the email actually leaves, or to SEND_FAILED
@@ -266,6 +267,10 @@ export class ReceiptsService {
         status: DocumentStatus.DRAFT,
         contractDate: new Date(),
         issueDate: issueDateColumn,
+        isDeferred,
+        notifyOnIssueDate: isDeferred
+          ? (dto.notifyOnIssueDate ?? false)
+          : false,
         countedInBilling: false,
         isOverage: false,
         // Reissue (2c): link the new receipt to the original it corrects.
@@ -289,7 +294,8 @@ export class ReceiptsService {
       );
     }
 
-    if (!send) {
+    // A deferred (future-dated) receipt is never sent at create — it waits.
+    if (!send || isDeferred) {
       return { document, receiptNumber, pdf: pdfBuffer };
     }
 
@@ -437,11 +443,11 @@ export class ReceiptsService {
 
     // Editable issue date: from the wizard (YYYY-MM-DD) when present, else today.
     // Validated against the tenant's rule (>= Jan 1 of the tenant's current year)
-    // and stored on the issueDate column; the MM/DD/YYYY string feeds the PDF.
-    const issueDateColumn = await this.resolveIssueDate(
-      companyProfileId,
-      dto.data.issueDate,
-    );
+    // and stored on the issueDate column; the MM/DD/YYYY string feeds the PDF. A
+    // FUTURE issue date defers the invoice: it stays DRAFT and is NOT sent until the
+    // date arrives (the send is ignored below).
+    const { column: issueDateColumn, isFuture: isDeferred } =
+      await this.resolveIssueDate(companyProfileId, dto.data.issueDate);
     const issueParts = parseCalendarDate(dto.data.issueDate);
     const issueDate = issueParts
       ? this.formatInvoicePartsUS(issueParts)
@@ -476,6 +482,10 @@ export class ReceiptsService {
         status: DocumentStatus.DRAFT,
         contractDate: new Date(),
         issueDate: issueDateColumn,
+        isDeferred,
+        notifyOnIssueDate: isDeferred
+          ? (dto.notifyOnIssueDate ?? false)
+          : false,
         countedInBilling: false,
         isOverage: false,
         data: { create: { dataJson } },
@@ -495,8 +505,9 @@ export class ReceiptsService {
       );
     }
 
-    // Draft — no email (same shape as createReceipt).
-    if (!dto.send) {
+    // Draft — no email (same shape as createReceipt). A deferred (future-dated)
+    // invoice is NEVER sent at create, even with send=true: it waits for its date.
+    if (!dto.send || isDeferred) {
       return { document, receiptNumber, pdf: pdfBuffer };
     }
 
@@ -567,6 +578,99 @@ export class ReceiptsService {
         pdf: pdfBuffer,
         sendError: reason,
       };
+    }
+  }
+
+  /**
+   * Finalize (send) an existing DRAFT invoice — the manual "finalize" path used
+   * once a deferred invoice reaches its issue date, and for any draft invoice the
+   * user chose not to send at create. Regenerates the PDF from stored data and
+   * emails it (same mechanism as createReceipt: never throws on delivery failure,
+   * flips SENT / SEND_FAILED). Blocked while the invoice is still deferred.
+   */
+  async sendDraftInvoice(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+      include: { data: true, receiptTemplate: true },
+    });
+    if (!document || !document.receiptTemplate) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (document.status !== DocumentStatus.DRAFT) {
+      throw new BadRequestException('Only draft invoices can be sent');
+    }
+    // A deferred invoice can't be finalized before its issue date arrives.
+    await this.assertDeferredDue(document);
+
+    const dataJson =
+      (document.data?.dataJson as Record<string, string> | undefined) ?? {};
+    const recipientEmail = (dataJson.recipient_email ?? '').trim();
+    if (!recipientEmail) {
+      throw new BadRequestException('This invoice has no recipient email');
+    }
+
+    const pdfBuffer = await this.renderInvoice(
+      document.receiptTemplate,
+      this.buildInvoicePdfData(dataJson),
+    );
+    const company = await this.prisma.companyProfile.findUnique({
+      where: { id: user.companyProfileId },
+      select: { companyName: true },
+    });
+    const clientName =
+      (dataJson.company_name ?? '').trim() ||
+      [dataJson.first_name, dataJson.last_name]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ') ||
+      'Customer';
+    const receiptNumber = dataJson.receipt_number ?? document.documentNumber;
+
+    try {
+      const { id: providerEmailId } = await this.email.sendInvoice({
+        to: recipientEmail,
+        receiptNumber,
+        clientName,
+        companyName: company?.companyName ?? 'NTSsign',
+        pdfBuffer,
+      });
+      const sent = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SENT,
+          sentAt: new Date(),
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
+          providerEmailId: providerEmailId || null,
+          sendError: null,
+        },
+      });
+      return { document: sent };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[ReceiptsService] Invoice ${document.documentNumber} send failed: ${reason}`,
+      );
+      const failed = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: reason,
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
+        },
+      });
+      return { document: failed, sendError: reason };
     }
   }
 
@@ -738,19 +842,23 @@ export class ReceiptsService {
   private async resolveIssueDate(
     companyProfileId: string,
     raw: string | null | undefined,
-  ): Promise<Date | null> {
+  ): Promise<{ column: Date | null; isFuture: boolean }> {
     const parts = parseCalendarDate(raw);
-    if (!parts) return null;
+    if (!parts) return { column: null, isFuture: false };
     const profile = await this.prisma.companyProfile.findUnique({
       where: { id: companyProfileId },
       select: { timezone: true },
     });
-    if (parts.year < tenantCurrentYear(profile?.timezone)) {
+    const tz = profile?.timezone;
+    if (parts.year < tenantCurrentYear(tz)) {
       throw new BadRequestException(
         'The issue date cannot be earlier than January 1 of the current year.',
       );
     }
-    return toDateOnly(parts);
+    return {
+      column: toDateOnly(parts),
+      isFuture: isFutureCalendarDate(parts, tz),
+    };
   }
 
   /** MM/DD/YYYY string for the invoice PDF, straight from calendar parts (no Date
@@ -763,6 +871,28 @@ export class ReceiptsService {
     const mm = String(parts.month).padStart(2, '0');
     const dd = String(parts.day).padStart(2, '0');
     return `${mm}/${dd}/${parts.year}`;
+  }
+
+  /** Send guard for deferred (future-dated) documents: a deferred doc cannot be
+   *  sent/finalized until its issue date has arrived in the tenant's timezone. */
+  private async assertDeferredDue(document: {
+    companyProfileId: string | null;
+    issueDate: Date | null;
+    isDeferred: boolean;
+  }): Promise<void> {
+    if (!document.isDeferred || !document.issueDate) return;
+    const profile = document.companyProfileId
+      ? await this.prisma.companyProfile.findUnique({
+          where: { id: document.companyProfileId },
+          select: { timezone: true },
+        })
+      : null;
+    if (!isDueInTenantTz(document.issueDate, profile?.timezone)) {
+      const due = document.issueDate.toISOString().slice(0, 10);
+      throw new BadRequestException(
+        `This document is scheduled for ${due} and cannot be sent until then.`,
+      );
+    }
   }
 
   private toMoney(raw: string | number | null | undefined): number {
@@ -1018,6 +1148,8 @@ export class ReceiptsService {
    */
   async resendReceipt(userId: string, documentId: string) {
     const document = await this.loadReceiptForUser(userId, documentId);
+    // A deferred receipt can't be sent before its issue date arrives.
+    await this.assertDeferredDue(document);
     const isFailed = document.status === DocumentStatus.SEND_FAILED;
     const isSent = document.status === DocumentStatus.SENT;
     const isDraft = document.status === DocumentStatus.DRAFT;

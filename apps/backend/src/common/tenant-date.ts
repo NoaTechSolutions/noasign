@@ -75,3 +75,35 @@ export function parseCalendarDate(
 export function toDateOnly(parts: CalendarParts): Date {
   return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
 }
+
+/** Calendar parts as "YYYY-MM-DD". */
+export function formatCalendarParts(parts: CalendarParts): string {
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(
+    parts.day,
+  ).padStart(2, '0')}`;
+}
+
+/** True when the calendar date is strictly AFTER the tenant's local today. */
+export function isFutureCalendarDate(
+  parts: CalendarParts,
+  timezone: string | null | undefined,
+  at: Date = new Date(),
+): boolean {
+  return formatCalendarParts(parts) > tenantLocalDate(timezone, at);
+}
+
+/** True when a stored @db.Date (or ISO string) has reached / passed the tenant's
+ *  local today (i.e. issueDate <= today). Used by the deferred-notify scan. */
+export function isDueInTenantTz(
+  issueDate: Date | string | null | undefined,
+  timezone: string | null | undefined,
+  at: Date = new Date(),
+): boolean {
+  if (!issueDate) return false;
+  // A @db.Date comes back as UTC midnight; take its calendar day directly.
+  const iso =
+    typeof issueDate === 'string'
+      ? issueDate.slice(0, 10)
+      : issueDate.toISOString().slice(0, 10);
+  return iso <= tenantLocalDate(timezone, at);
+}

@@ -13,8 +13,10 @@ import {
   getDocumentTypeDisplayName,
   getStatusBadgeClass,
   getStatusLabel,
+  isDeferredPending,
   isReceiptDoc,
   isVoidedReceipt,
+  scheduledLabel,
 } from './types';
 import { friendlySendError } from '@/lib/send-error';
 import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
@@ -100,6 +102,13 @@ export function DocumentTableRow({
       <td>
         {isVoidedReceipt(document) ? (
           <span className="doc-status-badge doc-status-badge--void">VOID</span>
+        ) : isDeferredPending(document) ? (
+          <span
+            className="doc-status-badge doc-status-badge--draft"
+            title={scheduledLabel(document) ?? undefined}
+          >
+            Scheduled
+          </span>
         ) : (
           <span
             className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}

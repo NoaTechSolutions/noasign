@@ -6,7 +6,11 @@ import './issue-date-disclaimer-modal.css';
 
 interface IssueDateDisclaimerModalProps {
   onCancel: () => void;
-  onConfirm: () => void;
+  // `notify` = whether the user opted into the "ready to finalize" email (only
+  // offered for a future issue date; always false otherwise).
+  onConfirm: (notify: boolean) => void;
+  // Show the notify opt-in — true only when the issue date is in the future.
+  showNotifyOptIn?: boolean;
 }
 
 /**
@@ -19,8 +23,10 @@ interface IssueDateDisclaimerModalProps {
 export function IssueDateDisclaimerModal({
   onCancel,
   onConfirm,
+  showNotifyOptIn = false,
 }: IssueDateDisclaimerModalProps) {
   const [accepted, setAccepted] = useState(false);
+  const [notify, setNotify] = useState(false);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -80,6 +86,20 @@ export function IssueDateDisclaimerModal({
           </p>
         </div>
 
+        {showNotifyOptIn ? (
+          <label className="issue-disclaimer-modal__check issue-disclaimer-modal__check--notify">
+            <input
+              type="checkbox"
+              checked={notify}
+              onChange={(e) => setNotify(e.target.checked)}
+            />
+            <span>
+              This date is in the future — email me when it&rsquo;s ready to
+              finalize.
+            </span>
+          </label>
+        ) : null}
+
         <label className="issue-disclaimer-modal__check">
           <input
             type="checkbox"
@@ -101,7 +121,7 @@ export function IssueDateDisclaimerModal({
             type="button"
             className="issue-disclaimer-modal__btn issue-disclaimer-modal__btn--primary"
             disabled={!accepted}
-            onClick={onConfirm}
+            onClick={() => onConfirm(showNotifyOptIn && notify)}
           >
             Continue
           </button>

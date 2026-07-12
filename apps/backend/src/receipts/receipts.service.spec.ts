@@ -225,6 +225,20 @@ describe('ReceiptsService — receipt billing on send', () => {
     expect(prismaMock.document.create).not.toHaveBeenCalled();
   });
 
+  it('defers a future-dated receipt: DRAFT + isDeferred, never sent even with send=true', async () => {
+    await service.createReceipt('u', {
+      ...SEND_DTO,
+      date: '12/31/2099',
+      notifyOnIssueDate: true,
+    } as never);
+
+    // Deferred → the email is NOT sent at create.
+    expect(emailMock.sendReceipt).not.toHaveBeenCalled();
+    const createData = prismaMock.document.create.mock.calls[0][0].data;
+    expect(createData.isDeferred).toBe(true);
+    expect(createData.notifyOnIssueDate).toBe(true);
+  });
+
   it('counts the receipt on first send (under limit → not overage)', async () => {
     // STARTER tenant: limit 20, 5 already used this period.
     prismaMock.companyProfile.findUnique.mockResolvedValue({

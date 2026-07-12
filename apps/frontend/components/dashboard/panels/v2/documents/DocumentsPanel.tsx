@@ -82,6 +82,8 @@ export interface DocumentsPanelProps {
     docId: string,
     payload: { data: Record<string, string>; customerId?: string },
   ) => Promise<void>;
+  // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send.
+  onSendInvoice?: (docId: string) => Promise<void>;
   defaultReceivedBy?: string;
   // Model C — receipt quota, forwarded to the receipt form's quota/overage hint.
   receiptQuota?: {
@@ -160,6 +162,7 @@ export function DocumentsPanel({
   onCreateReceipt,
   onCreateInvoice,
   onUpdateInvoice,
+  onSendInvoice,
   defaultReceivedBy,
   receiptQuota,
   contractsEnabled = true,
@@ -475,6 +478,12 @@ export function DocumentsPanel({
     // Void directly (no replacement) — confirm first (irreversible).
     if (action === 'void') {
       setVoidConfirm({ docId });
+      return;
+    }
+    // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send. Blocked
+    // server-side while still deferred (and the kebab hides it until due).
+    if (action === 'send' && doc && isInvoiceDoc(doc)) {
+      await onSendInvoice?.(docId);
       return;
     }
     // Any receipt email — send (DRAFT), resend (SENT) or retry (SEND_FAILED) —

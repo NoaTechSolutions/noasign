@@ -162,6 +162,11 @@ export type DashboardDocument = {
   completedAt?: string | null;
   countedInBilling: boolean;
   isOverage: boolean;
+  // Issue-date feature: editable issue date (ISO) + deferred (future-dated) state.
+  issueDate?: string | null;
+  isDeferred?: boolean;
+  notifyOnIssueDate?: boolean;
+  deferredNotifiedAt?: string | null;
   // Reissue (2c): set on a receipt once it has been superseded/voided.
   supersededAt?: string | null;
   documentType?: {
@@ -2204,6 +2209,7 @@ function DashboardPageInner() {
         payment_total?: number;
         received_by?: string;
         send: boolean;
+        notifyOnIssueDate?: boolean;
         receiptTemplateId?: string;
       }) => {
         if (payload.send) {
@@ -2253,6 +2259,7 @@ function DashboardPageInner() {
         customerId?: string;
         send?: boolean;
         recipientEmail?: string;
+        notifyOnIssueDate?: boolean;
       }) => {
         // "Create and send": reuse the receipt send feedback (animated toast that
         // resolves to the REAL SENT / SEND_FAILED result). Optimistic — the modal
@@ -2313,6 +2320,25 @@ function DashboardPageInner() {
         } catch {
           /* list refresh is best-effort */
         }
+      },
+      // Finalize a DRAFT invoice (send). Uses the shared send-toast (SENT /
+      // SEND_FAILED); the backend blocks it while the invoice is still deferred.
+      onSendInvoice: async (docId: string) => {
+        runSendWithToast(
+          async () => {
+            const res = await apiRequest<{
+              message: string;
+              document: { status: string };
+              sendError: string | null;
+            }>(`/documents/invoice/${docId}/send`, { method: "POST" });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          },
+          { loading: "Sending invoice…", success: "Invoice sent successfully" },
+        );
       },
       defaultReceivedBy: (() => {
         const userName = [dashboardUser?.firstName, dashboardUser?.lastName]
@@ -2482,6 +2508,7 @@ function DashboardPageInner() {
           onCreateReceipt={documentsV2.onCreateReceipt}
           onCreateInvoice={documentsV2.onCreateInvoice}
           onUpdateInvoice={documentsV2.onUpdateInvoice}
+          onSendInvoice={documentsV2.onSendInvoice}
           defaultReceivedBy={documentsV2.defaultReceivedBy}
           onEditDocument={documentsV2.onEditDocument}
           onDocumentAction={documentsV2.onDocumentAction}

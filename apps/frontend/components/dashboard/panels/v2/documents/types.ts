@@ -1,5 +1,6 @@
 import type { DashboardDocument } from '@/app/dashboard/page';
 import { formatDocumentStatus } from '@/lib/document-status';
+import { detectBrowserTimeZone, tenantLocalDate } from '@/lib/tenant-date';
 
 export type { DashboardDocument };
 
@@ -237,6 +238,27 @@ export function isVoidedReceipt(doc: {
   return isReceiptDoc(doc) && Boolean(doc.supersededAt);
 }
 
+/** A deferred (future-dated) document whose issue date has NOT arrived yet — it
+ *  can't be sent/finalized. Browser zone is a hint; the backend enforces with the
+ *  tenant's authoritative timezone. */
+export function isDeferredPending(doc: {
+  isDeferred?: boolean;
+  issueDate?: string | null;
+}): boolean {
+  if (!doc.isDeferred || !doc.issueDate) return false;
+  return doc.issueDate.slice(0, 10) > tenantLocalDate(detectBrowserTimeZone());
+}
+
+/** "Scheduled for YYYY-MM-DD" label for a deferred-pending doc, else null. */
+export function scheduledLabel(doc: {
+  isDeferred?: boolean;
+  issueDate?: string | null;
+}): string | null {
+  return isDeferredPending(doc)
+    ? `Scheduled for ${doc.issueDate!.slice(0, 10)}`
+    : null;
+}
+
 export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
   // Receipts (DIRECT_PDF): the PDF is always viewable; a SENT receipt is issued
   // and is NOT cancellable; a failed one can be retried or discarded. Edit is a
@@ -245,7 +267,8 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     const actions: V2DocumentAction[] = ['view', 'viewPdf'];
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
-        actions.push('send', 'discard');
+        // A deferred receipt can't be sent until its issue date arrives.
+        actions.push(...(isDeferredPending(doc) ? ['discard'] : ['send', 'discard']) as V2DocumentAction[]);
         break;
       case 'SENT':
         // A voided receipt is terminal: no resend, no reissue, no void.
@@ -261,7 +284,10 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
   // Invoices (DIRECT_PDF): a DRAFT invoice is edited in the wizard. No BoldSign
   // send/cancel actions. (The PDF opens on create/edit; list PDF view is TBD.)
   if (isInvoiceDoc(doc)) {
-    return (doc.status as DocumentStatus) === 'DRAFT' ? ['edit'] : [];
+    if ((doc.status as DocumentStatus) !== 'DRAFT') return [];
+    // Draft invoice: always editable; add "send" (finalize) once it's not a
+    // still-pending deferred invoice.
+    return isDeferredPending(doc) ? ['edit'] : ['edit', 'send'];
   }
 
   const actions: V2DocumentAction[] = ['view'];

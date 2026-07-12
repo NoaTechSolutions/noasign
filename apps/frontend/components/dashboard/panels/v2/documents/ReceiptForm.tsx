@@ -33,6 +33,8 @@ export interface CreateReceiptPayload {
   // Free-form notes. Only printed on templates that map `notes` (moderno today).
   notes?: string;
   send: boolean;
+  // Opt-in for the deferred (future-dated) "ready to finalize" email.
+  notifyOnIssueDate?: boolean;
   // Superadmin flow: borrow the selected user's receipt template (the doc still
   // becomes the creator's). Omitted for normal users (their company template).
   receiptTemplateId?: string;
@@ -189,10 +191,10 @@ export function ReceiptForm({
       setDisclaimerSend(send);
       return;
     }
-    doCreate(send);
+    doCreate(send, false);
   }
 
-  function doCreate(send: boolean) {
+  function doCreate(send: boolean, notifyOnIssueDate: boolean) {
     // Optimistic: close immediately; the parent shows the progress toast (a
     // top-right animated bar for send, a simple toast for draft) with the REAL
     // result. No in-form spinner/overlay — the popup is already gone.
@@ -211,6 +213,7 @@ export function ReceiptForm({
       received_by: receivedBy.trim() || undefined,
       notes: notes.trim() || undefined,
       send,
+      notifyOnIssueDate,
       receiptTemplateId,
     });
   }
@@ -469,14 +472,16 @@ export function ReceiptForm({
         onCancel={() => setConfirmSend(false)}
       />
 
-      {/* Issue date ≠ today → mandatory acknowledgement before creating. */}
+      {/* Issue date ≠ today → mandatory acknowledgement before creating. Future
+          date → also offers the "notify when ready to finalize" opt-in. */}
       {disclaimerSend !== null ? (
         <IssueDateDisclaimerModal
+          showNotifyOptIn={date > todayIso()}
           onCancel={() => setDisclaimerSend(null)}
-          onConfirm={() => {
+          onConfirm={(notify) => {
             const send = disclaimerSend ?? false;
             setDisclaimerSend(null);
-            doCreate(send);
+            doCreate(send, notify);
           }}
         />
       ) : null}

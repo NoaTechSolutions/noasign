@@ -60,6 +60,7 @@ interface DocumentCreationModalProps {
     customerId?: string;
     send?: boolean;
     recipientEmail?: string;
+    notifyOnIssueDate?: boolean;
   }) => Promise<void>;
   // Edit mode for an existing DRAFT invoice: preload its data into the wizard and
   // PATCH on submit instead of creating a new one.
@@ -320,7 +321,10 @@ export function DocumentCreationModal({
     return doInvoiceSubmit(dataJson);
   }
 
-  async function doInvoiceSubmit(dataJson: Record<string, string>) {
+  async function doInvoiceSubmit(
+    dataJson: Record<string, string>,
+    notifyOnIssueDate = false,
+  ) {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
@@ -333,6 +337,7 @@ export function DocumentCreationModal({
         await onCreateInvoice!({
           data: dataJson,
           customerId: setup.customerId || undefined,
+          notifyOnIssueDate,
         });
       }
       onClose();
@@ -355,7 +360,10 @@ export function DocumentCreationModal({
     return doInvoiceSend(dataJson);
   }
 
-  async function doInvoiceSend(dataJson: Record<string, string>) {
+  async function doInvoiceSend(
+    dataJson: Record<string, string>,
+    notifyOnIssueDate = false,
+  ) {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
@@ -364,6 +372,7 @@ export function DocumentCreationModal({
         customerId: setup.customerId || undefined,
         send: true,
         recipientEmail: (dataJson.recipient_email ?? '').trim() || undefined,
+        notifyOnIssueDate,
       });
       onClose();
     } catch (err) {
@@ -538,16 +547,18 @@ export function DocumentCreationModal({
         onCancel={() => setShowDiscard(false)}
       />
 
-      {/* Issue date ≠ today → mandatory acknowledgement before saving the invoice. */}
+      {/* Issue date ≠ today → mandatory acknowledgement before saving the invoice.
+          Future date → also offers the "notify when ready to finalize" opt-in. */}
       {pendingInvoice !== null ? (
         <IssueDateDisclaimerModal
+          showNotifyOptIn={pendingInvoice.dataJson.issueDate > todayIso()}
           onCancel={() => setPendingInvoice(null)}
-          onConfirm={() => {
+          onConfirm={(notify) => {
             const pending = pendingInvoice;
             setPendingInvoice(null);
             void (pending.send
-              ? doInvoiceSend(pending.dataJson)
-              : doInvoiceSubmit(pending.dataJson));
+              ? doInvoiceSend(pending.dataJson, notify)
+              : doInvoiceSubmit(pending.dataJson, notify));
           }}
         />
       ) : null}

@@ -28,6 +28,12 @@ export class CreateInvoiceDto {
   @IsBoolean()
   send?: boolean;
 
+  // Opt-in (only meaningful for a future issue date): email the creator when the
+  // deferred invoice reaches its issue date and is ready to finalize.
+  @IsOptional()
+  @IsBoolean()
+  notifyOnIssueDate?: boolean;
+
   // Required (and format-checked) only when sending.
   @ValidateIf((o: CreateInvoiceDto) => o.send === true)
   @IsEmail()

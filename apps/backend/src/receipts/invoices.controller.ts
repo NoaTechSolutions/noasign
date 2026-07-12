@@ -61,6 +61,23 @@ export class InvoicesController {
     return { message: 'Invoice updated', document };
   }
 
+  // Finalize (send) a DRAFT invoice — the manual "finalize" action, e.g. once a
+  // deferred invoice reaches its issue date. Blocked while still deferred.
+  @Post(':id/send')
+  async sendInvoice(
+    @Req() req: { user: { id: string } },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const result = await this.receiptsService.sendDraftInvoice(req.user.id, id);
+    const sendError = 'sendError' in result ? result.sendError : null;
+    const failed = result.document.status === 'SEND_FAILED';
+    return {
+      message: failed ? 'Invoice send failed' : 'Invoice sent',
+      document: result.document,
+      sendError: sendError ?? null,
+    };
+  }
+
   // Regenerated-on-the-fly invoice PDF, streamed inline (same pipeline as create).
   @Get(':id/pdf')
   async getInvoicePdf(
