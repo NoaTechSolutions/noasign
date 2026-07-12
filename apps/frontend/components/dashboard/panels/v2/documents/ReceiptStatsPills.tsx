@@ -6,6 +6,8 @@ import type { ReceiptStats } from '../ReceiptMetricCards';
 interface ReceiptStatsPillsProps {
   stats: ReceiptStats | null;
   isLoading?: boolean;
+  // When set, the "Total" pill shows a "Detail →" link opening the by-type popup.
+  onTotalDetail?: () => void;
 }
 
 function PillValue({ value, isLoading }: { value: number; isLoading?: boolean }) {
@@ -25,7 +27,11 @@ function PillValue({ value, isLoading }: { value: number; isLoading?: boolean })
  * Receipt counters for the receipts-only Documents module — replaces the
  * contract-oriented DocumentsStats. Reuses the .documents-v2-stat-pill styles.
  */
-export function ReceiptStatsPills({ stats, isLoading }: ReceiptStatsPillsProps) {
+export function ReceiptStatsPills({
+  stats,
+  isLoading,
+  onTotalDetail,
+}: ReceiptStatsPillsProps) {
   const by = stats?.byStatus;
   const total =
     (by?.draft ?? 0) +
@@ -48,7 +54,18 @@ export function ReceiptStatsPills({ stats, isLoading }: ReceiptStatsPillsProps) 
           key={p.label}
           className={`documents-v2-stat-pill documents-v2-stat-pill--${p.tone}`}
         >
-          <div className="documents-v2-stat-pill__label">{p.label}</div>
+          <div className="documents-v2-stat-pill__head">
+            <div className="documents-v2-stat-pill__label">{p.label}</div>
+            {p.label === 'Total' && onTotalDetail ? (
+              <button
+                type="button"
+                className="documents-v2-stat-pill__detail"
+                onClick={onTotalDetail}
+              >
+                Detail →
+              </button>
+            ) : null}
+          </div>
           <div className="documents-v2-stat-pill__value">
             <PillValue value={p.value} isLoading={isLoading} />
           </div>

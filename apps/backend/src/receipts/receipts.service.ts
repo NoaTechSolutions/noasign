@@ -7,6 +7,7 @@ import {
 import {
   DocumentFileType,
   DocumentStatus,
+  GenerationMode,
   Prisma,
   ReceiptTemplate,
   StorageProvider,
@@ -1373,8 +1374,24 @@ export class ReceiptsService {
     let voided = 0;
     let amountThisMonth = 0;
     let receiptsThisMonth = 0;
+    // Tenant-wide type split for the dashboard's separated cards (owner spec
+    // 2026-07-11): every receipt / invoice / signature doc of the tenant, ALL
+    // statuses (not scoped to draft/sent). Receipts + invoices are derived from
+    // the DIRECT_PDF findMany above; signatures are counted separately below.
+    let invoicesCount = 0;
+    let receiptsCount = 0;
+    // This-month counts split by type, for the Overview "detail" popup. Their sum
+    // equals receiptsThisMonth (the "Receipts this month" card), so the popup's
+    // Total always matches the card. Same conditions as the combined counter below.
+    let receiptsMonthCount = 0;
+    let invoicesMonthCount = 0;
 
     for (const r of receipts) {
+      if (r.documentType?.code === INVOICE_TYPE_CODE) {
+        invoicesCount++;
+      } else {
+        receiptsCount++;
+      }
       // VOID is derived (supersededAt set); the internal status stays SENT.
       if (r.supersededAt) {
         voided++;
@@ -1401,16 +1418,19 @@ export class ReceiptsService {
               ).padStart(2, '0')}`
             : null;
         if (sentPeriod === billingPeriod) {
-          receiptsThisMonth++;
+          invoicesMonthCount++;
           const dataJson = (r.data?.dataJson ?? {}) as Record<string, unknown>;
           amountThisMonth += this.toMoney(this.readStr(dataJson.gran_total));
         }
       } else if (r.countedAsReceipt && r.billingPeriod === billingPeriod) {
-        receiptsThisMonth++;
+        receiptsMonthCount++;
         const dataJson = (r.data?.dataJson ?? {}) as Record<string, unknown>;
         amountThisMonth += this.readNum(dataJson.amount, 0);
       }
     }
+
+    // "Receipts this month" card = receipts + invoices billed/sent this period.
+    receiptsThisMonth = receiptsMonthCount + invoicesMonthCount;
 
     // Top 5 clients by receipt count (all-time). Grouped in the DB, then joined to
     // the customer name. Receipts without a customer are excluded.
@@ -1442,6 +1462,16 @@ export class ReceiptsService {
       count: g._count.customerId,
     }));
 
+    // Signature documents (BoldSign) live under BOLDSIGN document types — NOT in
+    // the DIRECT_PDF findMany above — so they need their own tenant-wide count.
+    const signaturesCount =
+      (await this.prisma.document.count({
+        where: {
+          companyProfileId: user.companyProfileId,
+          documentType: { generationMode: GenerationMode.BOLDSIGN },
+        },
+      })) ?? 0;
+
     return {
       billingPeriod,
       receiptsThisMonth,
@@ -1450,6 +1480,20 @@ export class ReceiptsService {
       amountThisMonth,
       byStatus: { draft, sent, sendFailed, cancelled, void: voided },
       topClients,
+      // Separated per-type counters for the dashboard cards (informational).
+      documentCounts: {
+        invoices: invoicesCount,
+        receipts: receiptsCount,
+        signatures: signaturesCount,
+        total: invoicesCount + receiptsCount + signaturesCount,
+      },
+      // This-month split by type for the Overview "detail" popup. Total ===
+      // receiptsThisMonth (the card figure).
+      monthlyCounts: {
+        receipts: receiptsMonthCount,
+        invoices: invoicesMonthCount,
+        total: receiptsMonthCount + invoicesMonthCount,
+      },
     };
   }
 }

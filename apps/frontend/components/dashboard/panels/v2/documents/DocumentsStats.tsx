@@ -12,6 +12,8 @@ interface Stats {
 interface DocumentsStatsProps {
   stats: Stats;
   isLoading?: boolean;
+  // When set, the "Total" pill shows a "Detail →" link opening the by-type popup.
+  onTotalDetail?: () => void;
 }
 
 // Only the numeric value is dynamic — labels/hints are static.
@@ -34,11 +36,26 @@ function StatValue({
   return <>{value}</>;
 }
 
-export function DocumentsStats({ stats, isLoading }: DocumentsStatsProps) {
+export function DocumentsStats({
+  stats,
+  isLoading,
+  onTotalDetail,
+}: DocumentsStatsProps) {
   return (
     <div className="documents-v2-stats">
       <div className="documents-v2-stat-pill documents-v2-stat-pill--blue">
-        <div className="documents-v2-stat-pill__label">Total</div>
+        <div className="documents-v2-stat-pill__head">
+          <div className="documents-v2-stat-pill__label">Total</div>
+          {onTotalDetail ? (
+            <button
+              type="button"
+              className="documents-v2-stat-pill__detail"
+              onClick={onTotalDetail}
+            >
+              Detail →
+            </button>
+          ) : null}
+        </div>
         <div className="documents-v2-stat-pill__value">
           <StatValue value={stats.total} isLoading={isLoading} />
         </div>

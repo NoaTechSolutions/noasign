@@ -17,6 +17,22 @@ export interface ReceiptStats {
   // Top 5 clients by all-time receipt count (backend groupBy). Optional so older
   // callers/tests keep type-checking.
   topClients?: { name: string; count: number }[];
+  // Tenant-wide document counts split by type, for the separated dashboard cards
+  // (Invoices / Receipts / signature Documents / Total). Counts ALL of each type
+  // regardless of status. Optional so older callers/tests keep type-checking.
+  documentCounts?: {
+    invoices: number;
+    receipts: number;
+    signatures: number;
+    total: number;
+  };
+  // This-month split by type for the Overview "detail" popup. total ===
+  // receiptsThisMonth (the "Receipts this month" card). Optional for older callers.
+  monthlyCounts?: {
+    receipts: number;
+    invoices: number;
+    total: number;
+  };
 }
 
 interface ReceiptMetricCardsProps {

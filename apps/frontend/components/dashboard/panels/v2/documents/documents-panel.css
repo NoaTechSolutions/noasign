@@ -73,6 +73,33 @@
   margin-bottom: 8px;
 }
 
+/* Total pill header: label on the left, "Detail →" link on the right. */
+.documents-v2-stat-pill__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.documents-v2-stat-pill__head .documents-v2-stat-pill__label {
+  margin-bottom: 0;
+}
+.documents-v2-stat-pill__detail {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.documents-v2-stat-pill__detail:hover {
+  opacity: 0.75;
+  text-decoration: underline;
+}
+
 .documents-v2-stat-pill__value {
   font-size: 32px;
   font-weight: 700;

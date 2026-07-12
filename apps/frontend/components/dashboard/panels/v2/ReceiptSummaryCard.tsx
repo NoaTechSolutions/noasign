@@ -5,6 +5,8 @@ interface ReceiptSummaryCardProps {
   receiptsThisMonth: number;
   amountThisMonth: number;
   isLoading: boolean;
+  // Opens the "this month by type" breakdown popup. Omitted → no link shown.
+  onDetail?: () => void;
 }
 
 function usd(value: number): string {
@@ -25,11 +27,19 @@ export function ReceiptSummaryCard({
   receiptsThisMonth,
   amountThisMonth,
   isLoading,
+  onDetail,
 }: ReceiptSummaryCardProps) {
   return (
     <div className="ov-card ov-receipt-summary">
       <div className="ov-summary-block">
-        <span className="ov-card__label"><Receipt size={15} /> Receipts this month</span>
+        <div className="ov-summary-head">
+          <span className="ov-card__label"><Receipt size={15} /> Receipts this month</span>
+          {onDetail ? (
+            <button type="button" className="ov-detail-link" onClick={onDetail}>
+              Detail →
+            </button>
+          ) : null}
+        </div>
         <span className="ov-card__value">{isLoading ? '—' : receiptsThisMonth}</span>
       </div>
       <div className="ov-summary-divider" />

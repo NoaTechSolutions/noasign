@@ -1,0 +1,70 @@
+/* "Generated documents · this month" — two-column monthly count card for the
+   Documents module (Receipts | Invoices), split by a thin 0.5px divider. Matches
+   the design-system card tokens. Theme-aware via shared vars. */
+.generated-docs-card {
+  background: var(--surface-card, var(--bg-card));
+  border: 0.5px solid var(--tx-border);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.generated-docs-card__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.generated-docs-card__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+.generated-docs-card__sub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.generated-docs-card__cols {
+  display: flex;
+  align-items: stretch;
+}
+.generated-docs-card__divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--tx-border);
+  margin: 0 8px;
+  flex-shrink: 0;
+}
+
+.generated-docs-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 6px;
+}
+.generated-docs-col__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.generated-docs-col__value {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 520px) {
+  .generated-docs-col__value { font-size: 28px; }
+  .generated-docs-card__divider { margin: 0 4px; }
+}

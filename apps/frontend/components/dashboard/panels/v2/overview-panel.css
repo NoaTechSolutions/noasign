@@ -1262,6 +1262,25 @@
    green), split by a thin divider. */
 .ov-receipt-summary { justify-content: center; gap: 0; }
 .ov-summary-block { display: flex; flex-direction: column; gap: 8px; }
+/* Header row of the top summary block: label on the left, "Detail →" on the right. */
+.ov-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ov-detail-link {
+  flex-shrink: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--brand-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.ov-detail-link:hover { color: var(--brand-accent-hover); text-decoration: underline; }
 .ov-summary-divider { height: 1px; background: var(--tx-border); margin: 16px 0; }
 .ov-summary-amount { color: #0b6e4f; }
 :root[data-theme='dark'] .ov-summary-amount { color: #6ee7b7; }

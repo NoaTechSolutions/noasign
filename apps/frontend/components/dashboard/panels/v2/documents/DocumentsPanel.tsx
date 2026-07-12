@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { DocumentsPanelHeader } from './DocumentsPanelHeader';
 import { DocumentsStats } from './DocumentsStats';
 import { ReceiptStatsPills } from './ReceiptStatsPills';
-import { ReceiptsUsageCard } from '../ReceiptsUsageCard';
+import { GeneratedDocsCard } from './GeneratedDocsCard';
+import { MonthBreakdownModal } from '../MonthBreakdownModal';
 import type { ReceiptStats } from '../ReceiptMetricCards';
 import { DocumentsToolbar } from './DocumentsToolbar';
 import { DocumentsTable } from './DocumentsTable';
@@ -161,7 +162,6 @@ export function DocumentsPanel({
   onUpdateInvoice,
   defaultReceivedBy,
   receiptQuota,
-  receiptUsage,
   contractsEnabled = true,
   onFetchReceiptStats,
   receiptStatsRefreshKey,
@@ -312,12 +312,15 @@ export function DocumentsPanel({
     setCurrentPage(1);
   }, [search, statusFilter, typeFilter]);
 
-  // Receipts-only: fetch the receipt stats for the stat pills.
+  // Fetch the receipt stats: powers the receipts-only stat pills AND the per-type
+  // document cards (which show for every tenant, hence not gated on receiptsOnly).
   const receiptsOnly = !contractsEnabled;
   const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  // "Detail →" on the Total status pill → by-type TOTALS popup.
+  const [showTotalsModal, setShowTotalsModal] = useState(false);
   useEffect(() => {
-    if (!receiptsOnly || !onFetchReceiptStats) return;
+    if (!onFetchReceiptStats) return;
     let active = true;
     const load = async () => {
       setStatsLoading(true);
@@ -534,22 +537,29 @@ export function DocumentsPanel({
         title={receiptsOnly ? 'Receipts' : 'Documents'}
       />
 
-      {/* Counters: contract stats, or receipt stats for receipts-only tenants. */}
+      {/* Status counters (kept). The "Total" pill carries a "Detail →" link that
+          opens the by-type TOTALS popup (Receipts / Invoices / Total, plus
+          Documents for tipo-documento tenants). */}
       {receiptsOnly ? (
-        <ReceiptStatsPills stats={receiptStats} isLoading={isLoading || statsLoading} />
+        <ReceiptStatsPills
+          stats={receiptStats}
+          isLoading={isLoading || statsLoading}
+          onTotalDetail={() => setShowTotalsModal(true)}
+        />
       ) : (
-        <DocumentsStats stats={stats} isLoading={isLoading} />
+        <DocumentsStats
+          stats={stats}
+          isLoading={isLoading}
+          onTotalDetail={() => setShowTotalsModal(true)}
+        />
       )}
 
-      {receiptUsage ? (
-        <ReceiptsUsageCard
-          used={receiptUsage.used}
-          limit={receiptUsage.limit}
-          unlimited={receiptUsage.unlimited}
-          overagePrice={receiptUsage.overagePrice}
-          isLoading={isLoading}
-        />
-      ) : null}
+      {/* Generated documents this month — Receipts | Invoices (two columns). */}
+      <GeneratedDocsCard
+        receiptsThisMonth={receiptStats?.monthlyCounts?.receipts ?? 0}
+        invoicesThisMonth={receiptStats?.monthlyCounts?.invoices ?? 0}
+        isLoading={isLoading || statsLoading}
+      />
 
       <DocumentsToolbar
         search={search}
@@ -737,6 +747,27 @@ export function DocumentsPanel({
           onCancel={() => setVoidConfirm(null)}
         />
       ) : null}
+
+      {/* By-type TOTALS popup (from the Total pill's "Detail →"). All-time totals,
+          NOT this month — distinct from the Overview month popup. Documents line
+          only for tipo-documento tenants. */}
+      <MonthBreakdownModal
+        isOpen={showTotalsModal}
+        onClose={() => setShowTotalsModal(false)}
+        title="Documents by type"
+        subtitle="All time"
+        counts={
+          receiptStats?.documentCounts
+            ? {
+                receipts: receiptStats.documentCounts.receipts,
+                invoices: receiptStats.documentCounts.invoices,
+                documents: receiptStats.documentCounts.signatures,
+                total: receiptStats.documentCounts.total,
+              }
+            : null
+        }
+        showDocuments={!receiptsOnly}
+      />
     </div>
   );
 }
