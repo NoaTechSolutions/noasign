@@ -27,6 +27,11 @@ import {
   nextSendCount,
   receiptResendBlockMessage,
 } from '../common/receipt-resend-policy';
+import {
+  parseCalendarDate,
+  tenantCurrentYear,
+  toDateOnly,
+} from '../common/tenant-date';
 
 const RECEIPT_TYPE_CODE = 'PAYMENT_RECEIPT';
 const INVOICE_TYPE_CODE = 'INVOICE';
@@ -238,6 +243,14 @@ export class ReceiptsService {
       userId,
     );
 
+    // Editable issue date (receipt `date`, MM/DD/YYYY): validated against the
+    // tenant's rule (>= Jan 1 of the tenant's current year) and stored on the
+    // issueDate column. The dataJson/PDF keep using dto.date as before.
+    const issueDateColumn = await this.resolveIssueDate(
+      companyProfileId,
+      dto.date,
+    );
+
     // FASE 1 — honest send state: the receipt is ALWAYS created as DRAFT first.
     // We only flip it to SENT after the email actually leaves, or to SEND_FAILED
     // if the provider rejects it. No more false "sent" before the email goes out.
@@ -252,6 +265,7 @@ export class ReceiptsService {
         receiptTemplateId: template.id,
         status: DocumentStatus.DRAFT,
         contractDate: new Date(),
+        issueDate: issueDateColumn,
         countedInBilling: false,
         isOverage: false,
         // Reissue (2c): link the new receipt to the original it corrects.
@@ -420,7 +434,18 @@ export class ReceiptsService {
       year,
       template.numberFormat,
     );
-    const issueDate = this.formatInvoiceDate(new Date());
+
+    // Editable issue date: from the wizard (YYYY-MM-DD) when present, else today.
+    // Validated against the tenant's rule (>= Jan 1 of the tenant's current year)
+    // and stored on the issueDate column; the MM/DD/YYYY string feeds the PDF.
+    const issueDateColumn = await this.resolveIssueDate(
+      companyProfileId,
+      dto.data.issueDate,
+    );
+    const issueParts = parseCalendarDate(dto.data.issueDate);
+    const issueDate = issueParts
+      ? this.formatInvoicePartsUS(issueParts)
+      : this.formatInvoiceDate(new Date());
 
     // Stored dataJson = the raw wizard data + the server-authoritative number,
     // issue date and recomputed money. It is the SINGLE source the create render
@@ -450,6 +475,7 @@ export class ReceiptsService {
         receiptTemplateId: template.id,
         status: DocumentStatus.DRAFT,
         contractDate: new Date(),
+        issueDate: issueDateColumn,
         countedInBilling: false,
         isOverage: false,
         data: { create: { dataJson } },
@@ -700,6 +726,43 @@ export class ReceiptsService {
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${mm}/${dd}/${d.getFullYear()}`;
+  }
+
+  /**
+   * Issue-date policy (invoices AND receipts): the user-editable issue date may not
+   * be earlier than January 1 of the tenant's CURRENT year (in the tenant's
+   * timezone). Returns the @db.Date column value for the calendar date, or null when
+   * no parseable date is given. Throws BadRequest on a past-year date. Accepts both
+   * "YYYY-MM-DD" (invoice date input) and "MM/DD/YYYY" (receipt US format).
+   */
+  private async resolveIssueDate(
+    companyProfileId: string,
+    raw: string | null | undefined,
+  ): Promise<Date | null> {
+    const parts = parseCalendarDate(raw);
+    if (!parts) return null;
+    const profile = await this.prisma.companyProfile.findUnique({
+      where: { id: companyProfileId },
+      select: { timezone: true },
+    });
+    if (parts.year < tenantCurrentYear(profile?.timezone)) {
+      throw new BadRequestException(
+        'The issue date cannot be earlier than January 1 of the current year.',
+      );
+    }
+    return toDateOnly(parts);
+  }
+
+  /** MM/DD/YYYY string for the invoice PDF, straight from calendar parts (no Date
+   *  round-trip, so no timezone drift). */
+  private formatInvoicePartsUS(parts: {
+    year: number;
+    month: number;
+    day: number;
+  }): string {
+    const mm = String(parts.month).padStart(2, '0');
+    const dd = String(parts.day).padStart(2, '0');
+    return `${mm}/${dd}/${parts.year}`;
   }
 
   private toMoney(raw: string | number | null | undefined): number {

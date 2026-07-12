@@ -14,7 +14,9 @@ export type FieldType =
 export interface FieldValidation {
   min?: number;
   maxLength?: number;
-  minDate?: 'today';
+  // 'today' = not before today; 'yearStart' = not before Jan 1 of the tenant's
+  // current year (the issue-date rule).
+  minDate?: 'today' | 'yearStart';
   minDateFrom?: string;
   isEmail?: boolean;
 }

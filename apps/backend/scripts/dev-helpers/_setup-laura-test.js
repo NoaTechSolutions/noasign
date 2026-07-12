@@ -44,6 +44,9 @@ const INVOICE_SCHEMA = {
       label: 'Billed to',
       toggles: [{ key: 'business', label: 'Business customer', defaultValue: false }],
       fields: [
+        // Editable issue date. minDate 'yearStart' = not before Jan 1 of the tenant's
+        // current year. A future date defers the invoice to DRAFT (handled server-side).
+        { key: 'issueDate', label: 'Issue date', type: 'date', required: true, defaultValue: 'today', validation: { minDate: 'yearStart' } },
         { key: 'first_name', label: 'First name', type: 'text', required: true, transform: 'titleCase', hideWhen: 'business', row: 'name' },
         { key: 'middle_name', label: 'Middle name', type: 'text', transform: 'titleCase', hideWhen: 'business', row: 'name' },
         { key: 'last_name', label: 'Last name', type: 'text', required: true, transform: 'titleCase', hideWhen: 'business', row: 'name' },

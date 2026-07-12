@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReceiptsService } from './receipts.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -216,6 +217,13 @@ describe('ReceiptsService — receipt billing on send', () => {
     send: true,
     recipientEmail: 'c@example.com',
   } as const;
+
+  it('rejects a receipt whose issue date is before Jan 1 of the current year', async () => {
+    await expect(
+      service.createReceipt('u', { ...BASE_DTO, date: '06/09/2020' } as never),
+    ).rejects.toThrow(BadRequestException);
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+  });
 
   it('counts the receipt on first send (under limit → not overage)', async () => {
     // STARTER tenant: limit 20, 5 already used this period.

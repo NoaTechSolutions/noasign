@@ -15,6 +15,7 @@ import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { applyTransform } from './wizard/types';
 import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
+import { detectBrowserTimeZone, tenantCurrentYear } from '@/lib/tenant-date';
 
 export interface CreateReceiptPayload {
   client: string;
@@ -115,6 +116,9 @@ export function ReceiptForm({
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(todayIso());
   const [paymentFor, setPaymentFor] = useState('');
+  // Issue-date floor: Jan 1 of the tenant's current year. Browser zone as a hint;
+  // the backend enforces with the authoritative tenant timezone.
+  const yearStart = `${tenantCurrentYear(detectBrowserTimeZone())}-01-01`;
 
   const [method, setMethod] = useState<PaymentMethod | ''>('');
   const [otherLabel, setOtherLabel] = useState('');
@@ -150,6 +154,9 @@ export function ReceiptForm({
     if (!client.trim()) return 'Client is required';
     if (!amount || Number(amount) <= 0) return 'Amount is required';
     if (!date) return 'Date is required';
+    if (date < yearStart) {
+      return 'Issue date cannot be before January 1 of the current year';
+    }
     if (!method) return 'Select a payment method';
     if (method === 'OTHER' && !otherLabel.trim()) {
       return 'Describe the "Other" payment method';
@@ -268,6 +275,7 @@ export function ReceiptForm({
                 type="date"
                 className="wizard-field__input"
                 value={date}
+                min={yearStart}
                 onChange={(e) => setDate(e.target.value)}
               />
             </BaseField>

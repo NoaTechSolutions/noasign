@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { todayIso } from '../types';
 import type { DocumentSchema } from '../types';
 
 export function useFormFields(
@@ -18,7 +19,12 @@ export function useFormFields(
         if (provided !== undefined && provided !== '') {
           initial[field.key] = provided;
         } else if (field.defaultValue !== undefined) {
-          initial[field.key] = field.defaultValue;
+          // 'today' sentinel on a date field → the current ISO date (so the issue
+          // date pre-fills to today and stays editable).
+          initial[field.key] =
+            field.type === 'date' && field.defaultValue === 'today'
+              ? todayIso()
+              : field.defaultValue;
         } else {
           initial[field.key] = '';
         }

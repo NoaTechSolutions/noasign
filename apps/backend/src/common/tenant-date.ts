@@ -49,3 +49,29 @@ export function tenantCurrentYear(
 ): number {
   return Number(tenantLocalDate(timezone, at).slice(0, 4));
 }
+
+export interface CalendarParts {
+  year: number;
+  month: number;
+  day: number;
+}
+
+/** Parse "YYYY-MM-DD" (date input) or "MM/DD/YYYY" (US receipt format) into calendar
+ *  parts. Returns null for anything unrecognized. */
+export function parseCalendarDate(
+  value: string | null | undefined,
+): CalendarParts | null {
+  if (!value) return null;
+  const s = value.trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (iso) return { year: +iso[1], month: +iso[2], day: +iso[3] };
+  const us = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  if (us) return { year: +us[3], month: +us[1], day: +us[2] };
+  return null;
+}
+
+/** Build a @db.Date column value (UTC midnight) from calendar parts — no TZ drift,
+ *  since a DATE column stores only the calendar day. */
+export function toDateOnly(parts: CalendarParts): Date {
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+}
