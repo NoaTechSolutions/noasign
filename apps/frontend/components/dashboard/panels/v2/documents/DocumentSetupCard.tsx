@@ -23,6 +23,9 @@ export interface DocumentTypeOption {
   // Receipts (DIRECT_PDF): the tenant template to use. For the superadmin flow
   // it's the SELECTED user's template (borrowed), surfaced by getDocumentTypes.
   receiptTemplateId?: string;
+  // True when the active receipt template draws the "N of M" multi-payment field
+  // (WorldPavers' custom template) — gates the "part of multiple payments" toggle.
+  receiptTemplateSupportsMultiPayment?: boolean;
 }
 
 export interface CustomerOption {

@@ -2229,6 +2229,11 @@ function DashboardPageInner() {
       },
       onCreateReceipt: async (payload: {
         client: string;
+        business?: boolean;
+        company_name?: string;
+        first_name?: string;
+        middle_name?: string;
+        last_name?: string;
         recipientEmail?: string;
         amount: number;
         date: string;

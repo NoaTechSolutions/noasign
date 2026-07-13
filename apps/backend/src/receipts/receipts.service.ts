@@ -199,11 +199,26 @@ export class ReceiptsService {
       template.numberFormat,
     );
 
+    // Compose the recipient name from the billed-to split (business →
+    // company_name; else first/middle/last), falling back to the raw `client`
+    // when no split parts were sent (e.g. the reissue path). The composed string
+    // is what the PDF draws; the parts are stored in dataJson below.
+    const composedClient = dto.business
+      ? (dto.company_name ?? '').trim()
+      : [dto.first_name, dto.middle_name, dto.last_name]
+          .map((s) => (s ?? '').trim())
+          .filter(Boolean)
+          .join(' ');
+    const client = composedClient || (dto.client ?? '').trim();
+    if (!client) {
+      throw new BadRequestException('Client name is required');
+    }
+
     // Data the generator draws onto the base PDF (keys match fieldMappingJson).
     const pdfData = this.buildPdfData({
       receipt_number: receiptNumber,
       date: dto.date,
-      client: dto.client,
+      client,
       amount: dto.amount,
       payment_current: dto.payment_current,
       payment_total: dto.payment_total,
@@ -218,7 +233,14 @@ export class ReceiptsService {
     // every field. Empty optionals are '' (not undefined → dropped). `email`
     // mirrors recipientEmail (the schema field is `email`).
     const dataJson: Record<string, string | number> = {
-      client: dto.client,
+      client,
+      // Billed-to split parts (mirrors the invoice) so the detail can reconstruct
+      // business vs person. The composed `client` above stays the display value.
+      business: dto.business ? 'true' : '',
+      company_name: dto.company_name ?? '',
+      first_name: dto.first_name ?? '',
+      middle_name: dto.middle_name ?? '',
+      last_name: dto.last_name ?? '',
       email: dto.recipientEmail ?? '',
       amount: dto.amount,
       date: dto.date,
@@ -313,7 +335,7 @@ export class ReceiptsService {
       const { id: providerEmailId } = await this.email.sendReceipt({
         to: dto.recipientEmail,
         receiptNumber,
-        clientName: dto.client,
+        clientName: client,
         companyName: company?.companyName ?? 'NTSsign',
         pdfBuffer,
       });

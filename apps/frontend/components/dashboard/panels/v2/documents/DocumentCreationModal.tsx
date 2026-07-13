@@ -500,7 +500,11 @@ export function DocumentCreationModal({
               defaultReceivedBy={defaultReceivedBy ?? ''}
               prefillClient={selectedCustomer?.fullName}
               prefillEmail={selectedCustomer?.email ?? undefined}
+              prefillBusiness={selectedCustomer?.customerType === 'BUSINESS'}
               receiptTemplateId={selectedDocType?.receiptTemplateId}
+              supportsMultiPayment={
+                selectedDocType?.receiptTemplateSupportsMultiPayment ?? false
+              }
               receiptQuota={receiptQuota}
               onCreate={onCreateReceipt!}
               onClose={onClose}

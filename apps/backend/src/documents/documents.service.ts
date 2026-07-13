@@ -619,6 +619,10 @@ export class DocumentsService {
           providerTemplateId: string | null;
         }>;
         receiptTemplateId?: string;
+        // True when the active receipt template can draw the "N of M" multi-
+        // payment field (fieldMappingJson has `payment_n`) — e.g. the WorldPavers
+        // custom template. Gates the "part of multiple payments" toggle.
+        receiptTemplateSupportsMultiPayment?: boolean;
       }
     >();
 
@@ -694,9 +698,15 @@ export class DocumentsService {
       const receiptTemplates = await this.prisma.receiptTemplate.findMany({
         where: { companyProfileId: effectiveCompanyProfileId, isActive: true },
         orderBy: { createdAt: 'desc' },
-        select: { id: true },
+        select: { id: true, fieldMappingJson: true },
       });
       if (receiptTemplates.length > 0) {
+        // The active template drives the "N of M" multi-payment field only when
+        // its mapping draws it (payment_n) — WorldPavers' custom template does,
+        // the catalog templates don't.
+        const activeMapping = (receiptTemplates[0].fieldMappingJson ??
+          {}) as Record<string, unknown>;
+        const supportsMultiPayment = 'payment_n' in activeMapping;
         const directTypes = await this.prisma.documentType.findMany({
           where: { generationMode: 'DIRECT_PDF' },
           include: {
@@ -723,6 +733,7 @@ export class DocumentsService {
             // The (effective user's) tenant template to borrow — the frontend
             // passes it to createReceipt for the superadmin flow.
             receiptTemplateId: receiptTemplates[0].id,
+            receiptTemplateSupportsMultiPayment: supportsMultiPayment,
           });
         }
       }
