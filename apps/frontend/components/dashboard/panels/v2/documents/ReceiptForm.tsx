@@ -403,6 +403,7 @@ export function ReceiptForm({
         <BaseField label="Notes" icon={<FileText size={14} />}>
           <textarea
             className="wizard-field__input"
+            style={{ resize: 'none' }}
             value={notes}
             rows={2}
             placeholder="Optional — printed only on templates that show notes"
