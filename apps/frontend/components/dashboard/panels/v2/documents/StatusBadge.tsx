@@ -31,12 +31,12 @@ export interface StatusMeta {
 
 export const STATUS_META: Record<string, StatusMeta> = {
   DRAFT: { icon: CircleDashed, label: 'Draft', cls: 'doc-status-badge--draft', family: 'gray' },
-  SCHEDULED: { icon: Clock, label: 'Scheduled', cls: 'doc-status-badge--scheduled', family: 'blue' },
-  SENT: { icon: Send, label: 'Sent', cls: 'doc-status-badge--sent', family: 'green' },
-  VIEWED: { icon: Eye, label: 'Viewed', cls: 'doc-status-badge--viewed', family: 'blue' },
+  SCHEDULED: { icon: Clock, label: 'Scheduled', cls: 'doc-status-badge--scheduled', family: 'amber' },
+  SENT: { icon: Send, label: 'Sent', cls: 'doc-status-badge--sent', family: 'blue' },
+  VIEWED: { icon: Eye, label: 'Viewed', cls: 'doc-status-badge--viewed', family: 'amber' },
   SIGNED: { icon: Signature, label: 'Signed', cls: 'doc-status-badge--signed', family: 'blue' },
   COMPLETED: { icon: CircleCheck, label: 'Completed', cls: 'doc-status-badge--completed', family: 'green' },
-  SEND_FAILED: { icon: AlertTriangle, label: 'Send failed', cls: 'doc-status-badge--failed', family: 'amber' },
+  SEND_FAILED: { icon: AlertTriangle, label: 'Send failed', cls: 'doc-status-badge--failed', family: 'red' },
   CANCELLED: { icon: X, label: 'Cancelled', cls: 'doc-status-badge--cancelled', family: 'red' },
   VOID: { icon: Ban, label: 'Void', cls: 'doc-status-badge--void', family: 'red' },
 };

@@ -62,7 +62,7 @@ export function DocumentsStats({
         <div className="documents-v2-stat-pill__hint">documents</div>
       </div>
 
-      <div className="documents-v2-stat-pill documents-v2-stat-pill--slate">
+      <div className="documents-v2-stat-pill documents-v2-stat-pill--draft">
         <div className="documents-v2-stat-pill__label">Draft</div>
         <div className="documents-v2-stat-pill__value">
           <StatValue value={stats.draft} isLoading={isLoading} />
@@ -78,7 +78,7 @@ export function DocumentsStats({
         <div className="documents-v2-stat-pill__hint">sent + viewed + signed</div>
       </div>
 
-      <div className="documents-v2-stat-pill documents-v2-stat-pill--green">
+      <div className="documents-v2-stat-pill documents-v2-stat-pill--completed">
         <div className="documents-v2-stat-pill__label">Completed</div>
         <div className="documents-v2-stat-pill__value">
           <StatValue value={stats.completed} isLoading={isLoading} />

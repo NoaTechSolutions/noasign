@@ -66,9 +66,9 @@
   border-left: 4px solid var(--amber);
 }
 
-/* Receipt/invoice status pills — driven by the SAME --status-* family tokens as
-   the badges (single source of truth): Draft = gray, Sent = green, Scheduled =
-   blue, Void = red. */
+/* Status stat pills — each state's card uses the SAME --status-* family token as
+   its badge (single source of truth). Current families: Draft = gray, Sent =
+   blue, Scheduled = amber, Completed = green, Void = red. */
 .documents-v2-stat-pill--sent {
   background: linear-gradient(135deg, var(--status-sent-bg) 0%, var(--surface) 100%);
   border-left: 4px solid var(--status-sent);
@@ -80,6 +80,10 @@
 .documents-v2-stat-pill--scheduled {
   background: linear-gradient(135deg, var(--status-scheduled-bg) 0%, var(--surface) 100%);
   border-left: 4px solid var(--status-scheduled);
+}
+.documents-v2-stat-pill--completed {
+  background: linear-gradient(135deg, var(--status-completed-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-completed);
 }
 .documents-v2-stat-pill--void {
   background: linear-gradient(135deg, var(--status-void-bg) 0%, var(--surface) 100%);
