@@ -239,6 +239,16 @@ export function isVoidedReceipt(doc: {
   return isReceiptDoc(doc) && Boolean(doc.supersededAt);
 }
 
+/** A voided DIRECT_PDF document — a receipt OR an invoice with supersededAt set.
+ *  Both display as VOID (badge/card/list/timeline); the internal status is left
+ *  untouched. Used for DISPLAY; receipt-only actions still gate on isReceiptDoc. */
+export function isVoidedDoc(doc: {
+  documentType?: { code?: string | null } | null;
+  supersededAt?: string | null;
+}): boolean {
+  return (isReceiptDoc(doc) || isInvoiceDoc(doc)) && Boolean(doc.supersededAt);
+}
+
 /** A deferred (future-dated) document whose issue date has NOT arrived yet — it
  *  can't be sent/finalized. Browser zone is a hint; the backend enforces with the
  *  tenant's authoritative timezone. */
@@ -290,6 +300,8 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
   // invoice equivalent, so none are invented. Every status keeps "View details".
   if (isInvoiceDoc(doc)) {
     const actions: V2DocumentAction[] = ['view'];
+    // A voided invoice is terminal — view only (no edit / send / re-void).
+    if (doc.supersededAt) return actions;
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
         // Mirrors receipt DRAFT (send + discard); a scheduled invoice can't send

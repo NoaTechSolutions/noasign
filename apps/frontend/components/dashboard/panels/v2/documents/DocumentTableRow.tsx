@@ -13,7 +13,7 @@ import {
   getDocumentTypeDisplayName,
   isDeferredPending,
   isReceiptDoc,
-  isVoidedReceipt,
+  isVoidedDoc,
   scheduledLabel,
 } from './types';
 import { StatusBadge } from './StatusBadge';
@@ -99,7 +99,7 @@ export function DocumentTableRow({
       <td className="documents-v2-row__time">{formatDate(document.createdAt)}</td>
       {/* 4. Status */}
       <td>
-        {isVoidedReceipt(document) ? (
+        {isVoidedDoc(document) ? (
           <StatusBadge status="VOID" />
         ) : isDeferredPending(document) ? (
           <StatusBadge

@@ -61,6 +61,17 @@ export class InvoicesController {
     return { message: 'Invoice updated', document };
   }
 
+  // Void an invoice → VOID (supersededAt), clearing any deferred schedule. Same
+  // VOID treatment as receipts; used by the "cancel/discard" action.
+  @Post(':id/void')
+  async voidInvoice(
+    @Req() req: { user: { id: string } },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const { document } = await this.receiptsService.voidInvoice(req.user.id, id);
+    return { message: 'Invoice voided', document };
+  }
+
   // Finalize (send) a DRAFT invoice — the manual "finalize" action, e.g. once a
   // deferred invoice reaches its issue date. Blocked while still deferred.
   @Post(':id/send')

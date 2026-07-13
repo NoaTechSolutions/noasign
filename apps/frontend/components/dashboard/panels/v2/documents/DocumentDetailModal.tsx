@@ -494,9 +494,9 @@ export function DocumentDetailModal({
 
   // Reissue (2c): a SENT receipt is corrected by reissuing (never edited). Once
   // voided (supersededAt) it can't be reissued again.
-  const isVoidedReceipt = isReceipt && Boolean(detail?.supersededAt);
+  const isVoided = (isReceipt || isInvoice) && Boolean(detail?.supersededAt);
   const canReissue =
-    isReceipt && status === 'SENT' && !isVoidedReceipt && Boolean(onReissueReceipt);
+    isReceipt && status === 'SENT' && !isVoided && Boolean(onReissueReceipt);
   const reissuedTo = detail?.supersededBy?.[0] ?? null; // this one → its replacement
   const reissues = detail?.supersedes ?? null; // this one corrects → the original
 
@@ -601,7 +601,7 @@ export function DocumentDetailModal({
           <div className="doc-detail-modal-header__main">
             <div className="doc-detail-modal-header__title-row">
               <h2 className="doc-detail-modal-header__number">{number}</h2>
-              {isVoidedReceipt ? (
+              {isVoided ? (
                 <StatusBadge status="VOID" />
               ) : scheduled ? (
                 <StatusBadge status="SCHEDULED" />
@@ -790,7 +790,7 @@ export function DocumentDetailModal({
 
             {/* Footer actions — hidden on the PDF tab so its single Download
                 button isn't duplicated by the footer's (COMPLETED) Download. */}
-            {activeTab !== 'pdf' && !isVoidedReceipt && (
+            {activeTab !== 'pdf' && !isVoided && (
               <DetailFooter
                 status={status}
                 onAction={runAction}

@@ -36,7 +36,7 @@ import {
   isDeferredPending,
   isInvoiceDoc,
   isReceiptDoc,
-  isVoidedReceipt,
+  isVoidedDoc,
 } from './types';
 // Reuse the Clients bottom-sheet styles (card-actions-*) for the mobile document
 // card's Actions sheet — same pattern, no duplication. customer-card-* rules
@@ -138,6 +138,8 @@ export interface DocumentsPanelProps {
   ) => Promise<void>;
   // Void (2c): mark a SENT receipt VOID with no replacement.
   onVoidReceipt?: (docId: string) => Promise<void>;
+  // Void an invoice (owner decision: cancelling an invoice → VOID).
+  onVoidInvoice?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   // Invoice-specific (DIRECT_PDF, code INVOICE): regenerated PDF for the SENT
   // invoice's Preview tab (GET /documents/invoice/:id/pdf).
@@ -190,6 +192,7 @@ export function DocumentsPanel({
   onUpdateReceipt,
   onReissueReceipt,
   onVoidReceipt,
+  onVoidInvoice,
   onFetchReceiptPdf,
   onFetchInvoicePdf,
   isSuperadmin = false,
@@ -369,11 +372,11 @@ export function DocumentsPanel({
     }
     if (statusFilter === 'VOID') {
       // Derived state: a voided receipt keeps internal status SENT.
-      filtered = filtered.filter((doc) => isVoidedReceipt(doc));
+      filtered = filtered.filter((doc) => isVoidedDoc(doc));
     } else if (statusFilter === 'SCHEDULED') {
       // Derived state: a deferred (future-dated) draft awaiting its issue date.
       filtered = filtered.filter(
-        (doc) => isDeferredPending(doc) && !isVoidedReceipt(doc),
+        (doc) => isDeferredPending(doc) && !isVoidedDoc(doc),
       );
     } else if (statusFilter === 'DRAFT') {
       // A scheduled (deferred) draft shows under Scheduled, not Draft.
@@ -381,12 +384,12 @@ export function DocumentsPanel({
         (doc) =>
           doc.status === 'DRAFT' &&
           !isDeferredPending(doc) &&
-          !isVoidedReceipt(doc),
+          !isVoidedDoc(doc),
       );
     } else if (statusFilter !== 'all') {
       // A voided receipt shows under VOID, not under its internal status.
       filtered = filtered.filter(
-        (doc) => doc.status === statusFilter && !isVoidedReceipt(doc),
+        (doc) => doc.status === statusFilter && !isVoidedDoc(doc),
       );
     }
     if (typeFilter !== 'all') {
@@ -521,9 +524,14 @@ export function DocumentsPanel({
       setReceiptSendConfirm({ docId, email, isResend: action !== 'send' });
       return;
     }
-    // Discard a receipt = cancel it (with confirmation).
+    // Discard: a receipt = cancel it; an invoice = VOID it (owner decision —
+    // same VOID treatment as receipts). Both confirm first.
     if (action === 'discard') {
-      setConfirmAction({ action: 'cancel', docId });
+      if (doc && isInvoiceDoc(doc)) {
+        setVoidConfirm({ docId });
+      } else {
+        setConfirmAction({ action: 'cancel', docId });
+      }
       return;
     }
     // Send / Cancel are destructive-ish and irreversible → confirm first.
@@ -765,20 +773,30 @@ export function DocumentsPanel({
       ) : null}
 
       {voidConfirm ? (
-        <ConfirmActionModal
-          isOpen
-          title="Void receipt?"
-          message="This receipt will be marked as VOID and cannot be undone. Continue?"
-          confirmLabel="Void"
-          cancelLabel="Cancel"
-          variant="danger"
-          onConfirm={() => {
-            const { docId } = voidConfirm;
-            setVoidConfirm(null);
-            void onVoidReceipt?.(docId);
-          }}
-          onCancel={() => setVoidConfirm(null)}
-        />
+        (() => {
+          const voidDoc = documents.find((d) => d.id === voidConfirm.docId);
+          const voidIsInvoice = voidDoc ? isInvoiceDoc(voidDoc) : false;
+          const noun = voidIsInvoice ? 'invoice' : 'receipt';
+          return (
+            <ConfirmActionModal
+              isOpen
+              title={`Void ${noun}?`}
+              message={`This ${noun} will be marked as VOID and cannot be undone. Continue?`}
+              confirmLabel="Void"
+              cancelLabel="Cancel"
+              variant="danger"
+              onConfirm={() => {
+                const { docId } = voidConfirm;
+                setVoidConfirm(null);
+                if (voidIsInvoice) void onVoidInvoice?.(docId);
+                else void onVoidReceipt?.(docId);
+                // Close the detail (if open) so the updated list shows.
+                setSelectedDocId(null);
+              }}
+              onCancel={() => setVoidConfirm(null)}
+            />
+          );
+        })()
       ) : null}
 
       {/* By-type TOTALS popup (from the Total pill's "Detail →"). All-time totals,

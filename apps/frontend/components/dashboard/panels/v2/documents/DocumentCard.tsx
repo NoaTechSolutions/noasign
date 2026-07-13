@@ -14,7 +14,7 @@ import {
   getDocumentTypeDisplayName,
   isDeferredPending,
   isReceiptDoc,
-  isVoidedReceipt,
+  isVoidedDoc,
   scheduledLabel,
 } from './types';
 import { StatusBadge } from './StatusBadge';
@@ -103,7 +103,7 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
               {getCustomerDisplayName(document)}
             </div>
             <div className="documents-v2-card__badges">
-              {isVoidedReceipt(document) ? (
+              {isVoidedDoc(document) ? (
                 <StatusBadge status="VOID" />
               ) : isDeferredPending(document) ? (
                 <StatusBadge
@@ -143,7 +143,7 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
               <div className="documents-v2-card__info-row">
                 <span className="documents-v2-card__label">Status</span>
                 <span>
-                  {isVoidedReceipt(document) ? (
+                  {isVoidedDoc(document) ? (
                     <StatusBadge status="VOID" />
                   ) : isDeferredPending(document) ? (
                     <StatusBadge status="SCHEDULED" />

@@ -836,6 +836,41 @@ export class ReceiptsService {
     return { document: updated };
   }
 
+  /**
+   * Void an invoice: mark it VOID (supersededAt) and clear any deferred schedule,
+   * so a cancelled/scheduled invoice reads as VOID everywhere (list, badge, card,
+   * timeline) — the same VOID treatment receipts get. Terminal: a voided invoice
+   * cannot be voided again.
+   */
+  async voidInvoice(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+    });
+    if (!document) throw new NotFoundException('Invoice not found');
+    if (document.supersededAt) {
+      throw new BadRequestException('This invoice is already void');
+    }
+    const updated = await this.prisma.document.update({
+      where: { id: documentId },
+      data: {
+        supersededAt: new Date(),
+        // No longer scheduled — drop the defer flags + cancel any pending notify.
+        isDeferred: false,
+        notifyOnIssueDate: false,
+        deferredNotifiedAt: null,
+      },
+    });
+    return { document: updated };
+  }
+
   // Dispatch the render by the template's standard renderMode:
   //   'acroform-overlay' → generateFromAcroFormOverlay (hybrid — invoices)
   //   'acroform'         → generateFromAcroForm (legacy AcroForm fill)

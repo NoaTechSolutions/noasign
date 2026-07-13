@@ -1344,6 +1344,14 @@ function DashboardPageInner() {
     toast.success("Receipt voided");
   }
 
+  async function handleVoidInvoice(documentId: string): Promise<void> {
+    await apiRequest(`/documents/invoice/${documentId}/void`, {
+      method: "POST",
+    });
+    await loadWorkspace();
+    toast.success("Invoice voided");
+  }
+
   async function handleUpdateDraft(
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -2440,6 +2448,7 @@ function DashboardPageInner() {
       onUpdateReceipt: handleUpdateReceipt,
       onReissueReceipt: handleReissueReceipt,
       onVoidReceipt: handleVoidReceipt,
+      onVoidInvoice: handleVoidInvoice,
       onFetchReceiptPdf: handleFetchReceiptPdf,
       onFetchInvoicePdf: handleFetchInvoicePdf,
     };
@@ -2550,6 +2559,7 @@ function DashboardPageInner() {
           onUpdateReceipt={documentsV2.onUpdateReceipt}
           onReissueReceipt={documentsV2.onReissueReceipt}
           onVoidReceipt={documentsV2.onVoidReceipt}
+          onVoidInvoice={documentsV2.onVoidInvoice}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           onFetchInvoicePdf={documentsV2.onFetchInvoicePdf}
           isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
