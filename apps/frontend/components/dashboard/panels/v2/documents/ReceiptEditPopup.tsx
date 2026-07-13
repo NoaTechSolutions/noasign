@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
+import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { CurrencyInput } from './CurrencyInput';
 
 interface ReceiptEditPopupProps {
@@ -36,7 +37,31 @@ export function ReceiptEditPopup({
   onClose,
   title = 'Edit receipt',
 }: ReceiptEditPopupProps) {
-  const [client, setClient] = useState(str(dataJson.client));
+  // Billed-to split (mirrors the create form). Prefill from the stored parts; an
+  // older receipt without parts falls back to the whole `client` string in the
+  // First name field (person by default) — the user adjusts if needed.
+  const storedBusiness = str(dataJson.business) === 'true';
+  const storedCompany = str(dataJson.company_name);
+  const storedFirst = str(dataJson.first_name);
+  const storedMiddle = str(dataJson.middle_name);
+  const storedLast = str(dataJson.last_name);
+  const hasParts = Boolean(
+    storedCompany || storedFirst || storedMiddle || storedLast,
+  );
+  const [business, setBusiness] = useState(hasParts ? storedBusiness : false);
+  const [companyName, setCompanyName] = useState(storedCompany);
+  const [firstName, setFirstName] = useState(
+    hasParts ? storedFirst : str(dataJson.client),
+  );
+  const [middleName, setMiddleName] = useState(storedMiddle);
+  const [lastName, setLastName] = useState(storedLast);
+  const composedClient = business
+    ? companyName.trim()
+    : [firstName, middleName, lastName]
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(' ');
+
   const [email, setEmail] = useState(str(dataJson.email));
   const [phone, setPhone] = useState(str(dataJson.phone));
   const [amount, setAmount] = useState(str(dataJson.amount));
@@ -57,8 +82,8 @@ export function ReceiptEditPopup({
     };
 
   const handleSave = (): void => {
-    if (!client.trim()) {
-      setError('Client is required');
+    if (!composedClient) {
+      setError(business ? 'Company name is required' : 'Client name is required');
       return;
     }
     const amt = Number(amount);
@@ -77,7 +102,12 @@ export function ReceiptEditPopup({
     setError(null);
     setSaving(true);
     const payload: Record<string, unknown> = {
-      client: client.trim(),
+      // Send the split; the backend recomposes `client` + stores the parts.
+      business,
+      company_name: business ? companyName.trim() : '',
+      first_name: business ? '' : firstName.trim(),
+      middle_name: business ? '' : middleName.trim(),
+      last_name: business ? '' : lastName.trim(),
       amount: amt,
       date: date.trim(),
       payment_method: method,
@@ -110,14 +140,54 @@ export function ReceiptEditPopup({
         </div>
       ) : null}
 
-      <div className="form-field">
-        <label className="form-label">Client</label>
-        <input
-          className="form-input"
-          value={client}
-          onChange={(e) => touch(setClient)(e.target.value)}
-        />
-      </div>
+      <WizardToggleRow
+        label="Business customer"
+        checked={business}
+        onChange={(on) => {
+          setBusiness(on);
+          setDirty(true);
+        }}
+      />
+
+      {business ? (
+        <div className="form-field">
+          <label className="form-label">Company name</label>
+          <input
+            className="form-input"
+            value={companyName}
+            onChange={(e) => touch(setCompanyName)(e.target.value)}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="receipt-detail-grid receipt-detail-grid--2">
+            <div className="form-field">
+              <label className="form-label">First name</label>
+              <input
+                className="form-input"
+                value={firstName}
+                onChange={(e) => touch(setFirstName)(e.target.value)}
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Last name</label>
+              <input
+                className="form-input"
+                value={lastName}
+                onChange={(e) => touch(setLastName)(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="form-field">
+            <label className="form-label">Middle name</label>
+            <input
+              className="form-input"
+              value={middleName}
+              onChange={(e) => touch(setMiddleName)(e.target.value)}
+            />
+          </div>
+        </>
+      )}
 
       <div className="form-field">
         <label className="form-label">Email</label>

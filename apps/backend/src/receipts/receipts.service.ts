@@ -1516,6 +1516,30 @@ export class ReceiptsService {
     setIf('received_by', dto.received_by);
     setIf('phone', dto.phone);
 
+    // Billed-to split: when the edit carries it, recompose `client` from the
+    // parts and store them (mirrors createReceipt). Otherwise the setIf('client')
+    // above stands (older / no-split edits).
+    const hasSplit =
+      dto.business !== undefined ||
+      dto.company_name !== undefined ||
+      dto.first_name !== undefined ||
+      dto.middle_name !== undefined ||
+      dto.last_name !== undefined;
+    if (hasSplit) {
+      const composed = dto.business
+        ? (dto.company_name ?? '').trim()
+        : [dto.first_name, dto.middle_name, dto.last_name]
+            .map((s) => (s ?? '').trim())
+            .filter(Boolean)
+            .join(' ');
+      if (composed) merged.client = composed;
+      merged.business = dto.business ? 'true' : '';
+      merged.company_name = (dto.company_name ?? '').trim();
+      merged.first_name = (dto.first_name ?? '').trim();
+      merged.middle_name = (dto.middle_name ?? '').trim();
+      merged.last_name = (dto.last_name ?? '').trim();
+    }
+
     const updated = await this.prisma.document.update({
       where: { id: document.id },
       data: {
