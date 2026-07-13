@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { Calendar } from 'lucide-react';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { CurrencyInput } from './CurrencyInput';
+import { applyTransform } from './wizard/types';
+import { fromIsoDate, toIsoDate, US_DATE_RE } from './document-date';
 
 interface ReceiptEditPopupProps {
   // Stored receipt data (DocumentData.dataJson).
@@ -65,7 +68,9 @@ export function ReceiptEditPopup({
   const [email, setEmail] = useState(str(dataJson.email));
   const [phone, setPhone] = useState(str(dataJson.phone));
   const [amount, setAmount] = useState(str(dataJson.amount));
-  const [date, setDate] = useState(str(dataJson.date));
+  // Date held in ISO for the picker; the stored US format is preserved on save.
+  const dateWasUs = US_DATE_RE.test(str(dataJson.date).trim());
+  const [date, setDate] = useState(toIsoDate(str(dataJson.date)));
   const [method, setMethod] = useState(str(dataJson.payment_method));
   const [paymentFor, setPaymentFor] = useState(str(dataJson.payment_for));
   const [receivedBy, setReceivedBy] = useState(str(dataJson.received_by));
@@ -109,7 +114,7 @@ export function ReceiptEditPopup({
       middle_name: business ? '' : middleName.trim(),
       last_name: business ? '' : lastName.trim(),
       amount: amt,
-      date: date.trim(),
+      date: fromIsoDate(date, dateWasUs),
       payment_method: method,
       payment_for: paymentFor.trim(),
       received_by: receivedBy.trim(),
@@ -155,7 +160,9 @@ export function ReceiptEditPopup({
           <input
             className="form-input"
             value={companyName}
-            onChange={(e) => touch(setCompanyName)(e.target.value)}
+            onChange={(e) =>
+              touch(setCompanyName)(applyTransform(e.target.value, 'titleCase'))
+            }
           />
         </div>
       ) : (
@@ -166,7 +173,9 @@ export function ReceiptEditPopup({
               <input
                 className="form-input"
                 value={firstName}
-                onChange={(e) => touch(setFirstName)(e.target.value)}
+                onChange={(e) =>
+                  touch(setFirstName)(applyTransform(e.target.value, 'titleCase'))
+                }
               />
             </div>
             <div className="form-field">
@@ -174,7 +183,9 @@ export function ReceiptEditPopup({
               <input
                 className="form-input"
                 value={lastName}
-                onChange={(e) => touch(setLastName)(e.target.value)}
+                onChange={(e) =>
+                  touch(setLastName)(applyTransform(e.target.value, 'titleCase'))
+                }
               />
             </div>
           </div>
@@ -183,7 +194,9 @@ export function ReceiptEditPopup({
             <input
               className="form-input"
               value={middleName}
-              onChange={(e) => touch(setMiddleName)(e.target.value)}
+              onChange={(e) =>
+                touch(setMiddleName)(applyTransform(e.target.value, 'titleCase'))
+              }
             />
           </div>
         </>
@@ -204,7 +217,7 @@ export function ReceiptEditPopup({
         <input
           className="form-input"
           value={phone}
-          onChange={(e) => touch(setPhone)(e.target.value)}
+          onChange={(e) => touch(setPhone)(applyTransform(e.target.value, 'phone'))}
         />
       </div>
 
@@ -222,12 +235,15 @@ export function ReceiptEditPopup({
 
       <div className="form-field">
         <label className="form-label">Date</label>
-        <input
-          className="form-input"
-          value={date}
-          onChange={(e) => touch(setDate)(e.target.value)}
-          placeholder="MM/DD/YYYY"
-        />
+        <div className="gep-date-wrapper">
+          <input
+            className="form-input gep-input-date"
+            type="date"
+            value={date}
+            onChange={(e) => touch(setDate)(e.target.value)}
+          />
+          <Calendar className="gep-date-icon" size={15} aria-hidden="true" />
+        </div>
       </div>
 
       <div className="form-field">
@@ -260,7 +276,9 @@ export function ReceiptEditPopup({
         <input
           className="form-input"
           value={receivedBy}
-          onChange={(e) => touch(setReceivedBy)(e.target.value)}
+          onChange={(e) =>
+            touch(setReceivedBy)(applyTransform(e.target.value, 'titleCase'))
+          }
         />
       </div>
     </GroupEditPopup>

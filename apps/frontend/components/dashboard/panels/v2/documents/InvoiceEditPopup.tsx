@@ -7,7 +7,9 @@ import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDat
 import { detectBrowserTimeZone, tenantCurrentYear } from '@/lib/tenant-date';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { CurrencyInput } from './CurrencyInput';
-import { todayIso } from './wizard/types';
+import { applyDigitsOnly, applyTransform, todayIso } from './wizard/types';
+import { forceTwoDecimals, withThousandsSeparator } from './currency';
+import { fromIsoDate, toIsoDate, US_DATE_RE } from './document-date';
 
 interface InvoiceEditPopupProps {
   // Which invoice section is being edited — the popup is SCOPED to it (mirrors
@@ -55,7 +57,10 @@ export function InvoiceEditPopup({
   const [state, setState] = useState(str(dataJson.state));
   const [zip, setZip] = useState(str(dataJson.zip));
   const [serviceType, setServiceType] = useState(str(dataJson.service_type));
-  const [eventDate, setEventDate] = useState(str(dataJson.event_date));
+  // event_date held in ISO for the date picker; the stored format is preserved
+  // on save (see toIsoDate/fromIsoDate).
+  const eventDateWasUs = US_DATE_RE.test(str(dataJson.event_date).trim());
+  const [eventDate, setEventDate] = useState(toIsoDate(str(dataJson.event_date)));
   const [eventName, setEventName] = useState(str(dataJson.event_name));
   const [eventLocation, setEventLocation] = useState(str(dataJson.event_location));
   const [quantity, setQuantity] = useState(str(dataJson.quantity));
@@ -73,6 +78,14 @@ export function InvoiceEditPopup({
   // Floor for the date picker: Jan 1 of the tenant's current year (backend
   // re-enforces the past-year rule authoritatively).
   const yearStart = `${tenantCurrentYear(detectBrowserTimeZone())}-01-01`;
+
+  // Live total = unit price × quantity (derived, read-only). Editing either the
+  // unit price or the quantity recomputes it; the unit price is never cleared.
+  // Mirrors the server-side total (buildInvoiceDataJson) so the preview matches
+  // what gets saved.
+  const pricingTotal = withThousandsSeparator(
+    forceTwoDecimals(String((Number(quantity) || 0) * (Number(price) || 0))),
+  );
 
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -105,7 +118,7 @@ export function InvoiceEditPopup({
       }
       return {
         service_type: serviceType.trim(),
-        event_date: eventDate.trim(),
+        event_date: fromIsoDate(eventDate, eventDateWasUs),
         event_name: eventName.trim(),
         event_location: eventLocation.trim(),
       };
@@ -203,25 +216,32 @@ export function InvoiceEditPopup({
             <input
               className="form-input"
               value={serviceType}
-              onChange={(e) => touch(setServiceType)(e.target.value)}
+              onChange={(e) =>
+                touch(setServiceType)(applyTransform(e.target.value, 'titleCase'))
+              }
               placeholder="e.g. Acoustic Performance"
             />
           </div>
           <div className="form-field">
             <label className="form-label">Event date</label>
-            <input
-              className="form-input"
-              value={eventDate}
-              onChange={(e) => touch(setEventDate)(e.target.value)}
-              placeholder="MM/DD/YYYY"
-            />
+            <div className="gep-date-wrapper">
+              <input
+                className="form-input gep-input-date"
+                type="date"
+                value={eventDate}
+                onChange={(e) => touch(setEventDate)(e.target.value)}
+              />
+              <Calendar className="gep-date-icon" size={15} aria-hidden="true" />
+            </div>
           </div>
           <div className="form-field">
             <label className="form-label">Event name</label>
             <input
               className="form-input"
               value={eventName}
-              onChange={(e) => touch(setEventName)(e.target.value)}
+              onChange={(e) =>
+                touch(setEventName)(applyTransform(e.target.value, 'titleCase'))
+              }
             />
           </div>
           <div className="form-field">
@@ -229,36 +249,57 @@ export function InvoiceEditPopup({
             <input
               className="form-input"
               value={eventLocation}
-              onChange={(e) => touch(setEventLocation)(e.target.value)}
+              onChange={(e) =>
+                touch(setEventLocation)(
+                  applyTransform(e.target.value, 'capitalizeFirst'),
+                )
+              }
               placeholder="e.g. Miami, FL"
             />
           </div>
         </>
       ) : section.key === 'pricing' ? (
-        <div className="receipt-detail-grid receipt-detail-grid--2">
-          <div className="form-field">
-            <label className="form-label">Quantity</label>
-            <input
-              className="form-input"
-              inputMode="numeric"
-              value={quantity}
-              onChange={(e) =>
-                touch(setQuantity)(e.target.value.replace(/[^0-9]/g, ''))
-              }
-            />
+        <>
+          <div className="receipt-detail-grid receipt-detail-grid--2">
+            <div className="form-field">
+              <label className="form-label">Quantity</label>
+              <input
+                className="form-input"
+                inputMode="numeric"
+                value={quantity}
+                onChange={(e) =>
+                  touch(setQuantity)(e.target.value.replace(/[^0-9]/g, ''))
+                }
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Unit price</label>
+              <div className="gep-input-currency">
+                <span className="gep-input-prefix">$</span>
+                <CurrencyInput
+                  value={price}
+                  onChange={touch(setPrice)}
+                  className="form-input"
+                />
+              </div>
+            </div>
           </div>
+          {/* Derived total — recomputed live, never editable directly. */}
           <div className="form-field">
-            <label className="form-label">Price</label>
+            <label className="form-label">Total</label>
             <div className="gep-input-currency">
               <span className="gep-input-prefix">$</span>
-              <CurrencyInput
-                value={price}
-                onChange={touch(setPrice)}
+              <input
                 className="form-input"
+                value={pricingTotal}
+                readOnly
+                disabled
+                tabIndex={-1}
+                aria-label="Total (quantity times unit price)"
               />
             </div>
           </div>
-        </div>
+        </>
       ) : (
         <>
           <div className="gep-toggle-row">
@@ -298,7 +339,9 @@ export function InvoiceEditPopup({
               <input
                 className="form-input"
                 value={companyName}
-                onChange={(e) => touch(setCompanyName)(e.target.value)}
+                onChange={(e) =>
+                  touch(setCompanyName)(applyTransform(e.target.value, 'titleCase'))
+                }
               />
             </div>
           ) : (
@@ -308,7 +351,9 @@ export function InvoiceEditPopup({
                 <input
                   className="form-input"
                   value={firstName}
-                  onChange={(e) => touch(setFirstName)(e.target.value)}
+                  onChange={(e) =>
+                    touch(setFirstName)(applyTransform(e.target.value, 'titleCase'))
+                  }
                 />
               </div>
               <div className="form-field">
@@ -316,7 +361,9 @@ export function InvoiceEditPopup({
                 <input
                   className="form-input"
                   value={middleName}
-                  onChange={(e) => touch(setMiddleName)(e.target.value)}
+                  onChange={(e) =>
+                    touch(setMiddleName)(applyTransform(e.target.value, 'titleCase'))
+                  }
                 />
               </div>
               <div className="form-field">
@@ -324,7 +371,9 @@ export function InvoiceEditPopup({
                 <input
                   className="form-input"
                   value={lastName}
-                  onChange={(e) => touch(setLastName)(e.target.value)}
+                  onChange={(e) =>
+                    touch(setLastName)(applyTransform(e.target.value, 'titleCase'))
+                  }
                 />
               </div>
             </>
@@ -346,7 +395,9 @@ export function InvoiceEditPopup({
             <input
               className="form-input"
               value={street}
-              onChange={(e) => touch(setStreet)(e.target.value)}
+              onChange={(e) =>
+                touch(setStreet)(applyTransform(e.target.value, 'titleCase'))
+              }
             />
           </div>
 
@@ -356,7 +407,9 @@ export function InvoiceEditPopup({
               <input
                 className="form-input"
                 value={city}
-                onChange={(e) => touch(setCity)(e.target.value)}
+                onChange={(e) =>
+                  touch(setCity)(applyTransform(e.target.value, 'titleCase'))
+                }
               />
             </div>
             <div className="form-field">
@@ -375,8 +428,9 @@ export function InvoiceEditPopup({
             <label className="form-label">Zip code</label>
             <input
               className="form-input"
+              inputMode="numeric"
               value={zip}
-              onChange={(e) => touch(setZip)(e.target.value)}
+              onChange={(e) => touch(setZip)(applyDigitsOnly(e.target.value))}
             />
           </div>
         </>
