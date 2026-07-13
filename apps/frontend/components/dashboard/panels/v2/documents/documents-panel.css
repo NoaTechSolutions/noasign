@@ -66,9 +66,9 @@
   border-left: 4px solid var(--amber);
 }
 
-/* Receipt/invoice status pills — driven by the SAME --status-* tokens as the
-   badges (single source of truth for the state colour map): Draft = neutral,
-   Sent = green, Scheduled = teal, Void = red. */
+/* Receipt/invoice status pills — driven by the SAME --status-* family tokens as
+   the badges (single source of truth): Draft = gray, Sent = green, Scheduled =
+   blue, Void = red. */
 .documents-v2-stat-pill--sent {
   background: linear-gradient(135deg, var(--status-sent-bg) 0%, var(--surface) 100%);
   border-left: 4px solid var(--status-sent);
@@ -87,10 +87,30 @@
 }
 
 .documents-v2-stat-pill__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 8px;
+}
+
+/* Pill state icon — tinted with the pill's own family colour. */
+.documents-v2-stat-pill__icon {
+  flex-shrink: 0;
+}
+.documents-v2-stat-pill--sent .documents-v2-stat-pill__icon {
+  color: var(--status-sent);
+}
+.documents-v2-stat-pill--draft .documents-v2-stat-pill__icon {
+  color: var(--status-draft);
+}
+.documents-v2-stat-pill--scheduled .documents-v2-stat-pill__icon {
+  color: var(--status-scheduled);
+}
+.documents-v2-stat-pill--void .documents-v2-stat-pill__icon {
+  color: var(--status-void);
 }
 
 /* Total pill header: label on the left, "Detail →" link on the right. */
@@ -305,11 +325,18 @@
 .doc-status-badge {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 500;
   padding: 2px 8px;
   border-radius: 20px;
   white-space: nowrap;
+}
+
+/* Leading state icon — sits on the badge baseline, never shrinks, inherits the
+   family text colour. */
+.doc-status-badge__icon {
+  flex-shrink: 0;
 }
 
 /* All colours from the SINGLE SOURCE (globals.css --status-*) — shared with the
@@ -1338,6 +1365,9 @@
   display: none;
 }
 .documents-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 12px;

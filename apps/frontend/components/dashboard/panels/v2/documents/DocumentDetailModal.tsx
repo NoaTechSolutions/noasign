@@ -21,7 +21,8 @@ import type {
   SchemaField,
   SchemaSection,
 } from './types';
-import { getStatusBadgeClass, getStatusLabel, isDeferredPending } from './types';
+import { isDeferredPending } from './types';
+import { StatusBadge } from './StatusBadge';
 import { FINANCE_COLORS, FinanceCard } from './finance-cards';
 import { CurrencyInput } from './CurrencyInput';
 import { forceTwoDecimals } from './currency';
@@ -601,11 +602,11 @@ export function DocumentDetailModal({
             <div className="doc-detail-modal-header__title-row">
               <h2 className="doc-detail-modal-header__number">{number}</h2>
               {isVoidedReceipt ? (
-                <span className="doc-status-badge doc-status-badge--void">VOID</span>
+                <StatusBadge status="VOID" />
               ) : scheduled ? (
-                <span className="doc-status-badge doc-status-badge--scheduled">Scheduled</span>
+                <StatusBadge status="SCHEDULED" />
               ) : (
-                <span className={`doc-status-badge ${getStatusBadgeClass(status)}`}>{getStatusLabel(status)}</span>
+                <StatusBadge status={status} />
               )}
             </div>
             <div className="doc-detail-modal-header__subtitle">
