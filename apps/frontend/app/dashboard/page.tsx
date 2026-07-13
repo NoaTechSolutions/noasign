@@ -1647,12 +1647,15 @@ function DashboardPageInner() {
         return response.customers;
       },
       onCreateCustomer: async (data: V2CustomerFormData) => {
-        return apiRequest<Customer>("/customers", { method: "POST", body: data });
+        return apiRequest<Customer>("/customers", {
+          method: "POST",
+          body: sanitizeCustomerCreate(data as unknown as Record<string, unknown>),
+        });
       },
       onUpdateCustomer: async (id: string, data: V2CustomerFormData) => {
         return apiRequest<Customer>(`/customers/${id}`, {
           method: "PATCH",
-          body: data,
+          body: sanitizeCustomerUpdate(data as unknown as Record<string, unknown>),
         });
       },
       onDeleteCustomer: async (id: string) => {
@@ -2674,6 +2677,46 @@ const BUSINESS_OPTIONAL_FIELDS = [
   "primaryContactState",
   "primaryContactZipCode",
 ] as const satisfies ReadonlyArray<keyof CustomerBusinessFormValues>;
+
+// The V2 customer form emits '' for untouched optionals. The backend's
+// @IsOptional does NOT skip empty strings, so an '' email/uuid fails @IsEmail /
+// @IsUUID with a 400 ("email must be an email"). CREATE: drop empty optionals.
+// PATCH: send null so the field is explicitly cleared (null IS skipped by
+// @IsOptional). Both recurse into the nested `business` object.
+function sanitizeCustomerCreate(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) out[key] = trimmed;
+    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+      const nested = sanitizeCustomerCreate(value as Record<string, unknown>);
+      if (Object.keys(nested).length) out[key] = nested;
+    } else if (value != null) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function sanitizeCustomerUpdate(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      out[key] = trimmed ? trimmed : null;
+    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+      out[key] = sanitizeCustomerUpdate(value as Record<string, unknown>);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 function buildBusinessCreatePayload(
   business: CustomerBusinessFormValues,
