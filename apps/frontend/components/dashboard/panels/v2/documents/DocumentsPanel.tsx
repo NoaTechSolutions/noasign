@@ -260,6 +260,10 @@ export function DocumentsPanel({
   const [reissueOnOpen, setReissueOnOpen] = useState(false);
   // Direct-void confirmation (kebab "Void" — no replacement created).
   const [voidConfirm, setVoidConfirm] = useState<{ docId: string } | null>(null);
+  // Blocked-send warning (B6): a doc with no email on file can't be sent — we
+  // show an acknowledgement dialog and never fire the send. The detail modal (if
+  // open) stays open behind it.
+  const [noEmailWarn, setNoEmailWarn] = useState(false);
   // In-flight receipt resends — locks out double-clicks (ajuste 3).
   const resendingRef = useRef<Set<string>>(new Set());
   const [sessionId] = useState<string>(() => {
@@ -508,6 +512,17 @@ export function DocumentsPanel({
     // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send. Blocked
     // server-side while still deferred (and the kebab hides it until due).
     if (action === 'send' && doc && isInvoiceDoc(doc)) {
+      // B6: no email on file → warn and don't attempt the send (the backend
+      // would reject it). The detail modal, if open, stays open behind the warn.
+      const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
+      const email = (
+        doc?.customer?.email ||
+        (typeof dj?.recipient_email === 'string' ? dj.recipient_email : '')
+      ).trim();
+      if (!email) {
+        setNoEmailWarn(true);
+        return;
+      }
       await onSendInvoice?.(docId);
       return;
     }
@@ -518,9 +533,15 @@ export function DocumentsPanel({
       receipt
     ) {
       const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
-      const email =
-        doc?.customer?.email ??
-        (typeof dj?.email === 'string' ? dj.email : '');
+      const email = (
+        doc?.customer?.email ||
+        (typeof dj?.email === 'string' ? dj.email : '')
+      ).trim();
+      // B6: same guard as invoices — no email, no send, just a warning.
+      if (!email) {
+        setNoEmailWarn(true);
+        return;
+      }
       setReceiptSendConfirm({ docId, email, isResend: action !== 'send' });
       return;
     }
@@ -769,6 +790,18 @@ export function DocumentsPanel({
           variant="amber"
           onConfirm={handleConfirmReceiptSend}
           onCancel={() => setReceiptSendConfirm(null)}
+        />
+      ) : null}
+
+      {noEmailWarn ? (
+        <ConfirmActionModal
+          isOpen
+          title="Can't send — no email on file"
+          message="This document has no email address registered, so it can't be sent. Add a recipient email first, then try again."
+          confirmLabel="Got it"
+          variant="amber"
+          onConfirm={() => setNoEmailWarn(false)}
+          onCancel={() => setNoEmailWarn(false)}
         />
       ) : null}
 

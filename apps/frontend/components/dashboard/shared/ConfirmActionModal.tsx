@@ -8,7 +8,8 @@ interface ConfirmActionModalProps {
   title: string;
   message: React.ReactNode;
   confirmLabel: string;
-  cancelLabel: string;
+  /** Omit to render a single-button acknowledgement dialog (e.g. a warning). */
+  cancelLabel?: string;
   /** 'amber' for forward/positive actions (Send), 'danger' for destructive (Cancel). */
   variant?: 'amber' | 'danger';
   onConfirm: () => void;
@@ -64,13 +65,15 @@ export function ConfirmActionModal({
           {message}
         </p>
         <div className="confirm-action-modal__actions">
-          <button
-            type="button"
-            className="confirm-action-modal__btn confirm-action-modal__btn--cancel"
-            onClick={onCancel}
-          >
-            {cancelLabel}
-          </button>
+          {cancelLabel ? (
+            <button
+              type="button"
+              className="confirm-action-modal__btn confirm-action-modal__btn--cancel"
+              onClick={onCancel}
+            >
+              {cancelLabel}
+            </button>
+          ) : null}
           <button
             type="button"
             className={`confirm-action-modal__btn confirm-action-modal__btn--${variant}`}
