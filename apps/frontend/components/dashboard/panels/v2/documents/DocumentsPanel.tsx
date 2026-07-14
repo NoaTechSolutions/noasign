@@ -517,6 +517,25 @@ export function DocumentsPanel({
     // C6: finalize a scheduled doc TODAY — confirm first (it emits now, not on
     // the scheduled date).
     if (action === 'sendNow') {
+      // H1: "Send now" issues AND emails the doc today, so a doc with no recipient
+      // email must warn and NOT attempt the send — same B6/C5 guard as the plain
+      // send (the backend would reject it). Invoice reads recipient_email, receipt
+      // reads email.
+      const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
+      const email = (
+        doc?.customer?.email ||
+        (receipt
+          ? typeof dj?.email === 'string'
+            ? dj.email
+            : ''
+          : typeof dj?.recipient_email === 'string'
+            ? dj.recipient_email
+            : '')
+      ).trim();
+      if (!email) {
+        setNoEmailWarn(true);
+        return;
+      }
       setSendNowConfirm({ docId });
       return;
     }
