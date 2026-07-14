@@ -237,12 +237,6 @@ export function DocumentsPanel({
     if (typeof window === 'undefined') return null;
     return new URLSearchParams(window.location.search).get('newType');
   });
-  // When editing an invoice, the creation modal opens with its data preloaded and
-  // submits a PATCH instead of a POST (null = create mode).
-  const [editInvoice, setEditInvoice] = useState<{
-    documentId: string;
-    data: Record<string, string>;
-  } | null>(null);
   // When the create modal opens (toolbar "New Document" OR the Overview's
   // ?new=1 deep-link — both set showCreateModal), refetch the customers so the
   // "Client" selector reflects clients created since this page loaded (the
@@ -482,23 +476,8 @@ export function DocumentsPanel({
       return;
     }
     if (action === 'edit') {
-      // Invoices reopen the schema-driven wizard prefilled (PATCH on submit);
-      // everything else keeps the legacy edit route.
-      if (doc && isInvoiceDoc(doc)) {
-        try {
-          const detail = await onFetchDocument(docId);
-          const raw = (detail?.data?.dataJson ?? {}) as Record<string, unknown>;
-          const flat: Record<string, string> = {};
-          for (const [k, v] of Object.entries(raw)) {
-            if (typeof v === 'string' || typeof v === 'number') flat[k] = String(v);
-          }
-          setEditInvoice({ documentId: docId, data: flat });
-          setShowCreateModal(true);
-        } catch {
-          toast.error('Could not load the invoice for editing');
-        }
-        return;
-      }
+      // Legacy edit route (contracts). Invoices/receipts edit in place via the
+      // detail's scoped edit popup, not this action.
       onEditDocument(docId);
       return;
     }
@@ -775,16 +754,11 @@ export function DocumentsPanel({
           onFetchTypesAsUser={onFetchTypesAsUser}
           onClose={() => {
             setShowCreateModal(false);
-            setEditInvoice(null);
           }}
           onCreate={onCreateDraft}
           onCreateReceipt={onCreateReceipt}
           onCreateInvoice={onCreateInvoice}
-          onUpdateInvoice={onUpdateInvoice}
-          editInvoice={editInvoice ?? undefined}
-          initialDocumentTypeCode={
-            editInvoice ? 'INVOICE' : (createTypeCode ?? undefined)
-          }
+          initialDocumentTypeCode={createTypeCode ?? undefined}
           defaultReceivedBy={defaultReceivedBy}
           receiptQuota={receiptQuota}
         />
