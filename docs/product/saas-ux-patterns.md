@@ -75,6 +75,17 @@ this behavior for free by (a) rendering inside `GroupEditPopup`, (b) passing
 `isSaving`, and (c) using the `setSaving(true) → onSave().catch(setError + setSaving(false))`
 shape where the parent closes only on success.
 
+**Extends to CREATE / SEND too.** The same shape governs the creation modal
+(`DocumentCreationModal`): pressing Create draft / Create and send / Send covers
+the whole form with a blocking "Saving…" card (nothing can be clicked/typed) and
+makes the modal undismissable while in flight. Success closes it; failure lifts
+the card and the form reappears with the user's values intact + the error. The
+one exception is the optimistic **send** (email is fire-and-forget with a
+top-right progress toast) — it closes immediately and the toast reports the real
+SENT/SEND_FAILED outcome, since a failed *email* still produced a real document.
+A failed **create** (draft) always reopens with values, never a silent toast-only
+loss.
+
 ## §6 — Skeletons everywhere async content loads
 
 **The rule.** Any title, value, link, or text that arrives asynchronously shows a

@@ -2290,11 +2290,10 @@ function DashboardPageInner() {
             sendError: res.sendError ?? null,
           };
         } catch (e) {
-          toast.error(
-            e instanceof Error ? e.message : "Could not save the draft",
-            { id: tid },
-          );
-          return { status: "DRAFT", sendError: null };
+          // C3: rethrow so the form reopens with the user's values + the error
+          // inline (no silent toast-only loss). Dismiss the loading toast.
+          toast.dismiss(tid);
+          throw e;
         }
       },
       onCreateInvoice: async (payload: {

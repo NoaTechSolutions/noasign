@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { useBeforeUnload } from '@/lib/use-before-unload';
 import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
@@ -139,6 +139,9 @@ export function DocumentCreationModal({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // C3: the receipt form drives its own draft submit; it reports "busy" so the
+  // modal can show the same blocking "Saving…" card as the invoice path.
+  const [receiptBusy, setReceiptBusy] = useState(false);
   // Pending invoice action while the issue-date disclaimer is open (null = closed).
   const [pendingInvoice, setPendingInvoice] = useState<{
     send: boolean;
@@ -199,12 +202,14 @@ export function DocumentCreationModal({
 
   // Any close intent (backdrop / Escape / X): warn first if there are changes.
   const handleRequestClose = useCallback(() => {
+    // C3: can't dismiss while a submit is in flight (the saving card owns the UI).
+    if (isSubmitting || receiptBusy) return;
     if (wizardDirty) {
       setShowDiscard(true);
       return;
     }
     onClose();
-  }, [wizardDirty, onClose]);
+  }, [isSubmitting, receiptBusy, wizardDirty, onClose]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -419,7 +424,41 @@ export function DocumentCreationModal({
           </button>
         </header>
 
-        <div className="docs-v2-creation-modal__body">
+        <div
+          className="docs-v2-creation-modal__body"
+          style={{ position: 'relative' }}
+        >
+          {/* C3 (saas-ux-patterns §5, extended to create/send): while a submit is
+              in flight the whole form is covered by a blocking "Saving…" card so
+              nothing can be clicked/typed. On success the parent closes the modal;
+              on failure the overlay lifts and the form reappears (values intact)
+              with the error. */}
+          {isSubmitting || receiptBusy ? (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 5,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                background: 'var(--bg-card)',
+              }}
+            >
+              <Loader2
+                size={30}
+                className="animate-spin"
+                style={{ color: 'var(--brand-accent)' }}
+                aria-hidden="true"
+              />
+              <p style={{ margin: 0, fontWeight: 500 }}>Saving…</p>
+            </div>
+          ) : null}
+
           {isSuperadmin && selectableUsers && selectableUsers.length > 0 ? (
             <div className="docs-v2-setup-card">
               <div className="docs-v2-setup-card__row">
@@ -508,6 +547,7 @@ export function DocumentCreationModal({
               receiptQuota={receiptQuota}
               onCreate={onCreateReceipt!}
               onClose={onClose}
+              onBusyChange={setReceiptBusy}
             />
           ) : (
             <>
