@@ -21,7 +21,7 @@ import type {
   SchemaField,
   SchemaSection,
 } from './types';
-import { isDeferredPending } from './types';
+import { isDeferredPending, invoiceRecipientName } from './types';
 import { StatusBadge } from './StatusBadge';
 import { FINANCE_COLORS, FinanceCard } from './finance-cards';
 import { CurrencyInput } from './CurrencyInput';
@@ -1249,7 +1249,10 @@ function SectionTab({
         onEdit={onEdit}
       >
         <div className="receipt-detail-grid receipt-detail-grid--2">
-          {field('client')}
+          {/* C4: prefer the split parts (invoiceRecipientName: company for a
+              business, else first/middle/last); fall back to the stored `client`
+              string for older receipts without parts. */}
+          {field('client', invoiceRecipientName(dataJson) || undefined)}
           {field('date')}
         </div>
         <div className="receipt-detail-grid receipt-detail-grid--2">
@@ -1351,19 +1354,11 @@ function InvoiceSectionTab({
   } else {
     // billed_to (default): recipient identity + contact + address.
     icon = <User size={14} />;
-    // C4: invoices never store a `business` flag — they're a business iff
-    // company_name is filled (mirrors invoiceRecipientName + the edit popup).
-    // Fall back to the explicit flag for any data that does carry it.
-    const business =
-      str('company_name').trim() !== '' ||
-      dataJson.business === true ||
-      dataJson.business === 'true';
-    const recipient = business
-      ? str('company_name').trim()
-      : ['first_name', 'middle_name', 'last_name']
-          .map((k) => str(k).trim())
-          .filter(Boolean)
-          .join(' ');
+    // C4: compose the recipient with the SAME helper the list uses
+    // (invoiceRecipientName: company_name for a business, else first/middle/last)
+    // instead of a `business` flag invoices never store.
+    const business = str('company_name').trim() !== '';
+    const recipient = invoiceRecipientName(dataJson);
     // Server-added invoice_date (MM/DD/YYYY) is the issued date; fall back to the
     // raw issueDate field when a draft hasn't been finalized yet.
     const issue = str('invoice_date').trim() ? str('invoice_date') : val('issueDate');
