@@ -28,6 +28,7 @@ import {
   receiptResendBlockMessage,
 } from '../common/receipt-resend-policy';
 import {
+  formatCalendarParts,
   isDueInTenantTz,
   isFutureCalendarDate,
   parseCalendarDate,
@@ -747,6 +748,11 @@ export class ReceiptsService {
         }
       }
       const receiptNumber = stored.receipt_number ?? '';
+      // H3: also refresh the raw ISO issueDate the edit popup reads.
+      // buildInvoiceDataJson only rewrites invoice_date (the US string the view/PDF
+      // print), so without this the un-deferred invoice showed today in the view but
+      // the edit + stored issueDate kept the old scheduled date (display vs persisted).
+      if (parts) stored.issueDate = formatCalendarParts(parts);
       const dataJson = this.buildInvoiceDataJson(
         stored,
         receiptNumber,
