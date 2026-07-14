@@ -265,20 +265,23 @@ export function isDeletedDoc(doc: { deletedAt?: string | null }): boolean {
   return Boolean(doc.deletedAt);
 }
 
-/** A deferred (future-dated) document whose issue date has NOT arrived yet — it
- *  can't be sent/finalized. Browser zone is a hint; the backend enforces with the
- *  tenant's authoritative timezone. */
+/** "Scheduled" = a DRAFT whose issue date is still in the future — it can't be
+ *  sent/finalized yet. D4: derived from status + issueDate, NOT the `isDeferred`
+ *  flag: (a) the flag proved unreliable (future-dated docs sometimes persisted
+ *  with isDeferred=false), and (b) requiring DRAFT stops a CANCELLED/terminal doc
+ *  with a leftover deferred flag from painting amber "Scheduled". Browser zone is
+ *  a hint; the backend enforces with the tenant's authoritative timezone. */
 export function isDeferredPending(doc: {
-  isDeferred?: boolean;
+  status?: string;
   issueDate?: string | null;
 }): boolean {
-  if (!doc.isDeferred || !doc.issueDate) return false;
+  if (doc.status !== 'DRAFT' || !doc.issueDate) return false;
   return doc.issueDate.slice(0, 10) > tenantLocalDate(detectBrowserTimeZone());
 }
 
 /** "Scheduled for YYYY-MM-DD" label for a deferred-pending doc, else null. */
 export function scheduledLabel(doc: {
-  isDeferred?: boolean;
+  status?: string;
   issueDate?: string | null;
 }): string | null {
   return isDeferredPending(doc)
