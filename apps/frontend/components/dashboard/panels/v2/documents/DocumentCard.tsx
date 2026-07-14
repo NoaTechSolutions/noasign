@@ -140,7 +140,7 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
                 </div>
               )}
               <div className="documents-v2-card__info-row">
-                <span className="documents-v2-card__label">Date</span>
+                <span className="documents-v2-card__label">Created</span>
                 <span>{formatDate(document.createdAt)}</span>
               </div>
               <div className="documents-v2-card__info-row">
