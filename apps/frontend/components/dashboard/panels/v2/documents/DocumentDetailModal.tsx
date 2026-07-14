@@ -259,7 +259,15 @@ function formatValue(field: SchemaField, raw: unknown): string {
         : s;
     }
     case 'date': {
-      const d = new Date(s);
+      // G2: an ISO yyyy-mm-dd string must be parsed as a LOCAL calendar date.
+      // `new Date('2026-07-20')` is spec'd as UTC midnight, which toLocaleDateString
+      // then renders a DAY EARLIER in any negative-offset timezone — so an invoice
+      // event date (stored ISO by the wizard) showed the day before the saved value,
+      // making edits look like they never took. US MM/DD/YYYY already parses local.
+      const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const d = iso
+        ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
+        : new Date(s);
       return Number.isNaN(d.getTime())
         ? s
         : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -563,6 +571,12 @@ export function DocumentDetailModal({
   const autoDateEditFiredRef = useRef(false);
   useEffect(() => {
     if (!autoOpenDateEdit || autoDateEditFiredRef.current) return;
+    // G4: the edit popups snapshot dataJson into their state at mount, so we must
+    // wait for the FULL detail (which carries dataJson) to load before opening.
+    // canEdit* derives from status, which is available instantly off the list item
+    // — firing on that alone opens the popup against an empty dataJson and it stays
+    // blank forever. Gate on the loaded detail so the popup mounts prefilled.
+    if (!detail?.data?.dataJson) return;
     if (canEditInvoice) {
       autoDateEditFiredRef.current = true;
       setInvoiceEditSection(
@@ -576,7 +590,7 @@ export function DocumentDetailModal({
       autoDateEditFiredRef.current = true;
       setReceiptEditOpen(true);
     }
-  }, [autoOpenDateEdit, canEditInvoice, canEditReceipt, sections]);
+  }, [autoOpenDateEdit, canEditInvoice, canEditReceipt, sections, detail]);
 
   const openEdit = (group: CardGroup) => {
     const keys =
