@@ -7,6 +7,7 @@ import { useBeforeUnload } from '@/lib/use-before-unload';
 import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
 import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
 import { DocumentSetupCard } from './DocumentSetupCard';
+import { isTransportError, draftMaybeSavedMessage } from './submit-error';
 import {
   ReceiptForm,
   type CreateReceiptPayload,
@@ -315,7 +316,11 @@ export function DocumentCreationModal({
       onClose();
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : 'Unable to save invoice',
+        isTransportError(err)
+          ? draftMaybeSavedMessage('invoice')
+          : err instanceof Error
+            ? err.message
+            : 'Unable to save invoice',
       );
     } finally {
       setIsSubmitting(false);
@@ -349,7 +354,11 @@ export function DocumentCreationModal({
       onClose();
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : 'Unable to send invoice',
+        isTransportError(err)
+          ? draftMaybeSavedMessage('invoice')
+          : err instanceof Error
+            ? err.message
+            : 'Unable to send invoice',
       );
     } finally {
       setIsSubmitting(false);

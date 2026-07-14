@@ -11,6 +11,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { BaseField } from './wizard/fields/BaseField';
+import { isTransportError, draftMaybeSavedMessage } from './submit-error';
 import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { applyTransform } from './wizard/types';
@@ -288,7 +289,13 @@ export function ReceiptForm({
     onCreate(payload)
       .then(() => onClose())
       .catch((e) => {
-        setError(e instanceof Error ? e.message : 'Could not save the draft');
+        setError(
+          isTransportError(e)
+            ? draftMaybeSavedMessage('receipt')
+            : e instanceof Error
+              ? e.message
+              : 'Could not save the draft',
+        );
         onBusyChange?.(false);
       });
   }

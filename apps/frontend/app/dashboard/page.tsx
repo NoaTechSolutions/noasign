@@ -13,6 +13,10 @@ import { DashboardShell } from "../../components/dashboard/layout/DashboardShell
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel, TemplatesPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
 import { invoiceRecipientName } from "../../components/dashboard/panels/v2/documents/types";
+import {
+  isTransportError,
+  draftMaybeSavedMessage,
+} from "../../components/dashboard/panels/v2/documents/submit-error";
 import type {
   V2DocumentItem,
   DocumentVersion as V2DocumentVersion,
@@ -1238,7 +1242,7 @@ function DashboardPageInner() {
   // throws (network/unknown → error state). Copy is per-flow.
   function runSendWithToast(
     send: () => Promise<{ status: string; sendError: string | null }>,
-    copy: { loading: string; success: string },
+    copy: { loading: string; success: string; networkError?: string },
   ): void {
     const id = `send-${Date.now()}-${Math.random()
       .toString(36)
@@ -1266,11 +1270,20 @@ function DashboardPageInner() {
         );
       })
       .catch((e: unknown) => {
+        // G1: a transport failure on a create-and-send may have left a draft on the
+        // server. When the caller provided create-and-send copy, guide the user to
+        // the list instead of a bare "Could not send" (which reads as "nothing
+        // happened" and invites a duplicate). Resends/other flows keep the generic
+        // message — they never create a draft.
+        const message =
+          copy.networkError && isTransportError(e)
+            ? copy.networkError
+            : `Could not send: ${e instanceof Error ? e.message : "unknown error"}`;
         toast.custom(
           () => (
             <SendToast
               state="error"
-              message={`Could not send: ${e instanceof Error ? e.message : "unknown error"}`}
+              message={message}
               onDismiss={() => toast.dismiss(id)}
             />
           ),
@@ -2271,7 +2284,11 @@ function DashboardPageInner() {
                 sendError: res.sendError ?? null,
               };
             },
-            { loading: "Sending receipt…", success: "Receipt sent successfully" },
+            {
+              loading: "Sending receipt…",
+              success: "Receipt sent successfully",
+              networkError: draftMaybeSavedMessage("receipt"),
+            },
           );
           return { status: "SENT", sendError: null };
         }
@@ -2320,7 +2337,11 @@ function DashboardPageInner() {
                 sendError: res.sendError ?? null,
               };
             },
-            { loading: "Sending invoice…", success: "Invoice sent successfully" },
+            {
+              loading: "Sending invoice…",
+              success: "Invoice sent successfully",
+              networkError: draftMaybeSavedMessage("invoice"),
+            },
           );
           return;
         }
