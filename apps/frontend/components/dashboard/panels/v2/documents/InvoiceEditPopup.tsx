@@ -340,7 +340,9 @@ export function InvoiceEditPopup({
                 className="form-input"
                 value={companyName}
                 onChange={(e) =>
-                  touch(setCompanyName)(applyTransform(e.target.value, 'titleCase'))
+                  touch(setCompanyName)(
+                    applyTransform(e.target.value, 'capitalizeFirst'),
+                  )
                 }
               />
             </div>

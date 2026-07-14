@@ -127,6 +127,13 @@ export const DIGITS_ONLY_KEYS: ReadonlySet<string> = new Set([
   'zipCode',
 ]);
 
+// Fields that capitalize only the FIRST character (titleCase would wrongly
+// lowercase the rest — e.g. a company "ABC Corp" → "Abc Corp"). Company names
+// keep their internal casing; only the leading letter is forced up.
+export const CAPITALIZE_FIRST_KEYS: ReadonlySet<string> = new Set([
+  'company_name',
+]);
+
 export const MAX_2_DIGITS_KEYS: ReadonlySet<string> = new Set(['customer_age']);
 
 export function todayIso(): string {

@@ -6,6 +6,7 @@ import {
   applyDigitsOnly,
   applyLettersOnly,
   applyTransform,
+  CAPITALIZE_FIRST_KEYS,
   DIGITS_ONLY_KEYS,
   iconForType,
   LETTERS_ONLY_KEYS,
@@ -32,6 +33,8 @@ export function TextField({
     }
     if (NO_DIGITS_KEYS.has(field.key) || LETTERS_ONLY_KEYS.has(field.key)) {
       next = applyTransform(next, 'titleCase');
+    } else if (CAPITALIZE_FIRST_KEYS.has(field.key)) {
+      next = applyTransform(next, 'capitalizeFirst');
     } else if (
       field.transform === 'titleCase' ||
       field.transform === 'capitalizeFirst'

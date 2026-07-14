@@ -336,7 +336,7 @@ export function ReceiptForm({
                 value={companyName}
                 placeholder="Company name"
                 onChange={(e) =>
-                  setCompanyName(applyTransform(e.target.value, 'titleCase'))
+                  setCompanyName(applyTransform(e.target.value, 'capitalizeFirst'))
                 }
               />
             </BaseField>
