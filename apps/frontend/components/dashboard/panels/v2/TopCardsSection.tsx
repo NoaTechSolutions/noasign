@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { CreditCard, Calendar } from 'lucide-react';
+import { formatDisplayDate } from '@/lib/format';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -13,15 +14,7 @@ function daysUntil(dateStr: string): number {
 }
 
 function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatDisplayDate(dateStr) || dateStr;
 }
 
 // ─── mini plan data (for the desktop plan row) ──────────────────────────────

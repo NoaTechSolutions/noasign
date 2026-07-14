@@ -1,5 +1,6 @@
 import type { DashboardDocument } from '@/app/dashboard/page';
 import { formatDocumentStatus } from '@/lib/document-status';
+import { formatDisplayDate } from '@/lib/format';
 import { detectBrowserTimeZone, tenantLocalDate } from '@/lib/tenant-date';
 
 export type { DashboardDocument };
@@ -195,13 +196,9 @@ export function getCreatorDisplayName(doc: V2DocumentItem): string {
 
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—';
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return (
+    formatDisplayDate(typeof date === 'string' ? date : date.toISOString()) || '—'
+  );
 }
 
 export function formatRelativeTime(date: string | Date): string {
@@ -279,13 +276,13 @@ export function isDeferredPending(doc: {
   return doc.issueDate.slice(0, 10) > tenantLocalDate(detectBrowserTimeZone());
 }
 
-/** "Scheduled for YYYY-MM-DD" label for a deferred-pending doc, else null. */
+/** "Scheduled for MM/DD/YYYY" label for a deferred-pending doc, else null. */
 export function scheduledLabel(doc: {
   status?: string;
   issueDate?: string | null;
 }): string | null {
   return isDeferredPending(doc)
-    ? `Scheduled for ${doc.issueDate!.slice(0, 10)}`
+    ? `Scheduled for ${formatDisplayDate(doc.issueDate!.slice(0, 10))}`
     : null;
 }
 

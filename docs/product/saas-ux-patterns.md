@@ -115,3 +115,36 @@ each async value on it. Panels that self-fetch (Customers, Templates) own a loca
 
 **Applies to:** every surface that renders server data. When you add a card,
 stat, or field that loads, add its skeleton in the same commit.
+
+## §7 — Dates display as US MM/DD/YYYY (4-digit year)
+
+Every calendar date the user SEES renders as **MM/DD/YYYY** with a **4-digit
+year** (e.g. `07/14/2026`), in **en-US regardless of the browser locale**. No
+month-name form (`Jul 14, 2026`), no 2-digit year (`07/14/26`), no day-first
+(`14/07/2026`).
+
+**How.** Route every display through the canonical helper
+`formatDisplayDate(value)` in `lib/format.ts`. It accepts an ISO date
+(`yyyy-mm-dd`), a US date (returned as-is), or a full ISO timestamp, and always
+emits `MM/DD/YYYY`. Never call `toLocaleDateString()`/`toLocaleString()` **without
+an explicit `'en-US'` locale** — the no-arg form follows the browser and renders
+day-first on a non-US machine. A bare ISO date must also be pinned to a **local**
+calendar day (a UTC-parsed `new Date('yyyy-mm-dd')` shifts a day back in
+negative-offset zones); `formatDisplayDate` already does this.
+
+**Month/period labels are exempt.** Billing-month and "member since" labels stay
+month-name (`Jul 2026`, `July 2026`) — they name a period, not a calendar date.
+
+**Date+time** (admin timestamps) uses `toLocaleString('en-US', { … month:'2-digit',
+day:'2-digit', year:'numeric', hour, minute })` — same MM/DD/YYYY ordering, plus
+the time.
+
+**Known gap — native pickers.** A native `<input type="date">` renders its OWN
+text per the browser/OS locale and **cannot be forced** to MM/DD/YYYY. The stored
+value is ISO and every read-only display is normalized, but the picker's editing
+UI still follows the browser (e.g. day-first on an es-AR machine). Making the edit
+inputs show MM/DD/YYYY requires a custom masked date component — tracked as a
+dedicated follow-up (H2b), not yet done.
+
+**Backend.** Receipt/invoice PDFs already print `MM/DD/YYYY`
+(`formatInvoiceDate`/`formatFromParts` in `receipts.service.ts`).

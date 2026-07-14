@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileText, ChevronRight } from 'lucide-react';
 import { formatDocumentStatus } from '@/lib/document-status';
+import { formatDisplayDate } from '@/lib/format';
 
 interface DashboardDocument {
   id: string;
@@ -39,14 +40,7 @@ export function RecentDocumentsTable({
     : 'Create your first document to get started';
   const viewTitle = isReceipt ? 'View receipt' : 'View document';
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = (dateString: string) => formatDisplayDate(dateString);
 
   const getStatusBadgeClass = (status: string) => {
     switch (status.toUpperCase()) {

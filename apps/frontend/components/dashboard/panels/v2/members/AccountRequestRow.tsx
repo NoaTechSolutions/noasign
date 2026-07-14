@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { formatDisplayDate } from '@/lib/format';
 import type { AccountRequest } from './types';
 
 interface AccountRequestRowProps {
@@ -36,7 +37,7 @@ export function AccountRequestRow({
       <td>
         <span className={`status-badge status-badge--${request.status.toLowerCase()}`}>{request.status}</span>
       </td>
-      <td className="request-row__date">{new Date(request.createdAt).toLocaleDateString()}</td>
+      <td className="request-row__date">{formatDisplayDate(request.createdAt)}</td>
       <td>
         <div className="request-row__actions">
           <button type="button" className="btn-secondary btn-sm" onClick={() => onView(request)}>View</button>

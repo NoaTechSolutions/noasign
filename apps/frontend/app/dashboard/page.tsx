@@ -2721,7 +2721,8 @@ function formatNextBillingDate(monthString: string | null | undefined): string {
   if (!year || !month) return "";
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  return `${SHORT_MONTHS[nextMonth - 1]} 1, ${nextYear}`;
+  // H2: next billing date is the 1st of next month, rendered MM/DD/YYYY.
+  return `${String(nextMonth).padStart(2, "0")}/01/${nextYear}`;
 }
 
 function deriveBillingPeriodStart(monthString: string | null | undefined): string {

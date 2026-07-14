@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { formatUsPhone } from '@/lib/format-phone';
 import { formatState } from '@/lib/format-text';
+import { formatDisplayDate } from '@/lib/format';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
@@ -242,10 +243,7 @@ const FALLBACK_SECTIONS: SchemaSection[] = [
 ];
 
 function fmtDate(value: string | null | undefined): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDisplayDate(value) || '—';
 }
 
 function formatValue(field: SchemaField, raw: unknown): string {
@@ -258,20 +256,12 @@ function formatValue(field: SchemaField, raw: unknown): string {
         ? n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
         : s;
     }
-    case 'date': {
-      // G2: an ISO yyyy-mm-dd string must be parsed as a LOCAL calendar date.
-      // `new Date('2026-07-20')` is spec'd as UTC midnight, which toLocaleDateString
-      // then renders a DAY EARLIER in any negative-offset timezone — so an invoice
-      // event date (stored ISO by the wizard) showed the day before the saved value,
-      // making edits look like they never took. US MM/DD/YYYY already parses local.
-      const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      const d = iso
-        ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))
-        : new Date(s);
-      return Number.isNaN(d.getTime())
-        ? s
-        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
+    case 'date':
+      // G2 + H2: render through the canonical MM/DD/YYYY formatter, which also pins
+      // a bare ISO date to a LOCAL calendar day (a UTC-parsed ISO date shifts a day
+      // back in negative-offset zones — that made invoice event-date edits look like
+      // they never took).
+      return formatDisplayDate(s) || s;
     case 'select':
       return field.options?.find((o) => o.value === s)?.label ?? s;
     default:
@@ -1374,8 +1364,10 @@ function InvoiceSectionTab({
     const business = str('company_name').trim() !== '';
     const recipient = invoiceRecipientName(dataJson);
     // Server-added invoice_date (MM/DD/YYYY) is the issued date; fall back to the
-    // raw issueDate field when a draft hasn't been finalized yet.
-    const issue = str('invoice_date').trim() ? str('invoice_date') : val('issueDate');
+    // raw issueDate field when a draft hasn't been finalized yet. Both normalized to
+    // MM/DD/YYYY (H2).
+    const issue =
+      formatDisplayDate(str('invoice_date').trim() || str('issueDate')) || '—';
     const cityStateZip = [
       str('city').trim(),
       [str('state').trim(), str('zip').trim()].filter(Boolean).join(' '),

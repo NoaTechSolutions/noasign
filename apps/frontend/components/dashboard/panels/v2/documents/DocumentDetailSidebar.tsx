@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { X, FileText, Activity } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { FieldRow } from '@/components/dashboard/shared/ui';
+import { formatDisplayDate } from '@/lib/format';
 import { DocumentVersionTimeline } from './DocumentVersionTimeline';
 import type { V2DocumentItem, V2DocumentAction, DocumentVersion } from './types';
 import {
@@ -141,7 +142,7 @@ export function DocumentDetailSidebar({
               <FieldRow label="Document Type" value={document.documentType?.name ?? 'Unknown'} />
 
               {document.contractDate ? (
-                <FieldRow label="Document Date" value={new Date(document.contractDate).toLocaleDateString()} />
+                <FieldRow label="Document Date" value={formatDisplayDate(document.contractDate)} />
               ) : null}
 
               <FieldRow
