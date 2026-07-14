@@ -17,6 +17,10 @@ interface WizardBottomBarProps {
   // this one takes the filled primary style (mirrors the receipt form footer).
   onSend?: () => void;
   sendLabel?: string;
+  // I1: when the issue date is in the future the send action SCHEDULES (does not
+  // send). The caller resolves sendLabel to the schedule label; this flips the
+  // in-progress verb "Sending..." → "Scheduling..." to match.
+  isScheduling?: boolean;
 }
 
 export function WizardBottomBar({
@@ -30,6 +34,7 @@ export function WizardBottomBar({
   submitLabel = 'Create draft',
   onSend,
   sendLabel = 'Create and send',
+  isScheduling = false,
 }: WizardBottomBarProps) {
   const disabledSubmit = isSubmitting || !canSubmit;
   const submitClass = onSend ? 'wizard-btn--secondary' : 'wizard-btn--primary';
@@ -65,7 +70,11 @@ export function WizardBottomBar({
                 disabled={disabledSubmit}
                 className={`wizard-btn wizard-btn--primary${disabledSubmit ? ' wizard-btn--primary-disabled' : ''}`}
               >
-                {isSubmitting ? 'Sending...' : sendLabel}
+                {isSubmitting
+                  ? isScheduling
+                    ? 'Scheduling...'
+                    : 'Sending...'
+                  : sendLabel}
               </button>
             ) : null}
           </>

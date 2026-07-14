@@ -493,6 +493,8 @@ export function DocumentCreationModal({
                   submitLabel="Create invoice"
                   onSend={handleInvoiceSend}
                   sendLabel="Create and send"
+                  scheduleLabel="Create and schedule"
+                  scheduleDateField="issueDate"
                   sendRequiredFields={['recipient_email']}
                 />
               ) : (

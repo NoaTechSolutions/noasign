@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { BaseField } from './wizard/fields/BaseField';
 import { isTransportError, draftMaybeSavedMessage } from './submit-error';
+import { formatDisplayDate } from '@/lib/format';
 import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { applyTransform } from './wizard/types';
@@ -157,6 +158,9 @@ export function ReceiptForm({
   // pick an issue date. The effective date is what validation/submit use.
   const [differentDay, setDifferentDay] = useState(false);
   const effectiveDate = differentDay ? date : todayIso();
+  // I1: a future issue date SCHEDULES the receipt (kept as a draft until then, not
+  // emailed now) — the CTA + confirm read "Schedule" instead of "Send".
+  const scheduling = effectiveDate > todayIso();
   const [paymentFor, setPaymentFor] = useState('');
   // Pending send flag while the issue-date disclaimer is open (null = closed).
   const [disclaimerSend, setDisclaimerSend] = useState<boolean | null>(null);
@@ -598,21 +602,30 @@ export function ReceiptForm({
           className="wizard-btn wizard-btn--primary"
           onClick={handleSendClick}
         >
-          Create &amp; send
+          {scheduling ? 'Create & schedule' : 'Create & send'}
         </button>
       </footer>
 
       <ConfirmActionModal
         isOpen={confirmSend}
-        title="Send receipt?"
+        title={scheduling ? 'Schedule receipt?' : 'Send receipt?'}
         message={
-          <>
-            This will email the receipt to{' '}
-            <strong>{email.trim() || 'the client'}</strong>. This action cannot be
-            undone.
-          </>
+          scheduling ? (
+            <>
+              This receipt will be scheduled for{' '}
+              <strong>{formatDisplayDate(effectiveDate)}</strong> and kept as a
+              draft until then — you send it to{' '}
+              <strong>{email.trim() || 'the client'}</strong> on that date.
+            </>
+          ) : (
+            <>
+              This will email the receipt to{' '}
+              <strong>{email.trim() || 'the client'}</strong>. This action cannot be
+              undone.
+            </>
+          )
         }
-        confirmLabel="Send receipt"
+        confirmLabel={scheduling ? 'Schedule receipt' : 'Send receipt'}
         cancelLabel="Cancel"
         variant="amber"
         onConfirm={() => {

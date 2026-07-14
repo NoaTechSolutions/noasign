@@ -17,6 +17,8 @@ import {
   isTransportError,
   draftMaybeSavedMessage,
 } from "../../components/dashboard/panels/v2/documents/submit-error";
+import { isFutureDate } from "../../components/dashboard/panels/v2/documents/document-date";
+import { formatDisplayDate } from "../../lib/format";
 import type {
   V2DocumentItem,
   DocumentVersion as V2DocumentVersion,
@@ -2271,6 +2273,8 @@ function DashboardPageInner() {
         if (payload.send) {
           // Optimistic: the form already closed; show the progress toast and
           // resolve it with the REAL SENT / SEND_FAILED result.
+          // I1: a future date schedules the receipt (kept as a draft, not sent now).
+          const scheduled = isFutureDate(payload.date);
           runSendWithToast(
             async () => {
               const res = await apiRequest<{
@@ -2284,11 +2288,17 @@ function DashboardPageInner() {
                 sendError: res.sendError ?? null,
               };
             },
-            {
-              loading: "Sending receipt…",
-              success: "Receipt sent successfully",
-              networkError: draftMaybeSavedMessage("receipt"),
-            },
+            scheduled
+              ? {
+                  loading: "Scheduling receipt…",
+                  success: `Scheduled for ${formatDisplayDate(payload.date)}`,
+                  networkError: draftMaybeSavedMessage("receipt"),
+                }
+              : {
+                  loading: "Sending receipt…",
+                  success: "Receipt sent successfully",
+                  networkError: draftMaybeSavedMessage("receipt"),
+                },
           );
           return { status: "SENT", sendError: null };
         }
@@ -2324,6 +2334,9 @@ function DashboardPageInner() {
         // resolves to the REAL SENT / SEND_FAILED result). Optimistic — the modal
         // has already closed. No PDF is opened automatically.
         if (payload.send) {
+          // I1: a future issue date schedules the invoice (the backend never sends
+          // it now), so the toast reads "Scheduling…" / "Scheduled for DATE".
+          const scheduled = isFutureDate(payload.data.issueDate);
           runSendWithToast(
             async () => {
               const res = await apiRequest<{
@@ -2337,11 +2350,17 @@ function DashboardPageInner() {
                 sendError: res.sendError ?? null,
               };
             },
-            {
-              loading: "Sending invoice…",
-              success: "Invoice sent successfully",
-              networkError: draftMaybeSavedMessage("invoice"),
-            },
+            scheduled
+              ? {
+                  loading: "Scheduling invoice…",
+                  success: `Scheduled for ${formatDisplayDate(payload.data.issueDate)}`,
+                  networkError: draftMaybeSavedMessage("invoice"),
+                }
+              : {
+                  loading: "Sending invoice…",
+                  success: "Invoice sent successfully",
+                  networkError: draftMaybeSavedMessage("invoice"),
+                },
           );
           return;
         }
