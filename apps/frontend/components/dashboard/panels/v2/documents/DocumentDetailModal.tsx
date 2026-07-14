@@ -347,24 +347,53 @@ export function DocumentDetailModal({
 
   const loadDetail = useCallback(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     setLoading(true);
     setError(null);
-    fetchRef.current(documentId)
-      .then((d) => {
-        if (!cancelled) setDetail(d);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load document');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+
+    // B1: a just-created doc can hit a backend still recompiling (dev) or a brief
+    // network blip — fetch rejects with a bare TypeError (no HTTP status). Retry
+    // those transiently with backoff (loading stays up) before surfacing a hard
+    // error. A real error (an HTTP status, e.g. 404) is shown immediately.
+    const MAX_RETRIES = 4;
+    const attempt = (n: number) => {
+      fetchRef.current(documentId)
+        .then((d) => {
+          if (!cancelled) {
+            setDetail(d);
+            setLoading(false);
+          }
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          const hasStatus =
+            typeof err === 'object' && err !== null && 'status' in err;
+          if (!hasStatus && n < MAX_RETRIES) {
+            timer = setTimeout(
+              () => {
+                if (!cancelled) attempt(n + 1);
+              },
+              400 * 2 ** n,
+            );
+            return;
+          }
+          setError(
+            err instanceof Error ? err.message : 'Could not load document',
+          );
+          setLoading(false);
+        });
+    };
+    attempt(0);
+
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [documentId]);
 
-  useEffect(() => loadDetail(), [loadDetail]);
+  // Bumped by the "Try again" button to force a fresh load after a hard failure.
+  const [reloadNonce, setReloadNonce] = useState(0);
+  useEffect(() => loadDetail(), [loadDetail, reloadNonce]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -672,6 +701,15 @@ export function DocumentDetailModal({
         ) : error ? (
           <div className="doc-detail-modal-content">
             <div className="doc-detail-modal__hint">{error}</div>
+            {/* B1: recover from a transient failure without closing/reopening. */}
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ marginTop: 12 }}
+              onClick={() => setReloadNonce((n) => n + 1)}
+            >
+              Try again
+            </button>
           </div>
         ) : (
           <>
