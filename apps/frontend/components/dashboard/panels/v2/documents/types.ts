@@ -39,7 +39,9 @@ export type V2DocumentAction =
   // Reissue a SENT receipt (2c): create a corrected copy + void the original.
   | 'reissue'
   // Void a SENT receipt (2c): mark VOID with no replacement.
-  | 'void';
+  | 'void'
+  // B7: soft-delete a DRAFT (not an issued doc → deleted, never voided).
+  | 'delete';
 
 /** Subset matching page.tsx `DocumentAction` (the backend-bound one). */
 export type BackendDocumentAction = 'send' | 'resend' | 'cancel' | 'reactivate';
@@ -77,6 +79,9 @@ export interface V2DocumentItem extends DashboardDocument {
   // Reissue (2c): set on the original once it has been superseded → drives the
   // red VOID badge in the list.
   supersededAt?: string | null;
+  // B7 soft-delete: set (only visible to a SUPERADMIN) → drives the "Deleted"
+  // badge. Absent/null for live docs.
+  deletedAt?: string | null;
 }
 
 /** Schema-driven form definition (subset of FormDefinition.schemaJson). */
@@ -249,6 +254,12 @@ export function isVoidedDoc(doc: {
   return (isReceiptDoc(doc) || isInvoiceDoc(doc)) && Boolean(doc.supersededAt);
 }
 
+// B7: a soft-deleted doc only ever reaches the frontend for a SUPERADMIN (the
+// backend hides it from everyone else), so a truthy deletedAt → show "Deleted".
+export function isDeletedDoc(doc: { deletedAt?: string | null }): boolean {
+  return Boolean(doc.deletedAt);
+}
+
 /** A deferred (future-dated) document whose issue date has NOT arrived yet — it
  *  can't be sent/finalized. Browser zone is a hint; the backend enforces with the
  *  tenant's authoritative timezone. */
@@ -271,6 +282,9 @@ export function scheduledLabel(doc: {
 }
 
 export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
+  // B7: a soft-deleted doc (SUPERADMIN-only view) is terminal — view only, no
+  // re-delete/send. No restore yet (that's F1).
+  if (isDeletedDoc(doc)) return ['view'];
   // Receipts (DIRECT_PDF): the PDF is always viewable; a SENT receipt is issued
   // and is NOT cancellable; a failed one can be retried or discarded. Edit is a
   // per-card pencil (DRAFT/SEND_FAILED), not a kebab action.
@@ -278,8 +292,9 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     const actions: V2DocumentAction[] = ['view', 'viewPdf'];
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
-        // A deferred receipt can't be sent until its issue date arrives.
-        actions.push(...(isDeferredPending(doc) ? ['discard'] : ['send', 'discard']) as V2DocumentAction[]);
+        // A deferred receipt can't be sent until its issue date arrives. A DRAFT
+        // is deleted (soft), never voided (B7).
+        actions.push(...(isDeferredPending(doc) ? ['delete'] : ['send', 'delete']) as V2DocumentAction[]);
         break;
       case 'SENT':
         // A voided receipt is terminal: no resend, no reissue, no void.
@@ -304,12 +319,12 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     if (doc.supersededAt) return actions;
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
-        // Mirrors receipt DRAFT (send + discard); a scheduled invoice can't send
-        // until its issue date arrives.
+        // Mirrors receipt DRAFT (send + delete); a scheduled invoice can't send
+        // until its issue date arrives. A DRAFT is deleted (soft), never voided (B7).
         actions.push(
           ...((isDeferredPending(doc)
-            ? ['discard']
-            : ['send', 'discard']) as V2DocumentAction[]),
+            ? ['delete']
+            : ['send', 'delete']) as V2DocumentAction[]),
         );
         break;
       case 'SENT':
@@ -363,6 +378,7 @@ export function getActionLabel(action: V2DocumentAction): string {
     discard: 'Discard',
     reissue: 'Reissue',
     void: 'Void',
+    delete: 'Delete',
   };
   return labels[action];
 }

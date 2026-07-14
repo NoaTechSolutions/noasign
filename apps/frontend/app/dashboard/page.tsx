@@ -1352,6 +1352,14 @@ function DashboardPageInner() {
     toast.success("Invoice voided");
   }
 
+  // B7: soft-delete a DRAFT document (invoice or receipt). The backend stamps
+  // deletedAt; the owner stops seeing it (a SUPERADMIN still does).
+  async function handleDeleteDocument(documentId: string): Promise<void> {
+    await apiRequest(`/documents/${documentId}`, { method: "DELETE" });
+    await loadWorkspace();
+    toast.success("Draft deleted");
+  }
+
   async function handleUpdateDraft(
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -2454,6 +2462,7 @@ function DashboardPageInner() {
       onReissueReceipt: handleReissueReceipt,
       onVoidReceipt: handleVoidReceipt,
       onVoidInvoice: handleVoidInvoice,
+      onDeleteDocument: handleDeleteDocument,
       onFetchReceiptPdf: handleFetchReceiptPdf,
       onFetchInvoicePdf: handleFetchInvoicePdf,
     };
@@ -2565,6 +2574,7 @@ function DashboardPageInner() {
           onReissueReceipt={documentsV2.onReissueReceipt}
           onVoidReceipt={documentsV2.onVoidReceipt}
           onVoidInvoice={documentsV2.onVoidInvoice}
+          onDeleteDocument={documentsV2.onDeleteDocument}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           onFetchInvoicePdf={documentsV2.onFetchInvoicePdf}
           isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}

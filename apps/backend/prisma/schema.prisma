@@ -642,6 +642,10 @@ model Document {
   signedAt               DateTime?
   completedAt            DateTime?
   cancelledAt            DateTime?
+  // B7 soft-delete — null = live, timestamp = deleted. A deleted DRAFT is hidden
+  // from its owner; a SUPERADMIN still sees it flagged. Distinct from CANCELLED
+  // (a real lifecycle state) and from the receipt VOID (derived from supersededAt).
+  deletedAt              DateTime?
   lastManualReminderAt   DateTime?
   lastSentRecipientEmail String?
 
@@ -714,6 +718,7 @@ model Document {
   @@index([documentTypeId])
   @@index([status])
   @@index([createdAt])
+  @@index([companyProfileId, deletedAt])
   @@index([providerDocumentId])
   // FASE 2: bounce webhooks look up the document by the Resend message id.
   @@index([providerEmailId])

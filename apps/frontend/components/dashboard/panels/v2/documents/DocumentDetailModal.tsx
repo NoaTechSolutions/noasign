@@ -476,6 +476,7 @@ export function DocumentDetailModal({
       action === 'preview' ||
       action === 'cancel' ||
       action === 'discard' ||
+      action === 'delete' ||
       (action === 'send' && !isInvoice);
     if (!keepsOpen) onClose();
   };
@@ -495,6 +496,9 @@ export function DocumentDetailModal({
   // Reissue (2c): a SENT receipt is corrected by reissuing (never edited). Once
   // voided (supersededAt) it can't be reissued again.
   const isVoided = (isReceipt || isInvoice) && Boolean(detail?.supersededAt);
+  // B7: a soft-deleted doc reaches here only for a SUPERADMIN — read it off the
+  // list item (which carries deletedAt). Reads as "Deleted"; no footer actions.
+  const isDeleted = Boolean(listItem?.deletedAt);
   const canReissue =
     isReceipt && status === 'SENT' && !isVoided && Boolean(onReissueReceipt);
   const reissuedTo = detail?.supersededBy?.[0] ?? null; // this one → its replacement
@@ -601,7 +605,9 @@ export function DocumentDetailModal({
           <div className="doc-detail-modal-header__main">
             <div className="doc-detail-modal-header__title-row">
               <h2 className="doc-detail-modal-header__number">{number}</h2>
-              {isVoided ? (
+              {isDeleted ? (
+                <StatusBadge status="DELETED" />
+              ) : isVoided ? (
                 <StatusBadge status="VOID" />
               ) : scheduled ? (
                 <StatusBadge status="SCHEDULED" />
@@ -790,12 +796,13 @@ export function DocumentDetailModal({
 
             {/* Footer actions — hidden on the PDF tab so its single Download
                 button isn't duplicated by the footer's (COMPLETED) Download. */}
-            {activeTab !== 'pdf' && !isVoided && (
+            {activeTab !== 'pdf' && !isVoided && !isDeleted && (
               <DetailFooter
                 status={status}
                 onAction={runAction}
                 isSuperadmin={isSuperadmin}
                 isInvoice={isInvoice}
+                isReceipt={isReceipt}
                 isDeferred={scheduled}
               />
             )}
@@ -1442,25 +1449,28 @@ function DetailFooter({
   onAction,
   isSuperadmin = false,
   isInvoice = false,
+  isReceipt = false,
   isDeferred = false,
 }: {
   status: string;
   onAction: (action: V2DocumentAction) => void;
   isSuperadmin?: boolean;
   isInvoice?: boolean;
+  isReceipt?: boolean;
   // A scheduled (deferred) invoice can't be sent until its issue date arrives.
   isDeferred?: boolean;
 }) {
   let left: React.ReactNode = null;
   let right: React.ReactNode = null;
 
-  // Invoices: their only footer state is a DRAFT — Discard + (Send unless it's
-  // still scheduled). A SENT invoice's Download lives inside its Preview tab.
-  if (isInvoice) {
+  // Invoices AND receipts (DIRECT_PDF): their only footer state is a DRAFT —
+  // Delete (B7: a draft is deleted, never voided) + (Send unless scheduled).
+  // A SENT doc's Download lives inside its Preview/PDF tab.
+  if (isInvoice || isReceipt) {
     if (status === 'DRAFT') {
       left = (
-        <button type="button" className="btn-danger" onClick={() => onAction('discard')}>
-          Discard
+        <button type="button" className="btn-danger" onClick={() => onAction('delete')}>
+          Delete
         </button>
       );
       right = isDeferred ? null : (

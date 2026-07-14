@@ -1670,6 +1670,9 @@ export class ReceiptsService {
         documentType: {
           code: { in: [RECEIPT_TYPE_CODE, INVOICE_TYPE_CODE] },
         },
+        // B7: a soft-deleted doc is not an issued receipt/invoice — keep it out
+        // of the dashboard counts (for everyone, including SUPERADMIN).
+        deletedAt: null,
       },
       select: {
         status: true,

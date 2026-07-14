@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   X,
   Ban,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -39,6 +40,8 @@ export const STATUS_META: Record<string, StatusMeta> = {
   SEND_FAILED: { icon: AlertTriangle, label: 'Send failed', cls: 'doc-status-badge--failed', family: 'red' },
   CANCELLED: { icon: X, label: 'Cancelled', cls: 'doc-status-badge--cancelled', family: 'red' },
   VOID: { icon: Ban, label: 'Void', cls: 'doc-status-badge--void', family: 'red' },
+  // B7: derived state (SUPERADMIN-only) for a soft-deleted doc.
+  DELETED: { icon: Trash2, label: 'Deleted', cls: 'doc-status-badge--deleted', family: 'gray' },
 };
 
 export function statusMeta(status: string): StatusMeta {

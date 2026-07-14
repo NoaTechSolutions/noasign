@@ -140,6 +140,8 @@ export interface DocumentsPanelProps {
   onVoidReceipt?: (docId: string) => Promise<void>;
   // Void an invoice (owner decision: cancelling an invoice → VOID).
   onVoidInvoice?: (docId: string) => Promise<void>;
+  // B7: soft-delete a DRAFT document (DELETE /documents/:id).
+  onDeleteDocument?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   // Invoice-specific (DIRECT_PDF, code INVOICE): regenerated PDF for the SENT
   // invoice's Preview tab (GET /documents/invoice/:id/pdf).
@@ -193,6 +195,7 @@ export function DocumentsPanel({
   onReissueReceipt,
   onVoidReceipt,
   onVoidInvoice,
+  onDeleteDocument,
   onFetchReceiptPdf,
   onFetchInvoicePdf,
   isSuperadmin = false,
@@ -264,6 +267,11 @@ export function DocumentsPanel({
   // show an acknowledgement dialog and never fire the send. The detail modal (if
   // open) stays open behind it.
   const [noEmailWarn, setNoEmailWarn] = useState(false);
+  // Delete confirmation (B7): a DRAFT is soft-deleted (not voided) after a
+  // confirm. The actor stops seeing it; a SUPERADMIN still does.
+  const [deleteConfirm, setDeleteConfirm] = useState<{ docId: string } | null>(
+    null,
+  );
   // In-flight receipt resends — locks out double-clicks (ajuste 3).
   const resendingRef = useRef<Set<string>>(new Set());
   const [sessionId] = useState<string>(() => {
@@ -507,6 +515,11 @@ export function DocumentsPanel({
     // Void directly (no replacement) — confirm first (irreversible).
     if (action === 'void') {
       setVoidConfirm({ docId });
+      return;
+    }
+    // B7: soft-delete a DRAFT — confirm first, then DELETE /documents/:id.
+    if (action === 'delete') {
+      setDeleteConfirm({ docId });
       return;
     }
     // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send. Blocked
@@ -802,6 +815,25 @@ export function DocumentsPanel({
           variant="amber"
           onConfirm={() => setNoEmailWarn(false)}
           onCancel={() => setNoEmailWarn(false)}
+        />
+      ) : null}
+
+      {deleteConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title="Delete draft?"
+          message="This draft will be deleted and removed from your list. This can't be undone from here."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => {
+            const { docId } = deleteConfirm;
+            setDeleteConfirm(null);
+            void onDeleteDocument?.(docId);
+            // Close the detail (if open) so the updated list shows.
+            setSelectedDocId(null);
+          }}
+          onCancel={() => setDeleteConfirm(null)}
         />
       ) : null}
 

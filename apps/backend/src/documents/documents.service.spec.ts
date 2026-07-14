@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DocumentStatus } from '@prisma/client';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -973,5 +973,100 @@ describe('DocumentsService', () => {
     await expect(
       service.simulateDocumentCompleted('user-1', 'doc-viewed'),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  // ── B7: soft-delete of documents ──────────────────────────────────────────
+  // A DRAFT is deleted (soft), never voided. Void stays for issued (SENT) docs.
+  // A deleted doc disappears for the owner; a SUPERADMIN still sees it.
+  describe('deleteDocument (B7 soft-delete)', () => {
+    it('soft-deletes a DRAFT by stamping deletedAt, scoped to the owner', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue({
+        id: 'doc-del',
+        status: DocumentStatus.DRAFT,
+      });
+      prismaMock.document.update.mockResolvedValue({ id: 'doc-del' });
+
+      await service.deleteDocument('user-1', 'doc-del');
+
+      // Normal user is scoped to their own, not-already-deleted docs.
+      expect(prismaMock.document.findFirst).toHaveBeenCalledWith({
+        where: { id: 'doc-del', userId: 'user-1', deletedAt: null },
+      });
+      expect(prismaMock.document.update).toHaveBeenCalledWith({
+        where: { id: 'doc-del' },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it('rejects deleting a non-DRAFT document (issued docs are voided, not deleted)', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue({
+        id: 'doc-sent',
+        status: DocumentStatus.SENT,
+      });
+
+      await expect(
+        service.deleteDocument('user-1', 'doc-sent'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prismaMock.document.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFound when the doc is out of scope or already deleted', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue(null);
+
+      await expect(service.deleteDocument('user-1', 'missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('getMyDocuments soft-delete visibility (B7)', () => {
+    it('hides soft-deleted docs from a normal user', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findMany.mockResolvedValue([]);
+
+      await service.getMyDocuments('user-1');
+
+      expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-1', deletedAt: null },
+        }),
+      );
+    });
+
+    it('shows every doc (incl. deleted) to a SUPERADMIN across the tenant', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'SUPERADMIN',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findMany.mockResolvedValue([]);
+
+      await service.getMyDocuments('user-1');
+
+      expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { companyProfileId: 'company-1' },
+        }),
+      );
+    });
   });
 });

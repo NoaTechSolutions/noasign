@@ -375,6 +375,14 @@
   color: var(--status-cancelled);
 }
 
+/* B7: soft-deleted doc — SUPERADMIN-only. Muted gray so it reads as "gone",
+   visibly distinct from an active Draft. */
+.doc-status-badge--deleted {
+  background: var(--status-draft-bg);
+  color: var(--status-draft);
+  opacity: 0.7;
+}
+
 /* Send failed — stronger red than "cancelled" to flag it needs attention. */
 .doc-status-badge--failed {
   background: var(--status-failed-bg);

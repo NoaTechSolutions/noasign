@@ -13,6 +13,7 @@ import {
   getCustomerDisplayName,
   getDocumentTypeDisplayName,
   isDeferredPending,
+  isDeletedDoc,
   isReceiptDoc,
   isVoidedDoc,
   scheduledLabel,
@@ -103,7 +104,9 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
               {getCustomerDisplayName(document)}
             </div>
             <div className="documents-v2-card__badges">
-              {isVoidedDoc(document) ? (
+              {isDeletedDoc(document) ? (
+                <StatusBadge status="DELETED" />
+              ) : isVoidedDoc(document) ? (
                 <StatusBadge status="VOID" />
               ) : isDeferredPending(document) ? (
                 <StatusBadge
@@ -143,7 +146,9 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
               <div className="documents-v2-card__info-row">
                 <span className="documents-v2-card__label">Status</span>
                 <span>
-                  {isVoidedDoc(document) ? (
+                  {isDeletedDoc(document) ? (
+                    <StatusBadge status="DELETED" />
+                  ) : isVoidedDoc(document) ? (
                     <StatusBadge status="VOID" />
                   ) : isDeferredPending(document) ? (
                     <StatusBadge status="SCHEDULED" />
