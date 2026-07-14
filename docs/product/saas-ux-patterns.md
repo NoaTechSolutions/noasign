@@ -74,3 +74,33 @@ still in local state — reappears. There is nothing to re-hydrate.
 this behavior for free by (a) rendering inside `GroupEditPopup`, (b) passing
 `isSaving`, and (c) using the `setSaving(true) → onSave().catch(setError + setSaving(false))`
 shape where the parent closes only on success.
+
+## §6 — Skeletons everywhere async content loads
+
+**The rule.** Any title, value, link, or text that arrives asynchronously shows a
+**skeleton placeholder** while it loads — never a bare pop-in and never a `—`
+stand-in. The skeleton must occupy the **same space** as the final content so
+swapping the real value in causes **no layout shift**.
+
+**One primitive.** Use the shared `<Skeleton>` component
+(`components/dashboard/shared/ui.tsx`) — it wraps the global `.skeleton-pulse`
+shimmer (`globals.css`). Do **not** hand-roll `<span className="skeleton-pulse">`
+spans inline, and do **not** invent per-component skeleton classes (the old
+`welcome-skeleton-*` set was a divergent second implementation — removed).
+
+```tsx
+import { Skeleton } from '@/components/dashboard/shared/ui';
+
+// size it to match the real content (no layout shift):
+{isLoading ? <Skeleton width={32} height={24} /> : count}
+```
+
+Props: `width`, `height` (default 14), `radius`, `circle`, `className`, `style`.
+
+**How loading is available.** Most dashboard panels receive `isLoading` from the
+central `loadWorkspace` hook (`app/dashboard/page.tsx`) — thread it down and gate
+each async value on it. Panels that self-fetch (Customers, Templates) own a local
+`loading` state for the same purpose.
+
+**Applies to:** every surface that renders server data. When you add a card,
+stat, or field that loads, add its skeleton in the same commit.

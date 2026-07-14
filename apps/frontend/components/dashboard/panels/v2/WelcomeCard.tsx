@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, Crown } from 'lucide-react';
 import { getPlanEntry } from '@/lib/plan-catalog';
 import { resolveAccountName } from '@/lib/account-identity';
+import { Skeleton } from '@/components/dashboard/shared/ui';
 
 interface DashboardUser {
   name: string;
@@ -38,11 +39,24 @@ export function WelcomeCard({ user, company, plan, isLoading, onNewDocument, cta
   const greeting = greetingForHour(new Date().getHours());
 
   if (isLoading) {
+    // Canonical skeleton (globals.css shimmer) — replaces the old bespoke
+    // welcome-skeleton-* classes so there's one skeleton implementation.
     return (
       <div className="welcome-card loading">
-        <div className="welcome-skeleton-line welcome-skeleton-date"></div>
-        <div className="welcome-skeleton-line welcome-skeleton-title"></div>
-        <div className="welcome-skeleton-line welcome-skeleton-subtitle"></div>
+        <div className="welcome-content">
+          <Skeleton width={120} height={14} style={{ display: 'block' }} />
+          <Skeleton
+            width={220}
+            height={30}
+            style={{ display: 'block', marginTop: 10 }}
+          />
+          <Skeleton
+            width={110}
+            height={22}
+            radius={999}
+            style={{ display: 'block', marginTop: 10 }}
+          />
+        </div>
       </div>
     );
   }
