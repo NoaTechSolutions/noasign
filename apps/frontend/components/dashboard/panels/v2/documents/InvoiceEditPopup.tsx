@@ -64,7 +64,10 @@ export function InvoiceEditPopup({
   const [eventName, setEventName] = useState(str(dataJson.event_name));
   const [eventLocation, setEventLocation] = useState(str(dataJson.event_location));
   const [quantity, setQuantity] = useState(str(dataJson.quantity));
-  const [price, setPrice] = useState(str(dataJson.price));
+  // D3: the stored price is formatted with thousands separators ("123,123.00"),
+  // but CurrencyInput + the live-total math need a clean numeric string — strip
+  // the commas so the field prefills (a comma'd value → NaN → blank/zero).
+  const [price, setPrice] = useState(str(dataJson.price).replace(/,/g, ''));
 
   // Issue date (Billed to only) — mirrors the wizard's "Different day" toggle +
   // date field. Different day is ON when the stored issue date isn't today.

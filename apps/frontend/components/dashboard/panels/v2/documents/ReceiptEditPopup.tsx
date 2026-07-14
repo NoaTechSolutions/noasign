@@ -67,7 +67,9 @@ export function ReceiptEditPopup({
 
   const [email, setEmail] = useState(str(dataJson.email));
   const [phone, setPhone] = useState(str(dataJson.phone));
-  const [amount, setAmount] = useState(str(dataJson.amount));
+  // D3: strip thousands separators so CurrencyInput prefills (a comma'd stored
+  // value → NaN → blank).
+  const [amount, setAmount] = useState(str(dataJson.amount).replace(/,/g, ''));
   // Date held in ISO for the picker; the stored US format is preserved on save.
   const dateWasUs = US_DATE_RE.test(str(dataJson.date).trim());
   const [date, setDate] = useState(toIsoDate(str(dataJson.date)));

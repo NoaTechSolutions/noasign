@@ -159,7 +159,8 @@ export function invoiceRecipientName(
   if (!dataJson) return '';
   const company = dataJson.company_name;
   if (typeof company === 'string' && company.trim()) return company.trim();
-  const composed = ['first_name', 'last_name']
+  // D2: include middle_name — it's stored + editable, so the view must show it.
+  const composed = ['first_name', 'middle_name', 'last_name']
     .map((k) => dataJson[k])
     .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
     .map((v) => v.trim())
