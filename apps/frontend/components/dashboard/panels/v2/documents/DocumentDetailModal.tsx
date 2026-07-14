@@ -500,13 +500,24 @@ export function DocumentDetailModal({
     // cancel/discard/(contract & receipt) send open a confirmation popup that the
     // panel owns — it closes this modal once confirmed. Invoice send is optimistic
     // (no confirm popup), so it falls through and closes the modal itself.
+    // C5: a send with no email on file is blocked by the panel (it shows a
+    // warning and never sends) — keep the detail open so the warning isn't left
+    // hanging over a closed modal. Same email source as the panel's B6 guard.
+    const dj = detail?.data?.dataJson as Record<string, unknown> | undefined;
+    const rawEmail = isInvoice ? dj?.recipient_email : dj?.email;
+    const hasEmail = Boolean(
+      (
+        listItem?.customer?.email ||
+        (typeof rawEmail === 'string' ? rawEmail : '')
+      ).trim(),
+    );
     const keepsOpen =
       action === 'download' ||
       action === 'preview' ||
       action === 'cancel' ||
       action === 'discard' ||
       action === 'delete' ||
-      (action === 'send' && !isInvoice);
+      (action === 'send' && (!isInvoice || !hasEmail));
     if (!keepsOpen) onClose();
   };
 
@@ -1315,7 +1326,13 @@ function InvoiceSectionTab({
   } else {
     // billed_to (default): recipient identity + contact + address.
     icon = <User size={14} />;
-    const business = dataJson.business === true || dataJson.business === 'true';
+    // C4: invoices never store a `business` flag — they're a business iff
+    // company_name is filled (mirrors invoiceRecipientName + the edit popup).
+    // Fall back to the explicit flag for any data that does carry it.
+    const business =
+      str('company_name').trim() !== '' ||
+      dataJson.business === true ||
+      dataJson.business === 'true';
     const recipient = business
       ? str('company_name').trim()
       : ['first_name', 'middle_name', 'last_name']
