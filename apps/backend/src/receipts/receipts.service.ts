@@ -32,6 +32,7 @@ import {
   isFutureCalendarDate,
   parseCalendarDate,
   tenantCurrentYear,
+  tenantLocalDate,
   toDateOnly,
 } from '../common/tenant-date';
 
@@ -697,6 +698,98 @@ export class ReceiptsService {
   }
 
   /**
+   * "Send now" for a DRAFT invoice — the same finalize as sendDraftInvoice, but a
+   * SCHEDULED (deferred, future-dated) invoice is first un-deferred to TODAY: the
+   * issue date is re-resolved to the tenant's local today, the defer/notify flags
+   * are cleared, and the stored dataJson + PDF are rebuilt so the finalized invoice
+   * prints today's date. Then it delegates to sendDraftInvoice (which renders +
+   * emails). A non-deferred draft just sends (no-op un-defer). Mirrors the un-defer
+   * branch of updateInvoice.
+   */
+  async sendInvoiceNow(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+      include: { data: true, receiptTemplate: true },
+    });
+    if (!document || !document.receiptTemplate) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (document.status !== DocumentStatus.DRAFT) {
+      throw new BadRequestException('Only draft invoices can be sent');
+    }
+
+    if (document.isDeferred) {
+      const profile = await this.prisma.companyProfile.findUnique({
+        where: { id: user.companyProfileId },
+        select: { timezone: true },
+      });
+      const parts = parseCalendarDate(tenantLocalDate(profile?.timezone));
+      const issueDateStr = parts
+        ? this.formatInvoicePartsUS(parts)
+        : this.formatInvoiceDate(new Date());
+      const issueDateColumn = parts ? toDateOnly(parts) : new Date();
+
+      // Rebuild the stored form data with today's date + recomputed money.
+      const stored: Record<string, string> = {};
+      const raw = document.data?.dataJson;
+      if (raw && typeof raw === 'object') {
+        for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+          if (typeof v === 'string') stored[k] = v;
+          else if (typeof v === 'number') stored[k] = String(v);
+        }
+      }
+      const receiptNumber = stored.receipt_number ?? '';
+      const dataJson = this.buildInvoiceDataJson(
+        stored,
+        receiptNumber,
+        issueDateStr,
+      );
+
+      await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          lastEditedAt: new Date(),
+          issueDate: issueDateColumn,
+          isDeferred: false,
+          notifyOnIssueDate: false,
+          deferredNotifiedAt: null,
+          data: { update: { dataJson } },
+        },
+      });
+
+      // Re-render + overwrite the stored PDF so a view/download reflects today.
+      try {
+        const pdfBuffer = await this.renderInvoice(
+          document.receiptTemplate,
+          this.buildInvoicePdfData(dataJson),
+        );
+        await this.persistReceiptToR2(
+          document.id,
+          user.companyProfileId,
+          pdfBuffer,
+          `${receiptNumber || document.documentNumber}.pdf`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `[ReceiptsService] invoice send-now re-render/persist failed for ${document.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // Delegate to the finalize path — no longer deferred, so assertDeferredDue
+    // passes and the invoice is rendered from the fresh dataJson and emailed.
+    return this.sendDraftInvoice(userId, documentId);
+  }
+
+  /**
    * Stream a freshly-regenerated invoice PDF from the stored form data, using the
    * SAME renderMode dispatch + adapter as create — a view/download is byte-for-byte
    * the same pipeline. (Invoices are not emailed in this phase.)
@@ -1359,6 +1452,63 @@ export class ReceiptsService {
       });
       return { document: failed, sendError: reason };
     }
+  }
+
+  /**
+   * "Send now" for a receipt — like resendReceipt for a DRAFT first send, but a
+   * SCHEDULED (deferred, future-dated) receipt is first un-deferred to TODAY: the
+   * issue date is set to the tenant's local today, the defer/notify flags are
+   * cleared, the stored `date` is rewritten to today's MM/DD/YYYY so the PDF prints
+   * today, and the cached PDF is dropped. Then it delegates to resendReceipt. A
+   * non-deferred receipt just sends (no-op un-defer).
+   */
+  async sendReceiptNow(userId: string, documentId: string) {
+    const document = await this.loadReceiptForUser(userId, documentId);
+
+    if (document.isDeferred) {
+      const profile = document.companyProfileId
+        ? await this.prisma.companyProfile.findUnique({
+            where: { id: document.companyProfileId },
+            select: { timezone: true },
+          })
+        : null;
+      const parts = parseCalendarDate(tenantLocalDate(profile?.timezone));
+      const todayUs = parts
+        ? this.formatInvoicePartsUS(parts)
+        : this.formatInvoiceDate(new Date());
+      const issueDateColumn = parts ? toDateOnly(parts) : new Date();
+
+      // Merge stored data, overwrite only the printed `date` with today.
+      const merged: Record<string, string | number> = {};
+      for (const [k, v] of Object.entries(
+        this.asObject(document.data?.dataJson),
+      )) {
+        if (typeof v === 'string' || typeof v === 'number') merged[k] = v;
+      }
+      merged.date = todayUs;
+
+      await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          lastEditedAt: new Date(),
+          issueDate: issueDateColumn,
+          isDeferred: false,
+          notifyOnIssueDate: false,
+          deferredNotifiedAt: null,
+          data: { update: { dataJson: merged } },
+        },
+      });
+
+      // The data (and thus the rendered PDF) changed — drop the cached R2 copy so
+      // the next send regenerates and re-uploads the current version.
+      await this.prisma.documentFile.deleteMany({
+        where: { documentId: document.id, fileType: DocumentFileType.RECEIPT },
+      });
+    }
+
+    // Delegate to the resend path — no longer deferred, so assertDeferredDue
+    // passes and the receipt is regenerated + emailed (first send from DRAFT).
+    return this.resendReceipt(userId, documentId);
   }
 
   /**

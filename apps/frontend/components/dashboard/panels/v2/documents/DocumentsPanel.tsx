@@ -142,6 +142,9 @@ export interface DocumentsPanelProps {
   onVoidInvoice?: (docId: string) => Promise<void>;
   // B7: soft-delete a DRAFT document (DELETE /documents/:id).
   onDeleteDocument?: (docId: string) => Promise<void>;
+  // C6: finalize a scheduled invoice/receipt TODAY (issue date → today).
+  onSendInvoiceNow?: (docId: string) => Promise<void>;
+  onSendReceiptNow?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   // Invoice-specific (DIRECT_PDF, code INVOICE): regenerated PDF for the SENT
   // invoice's Preview tab (GET /documents/invoice/:id/pdf).
@@ -196,6 +199,8 @@ export function DocumentsPanel({
   onVoidReceipt,
   onVoidInvoice,
   onDeleteDocument,
+  onSendInvoiceNow,
+  onSendReceiptNow,
   onFetchReceiptPdf,
   onFetchInvoicePdf,
   isSuperadmin = false,
@@ -272,6 +277,14 @@ export function DocumentsPanel({
   const [deleteConfirm, setDeleteConfirm] = useState<{ docId: string } | null>(
     null,
   );
+  // C6: "Send now" confirmation for a scheduled doc — it emits TODAY (not on its
+  // scheduled date).
+  const [sendNowConfirm, setSendNowConfirm] = useState<{ docId: string } | null>(
+    null,
+  );
+  // C6: when the detail opens via the kebab "Change send date", auto-open the
+  // billed-to edit (where the date lives).
+  const [dateEditOnOpen, setDateEditOnOpen] = useState(false);
   // In-flight receipt resends — locks out double-clicks (ajuste 3).
   const resendingRef = useRef<Set<string>>(new Set());
   const [sessionId] = useState<string>(() => {
@@ -522,6 +535,19 @@ export function DocumentsPanel({
       setDeleteConfirm({ docId });
       return;
     }
+    // C6: finalize a scheduled doc TODAY — confirm first (it emits now, not on
+    // the scheduled date).
+    if (action === 'sendNow') {
+      setSendNowConfirm({ docId });
+      return;
+    }
+    // C6: reschedule — open the detail and auto-open the billed-to edit (date).
+    if (action === 'changeDate') {
+      setInitialTab(undefined);
+      setDateEditOnOpen(true);
+      setSelectedDocId(docId);
+      return;
+    }
     // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send. Blocked
     // server-side while still deferred (and the kebab hides it until due).
     if (action === 'send' && doc && isInvoiceDoc(doc)) {
@@ -597,6 +623,7 @@ export function DocumentsPanel({
   const handleCloseSidebar = () => {
     setSelectedDocId(null);
     setReissueOnOpen(false);
+    setDateEditOnOpen(false);
   };
 
   const showEmpty = filteredDocuments.length === 0;
@@ -732,6 +759,7 @@ export function DocumentsPanel({
           onUpdateReceipt={onUpdateReceipt}
           onReissueReceipt={onReissueReceipt}
           autoOpenReissue={reissueOnOpen}
+          autoOpenDateEdit={dateEditOnOpen}
           onFetchReceiptPdf={onFetchReceiptPdf}
           isSuperadmin={isSuperadmin}
         />
@@ -834,6 +862,27 @@ export function DocumentsPanel({
             setSelectedDocId(null);
           }}
           onCancel={() => setDeleteConfirm(null)}
+        />
+      ) : null}
+
+      {sendNowConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title="Send now?"
+          message="This will issue the document TODAY (not on its scheduled date) and send it now. The issue date changes to today. Continue?"
+          confirmLabel="Send now"
+          cancelLabel="Cancel"
+          variant="amber"
+          onConfirm={() => {
+            const { docId } = sendNowConfirm;
+            const target = documents.find((d) => d.id === docId);
+            setSendNowConfirm(null);
+            if (target && isInvoiceDoc(target)) void onSendInvoiceNow?.(docId);
+            else void onSendReceiptNow?.(docId);
+            // Close the detail (if open) so the updated list shows.
+            setSelectedDocId(null);
+          }}
+          onCancel={() => setSendNowConfirm(null)}
         />
       ) : null}
 

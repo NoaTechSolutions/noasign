@@ -41,7 +41,11 @@ export type V2DocumentAction =
   // Void a SENT receipt (2c): mark VOID with no replacement.
   | 'void'
   // B7: soft-delete a DRAFT (not an issued doc → deleted, never voided).
-  | 'delete';
+  | 'delete'
+  // C6 (scheduled kebab): finalize+emit a scheduled doc TODAY (issue date → today,
+  // defer cleared), and open the billed-to edit to reschedule.
+  | 'sendNow'
+  | 'changeDate';
 
 /** Subset matching page.tsx `DocumentAction` (the backend-bound one). */
 export type BackendDocumentAction = 'send' | 'resend' | 'cancel' | 'reactivate';
@@ -292,9 +296,14 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     const actions: V2DocumentAction[] = ['view', 'viewPdf'];
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
-        // A deferred receipt can't be sent until its issue date arrives. A DRAFT
-        // is deleted (soft), never voided (B7).
-        actions.push(...(isDeferredPending(doc) ? ['delete'] : ['send', 'delete']) as V2DocumentAction[]);
+        // A DRAFT is deleted (soft), never voided (B7). A scheduled (deferred)
+        // receipt can't be sent on its date yet, but the kebab offers Send now
+        // (finalize today) + Change send date (C6).
+        actions.push(
+          ...(isDeferredPending(doc)
+            ? ['sendNow', 'changeDate', 'delete']
+            : ['send', 'delete']) as V2DocumentAction[],
+        );
         break;
       case 'SENT':
         // A voided receipt is terminal: no resend, no reissue, no void.
@@ -319,11 +328,12 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     if (doc.supersededAt) return actions;
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
-        // Mirrors receipt DRAFT (send + delete); a scheduled invoice can't send
-        // until its issue date arrives. A DRAFT is deleted (soft), never voided (B7).
+        // Mirrors receipt DRAFT. A DRAFT is deleted (soft), never voided (B7). A
+        // scheduled (deferred) invoice offers Send now + Change send date (C6)
+        // instead of the plain Send.
         actions.push(
           ...((isDeferredPending(doc)
-            ? ['delete']
+            ? ['sendNow', 'changeDate', 'delete']
             : ['send', 'delete']) as V2DocumentAction[]),
         );
         break;
@@ -379,6 +389,8 @@ export function getActionLabel(action: V2DocumentAction): string {
     reissue: 'Reissue',
     void: 'Void',
     delete: 'Delete',
+    sendNow: 'Send now',
+    changeDate: 'Change send date',
   };
   return labels[action];
 }

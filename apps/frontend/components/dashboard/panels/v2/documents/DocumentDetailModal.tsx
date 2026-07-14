@@ -78,6 +78,9 @@ interface DocumentDetailModalProps {
   ) => Promise<void>;
   // Auto-open the reissue form on mount (when opened via the kebab "Reissue").
   autoOpenReissue?: boolean;
+  // C6: auto-open the billed-to edit on mount (kebab "Change send date" on a
+  // scheduled doc) — the date lives in that section.
+  autoOpenDateEdit?: boolean;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   // Manual "Sync status" (BoldSign provider pull) is a fallback to the webhook;
   // restricted to SUPERADMIN (support/admin) so regular users don't see it in prod.
@@ -290,6 +293,7 @@ export function DocumentDetailModal({
   onUpdateReceipt,
   onReissueReceipt,
   autoOpenReissue = false,
+  autoOpenDateEdit = false,
   onFetchReceiptPdf,
   isSuperadmin = false,
 }: DocumentDetailModalProps) {
@@ -517,6 +521,7 @@ export function DocumentDetailModal({
       action === 'cancel' ||
       action === 'discard' ||
       action === 'delete' ||
+      action === 'sendNow' ||
       (action === 'send' && (!isInvoice || !hasEmail));
     if (!keepsOpen) onClose();
   };
@@ -552,6 +557,26 @@ export function DocumentDetailModal({
       setReissueConfirm(true);
     }
   }, [autoOpenReissue, canReissue]);
+
+  // C6: "Change send date" — auto-open the billed-to edit (invoice) or the
+  // receipt edit (both hold the date). Fires once.
+  const autoDateEditFiredRef = useRef(false);
+  useEffect(() => {
+    if (!autoOpenDateEdit || autoDateEditFiredRef.current) return;
+    if (canEditInvoice) {
+      autoDateEditFiredRef.current = true;
+      setInvoiceEditSection(
+        sections.find((s) => s.key === 'billed_to') ?? {
+          key: 'billed_to',
+          label: 'Billed to',
+          fields: [],
+        },
+      );
+    } else if (canEditReceipt) {
+      autoDateEditFiredRef.current = true;
+      setReceiptEditOpen(true);
+    }
+  }, [autoOpenDateEdit, canEditInvoice, canEditReceipt, sections]);
 
   const openEdit = (group: CardGroup) => {
     const keys =
@@ -1528,7 +1553,13 @@ function DetailFooter({
           Delete
         </button>
       );
-      right = isDeferred ? null : (
+      right = isDeferred ? (
+        // C6: a scheduled doc can't Send on its date yet, but Send now finalizes
+        // it today. (Change the date via the Billed-to pencil above.)
+        <button type="button" className="btn-warning" onClick={() => onAction('sendNow')}>
+          Send now
+        </button>
+      ) : (
         <button type="button" className="btn-warning" onClick={() => onAction('send')}>
           Send
         </button>

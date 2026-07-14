@@ -2387,6 +2387,42 @@ function DashboardPageInner() {
           { loading: "Sending invoice…", success: "Invoice sent successfully" },
         );
       },
+      // C6 "Send now": finalize a SCHEDULED invoice/receipt TODAY. The backend
+      // un-defers (issue date → today, defer flags cleared, PDF re-emitted) then
+      // sends. Same send-toast as the normal send.
+      onSendInvoiceNow: async (docId: string) => {
+        runSendWithToast(
+          async () => {
+            const res = await apiRequest<{
+              message: string;
+              document: { status: string };
+              sendError: string | null;
+            }>(`/documents/invoice/${docId}/send-now`, { method: "POST" });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          },
+          { loading: "Sending invoice…", success: "Invoice sent successfully" },
+        );
+      },
+      onSendReceiptNow: async (docId: string) => {
+        runSendWithToast(
+          async () => {
+            const res = await apiRequest<{
+              document: { status: string };
+              sendError: string | null;
+            }>(`/documents/receipt/${docId}/send-now`, { method: "POST" });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          },
+          { loading: "Sending receipt…", success: "Receipt sent successfully" },
+        );
+      },
       defaultReceivedBy: (() => {
         const userName = [dashboardUser?.firstName, dashboardUser?.lastName]
           .filter(Boolean)
@@ -2559,6 +2595,8 @@ function DashboardPageInner() {
           onCreateInvoice={documentsV2.onCreateInvoice}
           onUpdateInvoice={documentsV2.onUpdateInvoice}
           onSendInvoice={documentsV2.onSendInvoice}
+          onSendInvoiceNow={documentsV2.onSendInvoiceNow}
+          onSendReceiptNow={documentsV2.onSendReceiptNow}
           defaultReceivedBy={documentsV2.defaultReceivedBy}
           onEditDocument={documentsV2.onEditDocument}
           onDocumentAction={documentsV2.onDocumentAction}
