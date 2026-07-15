@@ -339,8 +339,8 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
         );
         break;
       case 'SENT':
-        // Mirrors receipt SENT's base (view + viewPdf).
-        actions.push('viewPdf');
+        // Mirrors receipt SENT's base (view + viewPdf) + K6 resend ("didn't get it").
+        actions.push('viewPdf', 'resend');
         break;
       case 'SEND_FAILED':
         // Mirrors receipt SEND_FAILED's discard; re-sending is via edit → send.

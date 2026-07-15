@@ -2442,6 +2442,25 @@ function DashboardPageInner() {
           { loading: "Sending invoice…", success: "Invoice sent successfully" },
         );
       },
+      // K6: resend a SENT invoice's email (the client didn't get it). Shared send-
+      // toast; rate-limited server-side by the receipt resend policy.
+      onResendInvoice: async (docId: string) => {
+        runSendWithToast(
+          async () => {
+            const res = await apiRequest<{
+              message: string;
+              document: { status: string };
+              sendError: string | null;
+            }>(`/documents/invoice/${docId}/resend`, { method: "POST" });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          },
+          { loading: "Resending invoice…", success: "Invoice resent successfully" },
+        );
+      },
       // C6 "Send now": finalize a SCHEDULED invoice/receipt TODAY. The backend
       // un-defers (issue date → today, defer flags cleared, PDF re-emitted) then
       // sends. Same send-toast as the normal send.
@@ -2651,6 +2670,7 @@ function DashboardPageInner() {
           onUpdateInvoice={documentsV2.onUpdateInvoice}
           onSendInvoice={documentsV2.onSendInvoice}
           onSendInvoiceNow={documentsV2.onSendInvoiceNow}
+          onResendInvoice={documentsV2.onResendInvoice}
           onSendReceiptNow={documentsV2.onSendReceiptNow}
           defaultReceivedBy={documentsV2.defaultReceivedBy}
           onEditDocument={documentsV2.onEditDocument}

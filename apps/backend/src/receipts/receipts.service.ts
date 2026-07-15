@@ -796,6 +796,125 @@ export class ReceiptsService {
   }
 
   /**
+   * K6 — resend a SENT invoice's email (for "the client didn't get it"). Re-renders
+   * the invoice PDF from the stored data (identical — a sent invoice is immutable)
+   * and re-emails it. Rate-limited by the SAME policy receipts use (3-email burst →
+   * 1 per 10 min → cap of 10, per (invoice, recipient email); an email change resets
+   * it). Bumps sendCount + lastAttemptAt + lastSentRecipientEmail, so the timeline
+   * shows the resend. A SEND_FAILED invoice is also allowed (a retry). Never counts
+   * billing (invoices aren't receipts). Voided invoices can't be resent.
+   */
+  async resendInvoice(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+      include: {
+        data: true,
+        receiptTemplate: true,
+        companyProfile: { select: { companyName: true } },
+      },
+    });
+    if (!document || !document.receiptTemplate) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (document.supersededAt) {
+      throw new BadRequestException('This invoice is void');
+    }
+    if (
+      document.status !== DocumentStatus.SENT &&
+      document.status !== DocumentStatus.SEND_FAILED
+    ) {
+      throw new BadRequestException('Only a sent invoice can be resent');
+    }
+
+    const dataJson =
+      (document.data?.dataJson as Record<string, string> | undefined) ?? {};
+    const recipientEmail = normalizeEmail(
+      typeof dataJson.recipient_email === 'string'
+        ? dataJson.recipient_email
+        : null,
+    );
+    if (!recipientEmail) {
+      throw new BadRequestException(
+        'This invoice has no recipient email to resend to',
+      );
+    }
+
+    // Same resend policy as receipts (approved). Counts every attempt.
+    const decision = evaluateReceiptResend({
+      sendCount: document.sendCount,
+      lastAttemptAt: document.lastAttemptAt,
+      lastEmail: document.lastSentRecipientEmail,
+      currentEmail: recipientEmail,
+    });
+    if (!decision.allowed) {
+      throw new BadRequestException(
+        receiptResendBlockMessage(decision, recipientEmail),
+      );
+    }
+    const newSendCount = nextSendCount(decision, document.sendCount);
+
+    const pdfBuffer = await this.renderInvoice(
+      document.receiptTemplate,
+      this.buildInvoicePdfData(dataJson),
+    );
+    const clientName =
+      (dataJson.company_name ?? '').trim() ||
+      [dataJson.first_name, dataJson.last_name]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ') ||
+      'Customer';
+    const receiptNumber = dataJson.receipt_number ?? document.documentNumber;
+
+    try {
+      const { id: providerEmailId } = await this.email.sendInvoice({
+        to: recipientEmail,
+        receiptNumber,
+        clientName,
+        companyName: document.companyProfile?.companyName ?? 'NTSsign',
+        pdfBuffer,
+      });
+      const sent = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SENT,
+          sentAt: new Date(),
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: newSendCount,
+          lastAttemptAt: new Date(),
+          providerEmailId: providerEmailId || null,
+          sendError: null,
+        },
+      });
+      return { document: sent };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[ReceiptsService] Invoice ${document.documentNumber} resend failed: ${reason}`,
+      );
+      const failed = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: reason,
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: newSendCount,
+          lastAttemptAt: new Date(),
+        },
+      });
+      return { document: failed, sendError: reason };
+    }
+  }
+
+  /**
    * Stream a freshly-regenerated invoice PDF from the stored form data, using the
    * SAME renderMode dispatch + adapter as create — a view/download is byte-for-byte
    * the same pipeline. (Invoices are not emailed in this phase.)

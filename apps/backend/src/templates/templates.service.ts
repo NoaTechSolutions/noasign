@@ -163,16 +163,26 @@ export class TemplatesService {
       where: { companyProfileId, category, isDefault: true, isActive: true },
     });
     if (existing) return;
-    // Only force a template the tenant can actually see (global or its own
-    // private) — never a template private to a DIFFERENT tenant.
-    const fallback = await this.prisma.receiptTemplateStandard.findFirst({
-      where: {
-        category,
-        isActive: true,
-        ...this.visibleToTenant(companyProfileId),
-      },
+    // K1: prefer the tenant's OWN private template when it has one, so a tenant
+    // with a custom design (e.g. Laura's invoice) gets it pre-selected instead of
+    // defaulting to the public catalog standard. Only kicks in for a tenant with no
+    // default yet (this whole method is a no-op once a default exists).
+    const owned = await this.prisma.receiptTemplateStandard.findFirst({
+      where: { category, isActive: true, ownerCompanyProfileId: companyProfileId },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     });
+    // Otherwise force a template the tenant can actually see (global or its own
+    // private) — never a template private to a DIFFERENT tenant.
+    const fallback =
+      owned ??
+      (await this.prisma.receiptTemplateStandard.findFirst({
+        where: {
+          category,
+          isActive: true,
+          ...this.visibleToTenant(companyProfileId),
+        },
+        orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      }));
     if (!fallback) return;
     await this.applyActive(companyProfileId, category, fallback);
   }

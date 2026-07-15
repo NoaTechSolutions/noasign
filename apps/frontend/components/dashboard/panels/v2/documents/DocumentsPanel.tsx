@@ -145,6 +145,8 @@ export interface DocumentsPanelProps {
   // C6: finalize a scheduled invoice/receipt TODAY (issue date → today).
   onSendInvoiceNow?: (docId: string) => Promise<void>;
   onSendReceiptNow?: (docId: string) => Promise<void>;
+  // K6: resend a SENT invoice's email (mirrors the receipt resend).
+  onResendInvoice?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   // Invoice-specific (DIRECT_PDF, code INVOICE): regenerated PDF for the SENT
   // invoice's Preview tab (GET /documents/invoice/:id/pdf).
@@ -201,6 +203,7 @@ export function DocumentsPanel({
   onDeleteDocument,
   onSendInvoiceNow,
   onSendReceiptNow,
+  onResendInvoice,
   onFetchReceiptPdf,
   onFetchInvoicePdf,
   isSuperadmin = false,
@@ -255,6 +258,11 @@ export function DocumentsPanel({
     docId: string;
     email: string;
     isResend: boolean;
+  } | null>(null);
+  // K6: resend a SENT invoice — confirm first (emails the client again).
+  const [invoiceResendConfirm, setInvoiceResendConfirm] = useState<{
+    docId: string;
+    email: string;
   } | null>(null);
   // Which tab the detail modal opens on ('pdf' for kebab "Preview PDF").
   const [initialTab, setInitialTab] = useState<string | undefined>(undefined);
@@ -563,6 +571,20 @@ export function DocumentsPanel({
       await onSendInvoice?.(docId);
       return;
     }
+    // K6: resend a SENT invoice — same no-email guard as the send, then confirm.
+    if (action === 'resend' && doc && isInvoiceDoc(doc)) {
+      const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
+      const email = (
+        doc?.customer?.email ||
+        (typeof dj?.recipient_email === 'string' ? dj.recipient_email : '')
+      ).trim();
+      if (!email) {
+        setNoEmailWarn(true);
+        return;
+      }
+      setInvoiceResendConfirm({ docId, email });
+      return;
+    }
     // Any receipt email — send (DRAFT), resend (SENT) or retry (SEND_FAILED) —
     // confirms first; on confirm it fires the send-toast.
     if (
@@ -824,6 +846,28 @@ export function DocumentsPanel({
           variant="amber"
           onConfirm={handleConfirmReceiptSend}
           onCancel={() => setReceiptSendConfirm(null)}
+        />
+      ) : null}
+
+      {invoiceResendConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title="Resend invoice?"
+          message={
+            <>
+              Resend the invoice to{' '}
+              <strong>{invoiceResendConfirm.email || 'the recipient'}</strong>?
+            </>
+          }
+          confirmLabel="Resend"
+          cancelLabel="Cancel"
+          variant="amber"
+          onConfirm={() => {
+            const { docId } = invoiceResendConfirm;
+            setInvoiceResendConfirm(null);
+            void onResendInvoice?.(docId);
+          }}
+          onCancel={() => setInvoiceResendConfirm(null)}
         />
       ) : null}
 
