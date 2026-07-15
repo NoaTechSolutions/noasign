@@ -178,14 +178,19 @@ export function invoiceRecipientName(
  * creation. Read-only mirror: it does NOT change where the contract is sent.
  * Returns '' when no email is on file.
  */
-export function contractSignerEmail(doc: V2DocumentItem): string {
-  const dataJson = doc.data?.dataJson;
+export function signerEmailFromData(
+  dataJson: Record<string, unknown> | null | undefined,
+): string {
   if (!dataJson) return '';
   for (const key of ['customer_email', 'client_email'] as const) {
     const value = dataJson[key];
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
+}
+
+export function contractSignerEmail(doc: V2DocumentItem): string {
+  return signerEmailFromData(doc.data?.dataJson);
 }
 
 export function getCustomerDisplayName(doc: V2DocumentItem): string {

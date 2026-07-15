@@ -22,7 +22,7 @@ import type {
   SchemaField,
   SchemaSection,
 } from './types';
-import { isDeferredPending, invoiceRecipientName } from './types';
+import { isDeferredPending, invoiceRecipientName, signerEmailFromData } from './types';
 import { StatusBadge } from './StatusBadge';
 import { FINANCE_COLORS, FinanceCard } from './finance-cards';
 import { CurrencyInput } from './CurrencyInput';
@@ -514,8 +514,15 @@ export function DocumentDetailModal({
     // C5: a send with no email on file is blocked by the panel (it shows a
     // warning and never sends) — keep the detail open so the warning isn't left
     // hanging over a closed modal. Same email source as the panel's B6 guard.
+    // Per-type recipient source: invoices use recipient_email, receipts use the
+    // legacy `email`, and CONTRACTS follow the REAL send source via the shared
+    // J5 helper (data.customer_email) — never the linked-Customer relation.
     const dj = detail?.data?.dataJson as Record<string, unknown> | undefined;
-    const rawEmail = isInvoice ? dj?.recipient_email : dj?.email;
+    const rawEmail = isInvoice
+      ? dj?.recipient_email
+      : isReceipt
+        ? dj?.email
+        : signerEmailFromData(dj);
     const hasEmail = Boolean(
       (
         listItem?.customer?.email ||
