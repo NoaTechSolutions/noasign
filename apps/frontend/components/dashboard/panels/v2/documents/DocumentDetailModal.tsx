@@ -27,6 +27,15 @@ import { StatusBadge } from './StatusBadge';
 import { FINANCE_COLORS, FinanceCard } from './finance-cards';
 import { CurrencyInput } from './CurrencyInput';
 import { forceTwoDecimals } from './currency';
+import {
+  applyTransform,
+  applyLettersOnly,
+  applyDigitsOnly,
+  CAPITALIZE_FIRST_KEYS,
+  LETTERS_ONLY_KEYS,
+  NO_DIGITS_KEYS,
+  DIGITS_ONLY_KEYS,
+} from './wizard/types';
 
 // Canvas PDF viewer (pdf.js). Client-only — never SSR pdf.js.
 const PdfCanvasViewer = dynamic(() => import('./PdfCanvasViewer'), {
@@ -1004,6 +1013,26 @@ export function DocumentDetailModal({
   );
 }
 
+// J1: auto-format a free-text contract field as the user types, mirroring the
+// creation wizard's key-based rules (TextField.handleChange) so a contract EDIT
+// capitalizes names/cities exactly like the create flow does. Keyed by field.key
+// — the same LETTERS_ONLY / NO_DIGITS / CAPITALIZE_FIRST sets already cover the
+// contract fields (customer_name, company_name, project_city, …).
+function formatContractText(key: string, value: string): string {
+  let next = value;
+  if (LETTERS_ONLY_KEYS.has(key) || NO_DIGITS_KEYS.has(key)) {
+    next = applyLettersOnly(next);
+  } else if (DIGITS_ONLY_KEYS.has(key)) {
+    next = applyDigitsOnly(next);
+  }
+  if (NO_DIGITS_KEYS.has(key) || LETTERS_ONLY_KEYS.has(key)) {
+    next = applyTransform(next, 'titleCase');
+  } else if (CAPITALIZE_FIRST_KEYS.has(key)) {
+    next = applyTransform(next, 'capitalizeFirst');
+  }
+  return next;
+}
+
 function FieldInput({
   field,
   value,
@@ -1111,7 +1140,15 @@ function FieldInput({
             className="form-input"
             type={field.type === 'email' ? 'email' : 'text'}
             value={value}
-            onChange={(e) => set(e.target.value)}
+            // Email keeps its raw value (never title-cased); every other free-text
+            // field runs the creation-flow transforms (J1).
+            onChange={(e) =>
+              set(
+                field.type === 'email'
+                  ? e.target.value
+                  : formatContractText(field.key, e.target.value),
+              )
+            }
           />
         </div>
       );
