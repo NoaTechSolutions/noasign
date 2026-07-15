@@ -683,12 +683,7 @@ export function DocumentDetailModal({
         contractDate: detail.contractDate ?? detail.createdAt,
         dataJson: mergedData,
       });
-      // Update local detail in place — no full re-fetch (no flash). J4: also
-      // stamp lastEditedAt here so the "Edited" event shows in the Timeline tab
-      // in the SAME session; the modal keeps its own detail state and does not
-      // re-fetch after an edit, so without this the persisted lastEditedAt only
-      // appeared on the next open. Client "now" is close enough; a later fetch
-      // replaces it with the exact server time.
+      // Optimistic patch for instant feedback (no flash).
       setDetail((d) =>
         d
           ? {
@@ -698,6 +693,17 @@ export function DocumentDetailModal({
             }
           : d,
       );
+      // J4 (real fix): the modal keeps its OWN detail state and never re-fetched
+      // after an edit, so the just-persisted lastEditedAt only surfaced on the
+      // next open — the optimistic stamp above proved fragile on the owner's
+      // path. Silently re-fetch server truth (fetchRef never toggles the loading
+      // flag → no flash) so the Timeline ALWAYS reflects the persisted edit.
+      try {
+        const fresh = await fetchRef.current(documentId);
+        setDetail(fresh);
+      } catch {
+        // Keep the optimistic detail if the silent re-fetch fails.
+      }
       toast.success('Document updated');
       setEditGroup(null);
     } catch (e) {
