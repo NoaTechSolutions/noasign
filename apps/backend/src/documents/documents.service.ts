@@ -984,6 +984,9 @@ export class DocumentsService {
       where: { id: documentId },
       data: {
         contractDate: new Date(body.contractDate),
+        // J4: stamp the edit so the contract timeline shows an "Edited" event
+        // (receipts/invoices already set this on their own edit paths).
+        lastEditedAt: new Date(),
         data: { update: { dataJson: body.dataJson } },
       },
       include: documentDetailInclude,

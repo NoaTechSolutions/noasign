@@ -236,6 +236,33 @@ describe('DocumentsService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('updateDraftDocument stamps lastEditedAt so the contract timeline shows an Edited event (J4)', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-1',
+      status: DocumentStatus.DRAFT,
+      versions: [{ versionNumber: 1 }],
+      data: { dataJson: {} },
+    });
+    prismaMock.document.update.mockResolvedValue({
+      id: 'doc-1',
+      status: DocumentStatus.DRAFT,
+      data: { dataJson: {} },
+    });
+    prismaMock.documentVersion.create.mockResolvedValue({});
+
+    await service.updateDraftDocument('user-1', 'doc-1', {
+      contractDate: '2026-03-20',
+      dataJson: { customer_name: 'Jane Doe' },
+    });
+
+    expect(prismaMock.document.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'doc-1' },
+        data: expect.objectContaining({ lastEditedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
   it('sendDraftDocument no longer counts billing on SENT', async () => {
     prismaMock.document.findFirst.mockResolvedValue({
       id: 'doc-1',

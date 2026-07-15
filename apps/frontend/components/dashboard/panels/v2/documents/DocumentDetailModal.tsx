@@ -1489,6 +1489,8 @@ function TimelineTab({
         )
     : [
         { label: 'Created', ts: detail?.createdAt, hint: creator ? `by ${creator}` : '' },
+        // J4: a contract edit now leaves a trace (only shown once edited).
+        ...(detail?.lastEditedAt ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }] : []),
         { label: 'Sent', ts: detail?.sentAt, hint: toEmail },
         { label: 'Viewed', ts: detail?.viewedAt, hint: '' },
         { label: 'Signed', ts: detail?.signedAt, hint: '' },
