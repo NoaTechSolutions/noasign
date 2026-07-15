@@ -2411,17 +2411,12 @@ function DashboardPageInner() {
           notifyOnIssueDate?: boolean;
         },
       ) => {
-        const tid = toast.loading("Saving invoice…");
-        try {
-          await apiRequest(`/documents/invoice/${docId}`, {
-            method: "PATCH",
-            body: payload,
-          });
-        } catch (e) {
-          toast.dismiss(tid);
-          throw e; // modal keeps the inline error + stays open
-        }
-        toast.success("Invoice updated", { id: tid });
+        // K3: no toast — the edit popup owns the progress bar + "Saved!" success.
+        // apiRequest throws on error → the popup catches it and shows it inline.
+        await apiRequest(`/documents/invoice/${docId}`, {
+          method: "PATCH",
+          body: payload,
+        });
         try {
           await loadWorkspace();
         } catch {

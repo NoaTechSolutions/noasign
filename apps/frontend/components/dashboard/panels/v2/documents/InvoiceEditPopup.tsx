@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Calendar } from 'lucide-react';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
@@ -92,7 +92,21 @@ export function InvoiceEditPopup({
 
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // K3: after a successful save, show the "Saved!" flourish briefly, then close.
+  // onClose via a ref so a re-render (e.g. the parent's detail refresh) doesn't
+  // reset the timer — it fires once when `saved` flips true.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => onCloseRef.current(), 1200);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   const touch =
     (setter: (v: string) => void) =>
@@ -172,10 +186,16 @@ export function InvoiceEditPopup({
 
   const commit = (data: Record<string, string>, notify: boolean): void => {
     setSaving(true);
-    void onSave(data, notify).catch((e) => {
-      setError(e instanceof Error ? e.message : 'Could not save the invoice');
-      setSaving(false);
-    });
+    void onSave(data, notify)
+      .then(() => {
+        // K3: parent did the update (no close, no toast) — show success here.
+        setSaving(false);
+        setSaved(true);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Could not save the invoice');
+        setSaving(false);
+      });
   };
 
   const handleSave = (): void => {
@@ -205,6 +225,7 @@ export function InvoiceEditPopup({
       onSave={handleSave}
       isDirty={dirty}
       isSaving={saving}
+      isSaved={saved}
     >
       {error ? (
         <div

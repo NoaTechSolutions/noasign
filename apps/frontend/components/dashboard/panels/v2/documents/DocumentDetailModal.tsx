@@ -948,8 +948,9 @@ export function DocumentDetailModal({
           dataJson={dataJson as Record<string, unknown>}
           onClose={() => setReceiptEditOpen(false)}
           onSave={async (payload) => {
+            // K3: don't close here — the popup shows its "Saved!" flourish then
+            // closes itself via onClose. Just persist + refresh the detail behind it.
             await onUpdateReceipt(documentId, payload);
-            setReceiptEditOpen(false);
             loadDetail();
           }}
         />
@@ -964,8 +965,8 @@ export function DocumentDetailModal({
             // PATCH the SAME invoice with ONLY this section's fields (never
             // creates a new one). A Billed to edit may carry a new issue date +
             // the notify opt-in, which the backend uses to (re)schedule.
+            // K3: don't close here — the popup shows "Saved!" then closes via onClose.
             await onUpdateInvoice(documentId, { data, notifyOnIssueDate });
-            setInvoiceEditSection(null);
             loadDetail();
           }}
         />
