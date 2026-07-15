@@ -33,6 +33,7 @@ import type {
 import toast from 'react-hot-toast';
 import {
   BACKEND_ACTIONS,
+  contractSignerEmail,
   isDeferredPending,
   isInvoiceDoc,
   isReceiptDoc,
@@ -813,7 +814,10 @@ export function DocumentsPanel({
             confirmAction.action === 'send' ? (
               <>
                 This will send the document to{' '}
-                <strong>{confirmDoc.customer?.email ?? 'the customer'}</strong> for
+                {/* J5: show the REAL send target (data.customer_email), not the
+                    linked-Customer email — the two can diverge. Same source the
+                    backend sends to; display only, send path unchanged. */}
+                <strong>{contractSignerEmail(confirmDoc) || 'the customer'}</strong> for
                 signature. This action cannot be undone.
               </>
             ) : (

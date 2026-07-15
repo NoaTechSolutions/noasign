@@ -169,6 +169,25 @@ export function invoiceRecipientName(
   return composed;
 }
 
+/**
+ * J5: the email a CONTRACT is actually sent to for signature. Mirrors the
+ * backend send source (documents.service buildSignatureRecipient →
+ * firstNonEmptyString(data.customer_email, data.client_email)) so a send
+ * confirmation shows EXACTLY the real recipient — never the linked-Customer
+ * relation (doc.customer.email), which can diverge from what was typed at
+ * creation. Read-only mirror: it does NOT change where the contract is sent.
+ * Returns '' when no email is on file.
+ */
+export function contractSignerEmail(doc: V2DocumentItem): string {
+  const dataJson = doc.data?.dataJson;
+  if (!dataJson) return '';
+  for (const key of ['customer_email', 'client_email'] as const) {
+    const value = dataJson[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
 export function getCustomerDisplayName(doc: V2DocumentItem): string {
   if (doc.customer?.name) return doc.customer.name;
   if (doc.customer?.email) return doc.customer.email;
