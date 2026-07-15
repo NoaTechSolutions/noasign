@@ -58,13 +58,6 @@ export function ReceiptEditPopup({
   );
   const [middleName, setMiddleName] = useState(storedMiddle);
   const [lastName, setLastName] = useState(storedLast);
-  const composedClient = business
-    ? companyName.trim()
-    : [firstName, middleName, lastName]
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join(' ');
-
   const [email, setEmail] = useState(str(dataJson.email));
   const [phone, setPhone] = useState(str(dataJson.phone));
   // D3: strip thousands separators so CurrencyInput prefills (a comma'd stored
@@ -89,8 +82,16 @@ export function ReceiptEditPopup({
     };
 
   const handleSave = (): void => {
-    if (!composedClient) {
-      setError(business ? 'Company name is required' : 'Client name is required');
+    // K4: required-ness ALWAYS follows the CURRENT toggle state — business →
+    // company name; person → first AND last (both) — regardless of how many times
+    // Business was toggled.
+    if (business) {
+      if (!companyName.trim()) {
+        setError('Company name is required');
+        return;
+      }
+    } else if (!firstName.trim() || !lastName.trim()) {
+      setError('First and last name are required');
       return;
     }
     const amt = Number(amount);

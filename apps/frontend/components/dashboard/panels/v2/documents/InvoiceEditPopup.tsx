@@ -140,14 +140,17 @@ export function InvoiceEditPopup({
       // Totals are recomputed server-side from quantity × price.
       return { quantity: String(qty), price: price.trim() };
     }
-    // billed_to (default)
-    const recipient = business
-      ? companyName.trim()
-      : [firstName, lastName].map((s) => s.trim()).filter(Boolean).join(' ');
-    if (!recipient) {
-      setError(
-        business ? 'Company name is required' : 'First and last name are required',
-      );
+    // billed_to (default). K4: required-ness ALWAYS follows the CURRENT toggle
+    // state — business → company name; person → first AND last (both) — no matter
+    // how many times Business was toggled (the fields keep their values across
+    // toggles, so read them live here).
+    if (business) {
+      if (!companyName.trim()) {
+        setError('Company name is required');
+        return null;
+      }
+    } else if (!firstName.trim() || !lastName.trim()) {
+      setError('First and last name are required');
       return null;
     }
     // Clear the unused name fields so switching business <-> individual overrides
