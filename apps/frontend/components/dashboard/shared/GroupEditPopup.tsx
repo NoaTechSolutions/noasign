@@ -14,9 +14,9 @@ interface GroupEditPopupProps {
   onSave: () => void;
   isDirty: boolean;
   isSaving?: boolean;
-  /** K3: after a successful save, show a brief "Saved!" flourish before the parent
-   *  closes the popup. Opt-in (invoice/receipt edits); contracts leave it unset and
-   *  keep their toast. */
+  /** K3/M2: after a successful save, show a brief "Saved!" flourish before the
+   *  parent closes the popup. SaaS-wide standard — every edit popup
+   *  (invoice/receipt AND contracts) drives it; no top toast on success. */
   isSaved?: boolean;
   /** Widen the panel (e.g. Contract edit with Finance ON → 2x2 grid needs room). */
   wide?: boolean;

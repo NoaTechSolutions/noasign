@@ -315,6 +315,10 @@ export function DocumentDetailModal({
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [editDirty, setEditDirty] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+  // M2: SaaS-wide save UX — after a successful contract edit, show the "Saved!"
+  // green-check flourish (GroupEditPopup isSaved) then auto-close, instead of the
+  // top toast. Mirrors the invoice/receipt edit popups.
+  const [editSaved, setEditSaved] = useState(false);
   const [financeOn, setFinanceOn] = useState(false);
   // Receipt edit popup (DRAFT/SEND_FAILED only — a SENT receipt is immutable).
   const [receiptEditOpen, setReceiptEditOpen] = useState(false);
@@ -624,6 +628,7 @@ export function DocumentDetailModal({
     }
     setEditValues(vals);
     setEditDirty(false);
+    setEditSaved(false);
     if (group.key === 'contract') {
       // Finance ON if any Finance N entry already has data (mirrors showWhen).
       setFinanceOn(
@@ -672,6 +677,18 @@ export function DocumentDetailModal({
       : {};
   const hasFinanceDateErrors = Object.keys(financeDateErrors).length > 0;
 
+  // M2: once the "Saved!" check is showing, auto-close the popup after a brief
+  // flourish (matches invoice/receipt). setEditGroup/setEditSaved are stable, so
+  // no ref is needed to keep the timer from resetting on re-render.
+  useEffect(() => {
+    if (!editSaved) return;
+    const t = setTimeout(() => {
+      setEditGroup(null);
+      setEditSaved(false);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [editSaved]);
+
   const saveEdit = async () => {
     if (!editGroup || !detail || !onUpdateDraft) return;
     // Belt-and-suspenders: the Save button is already disabled while invalid.
@@ -704,8 +721,10 @@ export function DocumentDetailModal({
       } catch {
         // Keep the optimistic detail if the silent re-fetch fails.
       }
-      toast.success('Document updated');
-      setEditGroup(null);
+      // M2: show the "Saved!" green-check flourish (the auto-close effect closes
+      // the popup after ~1.2s) instead of a top toast. isSaving flips to false in
+      // finally, so GroupEditPopup renders the success card.
+      setEditSaved(true);
     } catch (e) {
       console.error('Failed to update draft', e);
       toast.error('Could not update document. Please try again.');
@@ -954,6 +973,7 @@ export function DocumentDetailModal({
           onSave={saveEdit}
           isDirty={editDirty && !hasFinanceDateErrors}
           isSaving={editSaving}
+          isSaved={editSaved}
           wide={editGroup.key === 'contract' && financeOn}
         >
           {editGroup.key === 'contract' ? (
