@@ -38,6 +38,24 @@ export class CreateCustomerDto {
   @MaxLength(200)
   fullName!: string;
 
+  // K8: name parts for a PERSONAL customer, so invoice/receipt create can map each
+  // to its own field. Optional at the DTO layer (BUSINESS customers don't use them,
+  // and the form enforces first/last required); `fullName` stays the composed name.
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  lastName?: string;
+
   @IsOptional()
   @IsEmail()
   @MaxLength(254)

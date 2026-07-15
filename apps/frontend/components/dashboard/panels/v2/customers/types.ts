@@ -6,6 +6,10 @@ export interface Customer {
   createdByUserId: string | null;
   customerType: 'PERSONAL' | 'BUSINESS';
   fullName: string;
+  // K8: name parts for a PERSONAL customer (nullable for older rows without them).
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   addressLine1: string | null;
@@ -67,6 +71,9 @@ export interface CustomerFormData {
   customerType: 'PERSONAL' | 'BUSINESS';
   userId?: string;
   fullName: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
   email?: string;
   phone?: string;
   addressLine1?: string;
@@ -121,7 +128,14 @@ export function splitFullName(fullName: string): { firstName: string; lastName: 
   return { firstName, lastName };
 }
 
-// Helper: combine firstName + lastName back into the backend's fullName field.
-export function combineFullName(firstName: string, lastName: string): string {
-  return `${firstName.trim()} ${lastName.trim()}`.trim();
+// Helper: combine first + middle + last into the backend's composed fullName (K8).
+export function combineFullName(
+  firstName: string,
+  middleName: string,
+  lastName: string,
+): string {
+  return [firstName, middleName, lastName]
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(' ');
 }

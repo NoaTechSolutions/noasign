@@ -82,24 +82,53 @@ function todayIso(): string {
 // Maps a selected client to the Client-tab field values. Business uses the
 // primary contact, falling back per-field to the business record for address.
 // customer_age / customer_fax are intentionally not filled.
+// Best-effort split for an older customer stored with only a composed fullName.
+function splitName(fullName: string): { first: string; last: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { first: parts[0] ?? '', last: '' };
+  return { first: parts[0], last: parts.slice(1).join(' ') };
+}
+
+// Maps a picked customer to prefill values. Returns BOTH the contract client-tab
+// keys (customer_name…) AND the invoice billed_to keys (first_name/middle_name/
+// last_name/company_name…). The wizard's applyClientPrefill only writes keys that
+// exist in the active schema, so each doc type picks up the ones it has — no
+// conflict. K7: a person's name goes into first/middle/last (not all in first_name).
 function mapClientToClientTab(c: CustomerOption): Record<string, string> {
   if (c.customerType === 'BUSINESS' && c.business) {
     const b = c.business;
+    const street = b.primaryContactAddressLine1 || b.businessAddressLine1 || '';
     return {
+      // Contract client tab
       customer_name: b.primaryContactName ?? '',
       customer_email: b.primaryContactEmail ?? '',
       customer_phone: b.primaryContactPhone ?? '',
-      customer_address: b.primaryContactAddressLine1 || b.businessAddressLine1 || '',
+      customer_address: street,
+      // Invoice billed_to (business)
+      company_name: c.fullName ?? '',
+      recipient_email: b.primaryContactEmail ?? c.email ?? '',
+      street,
+      // Shared
       city: b.primaryContactCity || b.businessCity || '',
       state: b.primaryContactState || b.businessState || '',
       zip: b.primaryContactZipCode || b.businessZipCode || '',
     };
   }
+  const hasParts = Boolean(c.firstName || c.lastName);
+  const fallback = splitName(c.fullName ?? '');
   return {
+    // Contract client tab (single name field)
     customer_name: c.fullName ?? '',
     customer_email: c.email ?? '',
     customer_phone: c.phone ?? '',
     customer_address: c.addressLine1 ?? '',
+    // Invoice billed_to (split parts) — K7
+    first_name: hasParts ? (c.firstName ?? '') : fallback.first,
+    middle_name: c.middleName ?? '',
+    last_name: hasParts ? (c.lastName ?? '') : fallback.last,
+    recipient_email: c.email ?? '',
+    street: c.addressLine1 ?? '',
+    // Shared
     city: c.city ?? '',
     state: c.state ?? '',
     zip: c.zipCode ?? '',
@@ -232,6 +261,21 @@ export function DocumentCreationModal({
         : undefined,
     [selectedCustomer],
   );
+
+  // K7: the picked person's name, already split, for the receipt form (fallback to
+  // splitting fullName for older customers without stored parts).
+  const clientNameParts = useMemo(() => {
+    if (!selectedCustomer || selectedCustomer.customerType === 'BUSINESS') {
+      return { first: '', middle: '', last: '' };
+    }
+    const hasParts = Boolean(selectedCustomer.firstName || selectedCustomer.lastName);
+    const fb = splitName(selectedCustomer.fullName ?? '');
+    return {
+      first: hasParts ? (selectedCustomer.firstName ?? '') : fb.first,
+      middle: selectedCustomer.middleName ?? '',
+      last: hasParts ? (selectedCustomer.lastName ?? '') : fb.last,
+    };
+  }, [selectedCustomer]);
 
   // NOA-270 — when a BUSINESS customer is selected, flip any schema toggle
   // whose key === "isBusiness" so business-specific fields surface.
@@ -484,6 +528,9 @@ export function DocumentCreationModal({
             <ReceiptForm
               defaultReceivedBy={defaultReceivedBy ?? ''}
               prefillClient={selectedCustomer?.fullName}
+              prefillFirstName={clientNameParts.first}
+              prefillMiddleName={clientNameParts.middle}
+              prefillLastName={clientNameParts.last}
               prefillEmail={selectedCustomer?.email ?? undefined}
               prefillBusiness={selectedCustomer?.customerType === 'BUSINESS'}
               receiptTemplateId={selectedDocType?.receiptTemplateId}

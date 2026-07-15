@@ -92,7 +92,12 @@ function todayIso(): string {
 interface ReceiptFormProps {
   defaultReceivedBy: string;
   // Pre-fill from the client picked in the setup card (shared with contracts).
+  // prefillClient = the composed name (company name for a business; the trigger for
+  // a re-fill). K7: a PERSON's name arrives already split in the parts below.
   prefillClient?: string;
+  prefillFirstName?: string;
+  prefillMiddleName?: string;
+  prefillLastName?: string;
   prefillEmail?: string;
   // Whether the picked customer is a business (drives the initial toggle state).
   prefillBusiness?: boolean;
@@ -120,6 +125,9 @@ interface ReceiptFormProps {
 export function ReceiptForm({
   defaultReceivedBy,
   prefillClient,
+  prefillFirstName,
+  prefillMiddleName,
+  prefillLastName,
   prefillEmail,
   prefillBusiness,
   receiptTemplateId,
@@ -134,11 +142,16 @@ export function ReceiptForm({
   const [companyName, setCompanyName] = useState(
     prefillBusiness ? (prefillClient ?? '') : '',
   );
+  // K7: a person's name arrives already split — prefill each part to its own field.
   const [firstName, setFirstName] = useState(
-    !prefillBusiness ? (prefillClient ?? '') : '',
+    !prefillBusiness ? (prefillFirstName ?? '') : '',
   );
-  const [middleName, setMiddleName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [middleName, setMiddleName] = useState(
+    !prefillBusiness ? (prefillMiddleName ?? '') : '',
+  );
+  const [lastName, setLastName] = useState(
+    !prefillBusiness ? (prefillLastName ?? '') : '',
+  );
   const composedClient = business
     ? companyName.trim()
     : [firstName, middleName, lastName]
@@ -186,8 +199,8 @@ export function ReceiptForm({
   if (prefillClient !== seenPrefillClient) {
     setSeenPrefillClient(prefillClient);
     if (prefillClient) {
-      // A picked customer's fullName can't be split reliably — drop it into the
-      // matching single field for the customer's type; the user adjusts if needed.
+      // K7: a person's name comes pre-split (first/middle/last) — map each to its
+      // own field; a business drops its name into the company field.
       const isBiz = Boolean(prefillBusiness);
       setBusiness(isBiz);
       if (isBiz) {
@@ -196,9 +209,9 @@ export function ReceiptForm({
         setMiddleName('');
         setLastName('');
       } else {
-        setFirstName(prefillClient);
-        setMiddleName('');
-        setLastName('');
+        setFirstName(prefillFirstName ?? '');
+        setMiddleName(prefillMiddleName ?? '');
+        setLastName(prefillLastName ?? '');
         setCompanyName('');
       }
     }

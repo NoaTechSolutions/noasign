@@ -329,6 +329,9 @@ type Customer = {
   customerType: "PERSONAL" | "BUSINESS";
   status?: "ACTIVE" | "INACTIVE" | "DELETED";
   fullName: string;
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   addressLine1: string | null;
@@ -2211,6 +2214,9 @@ function DashboardPageInner() {
     const documentsV2Customers: V2CustomerOption[] = (customers ?? []).map((c) => ({
       id: c.id,
       fullName: c.fullName,
+      firstName: c.firstName,
+      middleName: c.middleName,
+      lastName: c.lastName,
       email: c.email,
       customerType: c.customerType,
       status: c.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',

@@ -256,9 +256,15 @@ model Customer {
   // Soft delete — null = active, timestamp = deleted (restorable by MASTER).
   deletedAt        DateTime?
 
-  fullName String
-  email    String?
-  phone    String?
+  // fullName is the composed display name (kept for backward compat + search).
+  // For a PERSONAL customer it is [first, middle, last] joined; the parts below let
+  // the invoice/receipt create map each to its own field (no lossy re-split). K8.
+  fullName   String
+  firstName  String?
+  middleName String?
+  lastName   String?
+  email      String?
+  phone      String?
 
   addressLine1 String?
   addressLine2 String?
