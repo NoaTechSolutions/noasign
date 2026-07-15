@@ -28,7 +28,11 @@ export function TemplateCard({
   onPreview,
   onCreate,
 }: TemplateCardProps) {
-  const { slug, name, isActive, previewUrl } = template;
+  const { slug, name, isActive, isOwn, previewUrl } = template;
+  // L1: a tenant's own private template shows a single generic title (owner
+  // decision — works for any tenant without composing per-tenant names) so it
+  // reads apart from the shared catalog designs.
+  const displayName = isOwn ? 'Your custom template' : name;
 
   // Preview is served from a PUBLIC, cross-origin route (:3000) — no cookie
   // needed. previewUrl is relative, so prefix the API base.
@@ -40,7 +44,7 @@ export function TemplateCard({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageSrc}
-          alt={`${name} preview`}
+          alt={`${displayName} preview`}
           className="template-card__img"
           loading="lazy"
         />
@@ -71,7 +75,7 @@ export function TemplateCard({
 
       <div className="template-card__body">
         <div className="template-card__head">
-          <div className="template-card__title">{name}</div>
+          <div className="template-card__title">{displayName}</div>
           {isActive && (
             <span className="template-card__current">Current selection</span>
           )}

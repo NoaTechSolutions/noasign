@@ -27,6 +27,10 @@ export interface TemplateCatalogItem {
   fullPreviewUrl: string;
   // True when THIS standard is the tenant's active/default for the category.
   isActive: boolean;
+  // L1: true when this standard is PRIVATE to the viewing tenant (its own custom
+  // template), false for the shared catalog. Lets the UI title it "Your custom
+  // template" and set it apart from the catalog designs.
+  isOwn: boolean;
 }
 
 @Injectable()
@@ -116,6 +120,9 @@ export class TemplatesService {
       previewUrl: TemplatesService.previewUrlFor(s.slug),
       fullPreviewUrl: TemplatesService.fullPreviewUrlFor(s.slug),
       isActive: s.id === activeId,
+      // Own = owned by the VIEWING tenant (null owner = shared catalog). For a
+      // SUPERADMIN this stays false on other tenants' private templates.
+      isOwn: s.ownerCompanyProfileId === companyProfileId,
     }));
   }
 
