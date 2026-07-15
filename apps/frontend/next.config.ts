@@ -5,6 +5,10 @@ import { version } from "./package.json";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  // Verify builds can target a separate output dir (NEXT_BUILD_DIST_DIR=.next-verify)
+  // so a green-gate build never clobbers the running dev server's .next. Unset in
+  // dev/normal builds → defaults to .next (no behavior change).
+  distDir: process.env.NEXT_BUILD_DIST_DIR || ".next",
   turbopack: {
     root: path.join(__dirname),
   },
