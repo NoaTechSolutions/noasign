@@ -676,8 +676,21 @@ export function DocumentDetailModal({
         contractDate: detail.contractDate ?? detail.createdAt,
         dataJson: mergedData,
       });
-      // Update local detail in place — no full re-fetch (no flash).
-      setDetail((d) => (d ? { ...d, data: { ...d.data, dataJson: mergedData } } : d));
+      // Update local detail in place — no full re-fetch (no flash). J4: also
+      // stamp lastEditedAt here so the "Edited" event shows in the Timeline tab
+      // in the SAME session; the modal keeps its own detail state and does not
+      // re-fetch after an edit, so without this the persisted lastEditedAt only
+      // appeared on the next open. Client "now" is close enough; a later fetch
+      // replaces it with the exact server time.
+      setDetail((d) =>
+        d
+          ? {
+              ...d,
+              lastEditedAt: new Date().toISOString(),
+              data: { ...d.data, dataJson: mergedData },
+            }
+          : d,
+      );
       toast.success('Document updated');
       setEditGroup(null);
     } catch (e) {
