@@ -848,11 +848,16 @@ function DashboardPageInner() {
     };
   }, []);
 
-  async function handleSignOut() {
+  function handleSignOut() {
+    // Fire-and-forget with `keepalive` so the redirect is NOT blocked on the
+    // round-trip: the browser still completes the request (clearing the auth
+    // cookie server-side) even after we navigate away. Awaiting it here made
+    // logout feel slow / look like it wasn't redirecting while the fetch hung.
     try {
-      await fetch(`${API_URL}/auth/logout`, {
+      void fetch(`${API_URL}/auth/logout`, {
         method: "POST",
         credentials: "include",
+        keepalive: true,
       });
     } catch {
       // Ignore network/logout errors and clear local state anyway.
