@@ -12,6 +12,7 @@ import {
   DocumentStatus,
   Prisma,
   StorageProvider,
+  TemplateCategory,
 } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { Response } from 'express';
@@ -723,22 +724,54 @@ export class DocumentsService {
           },
           orderBy: { name: 'asc' },
         });
+        // L3: the INVOICE form is derived from the tenant's OWN active invoice
+        // template (its standard's formDefinition), NOT from a global form —
+        // that global lookup leaked another tenant's private invoice form. A
+        // tenant with no invoice template gets NO form, so the INVOICE type is
+        // not offered at all (owner decision) until it has its own template.
+        const invoiceTemplate = await this.prisma.receiptTemplate.findFirst({
+          where: {
+            companyProfileId: effectiveCompanyProfileId,
+            category: TemplateCategory.INVOICE,
+            isActive: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          include: { standard: { include: { formDefinition: true } } },
+        });
+        const invoiceForm = invoiceTemplate?.standard?.formDefinition ?? null;
         for (const dt of directTypes) {
           if (typeMap.has(dt.id)) continue;
+          const isInvoiceType = dt.code === 'INVOICE';
+          // No own invoice template (or it has no form) → don't offer INVOICE.
+          if (isInvoiceType && !invoiceForm) continue;
+          const formDefinitions =
+            isInvoiceType && invoiceForm
+              ? [
+                  {
+                    id: invoiceForm.id,
+                    name: invoiceForm.name,
+                    schemaJson: invoiceForm.schemaJson,
+                  },
+                ]
+              : dt.formDefinitions.map((fd) => ({
+                  id: fd.id,
+                  name: fd.name,
+                  schemaJson: fd.schemaJson,
+                }));
           typeMap.set(dt.id, {
             id: dt.id,
             name: dt.name,
             code: dt.code,
             generationMode: dt.generationMode,
-            formDefinitions: dt.formDefinitions.map((fd) => ({
-              id: fd.id,
-              name: fd.name,
-              schemaJson: fd.schemaJson,
-            })),
+            formDefinitions,
             signatureTemplates: [],
             // The (effective user's) tenant template to borrow — the frontend
-            // passes it to createReceipt for the superadmin flow.
-            receiptTemplateId: receiptTemplates[0].id,
+            // passes it to createReceipt for the superadmin flow. Invoices point
+            // at their own resolved template.
+            receiptTemplateId:
+              isInvoiceType && invoiceTemplate
+                ? invoiceTemplate.id
+                : receiptTemplates[0].id,
             receiptTemplateSupportsMultiPayment: supportsMultiPayment,
           });
         }

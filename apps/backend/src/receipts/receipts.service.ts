@@ -439,14 +439,6 @@ export class ReceiptsService {
         'INVOICE document type is not DIRECT_PDF — fix its generationMode',
       );
     }
-    const formDefinition = await this.prisma.formDefinition.findFirst({
-      where: { documentTypeId: docType.id, isActive: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (!formDefinition) {
-      throw new NotFoundException('No active invoice form definition');
-    }
-
     const template = await this.resolveActivePdfTemplate(
       companyProfileId,
       TemplateCategory.INVOICE,
@@ -454,6 +446,23 @@ export class ReceiptsService {
     if (!template) {
       throw new NotFoundException(
         'No invoice template configured for this company',
+      );
+    }
+    // L3: the creation form BELONGS to the tenant's invoice template (its
+    // standard's formDefinition), NOT a global form. The old global findFirst
+    // returned the newest active invoice form regardless of tenant, leaking
+    // another tenant's PRIVATE form. Deriving it from the resolved template
+    // keeps the form inside the template's tenant scope.
+    const standard = template.standardId
+      ? await this.prisma.receiptTemplateStandard.findUnique({
+          where: { id: template.standardId },
+          include: { formDefinition: true },
+        })
+      : null;
+    const formDefinition = standard?.formDefinition ?? null;
+    if (!formDefinition) {
+      throw new NotFoundException(
+        'This invoice template has no form configured',
       );
     }
 
@@ -1861,8 +1870,18 @@ export class ReceiptsService {
     if (assignment?.receiptTemplate?.isActive) {
       return assignment.receiptTemplate;
     }
+    // Fallback: for INVOICE, constrain to the category so an invoice never
+    // silently falls back to a receipt template. Receipts KEEP the legacy
+    // unconstrained pick (it also matches legacy null-category rows, so adding a
+    // category filter there could drop a valid template).
     return this.prisma.receiptTemplate.findFirst({
-      where: { companyProfileId, isActive: true },
+      where: {
+        companyProfileId,
+        isActive: true,
+        ...(category === TemplateCategory.INVOICE
+          ? { category: TemplateCategory.INVOICE }
+          : {}),
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
