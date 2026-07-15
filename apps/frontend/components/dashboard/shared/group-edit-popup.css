@@ -314,3 +314,18 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* J2: Finance-card date required-when-filled — red border + inline message,
+   matching the wizard's error styling (var(--red)). */
+.gep-input--error {
+  border-color: var(--red);
+}
+.gep-input--error:focus {
+  border-color: var(--red);
+}
+.gep-field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--red);
+}

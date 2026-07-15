@@ -114,6 +114,23 @@ export function useFormValidation(
         }
       }
 
+      // J2: in each Finance card (finance_1..4), the date becomes REQUIRED once
+      // the card holds data (an amount OR a description) — an empty card stays
+      // optional. Only while the section's Finance toggle is on.
+      const financeOn = customToggles[`${sectionKey}:finance`] ?? false;
+      if (financeOn) {
+        for (let n = 1; n <= 4; n++) {
+          const dateKey = `finance_${n}_date`;
+          if (!section.fields.some((f) => f.key === dateKey)) continue;
+          const hasData =
+            !!fields[`finance_${n}_amount`]?.trim() ||
+            !!fields[`finance_${n}_description`]?.trim();
+          if (hasData && !fields[dateKey]?.trim()) {
+            errs[dateKey] = 'Date is required';
+          }
+        }
+      }
+
       return errs;
     },
     [schema, fields, copyToggles, customToggles],

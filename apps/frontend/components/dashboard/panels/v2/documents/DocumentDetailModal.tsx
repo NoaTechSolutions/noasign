@@ -647,8 +647,28 @@ export function DocumentDetailModal({
     setEditDirty(true);
   };
 
+  // J2: in the contract Finance edit, each card's date is REQUIRED once the card
+  // holds data (an amount OR a description). Computed live so the Save button
+  // gates on it and the offending date shows an inline error.
+  const financeDateErrors: Record<string, string> =
+    editGroup?.key === 'contract' && financeOn
+      ? Object.fromEntries(
+          [1, 2, 3, 4]
+            .filter(
+              (n) =>
+                (!!(editValues[`finance_${n}_amount`] ?? '').trim() ||
+                  !!(editValues[`finance_${n}_description`] ?? '').trim()) &&
+                !(editValues[`finance_${n}_date`] ?? '').trim(),
+            )
+            .map((n) => [`finance_${n}_date`, 'Date is required']),
+        )
+      : {};
+  const hasFinanceDateErrors = Object.keys(financeDateErrors).length > 0;
+
   const saveEdit = async () => {
     if (!editGroup || !detail || !onUpdateDraft) return;
+    // Belt-and-suspenders: the Save button is already disabled while invalid.
+    if (hasFinanceDateErrors) return;
     setEditSaving(true);
     try {
       const mergedData = { ...dataJson, ...editValues };
@@ -906,7 +926,7 @@ export function DocumentDetailModal({
           isOpen
           onClose={() => setEditGroup(null)}
           onSave={saveEdit}
-          isDirty={editDirty}
+          isDirty={editDirty && !hasFinanceDateErrors}
           isSaving={editSaving}
           wide={editGroup.key === 'contract' && financeOn}
         >
@@ -937,6 +957,7 @@ export function DocumentDetailModal({
                         field={{ key: `finance_${n}_date`, label: 'Date', type: 'date' }}
                         value={editValues[`finance_${n}_date`] ?? ''}
                         onChange={onFieldChange}
+                        error={financeDateErrors[`finance_${n}_date`]}
                       />
                     </FinanceCard>
                   ))}
@@ -1037,10 +1058,12 @@ function FieldInput({
   field,
   value,
   onChange,
+  error,
 }: {
   field: CardField;
   value: string;
   onChange: (key: string, value: string) => void;
+  error?: string;
 }) {
   const set = (v: string) => onChange(field.key, v);
   const label = <label className="form-label">{field.label}</label>;
@@ -1063,7 +1086,7 @@ function FieldInput({
           {label}
           <div className="gep-date-wrapper">
             <input
-              className="form-input gep-input-date"
+              className={`form-input gep-input-date${error ? ' gep-input--error' : ''}`}
               type="date"
               value={value}
               onChange={(e) => set(e.target.value)}
@@ -1072,6 +1095,7 @@ function FieldInput({
                 native indicator is kept transparent on top as the click target. */}
             <Calendar className="gep-date-icon" size={15} aria-hidden="true" />
           </div>
+          {error ? <span className="gep-field-error">{error}</span> : null}
         </div>
       );
 
