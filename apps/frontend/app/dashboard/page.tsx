@@ -2317,10 +2317,17 @@ function DashboardPageInner() {
             sendError: res.sendError ?? null,
           };
         } catch (e) {
-          // C3: rethrow so the form reopens with the user's values + the error
-          // inline (no silent toast-only loss). Dismiss the loading toast.
-          toast.dismiss(tid);
-          throw e;
+          // K2: the form already closed, so report the outcome in the toast (never
+          // re-throw into an unmounted modal). Network fail → guide to the draft.
+          toast.error(
+            isTransportError(e)
+              ? draftMaybeSavedMessage("receipt")
+              : e instanceof Error
+                ? e.message
+                : "Could not save the draft",
+            { id: tid },
+          );
+          return { status: "DRAFT", sendError: null };
         }
       },
       onCreateInvoice: async (payload: {
@@ -2372,8 +2379,16 @@ function DashboardPageInner() {
             body: payload,
           });
         } catch (e) {
-          toast.dismiss(tid);
-          throw e; // modal surfaces the error inline + stays open for a retry
+          // K2: the form already closed — report in the toast, never re-throw.
+          toast.error(
+            isTransportError(e)
+              ? draftMaybeSavedMessage("invoice")
+              : e instanceof Error
+                ? e.message
+                : "Unable to create invoice",
+            { id: tid },
+          );
+          return;
         }
         toast.success("Invoice created", { id: tid });
         try {

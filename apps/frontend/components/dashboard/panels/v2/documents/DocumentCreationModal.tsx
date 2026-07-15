@@ -7,7 +7,6 @@ import { useBeforeUnload } from '@/lib/use-before-unload';
 import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
 import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
 import { DocumentSetupCard } from './DocumentSetupCard';
-import { isTransportError, draftMaybeSavedMessage } from './submit-error';
 import {
   ReceiptForm,
   type CreateReceiptPayload,
@@ -129,11 +128,11 @@ export function DocumentCreationModal({
     contractDate: todayIso(),
     customerId: '',
   });
+  // Contract create only (K2: invoice/receipt now close the popup immediately and
+  // let the top toast report — no in-modal overlay). The blocking "Saving…" card
+  // + inline error below stay for the BOLDSIGN contract path.
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // C3: the receipt form drives its own draft submit; it reports "busy" so the
-  // modal can show the same blocking "Saving…" card as the invoice path.
-  const [receiptBusy, setReceiptBusy] = useState(false);
   // Pending invoice action while the issue-date disclaimer is open (null = closed).
   const [pendingInvoice, setPendingInvoice] = useState<{
     send: boolean;
@@ -194,14 +193,14 @@ export function DocumentCreationModal({
 
   // Any close intent (backdrop / Escape / X): warn first if there are changes.
   const handleRequestClose = useCallback(() => {
-    // C3: can't dismiss while a submit is in flight (the saving card owns the UI).
-    if (isSubmitting || receiptBusy) return;
+    // Can't dismiss while a contract submit is in flight (the saving card owns UI).
+    if (isSubmitting) return;
     if (wizardDirty) {
       setShowDiscard(true);
       return;
     }
     onClose();
-  }, [isSubmitting, receiptBusy, wizardDirty, onClose]);
+  }, [isSubmitting, wizardDirty, onClose]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -301,30 +300,21 @@ export function DocumentCreationModal({
     return doInvoiceSubmit(dataJson);
   }
 
-  async function doInvoiceSubmit(
+  function doInvoiceSubmit(
     dataJson: Record<string, string>,
     notifyOnIssueDate = false,
   ) {
-    setSubmitError(null);
-    setIsSubmitting(true);
-    try {
-      await onCreateInvoice!({
-        data: dataJson,
-        customerId: setup.customerId || undefined,
-        notifyOnIssueDate,
-      });
-      onClose();
-    } catch (err) {
-      setSubmitError(
-        isTransportError(err)
-          ? draftMaybeSavedMessage('invoice')
-          : err instanceof Error
-            ? err.message
-            : 'Unable to save invoice',
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    // K2: close the creation popup completely and let the top-right toast own ALL
+    // progress + result feedback (no duplicate in-modal "Saving…" overlay). Fire-
+    // and-forget; the toast reports success or the error (incl. the transport-fail
+    // "draft may be saved" guidance from onCreateInvoice).
+    onClose();
+    void onCreateInvoice!({
+      data: dataJson,
+      customerId: setup.customerId || undefined,
+      notifyOnIssueDate,
+    }).catch(() => {});
+    return Promise.resolve();
   }
 
   // "Create and send": the wizard has already validated the recipient email
@@ -337,32 +327,20 @@ export function DocumentCreationModal({
     return doInvoiceSend(dataJson);
   }
 
-  async function doInvoiceSend(
+  function doInvoiceSend(
     dataJson: Record<string, string>,
     notifyOnIssueDate = false,
   ) {
-    setSubmitError(null);
-    setIsSubmitting(true);
-    try {
-      await onCreateInvoice!({
-        data: dataJson,
-        customerId: setup.customerId || undefined,
-        send: true,
-        recipientEmail: (dataJson.recipient_email ?? '').trim() || undefined,
-        notifyOnIssueDate,
-      });
-      onClose();
-    } catch (err) {
-      setSubmitError(
-        isTransportError(err)
-          ? draftMaybeSavedMessage('invoice')
-          : err instanceof Error
-            ? err.message
-            : 'Unable to send invoice',
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    // K2: same as create — close the popup completely; the top toast owns feedback.
+    onClose();
+    void onCreateInvoice!({
+      data: dataJson,
+      customerId: setup.customerId || undefined,
+      send: true,
+      recipientEmail: (dataJson.recipient_email ?? '').trim() || undefined,
+      notifyOnIssueDate,
+    }).catch(() => {});
+    return Promise.resolve();
   }
 
   // DIRECT_PDF (receipt) types render the receipt form below the setup card
@@ -404,12 +382,11 @@ export function DocumentCreationModal({
           className="docs-v2-creation-modal__body"
           style={{ position: 'relative' }}
         >
-          {/* C3 (saas-ux-patterns §5, extended to create/send): while a submit is
-              in flight the whole form is covered by a blocking "Saving…" card so
-              nothing can be clicked/typed. On success the parent closes the modal;
-              on failure the overlay lifts and the form reappears (values intact)
-              with the error. */}
-          {isSubmitting || receiptBusy ? (
+          {/* Contract create only: while the BOLDSIGN submit is in flight the form
+              is covered by a blocking "Saving…" card. Invoice/receipt no longer set
+              isSubmitting — they close the popup immediately (K2), so this never
+              shows for them. */}
+          {isSubmitting ? (
             <div
               role="status"
               aria-live="polite"
@@ -516,7 +493,6 @@ export function DocumentCreationModal({
               receiptQuota={receiptQuota}
               onCreate={onCreateReceipt!}
               onClose={onClose}
-              onBusyChange={setReceiptBusy}
             />
           ) : (
             <>

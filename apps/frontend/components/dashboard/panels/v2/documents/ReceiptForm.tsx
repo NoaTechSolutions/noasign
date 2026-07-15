@@ -11,7 +11,6 @@ import {
   Pencil,
 } from 'lucide-react';
 import { BaseField } from './wizard/fields/BaseField';
-import { isTransportError, draftMaybeSavedMessage } from './submit-error';
 import { formatDisplayDate } from '@/lib/format';
 import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
@@ -111,11 +110,8 @@ interface ReceiptFormProps {
     overagePrice: number;
   };
   onCreate: (payload: CreateReceiptPayload) => Promise<ReceiptCreateResult>;
-  // Closes the host modal (Cancel + after a successful create / on send).
+  // Closes the host modal (Cancel + on create/send — K2: always immediate).
   onClose: () => void;
-  // C3: report draft-submit "busy" so the host modal shows its blocking saving
-  // card. The send path stays optimistic (closes immediately + progress toast).
-  onBusyChange?: (busy: boolean) => void;
 }
 
 // Embeddable receipt form — rendered inside DocumentCreationModal below the
@@ -131,7 +127,6 @@ export function ReceiptForm({
   receiptQuota,
   onCreate,
   onClose,
-  onBusyChange,
 }: ReceiptFormProps) {
   // Billed-to split (mirrors the invoice): Business → company name, else
   // first/middle/last. The composed name feeds validation + the payload.
@@ -278,30 +273,12 @@ export function ReceiptForm({
       notifyOnIssueDate,
       receiptTemplateId,
     };
-    if (send) {
-      // Send stays optimistic: close immediately; the parent's top-right progress
-      // toast resolves the REAL SENT / SEND_FAILED result.
-      onClose();
-      void onCreate(payload);
-      return;
-    }
-    // Draft (C3, saas-ux-patterns §5): block the modal with its saving card,
-    // await the create, and close only on success. On failure the card lifts and
-    // the form reappears (values intact) with the error — nothing is lost.
-    setError(null);
-    onBusyChange?.(true);
-    onCreate(payload)
-      .then(() => onClose())
-      .catch((e) => {
-        setError(
-          isTransportError(e)
-            ? draftMaybeSavedMessage('receipt')
-            : e instanceof Error
-              ? e.message
-              : 'Could not save the draft',
-        );
-        onBusyChange?.(false);
-      });
+    // K2: both draft and send close the receipt form COMPLETELY and immediately;
+    // the parent's top-right toast owns ALL progress + result feedback (SENT /
+    // SEND_FAILED / created / the transport-fail draft guidance) — no in-modal
+    // overlay, no duplicate message.
+    onClose();
+    void onCreate(payload);
   }
 
   // "Create & send" validates first, then asks for confirmation (the receipt is
