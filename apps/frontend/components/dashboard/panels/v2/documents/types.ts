@@ -137,6 +137,10 @@ export interface DocumentDetail {
   supersededAt?: string | null;
   supersedes?: { id: string; documentNumber: string } | null;
   supersededBy?: Array<{ id: string; documentNumber: string }> | null;
+  // M1: edit history — one entry per saved version, each carrying the labels of
+  // the fields that changed (computed server-side). Drives the Timeline's
+  // per-edit "Edited" rows. Present on GET /documents/:id.
+  versions?: DocumentVersion[];
 }
 
 /** Version timeline entry. Fetched on-demand when the sidebar opens

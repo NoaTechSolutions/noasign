@@ -1542,6 +1542,25 @@ function TimelineTab({
     ? `to ${detail.lastSentRecipientEmail}`
     : '';
 
+  // M1: one "Edited" row PER saved edit (version ≥ 2), each showing the fields
+  // that changed in that edit (computed server-side). Falls back to the single
+  // lastEditedAt event when a doc has no per-edit versions (keeps old behavior
+  // for anything that doesn't version each save).
+  const editVersions = (detail?.versions ?? [])
+    .filter((v) => v.versionNumber >= 2)
+    .sort((a, b) => a.versionNumber - b.versionNumber);
+  const editEvents: Array<{ label: string; ts?: string | null; hint: string; fields?: string[] }> =
+    editVersions.length > 0
+      ? editVersions.map((v) => ({
+          label: 'Edited',
+          ts: v.createdAt,
+          hint: '',
+          fields: v.changedFields ?? [],
+        }))
+      : detail?.lastEditedAt
+        ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }]
+        : [];
+
   // Contracts keep the signature lifecycle (Viewed/Signed/Completed). Receipts
   // have NO signing — only the events that actually happened, sorted by time.
   const events = isReceipt
@@ -1552,7 +1571,7 @@ function TimelineTab({
           ...(detail?.lastManualReminderAt
             ? [{ label: 'Resent', ts: detail.lastManualReminderAt, hint: toEmail }]
             : []),
-          ...(detail?.lastEditedAt ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }] : []),
+          ...editEvents,
           ...(detail?.status === 'SEND_FAILED'
             ? [
                 {
@@ -1575,7 +1594,7 @@ function TimelineTab({
                 },
               ]
             : []),
-        ] as Array<{ label: string; ts?: string | null; hint: string }>
+        ] as Array<{ label: string; ts?: string | null; hint: string; fields?: string[] }>
       )
         .filter((e) => Boolean(e.ts))
         .sort(
@@ -1584,14 +1603,15 @@ function TimelineTab({
         )
     : [
         { label: 'Created', ts: detail?.createdAt, hint: creator ? `by ${creator}` : '' },
-        // J4: a contract edit now leaves a trace (only shown once edited).
-        ...(detail?.lastEditedAt ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }] : []),
+        // M1: one row per edit (with the changed fields), replacing J4's single
+        // Edited stamp. Shown between Created and Sent (contract edits are draft-only).
+        ...editEvents,
         { label: 'Sent', ts: detail?.sentAt, hint: toEmail },
         { label: 'Viewed', ts: detail?.viewedAt, hint: '' },
         { label: 'Signed', ts: detail?.signedAt, hint: '' },
         { label: 'Completed', ts: detail?.completedAt, hint: '' },
         ...(detail?.cancelledAt ? [{ label: 'Cancelled', ts: detail.cancelledAt, hint: '' }] : []),
-      ];
+      ] as Array<{ label: string; ts?: string | null; hint: string; fields?: string[] }>;
   return (
     <div className="doc-detail-modal__section card-legend">
       <span className="card-legend__label">
@@ -1599,15 +1619,24 @@ function TimelineTab({
         <span className="card-legend__title">Timeline</span>
       </span>
       <div className="doc-timeline">
-        {events.map((e) => {
+        {events.map((e, i) => {
           const active = Boolean(e.ts);
           return (
-            <div key={e.label} className={`doc-timeline__row${active ? '' : ' doc-timeline__row--inactive'}`}>
+            // key includes the index: multiple 'Edited' rows share a label.
+            <div key={`${e.label}-${i}`} className={`doc-timeline__row${active ? '' : ' doc-timeline__row--inactive'}`}>
               <span className="doc-timeline__dot" aria-hidden="true" />
               <span className="doc-timeline__label">{e.label}</span>
               <span className="doc-timeline__value">
                 {active ? fmtDate(e.ts) : '—'}
                 {active && e.hint ? <span className="doc-timeline__hint"> · {e.hint}</span> : null}
+                {/* M1: the fields changed in this edit, as chips. */}
+                {e.fields && e.fields.length > 0 ? (
+                  <span className="doc-timeline__fields">
+                    {e.fields.map((f) => (
+                      <span key={f} className="doc-timeline__field-chip">{f}</span>
+                    ))}
+                  </span>
+                ) : null}
               </span>
             </div>
           );

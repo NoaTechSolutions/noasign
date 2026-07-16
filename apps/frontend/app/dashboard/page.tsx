@@ -2549,6 +2549,7 @@ function DashboardPageInner() {
             versionNumber: number;
             createdAt: string;
             changedByUserId?: string | null;
+            changedFields?: string[];
           }>;
         }>(`/documents/${docId}`);
         return (detail.versions ?? []).map((v) => ({
@@ -2556,6 +2557,9 @@ function DashboardPageInner() {
           versionNumber: v.versionNumber,
           createdAt: v.createdAt,
           changedBy: null,
+          // M1: carry the changed-field labels through so the sidebar timeline
+          // shows them too (was dropped here — same backend-ok/display-drop family).
+          changedFields: v.changedFields ?? [],
         }));
       },
       onFetchDocument: handleFetchDocumentDetail,
