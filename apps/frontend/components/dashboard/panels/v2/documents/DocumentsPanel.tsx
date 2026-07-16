@@ -11,6 +11,7 @@ import type { ReceiptStats } from '../ReceiptMetricCards';
 import { DocumentsToolbar } from './DocumentsToolbar';
 import { DocumentsTable } from './DocumentsTable';
 import { DocumentsCards } from './DocumentsCards';
+import { useRowExit } from '@/lib/use-row-exit';
 import { DocumentDetailModal } from './DocumentDetailModal';
 import { DocumentsEmptyState } from './DocumentsEmptyState';
 import {
@@ -280,6 +281,8 @@ export function DocumentsPanel({
   const [deleteConfirm, setDeleteConfirm] = useState<{ docId: string } | null>(
     null,
   );
+  // R3/§9: shared row-exit animation (fade/slide before the delete+reload lands).
+  const { removingId, animateRemoval } = useRowExit();
   // C6: "Send now" confirmation for a scheduled doc — it emits TODAY (not on its
   // scheduled date).
   const [sendNowConfirm, setSendNowConfirm] = useState<{ docId: string } | null>(
@@ -719,6 +722,7 @@ export function DocumentsPanel({
           <DocumentsTable
             documents={pageItems}
             selectedId={selectedDocId}
+            removingId={removingId}
             onSelect={handleSelect}
             onAction={handleAction}
             statusFilter={statusFilter}
@@ -732,6 +736,7 @@ export function DocumentsPanel({
           <DocumentsCards
             documents={pageItems}
             selectedId={selectedDocId}
+            removingId={removingId}
             onSelect={handleSelect}
             onAction={handleAction}
             receiptsOnly={receiptsOnly}
@@ -898,9 +903,13 @@ export function DocumentsPanel({
           onConfirm={() => {
             const { docId } = deleteConfirm;
             setDeleteConfirm(null);
-            void onDeleteDocument?.(docId);
-            // Close the detail (if open) so the updated list shows.
+            // Close the detail (if open) so the row is visible while it exits.
             setSelectedDocId(null);
+            // R3/§9: play the shared row exit, THEN delete+reload (bundled in
+            // onDeleteDocument) — the row animates out, then the reload drops it.
+            void animateRemoval(docId, () =>
+              onDeleteDocument ? onDeleteDocument(docId) : undefined,
+            );
           }}
           onCancel={() => setDeleteConfirm(null)}
         />

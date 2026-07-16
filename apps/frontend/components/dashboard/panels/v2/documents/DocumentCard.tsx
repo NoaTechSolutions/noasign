@@ -30,13 +30,15 @@ interface DocumentCardProps {
   // Receipts-only context: the recipient is already in the card header, so the
   // redundant "Type" body row is hidden.
   receiptsOnly?: boolean;
+  // R3/§9: true while this card animates out after a delete (mobile parity).
+  removing?: boolean;
 }
 
 // State-change actions grouped under the "Actions" sub-sheet (mirrors the
 // desktop kebab submenu): Resend / Reissue / Void. A VOID receipt has none.
 const SUBMENU_ACTIONS = new Set<V2DocumentAction>(['resend', 'reissue', 'void']);
 
-export function DocumentCard({ document, selected, onAction, receiptsOnly = false }: DocumentCardProps) {
+export function DocumentCard({ document, selected, onAction, receiptsOnly = false, removing = false }: DocumentCardProps) {
   const [expanded, setExpanded] = useState(false);
   // Mobile bottom sheets (same pattern as the Clients CustomerCard).
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -89,7 +91,7 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
   return (
     <>
       <div
-        className={`documents-v2-card${selected ? ' documents-v2-card--selected' : ''}`}
+        className={`documents-v2-card${selected ? ' documents-v2-card--selected' : ''}${removing ? ' row-exiting' : ''}`}
       >
         <div
           className="documents-v2-card__header"

@@ -79,7 +79,7 @@ export function CustomerTableRow({
   // propagation so the kebab doesn't also trigger it.
   return (
     <tr
-      className={`customer-row${isDeleted ? ' customer-row--deleted' : ''}${removing ? ' customer-row--removing' : ''}`}
+      className={`customer-row${isDeleted ? ' customer-row--deleted' : ''}${removing ? ' row-exiting' : ''}`}
       onClick={() => { if (!removing) onView(customer); }}
     >
       {/* 1. Name + email sub-line */}

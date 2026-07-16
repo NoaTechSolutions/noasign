@@ -358,6 +358,27 @@ input {
 }
 
 /* ============================================
+   §9 SaaS-wide row exit — animated removal on delete.
+   Single source: any table row or mobile card whose id matches the useRowExit
+   removingId gets `.row-exiting`. Fade + slide-left (~300ms, matches
+   ROW_EXIT_MS in lib/use-row-exit.ts), non-interactive while it plays, and
+   collapsed to a near-instant fade under prefers-reduced-motion.
+   ============================================ */
+.row-exiting {
+  animation: rowExitOut 0.3s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes rowExitOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-14px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-exiting {
+    animation-duration: 0.01ms;
+  }
+}
+
+/* ============================================
    Dashboard Design System Tokens
    Fuente: docs/designs/dashboard.html (líneas 8-69)
    ============================================ */

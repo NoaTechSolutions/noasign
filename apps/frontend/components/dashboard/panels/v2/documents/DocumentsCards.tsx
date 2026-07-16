@@ -7,6 +7,8 @@ import type { V2DocumentItem, V2DocumentAction } from './types';
 interface DocumentsCardsProps {
   documents: V2DocumentItem[];
   selectedId: string | null;
+  /** R3/§9: id of a card animating out after a delete (mobile parity). */
+  removingId?: string | null;
   onSelect: (docId: string) => void;
   onAction: (action: V2DocumentAction, docId: string) => void | Promise<void>;
   isLoading?: boolean;
@@ -60,6 +62,7 @@ function SkeletonCard() {
 export function DocumentsCards({
   documents,
   selectedId,
+  removingId,
   onSelect,
   onAction,
   isLoading,
@@ -74,6 +77,7 @@ export function DocumentsCards({
               key={doc.id}
               document={doc}
               selected={doc.id === selectedId}
+              removing={doc.id === removingId}
               onSelect={onSelect}
               onAction={onAction}
               receiptsOnly={receiptsOnly}

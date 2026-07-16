@@ -13,6 +13,7 @@ import { CustomerFormDrawer } from './CustomerFormDrawer';
 import { CustomerDetailModal } from './CustomerDetailModal';
 import { DeleteCustomerModal } from './DeleteCustomerModal';
 import { AssignCustomerModal } from './AssignCustomerModal';
+import { useRowExit } from '@/lib/use-row-exit';
 import type { Customer, CustomerFormData, CustomerOwnerUser } from './types';
 import './customers-panel.css';
 
@@ -70,9 +71,8 @@ export function CustomersPanel({
     () => parseFilterParam(searchParams.get('status'), ['ACTIVE', 'INACTIVE', 'DELETED']),
   );
   const [currentPage, setCurrentPage] = useState(1);
-  // R3: id of a row currently animating out (post-delete) — it keeps the row in
-  // the list while the fade/slide-out plays, then the reload drops it for real.
-  const [removingId, setRemovingId] = useState<string | null>(null);
+  // R3/§9: shared row-exit animation (fade/slide before the reload drops the row).
+  const { removingId, animateRemoval } = useRowExit();
 
   // Mirror filters + search back into the URL via replaceState (NOT the Next
   // router) so persisting them never re-runs the page's data effects. Empty
@@ -203,15 +203,12 @@ export function CustomersPanel({
     if (!selectedCustomer) return;
     const id = selectedCustomer.id;
     await onDeleteCustomer(id);
-    // R3: close the modal, then let the row fade/slide out (removingId) before
-    // the reload actually drops it — so it doesn't vanish abruptly. On failure
-    // onDeleteCustomer throws and none of this runs (the modal shows the error).
+    // R3/§9: close the modal, then play the shared row exit before the reload
+    // drops the row. On failure onDeleteCustomer throws and none of this runs
+    // (the modal shows the error).
     setActiveModal(null);
     setSelectedCustomer(null);
-    setRemovingId(id);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    await reloadCustomers();
-    setRemovingId(null);
+    await animateRemoval(id, reloadCustomers);
   };
 
   const handleConfirmAssign = async (newUserId: string) => {
@@ -295,6 +292,7 @@ export function CustomersPanel({
             role={role}
             currentUserId={currentUserId}
             loading={loading}
+            removingId={removingId}
             onView={handleViewCustomer}
             onChangeStatus={handleChangeStatus}
             onEdit={handleEditCustomer}

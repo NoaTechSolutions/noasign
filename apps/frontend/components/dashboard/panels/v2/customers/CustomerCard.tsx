@@ -16,6 +16,8 @@ interface CustomerCardProps {
   onAssign: (customer: Customer) => void;
   onChangeStatus: (customer: Customer, status: 'ACTIVE' | 'INACTIVE' | 'DELETED') => void | Promise<void>;
   onRestore?: (customer: Customer) => void | Promise<void>;
+  /** R3/§9: true while this card animates out after a delete (mobile parity). */
+  removing?: boolean;
 }
 
 export function CustomerCard({
@@ -27,6 +29,7 @@ export function CustomerCard({
   onDelete,
   onAssign,
   onChangeStatus,
+  removing = false,
 }: CustomerCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -60,7 +63,7 @@ export function CustomerCard({
   };
 
   return (
-    <div className={`customer-card${isDeleted ? ' customer-card--deleted' : ''}`}>
+    <div className={`customer-card${isDeleted ? ' customer-card--deleted' : ''}${removing ? ' row-exiting' : ''}`}>
       <div className="customer-card__header" onClick={() => setExpanded(!expanded)}>
         <div>
           <div className="customer-card__name">{displayName}</div>
