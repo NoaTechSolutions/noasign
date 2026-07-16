@@ -891,7 +891,7 @@ export function DocumentsPanel({
         <ConfirmActionModal
           isOpen
           title="Delete draft?"
-          message="This draft will be deleted and removed from your list. This can't be undone from here."
+          message="This draft will be deleted and removed from your list. It can't be restored — there's no self-service restore for deleted drafts yet."
           confirmLabel="Delete"
           cancelLabel="Cancel"
           variant="danger"
