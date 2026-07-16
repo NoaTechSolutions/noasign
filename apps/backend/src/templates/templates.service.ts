@@ -100,12 +100,33 @@ export class TemplatesService {
     // Invariant: a tenant always has exactly one active template per category.
     // Self-heal any tenant with zero before we read.
     await this.ensureActive(companyProfileId, category);
+    // N4: "own overrides catalog", per category. A tenant with at least one ACTIVE
+    // private template of THIS category sees ONLY its own — the generic catalog is
+    // hidden for that category (owner decision: a tailored template means you don't
+    // want the generics). A tenant with none keeps the full catalog (global + own).
+    // Counting only ACTIVE owns is the safe fallback: deactivating your last custom
+    // reverts to the catalog instead of showing nothing. SUPERADMIN sees everything.
+    // Per-category, so a tenant still sees the catalog for categories it has no own
+    // template in (e.g. Laura: own invoice → own only; no own receipt → catalog).
+    const ownActiveCount = isSuperadmin
+      ? 0
+      : await this.prisma.receiptTemplateStandard.count({
+          where: {
+            category,
+            isActive: true,
+            ownerCompanyProfileId: companyProfileId,
+          },
+        });
+    const visibilityWhere = isSuperadmin
+      ? {}
+      : ownActiveCount > 0
+        ? { ownerCompanyProfileId: companyProfileId }
+        : this.visibleToTenant(companyProfileId);
     const standards = await this.prisma.receiptTemplateStandard.findMany({
       where: {
         category,
         isActive: true,
-        // SUPERADMIN sees every template; a tenant sees global + its own private.
-        ...(isSuperadmin ? {} : this.visibleToTenant(companyProfileId)),
+        ...visibilityWhere,
       },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     });
