@@ -203,7 +203,12 @@ export function CustomerDetailModal({
             fullName: combineFullName(draft.firstName, draft.middleName, draft.lastName),
             // K8: persist the parts so invoice/receipt create maps them (K7).
             firstName: draft.firstName.trim(),
-            middleName: draft.middleName.trim() || undefined,
+            // R1: send middleName ALWAYS (even empty). With `|| undefined` a
+            // cleared middle was omitted from the JSON, so the backend never got
+            // the instruction to clear it — the PATCH returned 200 (fullName did
+            // change), "Saved!" fired, but middleName persisted. Empty string
+            // reaches normalizeOptionalFields and becomes null (the real clear).
+            middleName: draft.middleName.trim(),
             lastName: draft.lastName.trim(),
             email: draft.email || undefined,
             phone: draft.phone || undefined,
