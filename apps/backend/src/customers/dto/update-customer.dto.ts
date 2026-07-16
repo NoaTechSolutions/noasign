@@ -38,6 +38,25 @@ export class UpdateCustomerDto {
   @MaxLength(200)
   fullName?: string;
 
+  // K8: name parts for a PERSONAL customer — must mirror CreateCustomerDto.
+  // Without these the ValidationPipe (whitelist + forbidNonWhitelisted) rejects
+  // the edit payload with a 400, because the detail modal sends first/middle/last
+  // on every personal save. The service persists them via stripNestedFields.
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  lastName?: string;
+
   @IsOptional()
   @IsEmail()
   @MaxLength(254)

@@ -92,6 +92,11 @@ export function CustomerDetailModal({
   // save path — the drawer's is separate). Without it, clearing a required field
   // (e.g. last name) reached the backend and failed with only a flash (no catch).
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // N2 (b): a server-side save failure. handleSave used to be try/finally with NO
+  // catch, so a backend rejection (e.g. the 400) escaped as an "Uncaught (in
+  // promise)": the close lines never ran, the popup flipped saving→form = a flash
+  // with no message. §8: every failed Save must show why — server errors included.
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Re-seed when a different customer is shown.
   useEffect(() => {
@@ -108,14 +113,17 @@ export function CustomerDetailModal({
     setDraft(seedDraft(current));
     setDirty(false);
     setFieldErrors({});
+    setSaveError(null);
     setEditingGroup(key);
   };
-  const closeGroup = () => { setEditingGroup(null); setDirty(false); setFieldErrors({}); };
+  const closeGroup = () => { setEditingGroup(null); setDirty(false); setFieldErrors({}); setSaveError(null); };
   const set = (field: keyof Draft, value: string) => {
     setDraft((d) => ({ ...d, [field]: value }));
     setDirty(true);
     // Clear this field's error as the user fixes it.
     setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: '' } : prev));
+    // Any edit invalidates a prior server error — let the user retry cleanly.
+    setSaveError(null);
   };
 
   const handleSave = useCallback(async () => {
@@ -134,6 +142,7 @@ export function CustomerDetailModal({
       return;
     }
     setFieldErrors({});
+    setSaveError(null);
     setSaving(true);
     try {
       const payload: CustomerFormData = isBusiness
@@ -196,6 +205,15 @@ export function CustomerDetailModal({
       setCurrent(updated);
       setEditingGroup(null);
       setDirty(false);
+    } catch (err) {
+      // §8: surface the server's reason inside the popup instead of letting the
+      // promise reject uncaught (the old flash). The form reappears with values
+      // intact because isSaving flips back to false in finally.
+      setSaveError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'Could not save changes. Please try again.',
+      );
     } finally {
       setSaving(false);
     }
@@ -345,7 +363,7 @@ export function CustomerDetailModal({
       {/* ── Group edit popups ── */}
       {!isBusiness ? (
         <>
-          <GroupEditPopup title="Personal Information" isOpen={editingGroup === 'pi-personal'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
+          <GroupEditPopup title="Personal Information" isOpen={editingGroup === 'pi-personal'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving} error={saveError ?? undefined}>
             <div className="form-field"><label className="form-label">First name *</label><input type="text" className={`form-input${fieldErrors.firstName ? ' form-input--error' : ''}`} value={draft.firstName} onChange={(e) => set('firstName', formatTitleCase(e.target.value))} required />{fieldErrors.firstName && <span className="form-field-error">{fieldErrors.firstName}</span>}</div>
             <div className="form-field"><label className="form-label">Middle name</label><input type="text" className="form-input" value={draft.middleName} onChange={(e) => set('middleName', formatTitleCase(e.target.value))} /></div>
             <div className="form-field"><label className="form-label">Last name *</label><input type="text" className={`form-input${fieldErrors.lastName ? ' form-input--error' : ''}`} value={draft.lastName} onChange={(e) => set('lastName', formatTitleCase(e.target.value))} required />{fieldErrors.lastName && <span className="form-field-error">{fieldErrors.lastName}</span>}</div>
@@ -353,7 +371,7 @@ export function CustomerDetailModal({
             <div className="form-field"><label className="form-label">Phone</label><input type="tel" className="form-input" value={draft.phone} onChange={(e) => set('phone', formatUsPhone(e.target.value))} placeholder="(555) 000-0000" /></div>
           </GroupEditPopup>
 
-          <GroupEditPopup title="Address" isOpen={editingGroup === 'pi-address'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
+          <GroupEditPopup title="Address" isOpen={editingGroup === 'pi-address'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving} error={saveError ?? undefined}>
             <div className="form-field"><label className="form-label">Street</label><input type="text" className="form-input" value={draft.addressLine1} onChange={(e) => set('addressLine1', formatTitleCase(e.target.value))} /></div>
             <div className="form-field"><label className="form-label">Street 2</label><input type="text" className="form-input" value={draft.addressLine2} onChange={(e) => set('addressLine2', e.target.value)} /></div>
             <div className="form-field"><label className="form-label">City</label><input type="text" className="form-input" value={draft.city} onChange={(e) => set('city', formatTitleCase(e.target.value))} /></div>
@@ -363,7 +381,7 @@ export function CustomerDetailModal({
         </>
       ) : (
         <>
-          <GroupEditPopup title="Company Details" isOpen={editingGroup === 'biz-details'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
+          <GroupEditPopup title="Company Details" isOpen={editingGroup === 'biz-details'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving} error={saveError ?? undefined}>
             <div className="form-field"><label className="form-label">Business name *</label><input type="text" className={`form-input${fieldErrors.businessName ? ' form-input--error' : ''}`} value={draft.businessName} onChange={(e) => set('businessName', formatTitleCase(e.target.value))} required />{fieldErrors.businessName && <span className="form-field-error">{fieldErrors.businessName}</span>}</div>
             <div className="form-field"><label className="form-label">Legal name</label><input type="text" className="form-input" value={draft.businessLegalName} onChange={(e) => set('businessLegalName', formatTitleCase(e.target.value))} /></div>
             <div className="form-field"><label className="form-label">License number</label><input type="text" className="form-input" value={draft.licenseNumber} onChange={(e) => set('licenseNumber', e.target.value)} /></div>
@@ -373,7 +391,7 @@ export function CustomerDetailModal({
             <div className="form-field"><label className="form-label">Website</label><input type="url" className="form-input" value={draft.website} onChange={(e) => set('website', e.target.value)} placeholder="https://company.com" /></div>
           </GroupEditPopup>
 
-          <GroupEditPopup title="Business Address" isOpen={editingGroup === 'biz-address'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
+          <GroupEditPopup title="Business Address" isOpen={editingGroup === 'biz-address'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving} error={saveError ?? undefined}>
             <div className="form-field"><label className="form-label">Street</label><input type="text" className="form-input" value={draft.businessAddressLine1} onChange={(e) => set('businessAddressLine1', formatTitleCase(e.target.value))} /></div>
             <div className="form-field"><label className="form-label">Street 2</label><input type="text" className="form-input" value={draft.businessAddressLine2} onChange={(e) => set('businessAddressLine2', e.target.value)} /></div>
             <div className="form-field"><label className="form-label">City</label><input type="text" className="form-input" value={draft.businessCity} onChange={(e) => set('businessCity', formatTitleCase(e.target.value))} /></div>
@@ -381,14 +399,14 @@ export function CustomerDetailModal({
             <div className="form-field"><label className="form-label">ZIP code</label><input type="text" className="form-input" value={draft.businessZipCode} onChange={(e) => set('businessZipCode', formatZipCode(e.target.value))} maxLength={10} placeholder="90210" /></div>
           </GroupEditPopup>
 
-          <GroupEditPopup title="Primary Contact" isOpen={editingGroup === 'pc-identity'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
+          <GroupEditPopup title="Primary Contact" isOpen={editingGroup === 'pc-identity'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving} error={saveError ?? undefined}>
             <div className="form-field"><label className="form-label">Name</label><input type="text" className="form-input" value={draft.primaryContactName} onChange={(e) => set('primaryContactName', formatTitleCase(e.target.value))} /></div>
             <div className="form-field"><label className="form-label">Email</label><input type="email" className="form-input" value={draft.primaryContactEmail} onChange={(e) => set('primaryContactEmail', e.target.value)} /></div>
             <div className="form-field"><label className="form-label">Phone</label><input type="tel" className="form-input" value={draft.primaryContactPhone} onChange={(e) => set('primaryContactPhone', formatUsPhone(e.target.value))} placeholder="(555) 000-0000" /></div>
             <div className="form-field"><label className="form-label">Title</label><input type="text" className="form-input" value={draft.primaryContactTitle} onChange={(e) => set('primaryContactTitle', e.target.value)} /></div>
           </GroupEditPopup>
 
-          <GroupEditPopup title="Contact Address" isOpen={editingGroup === 'pc-address'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
+          <GroupEditPopup title="Contact Address" isOpen={editingGroup === 'pc-address'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving} error={saveError ?? undefined}>
             <div className="form-field"><label className="form-label">Street</label><input type="text" className="form-input" value={draft.primaryContactAddressLine1} onChange={(e) => set('primaryContactAddressLine1', formatTitleCase(e.target.value))} /></div>
             <div className="form-field"><label className="form-label">City</label><input type="text" className="form-input" value={draft.primaryContactCity} onChange={(e) => set('primaryContactCity', formatTitleCase(e.target.value))} /></div>
             <div className="form-field"><label className="form-label">State</label><input type="text" className="form-input" value={draft.primaryContactState} onChange={(e) => set('primaryContactState', formatState(e.target.value))} placeholder="CA" /></div>

@@ -20,6 +20,10 @@ interface GroupEditPopupProps {
   isSaved?: boolean;
   /** Widen the panel (e.g. Contract edit with Finance ON → 2x2 grid needs room). */
   wide?: boolean;
+  /** A save error to surface inside the popup — §8: a Save that doesn't proceed
+   *  (validation OR a server rejection) must show something visible, never a
+   *  silent flash. The parent sets this in its handleSave catch. */
+  error?: string;
   children: React.ReactNode;
 }
 
@@ -32,6 +36,7 @@ export function GroupEditPopup({
   isSaving = false,
   isSaved = false,
   wide = false,
+  error,
   children,
 }: GroupEditPopupProps) {
   useBlockScroll(isOpen);
@@ -110,6 +115,9 @@ export function GroupEditPopup({
             <>
               <div className="gep-body">
                 {children}
+                {error && (
+                  <div className="gep-save-error" role="alert">{error}</div>
+                )}
               </div>
               <div className="gep-footer">
                 <button type="button" className="btn-cancel" onClick={handleClose}>Cancel</button>

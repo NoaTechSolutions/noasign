@@ -329,3 +329,15 @@
   font-size: 12px;
   color: var(--red);
 }
+
+/* §8: a Save that the SERVER rejected — surfaced inside the popup body so the
+   failure is never a silent flash. Sits below the fields, above the footer. */
+.gep-save-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 0.5px solid var(--red);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--red);
+}
