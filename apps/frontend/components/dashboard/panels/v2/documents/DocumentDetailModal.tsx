@@ -677,6 +677,31 @@ export function DocumentDetailModal({
       : {};
   const hasFinanceDateErrors = Object.keys(financeDateErrors).length > 0;
 
+  // §8: required-field validation for the contract edit, mirroring the customers
+  // work. Which fields are required is read from the form SCHEMA (single source —
+  // `required` on each SchemaField), never hardcoded, so a template change is
+  // followed automatically. A cleared required field gets a red border + inline
+  // message on THAT input and blocks the save — never a silent no-op. Computed
+  // live (like the J2 finance dates above) over the fields actually in the open
+  // group; the label comes from what the user sees in the popup.
+  const requiredKeys = new Set<string>(
+    sections.flatMap((s) => s.fields.filter((f) => f.required).map((f) => f.key)),
+  );
+  const editFieldLabels: Record<string, string> = {
+    ...Object.fromEntries(CONTRACT_BASE_FIELDS.map((f) => [f.key, f.label])),
+    ...(editGroup?.fields
+      ? Object.fromEntries(editGroup.fields.map((f) => [f.key, f.label]))
+      : {}),
+  };
+  const requiredFieldErrors: Record<string, string> = editGroup
+    ? Object.fromEntries(
+        Object.keys(editValues)
+          .filter((k) => requiredKeys.has(k) && !(editValues[k] ?? '').trim())
+          .map((k) => [k, `${editFieldLabels[k] ?? 'This field'} is required`]),
+      )
+    : {};
+  const hasRequiredErrors = Object.keys(requiredFieldErrors).length > 0;
+
   // M2: once the "Saved!" check is showing, auto-close the popup after a brief
   // flourish (matches invoice/receipt). setEditGroup/setEditSaved are stable, so
   // no ref is needed to keep the timer from resetting on re-render.
@@ -692,7 +717,7 @@ export function DocumentDetailModal({
   const saveEdit = async () => {
     if (!editGroup || !detail || !onUpdateDraft) return;
     // Belt-and-suspenders: the Save button is already disabled while invalid.
-    if (hasFinanceDateErrors) return;
+    if (hasFinanceDateErrors || hasRequiredErrors) return;
     setEditSaving(true);
     try {
       const mergedData = { ...dataJson, ...editValues };
@@ -971,7 +996,7 @@ export function DocumentDetailModal({
           isOpen
           onClose={() => setEditGroup(null)}
           onSave={saveEdit}
-          isDirty={editDirty && !hasFinanceDateErrors}
+          isDirty={editDirty && !hasFinanceDateErrors && !hasRequiredErrors}
           isSaving={editSaving}
           isSaved={editSaved}
           wide={editGroup.key === 'contract' && financeOn}
@@ -979,7 +1004,7 @@ export function DocumentDetailModal({
           {editGroup.key === 'contract' ? (
             <>
               {CONTRACT_BASE_FIELDS.map((f) => (
-                <FieldInput key={f.key} field={f} value={editValues[f.key] ?? ''} onChange={onFieldChange} />
+                <FieldInput key={f.key} field={f} value={editValues[f.key] ?? ''} onChange={onFieldChange} error={requiredFieldErrors[f.key]} />
               ))}
               <hr className="gep-divider" />
               <WizardToggleRow label="Finance" checked={financeOn} onChange={handleFinanceToggle} />
@@ -1013,7 +1038,7 @@ export function DocumentDetailModal({
             </>
           ) : (
             editGroup.fields.map((f) => (
-              <FieldInput key={f.key} field={f} value={editValues[f.key] ?? ''} onChange={onFieldChange} />
+              <FieldInput key={f.key} field={f} value={editValues[f.key] ?? ''} onChange={onFieldChange} error={requiredFieldErrors[f.key]} />
             ))
           )}
         </GroupEditPopup>

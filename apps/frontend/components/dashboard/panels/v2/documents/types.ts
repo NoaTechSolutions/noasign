@@ -94,6 +94,9 @@ export interface SchemaField {
   key: string;
   type: string;
   label: string;
+  // §8: the template marks required fields here — the single source the edit
+  // popups validate against (not a hardcoded list).
+  required?: boolean;
   transform?: string;
   options?: Array<{ value: string; label: string }>;
 }
