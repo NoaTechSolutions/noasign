@@ -178,3 +178,32 @@ shared field component** yet — the wizard uses `BaseField`, other forms wire t
 classes directly. Extracting one shared `FormField`/`FieldError` primitive and
 migrating every module onto it is a worthwhile dedicated refactor; until then, new
 forms MUST follow the same three rules above using the existing classes.
+
+## §9 — Animated row exit on delete (single source)
+
+When a delete **removes a row from a table or card list**, the row **animates out**
+before it disappears — it never vanishes abruptly on reload.
+
+**The rule.**
+1. The removed row/card **fades + slides left (~300ms)**, then the list reloads and
+   drops it for real.
+2. While it animates, the row is **not interactive** (`pointer-events: none`; its
+   click handler is guarded).
+3. It **honors `prefers-reduced-motion`** — the animation collapses to a near-instant
+   fade for users who ask for reduced motion.
+4. **Mobile parity**: the same exit plays on the mobile card list, not just the
+   desktop table.
+
+**Single source (not a per-module copy).** The timing + state live in the shared
+hook `lib/use-row-exit.ts` (`useRowExit` → `{ removingId, animateRemoval }`); the
+visual lives in the shared CSS class **`.row-exiting`** (`globals.css`, with the
+`rowExitOut` keyframe + the reduced-motion override). A table/card just applies
+`row-exiting` to the row whose id === `removingId`. `animateRemoval(id, afterExit)`
+supports both flows: **delete-first** (customers: `await onDelete(id)` then
+`animateRemoval(id, reload)`) and **delete-bundled** (documents:
+`animateRemoval(id, () => onDelete(id))` where the delete already reloads).
+
+**Applied to.** Customers (table + mobile cards) and Documents (draft delete: table +
+mobile cards). **Not** Members — deactivating a member keeps the row (marked
+inactive), so there is no removal to animate. Any future table whose delete removes
+a row MUST reuse `useRowExit` + `.row-exiting`, never re-implement the animation.
