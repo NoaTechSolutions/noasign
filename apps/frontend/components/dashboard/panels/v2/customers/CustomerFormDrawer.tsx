@@ -20,6 +20,10 @@ interface CustomerFormDrawerProps {
   // instead of Cancel on step 1. The drawer stays mounted, so entered data is
   // preserved. Absent in edit (no type step).
   onBack?: () => void;
+  // O1: while the type selector is shown OVER this still-mounted drawer, hide it
+  // so its (larger) overlay doesn't peek out behind the selector's translucent
+  // backdrop. display:none keeps it mounted → entered data survives the re-pick.
+  hidden?: boolean;
   // SUPERADMIN-only assignment step (TASK 3). role drives whether the "Assign to
   // user" step appears; currentUserId pre-selects "Assign to myself".
   role: 'superadmin' | 'user';
@@ -35,7 +39,7 @@ function initialsOf(u: Pick<CustomerOwnerUser, 'firstName' | 'lastName' | 'email
   return ini || u.email?.[0]?.toUpperCase() || '?';
 }
 
-export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, onBack, role, currentUserId, onFetchUsers }: CustomerFormDrawerProps) {
+export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, onBack, hidden = false, role, currentUserId, onFetchUsers }: CustomerFormDrawerProps) {
   useBlockScroll();
   const { setDirty, requestNavigate } = useDirtyForm();
   const [currentStep, setCurrentStep] = useState(1);
@@ -596,7 +600,11 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, on
   };
 
   return (
-    <div className="modal-overlay" onClick={guardedClose}>
+    <div
+      className="modal-overlay"
+      onClick={guardedClose}
+      style={hidden ? { display: 'none' } : undefined}
+    >
       <div className="modal-content modal-content--lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{mode === 'create' ? 'New' : 'Edit'} {type === 'PERSONAL' ? 'Personal' : 'Business'} Client</h2>

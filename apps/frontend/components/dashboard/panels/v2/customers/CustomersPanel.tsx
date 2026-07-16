@@ -331,6 +331,9 @@ export function CustomersPanel({
           onClose={closeModal}
           // O1: create-only Back → re-choose the type (drawer stays mounted).
           onBack={formMode === 'create' ? () => setReselectType(true) : undefined}
+          // O1: hide (not unmount) the drawer while the type selector is over it,
+          // so it doesn't show through behind the selector's translucent backdrop.
+          hidden={reselectType}
           role={role}
           currentUserId={currentUserId}
           onFetchUsers={onFetchUsersForAssign}
