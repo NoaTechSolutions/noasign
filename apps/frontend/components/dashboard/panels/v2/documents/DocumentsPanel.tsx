@@ -606,14 +606,12 @@ export function DocumentsPanel({
       setReceiptSendConfirm({ docId, email, isResend: action !== 'send' });
       return;
     }
-    // Discard: a receipt = cancel it; an invoice = VOID it (owner decision —
-    // same VOID treatment as receipts). Both confirm first.
+    // Discard maps to CANCELLED for BOTH receipts and invoices. Rule: a discarded
+    // doc is SEND_FAILED — the send never reached the client → CANCELLED, never
+    // VOID. (Invoices used to be VOIDed here, which claimed the client got a doc
+    // they never received.) VOID stays only for genuinely-issued (SENT) docs.
     if (action === 'discard') {
-      if (doc && isInvoiceDoc(doc)) {
-        setVoidConfirm({ docId });
-      } else {
-        setConfirmAction({ action: 'cancel', docId });
-      }
+      setConfirmAction({ action: 'cancel', docId });
       return;
     }
     // Send / Cancel are destructive-ish and irreversible → confirm first.
