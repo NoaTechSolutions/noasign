@@ -88,6 +88,10 @@ export function CustomerDetailModal({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'business' | 'contact'>('business');
+  // N2/N3: per-input validation for the SECTION edit (this is the OTHER customer
+  // save path — the drawer's is separate). Without it, clearing a required field
+  // (e.g. last name) reached the backend and failed with only a flash (no catch).
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Re-seed when a different customer is shown.
   useEffect(() => {
@@ -103,15 +107,33 @@ export function CustomerDetailModal({
   const openGroup = (key: string) => {
     setDraft(seedDraft(current));
     setDirty(false);
+    setFieldErrors({});
     setEditingGroup(key);
   };
-  const closeGroup = () => { setEditingGroup(null); setDirty(false); };
+  const closeGroup = () => { setEditingGroup(null); setDirty(false); setFieldErrors({}); };
   const set = (field: keyof Draft, value: string) => {
     setDraft((d) => ({ ...d, [field]: value }));
     setDirty(true);
+    // Clear this field's error as the user fixes it.
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: '' } : prev));
   };
 
   const handleSave = useCallback(async () => {
+    // N2 fix: validate the OPEN section BEFORE saving — a cleared required field
+    // used to reach the backend and fail with only a flash (handleSave had no
+    // catch). pi-personal needs first + last; biz-details needs business name.
+    const errs: Record<string, string> = {};
+    if (editingGroup === 'pi-personal') {
+      if (!draft.firstName.trim()) errs.firstName = 'First name is required';
+      if (!draft.lastName.trim()) errs.lastName = 'Last name is required';
+    } else if (editingGroup === 'biz-details') {
+      if (!draft.businessName.trim()) errs.businessName = 'Business name is required';
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      return;
+    }
+    setFieldErrors({});
     setSaving(true);
     try {
       const payload: CustomerFormData = isBusiness
@@ -177,7 +199,7 @@ export function CustomerDetailModal({
     } finally {
       setSaving(false);
     }
-  }, [isBusiness, draft, current, onUpdateCustomer]);
+  }, [isBusiness, draft, current, onUpdateCustomer, editingGroup]);
 
   return (
     <>
@@ -324,9 +346,9 @@ export function CustomerDetailModal({
       {!isBusiness ? (
         <>
           <GroupEditPopup title="Personal Information" isOpen={editingGroup === 'pi-personal'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
-            <div className="form-field"><label className="form-label">First name *</label><input type="text" className="form-input" value={draft.firstName} onChange={(e) => set('firstName', formatTitleCase(e.target.value))} required /></div>
+            <div className="form-field"><label className="form-label">First name *</label><input type="text" className={`form-input${fieldErrors.firstName ? ' form-input--error' : ''}`} value={draft.firstName} onChange={(e) => set('firstName', formatTitleCase(e.target.value))} required />{fieldErrors.firstName && <span className="form-field-error">{fieldErrors.firstName}</span>}</div>
             <div className="form-field"><label className="form-label">Middle name</label><input type="text" className="form-input" value={draft.middleName} onChange={(e) => set('middleName', formatTitleCase(e.target.value))} /></div>
-            <div className="form-field"><label className="form-label">Last name *</label><input type="text" className="form-input" value={draft.lastName} onChange={(e) => set('lastName', formatTitleCase(e.target.value))} required /></div>
+            <div className="form-field"><label className="form-label">Last name *</label><input type="text" className={`form-input${fieldErrors.lastName ? ' form-input--error' : ''}`} value={draft.lastName} onChange={(e) => set('lastName', formatTitleCase(e.target.value))} required />{fieldErrors.lastName && <span className="form-field-error">{fieldErrors.lastName}</span>}</div>
             <div className="form-field"><label className="form-label">Email</label><input type="email" className="form-input" value={draft.email} onChange={(e) => set('email', e.target.value)} /></div>
             <div className="form-field"><label className="form-label">Phone</label><input type="tel" className="form-input" value={draft.phone} onChange={(e) => set('phone', formatUsPhone(e.target.value))} placeholder="(555) 000-0000" /></div>
           </GroupEditPopup>
@@ -342,7 +364,7 @@ export function CustomerDetailModal({
       ) : (
         <>
           <GroupEditPopup title="Company Details" isOpen={editingGroup === 'biz-details'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
-            <div className="form-field"><label className="form-label">Business name *</label><input type="text" className="form-input" value={draft.businessName} onChange={(e) => set('businessName', formatTitleCase(e.target.value))} required /></div>
+            <div className="form-field"><label className="form-label">Business name *</label><input type="text" className={`form-input${fieldErrors.businessName ? ' form-input--error' : ''}`} value={draft.businessName} onChange={(e) => set('businessName', formatTitleCase(e.target.value))} required />{fieldErrors.businessName && <span className="form-field-error">{fieldErrors.businessName}</span>}</div>
             <div className="form-field"><label className="form-label">Legal name</label><input type="text" className="form-input" value={draft.businessLegalName} onChange={(e) => set('businessLegalName', formatTitleCase(e.target.value))} /></div>
             <div className="form-field"><label className="form-label">License number</label><input type="text" className="form-input" value={draft.licenseNumber} onChange={(e) => set('licenseNumber', e.target.value)} /></div>
             <div className="form-field"><label className="form-label">Industry</label><input type="text" className="form-input" value={draft.industry} onChange={(e) => set('industry', formatTitleCase(e.target.value))} placeholder="e.g., Construction" /></div>
