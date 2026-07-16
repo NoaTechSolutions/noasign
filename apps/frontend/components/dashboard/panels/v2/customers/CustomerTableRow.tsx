@@ -72,10 +72,15 @@ export function CustomerTableRow({
     ...(role === 'superadmin' ? [{ value: 'DELETED' as const, label: 'Deleted' }] : []),
   ];
 
+  // N1: the whole row opens the detail (like Documents); the actions cell stops
+  // propagation so the kebab doesn't also trigger it.
   return (
-    <tr className={`customer-row${isDeleted ? ' customer-row--deleted' : ''}`}>
+    <tr
+      className={`customer-row${isDeleted ? ' customer-row--deleted' : ''}`}
+      onClick={() => onView(customer)}
+    >
       {/* 1. Name + email sub-line */}
-      <td className="customer-row__name" onClick={() => onView(customer)}>
+      <td className="customer-row__name">
         {displayName}
         {nameSubline && <span className="customer-row__email">{nameSubline}</span>}
       </td>
@@ -116,7 +121,10 @@ export function CustomerTableRow({
       {showOwner && <td>{ownerCell}</td>}
 
       {/* 6. Actions kebab */}
-      <td className="customer-row__actions">
+      <td
+        className="customer-row__actions"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="kebab-menu">
           <button
             ref={triggerRef}

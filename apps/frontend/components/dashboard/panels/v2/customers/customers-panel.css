@@ -141,9 +141,13 @@
   color: var(--tx);
 }
 
+/* N1: the whole row opens the detail. */
+.customer-row {
+  cursor: pointer;
+}
+
 .customer-row__name {
   font-weight: 500;
-  cursor: pointer;
   color: var(--primary);
   transition: opacity 0.15s ease;
 }
@@ -154,6 +158,8 @@
 
 .customer-row__actions {
   text-align: center;
+  /* Kebab column: not part of the row's open-detail click target. */
+  cursor: default;
 }
 
 /* ============================================
@@ -1117,6 +1123,20 @@
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   margin-bottom: var(--sp-4);
+}
+
+/* N3: per-input validation (SaaS-wide standard) — the offending input gets a red
+   border and an inline message right below it, instead of a generic top error. */
+.form-input--error,
+.form-input--error:focus {
+  border-color: var(--danger);
+}
+
+.form-field-error {
+  display: block;
+  margin-top: var(--sp-1, 4px);
+  font-size: var(--text-xs, 12px);
+  color: var(--danger);
 }
 
 /* ============================================

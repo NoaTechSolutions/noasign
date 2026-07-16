@@ -37,6 +37,9 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // N3: per-input validation (SaaS-wide standard) — red border + inline message
+  // on the specific field, never a generic top error or a silent failure (N2).
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   // True once the user has interacted with any field. Reset on submit success
   // and on confirmed discard. Synced into the global dirty-form context below.
   const [touched, setTouched] = useState(false);
@@ -168,21 +171,36 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
   const totalSteps = baseSteps + (showAssignStep ? 1 : 0);
   const isAssignStep = showAssignStep && currentStep === totalSteps;
 
+  // N3: validate the required identity fields on step 1, returning a per-field
+  // error map ({} when valid). Shared by Next (create) and Save (create + edit)
+  // so a missing field can NEVER slip through silently (N2).
+  const validateStep1 = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    if (type === 'PERSONAL') {
+      // K8: first AND last are both required for a person.
+      if (!firstName.trim()) errs.firstName = 'First name is required';
+      if (!lastName.trim()) errs.lastName = 'Last name is required';
+    } else if (!businessName.trim()) {
+      errs.businessName = 'Business name is required';
+    }
+    return errs;
+  };
+
+  // Clear a single field's error as the user fixes it (live feedback).
+  const clearFieldError = (key: string) =>
+    setFieldErrors((prev) => (prev[key] ? { ...prev, [key]: '' } : prev));
+
   const handleNext = () => {
     setError('');
 
-    if (type === 'PERSONAL') {
-      // K8: first AND last are both required for a person.
-      if (currentStep === 1 && (!firstName.trim() || !lastName.trim())) {
-        setError('First and last name are required');
-        return;
-      }
-    } else {
-      if (currentStep === 1 && !businessName.trim()) {
-        setError('Business name is required');
+    if (currentStep === 1) {
+      const errs = validateStep1();
+      if (Object.keys(errs).length > 0) {
+        setFieldErrors(errs);
         return;
       }
     }
+    setFieldErrors({});
 
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
@@ -198,6 +216,16 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
 
   const handleSubmit = async () => {
     setError('');
+    // N2 fix: the Save button (edit is single-step) must revalidate — otherwise a
+    // cleared required field reached the backend and failed silently. Block here
+    // and surface the inline field error (jump back to step 1 if we drifted).
+    const errs = validateStep1();
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      if (currentStep !== 1) setCurrentStep(1);
+      return;
+    }
+    setFieldErrors({});
     setSubmitting(true);
 
     try {
@@ -364,7 +392,8 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
             <div className="form-grid">
               <div className="form-group">
                 <label htmlFor="firstName">First name *</label>
-                <input id="firstName" type="text" value={firstName} onChange={(e) => setFirstName(formatTitleCase(e.target.value))} className="form-input" required />
+                <input id="firstName" type="text" value={firstName} onChange={(e) => { setFirstName(formatTitleCase(e.target.value)); clearFieldError('firstName'); }} className={`form-input${fieldErrors.firstName ? ' form-input--error' : ''}`} required />
+                {fieldErrors.firstName && <span className="form-field-error">{fieldErrors.firstName}</span>}
               </div>
               <div className="form-group">
                 <label htmlFor="middleName">Middle name</label>
@@ -372,7 +401,8 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
               </div>
               <div className="form-group">
                 <label htmlFor="lastName">Last name *</label>
-                <input id="lastName" type="text" value={lastName} onChange={(e) => setLastName(formatTitleCase(e.target.value))} className="form-input" required />
+                <input id="lastName" type="text" value={lastName} onChange={(e) => { setLastName(formatTitleCase(e.target.value)); clearFieldError('lastName'); }} className={`form-input${fieldErrors.lastName ? ' form-input--error' : ''}`} required />
+                {fieldErrors.lastName && <span className="form-field-error">{fieldErrors.lastName}</span>}
               </div>
             </div>
             <div className="form-group">
@@ -435,7 +465,8 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
             <h3 className="form-step__title">Business Information</h3>
             <div className="form-group">
               <label htmlFor="businessName">Business name *</label>
-              <input id="businessName" type="text" value={businessName} onChange={(e) => setBusinessName(formatTitleCase(e.target.value))} className="form-input" required />
+              <input id="businessName" type="text" value={businessName} onChange={(e) => { setBusinessName(formatTitleCase(e.target.value)); clearFieldError('businessName'); }} className={`form-input${fieldErrors.businessName ? ' form-input--error' : ''}`} required />
+              {fieldErrors.businessName && <span className="form-field-error">{fieldErrors.businessName}</span>}
             </div>
             <div className="form-group">
               <label htmlFor="businessLegalName">Legal name</label>
