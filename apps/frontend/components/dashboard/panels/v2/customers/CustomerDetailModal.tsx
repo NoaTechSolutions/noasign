@@ -175,27 +175,30 @@ export function CustomerDetailModal({
             // DELETED is soft-delete state, not a form status → coerce to INACTIVE.
             status: current.status === 'DELETED' ? 'INACTIVE' : current.status,
             notes: current.notes || undefined,
+            // R1 (same family): raw optionals so a cleared business field reaches
+            // sanitizeCustomerUpdate ('' → null) instead of being dropped as
+            // undefined. businessName stays required (never cleared).
             business: {
               businessName: draft.businessName,
-              businessLegalName: draft.businessLegalName || undefined,
-              licenseNumber: draft.licenseNumber || undefined,
-              industry: draft.industry || undefined,
-              website: draft.website || undefined,
-              businessEmail: draft.businessEmail || undefined,
-              businessPhone: draft.businessPhone || undefined,
-              businessAddressLine1: draft.businessAddressLine1 || undefined,
-              businessAddressLine2: draft.businessAddressLine2 || undefined,
-              businessCity: draft.businessCity || undefined,
-              businessState: draft.businessState || undefined,
-              businessZipCode: draft.businessZipCode || undefined,
-              primaryContactName: draft.primaryContactName || undefined,
-              primaryContactEmail: draft.primaryContactEmail || undefined,
-              primaryContactPhone: draft.primaryContactPhone || undefined,
-              primaryContactTitle: draft.primaryContactTitle || undefined,
-              primaryContactAddressLine1: draft.primaryContactAddressLine1 || undefined,
-              primaryContactCity: draft.primaryContactCity || undefined,
-              primaryContactState: draft.primaryContactState || undefined,
-              primaryContactZipCode: draft.primaryContactZipCode || undefined,
+              businessLegalName: draft.businessLegalName,
+              licenseNumber: draft.licenseNumber,
+              industry: draft.industry,
+              website: draft.website,
+              businessEmail: draft.businessEmail,
+              businessPhone: draft.businessPhone,
+              businessAddressLine1: draft.businessAddressLine1,
+              businessAddressLine2: draft.businessAddressLine2,
+              businessCity: draft.businessCity,
+              businessState: draft.businessState,
+              businessZipCode: draft.businessZipCode,
+              primaryContactName: draft.primaryContactName,
+              primaryContactEmail: draft.primaryContactEmail,
+              primaryContactPhone: draft.primaryContactPhone,
+              primaryContactTitle: draft.primaryContactTitle,
+              primaryContactAddressLine1: draft.primaryContactAddressLine1,
+              primaryContactCity: draft.primaryContactCity,
+              primaryContactState: draft.primaryContactState,
+              primaryContactZipCode: draft.primaryContactZipCode,
             },
           }
         : {
@@ -203,20 +206,22 @@ export function CustomerDetailModal({
             fullName: combineFullName(draft.firstName, draft.middleName, draft.lastName),
             // K8: persist the parts so invoice/receipt create maps them (K7).
             firstName: draft.firstName.trim(),
-            // R1: send middleName ALWAYS (even empty). With `|| undefined` a
-            // cleared middle was omitted from the JSON, so the backend never got
-            // the instruction to clear it — the PATCH returned 200 (fullName did
-            // change), "Saved!" fired, but middleName persisted. Empty string
-            // reaches normalizeOptionalFields and becomes null (the real clear).
-            middleName: draft.middleName.trim(),
+            // R1 (whole family): send every optional field RAW — even empty.
+            // `X || undefined` turned a CLEARED field into undefined, which
+            // JSON.stringify drops, so sanitizeCustomerUpdate (page.tsx) never saw
+            // it and the backend never cleared it — yet the PATCH still 200'd
+            // (fullName recomposed), firing a lying "Saved!". Sent raw, an empty
+            // value reaches sanitizeCustomerUpdate which maps '' → null: the real
+            // clear (null is accepted; @IsOptional skips @IsEmail/@IsString on it).
+            middleName: draft.middleName,
             lastName: draft.lastName.trim(),
-            email: draft.email || undefined,
-            phone: draft.phone || undefined,
-            addressLine1: draft.addressLine1 || undefined,
-            addressLine2: draft.addressLine2 || undefined,
-            city: draft.city || undefined,
-            state: draft.state || undefined,
-            zipCode: draft.zipCode || undefined,
+            email: draft.email,
+            phone: draft.phone,
+            addressLine1: draft.addressLine1,
+            addressLine2: draft.addressLine2,
+            city: draft.city,
+            state: draft.state,
+            zipCode: draft.zipCode,
             // DELETED is soft-delete state, not a form status → coerce to INACTIVE.
             status: current.status === 'DELETED' ? 'INACTIVE' : current.status,
             notes: current.notes || undefined,
