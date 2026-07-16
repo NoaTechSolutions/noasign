@@ -59,7 +59,9 @@ export function DeleteCustomerModal({ customer, onConfirm, onClose }: DeleteCust
               </div>
             </div>
           )}
-          <p className="text-muted">This action cannot be undone.</p>
+          <p className="text-muted">
+            The client will be moved to Deleted and hidden from your lists. A master can restore it later.
+          </p>
         </div>
 
         <div className="modal-footer">
