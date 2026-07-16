@@ -16,6 +16,10 @@ interface CustomerFormDrawerProps {
   customer: Customer | null;
   onSubmit: (data: CustomerFormData) => Promise<void>;
   onClose: () => void;
+  // O1: create-only — go back to the type selector (re-choose PERSONAL/BUSINESS)
+  // instead of Cancel on step 1. The drawer stays mounted, so entered data is
+  // preserved. Absent in edit (no type step).
+  onBack?: () => void;
   // SUPERADMIN-only assignment step (TASK 3). role drives whether the "Assign to
   // user" step appears; currentUserId pre-selects "Assign to myself".
   role: 'superadmin' | 'user';
@@ -31,7 +35,7 @@ function initialsOf(u: Pick<CustomerOwnerUser, 'firstName' | 'lastName' | 'email
   return ini || u.email?.[0]?.toUpperCase() || '?';
 }
 
-export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, role, currentUserId, onFetchUsers }: CustomerFormDrawerProps) {
+export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, onBack, role, currentUserId, onFetchUsers }: CustomerFormDrawerProps) {
   useBlockScroll();
   const { setDirty, requestNavigate } = useDirtyForm();
   const [currentStep, setCurrentStep] = useState(1);
@@ -629,8 +633,20 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
         </div>
 
         <div className="modal-footer">
-          <button type="button" className="btn-secondary" onClick={currentStep === 1 ? guardedClose : handleBack}>
-            {currentStep === 1 ? 'Cancel' : 'Back'}
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={
+              currentStep === 1
+                ? // O1: on step 1 of a create, Back returns to the type selector
+                  // (data preserved — the drawer stays mounted); no discard guard.
+                  mode === 'create' && onBack
+                  ? onBack
+                  : guardedClose
+                : handleBack
+            }
+          >
+            {currentStep === 1 && !(mode === 'create' && onBack) ? 'Cancel' : 'Back'}
           </button>
           {currentStep < totalSteps ? (
             <button type="button" className="btn-primary" onClick={handleNext}>

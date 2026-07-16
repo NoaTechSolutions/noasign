@@ -89,6 +89,9 @@ export function CustomersPanel({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [customerType, setCustomerType] = useState<'PERSONAL' | 'BUSINESS'>('PERSONAL');
+  // O1: while the create form is open, Back re-opens the type selector as an
+  // OVERLAY (the drawer stays mounted → entered data is preserved).
+  const [reselectType, setReselectType] = useState(false);
 
   const reloadCustomers = useCallback(async () => {
     setLoading(true);
@@ -212,6 +215,7 @@ export function CustomersPanel({
   const closeModal = () => {
     setActiveModal(null);
     setSelectedCustomer(null);
+    setReselectType(false);
   };
 
   const handleRestoreCustomer = async (customer: Customer) => {
@@ -325,9 +329,23 @@ export function CustomersPanel({
           customer={selectedCustomer}
           onSubmit={handleFormSubmit}
           onClose={closeModal}
+          // O1: create-only Back → re-choose the type (drawer stays mounted).
+          onBack={formMode === 'create' ? () => setReselectType(true) : undefined}
           role={role}
           currentUserId={currentUserId}
           onFetchUsers={onFetchUsersForAssign}
+        />
+      )}
+
+      {/* O1: type selector shown OVER the still-mounted create form, so switching
+          type (or re-picking the same one) never discards what was entered. */}
+      {activeModal === 'form' && reselectType && (
+        <TypeSelectorModal
+          onSelect={(t) => {
+            setCustomerType(t);
+            setReselectType(false);
+          }}
+          onClose={() => setReselectType(false)}
         />
       )}
 
