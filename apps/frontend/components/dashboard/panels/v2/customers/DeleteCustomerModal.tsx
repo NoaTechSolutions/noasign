@@ -55,7 +55,8 @@ export function DeleteCustomerModal({ customer, onConfirm, onClose }: DeleteCust
                 <line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
               <div>
-                <strong>Warning:</strong> This client has {documentCount} associated document{documentCount !== 1 ? 's' : ''}.
+                This client has {documentCount} associated document{documentCount !== 1 ? 's' : ''}.
+                {' '}<strong>Only the client will be deleted — the document{documentCount !== 1 ? 's' : ''} will be kept.</strong>
               </div>
             </div>
           )}
