@@ -70,6 +70,9 @@ export function CustomersPanel({
     () => parseFilterParam(searchParams.get('status'), ['ACTIVE', 'INACTIVE', 'DELETED']),
   );
   const [currentPage, setCurrentPage] = useState(1);
+  // R3: id of a row currently animating out (post-delete) — it keeps the row in
+  // the list while the fade/slide-out plays, then the reload drops it for real.
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   // Mirror filters + search back into the URL via replaceState (NOT the Next
   // router) so persisting them never re-runs the page's data effects. Empty
@@ -198,10 +201,17 @@ export function CustomersPanel({
 
   const handleConfirmDelete = async () => {
     if (!selectedCustomer) return;
-    await onDeleteCustomer(selectedCustomer.id);
-    await reloadCustomers();
+    const id = selectedCustomer.id;
+    await onDeleteCustomer(id);
+    // R3: close the modal, then let the row fade/slide out (removingId) before
+    // the reload actually drops it — so it doesn't vanish abruptly. On failure
+    // onDeleteCustomer throws and none of this runs (the modal shows the error).
     setActiveModal(null);
     setSelectedCustomer(null);
+    setRemovingId(id);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await reloadCustomers();
+    setRemovingId(null);
   };
 
   const handleConfirmAssign = async (newUserId: string) => {
@@ -268,6 +278,7 @@ export function CustomersPanel({
             role={role}
             currentUserId={currentUserId}
             loading={loading}
+            removingId={removingId}
             onView={handleViewCustomer}
             onEdit={handleEditCustomer}
             onDelete={handleDeleteCustomer}

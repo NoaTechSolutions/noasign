@@ -15,6 +15,8 @@ interface CustomersTableProps {
   onAssign: (customer: Customer) => void;
   onChangeStatus: (customer: Customer, status: 'ACTIVE' | 'INACTIVE' | 'DELETED') => void | Promise<void>;
   onRestore?: (customer: Customer) => void | Promise<void>;
+  /** R3: id of a row animating out after a delete (fade/slide before removal). */
+  removingId?: string | null;
   onQuickFilterType?: (v: 'all' | 'PERSONAL' | 'BUSINESS') => void;
   onQuickFilterStatus?: (v: 'all' | 'ACTIVE' | 'INACTIVE' | 'DELETED') => void;
   /** Whether the corresponding column has an active filter — drives the
@@ -141,6 +143,7 @@ export function CustomersTable({
   onAssign,
   onChangeStatus,
   onRestore,
+  removingId,
   onQuickFilterType,
   onQuickFilterStatus,
   typeFilterActive = false,
@@ -201,6 +204,7 @@ export function CustomersTable({
                   role={role}
                   currentUserId={currentUserId}
                   showOwner={showOwner}
+                  removing={customer.id === removingId}
                   onView={onView}
                   onEdit={onEdit}
                   onDelete={onDelete}

@@ -11,6 +11,8 @@ interface CustomerTableRowProps {
   role: 'superadmin' | 'user';
   currentUserId: string;
   showOwner: boolean;
+  /** R3: true while this row animates out after a delete (fade/slide, no clicks). */
+  removing?: boolean;
   onView: (customer: Customer) => void;
   onEdit: (customer: Customer) => void;
   onDelete: (customer: Customer) => void;
@@ -24,6 +26,7 @@ export function CustomerTableRow({
   role,
   currentUserId,
   showOwner,
+  removing = false,
   onView,
   onEdit,
   onDelete,
@@ -76,8 +79,8 @@ export function CustomerTableRow({
   // propagation so the kebab doesn't also trigger it.
   return (
     <tr
-      className={`customer-row${isDeleted ? ' customer-row--deleted' : ''}`}
-      onClick={() => onView(customer)}
+      className={`customer-row${isDeleted ? ' customer-row--deleted' : ''}${removing ? ' customer-row--removing' : ''}`}
+      onClick={() => { if (!removing) onView(customer); }}
     >
       {/* 1. Name + email sub-line */}
       <td className="customer-row__name">
