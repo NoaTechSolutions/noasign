@@ -1159,6 +1159,31 @@
   color: var(--text-secondary);
 }
 
+/* M1: what changed in this edit — chips of the changed field labels. */
+.documents-v2-version-timeline__changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.documents-v2-version-timeline__change-chip {
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+  color: var(--text-secondary);
+  border: 0.5px solid var(--border-soft);
+}
+.documents-v2-version-timeline__change {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.documents-v2-version-timeline__change--created {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* ===== CREATION MODAL (centered) ===== */
 /* z-index 110 sits above Topbar (z-index 100) so the modal title isn't
    occluded by the navbar. Cancel dialog (120 in document-wizard.css)

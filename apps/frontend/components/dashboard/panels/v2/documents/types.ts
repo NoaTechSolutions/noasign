@@ -149,6 +149,9 @@ export interface DocumentVersion {
     name?: string | null;
     email: string;
   } | null;
+  // M1: human-readable labels of the fields that changed vs the previous version
+  // (computed server-side by diffing snapshots). Empty for v1 (the creation).
+  changedFields?: string[];
 }
 
 /**

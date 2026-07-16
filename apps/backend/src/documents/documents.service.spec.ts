@@ -1182,4 +1182,43 @@ describe('DocumentsService', () => {
       );
     });
   });
+
+  describe('annotateVersionChanges (M1 timeline diff)', () => {
+    const schemaJson = {
+      sections: [
+        {
+          fields: [
+            { key: 'customer_name', label: 'Customer name', type: 'text' },
+            { key: 'contract_amount', label: 'Contract price', type: 'currency' },
+            { key: 'project_city', label: 'City', type: 'text' },
+          ],
+        },
+      ],
+    };
+    const run = (versions: unknown[]) =>
+      (service as unknown as {
+        annotateVersionChanges: (v: unknown[], s: unknown) => Array<Record<string, unknown>>;
+      }).annotateVersionChanges(versions, schemaJson);
+
+    it('labels from schema, filters auto-format-only diffs, groups finance, strips snapshots', () => {
+      const out = run([
+        { id: 'v1', versionNumber: 1, snapshotJson: { customer_name: 'Juan Perez', contract_amount: '10000', project_city: 'Austin' } },
+        { id: 'v2', versionNumber: 2, snapshotJson: { customer_name: 'Juan Perez', contract_amount: '12,000.00', project_city: 'austin' } },
+        { id: 'v3', versionNumber: 3, snapshotJson: { customer_name: 'Pedro Gomez', contract_amount: '12,000.00', project_city: 'austin', finance_1_amount: '500' } },
+      ]);
+      const byId = Object.fromEntries(out.map((v) => [v.id, v.changedFields]));
+      expect(byId.v1).toEqual([]); // creation
+      expect(byId.v2).toEqual(['Contract price']); // 10000→12000 real; city case-only is filtered
+      expect(byId.v3).toEqual(['Customer name', 'Finance']); // real name change + finance grouped
+      expect(out.every((v) => v.snapshotJson === undefined)).toBe(true);
+    });
+
+    it('humanizes a key the schema does not label (never a raw id)', () => {
+      const out = run([
+        { id: 'v1', versionNumber: 1, snapshotJson: {} },
+        { id: 'v2', versionNumber: 2, snapshotJson: { legacy_note: 'hi' } },
+      ]);
+      expect(out.find((v) => v.id === 'v2')?.changedFields).toEqual(['Legacy note']);
+    });
+  });
 });

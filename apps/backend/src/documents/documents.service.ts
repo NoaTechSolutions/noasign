@@ -216,8 +216,19 @@ export class DocumentsService {
     // Contracts keep the 24h fields above, untouched (this is null for them).
     const receiptResend = this.buildReceiptResendState(document, now);
 
+    // M1: when versions are loaded (detail only), annotate each with the list of
+    // human-readable fields that changed vs the previous version. Computed on the
+    // fly from the stored snapshots — no migration, so old edits get it too.
+    const versionsWithChanges = Array.isArray(document.versions)
+      ? this.annotateVersionChanges(
+          document.versions,
+          document.formDefinition?.schemaJson,
+        )
+      : document.versions;
+
     return {
       ...document,
+      versions: versionsWithChanges,
       receiptResend,
       providerDocumentId: document.providerDocumentId ?? null,
       providerStatus: document.providerStatus ?? null,
@@ -241,6 +252,112 @@ export class DocumentsService {
           }
         : null,
     };
+  }
+
+  // ── M1: per-edit "what changed" for the version timeline ──────────────────
+  // Each edit already stores a full snapshotJson; we diff consecutive snapshots
+  // on the fly and attach the changed field LABELS to each version. Generic for
+  // all document types (contract/invoice/receipt) — the timeline UI lights it up
+  // wherever it renders. Trivial auto-format-only diffs (case/whitespace/currency
+  // formatting) are filtered; finance_* fields collapse to one "Finance" entry.
+  private annotateVersionChanges(
+    versions: Array<Record<string, any>>,
+    schemaJson: unknown,
+  ): Array<Record<string, any>> {
+    const labels = this.buildSchemaLabelMap(schemaJson);
+    // Work in ascending order so each version diffs against its predecessor.
+    const asc = [...versions].sort(
+      (a, b) => (a.versionNumber ?? 0) - (b.versionNumber ?? 0),
+    );
+    const changesById = new Map<string, string[]>();
+    for (let i = 0; i < asc.length; i++) {
+      if (i === 0) {
+        changesById.set(asc[i].id, []); // v1 is the creation — nothing "changed"
+        continue;
+      }
+      changesById.set(
+        asc[i].id,
+        this.diffSnapshots(
+          this.asRecord(asc[i - 1].snapshotJson),
+          this.asRecord(asc[i].snapshotJson),
+          labels,
+        ),
+      );
+    }
+    // Preserve the incoming order; drop the raw snapshot from the response.
+    return versions.map((v) => {
+      const { snapshotJson: _snapshot, ...rest } = v;
+      return { ...rest, changedFields: changesById.get(v.id) ?? [] };
+    });
+  }
+
+  private buildSchemaLabelMap(schemaJson: unknown): Record<string, string> {
+    const out: Record<string, string> = {};
+    const sections = (schemaJson as { sections?: unknown })?.sections;
+    if (Array.isArray(sections)) {
+      for (const section of sections) {
+        const fields = (section as { fields?: unknown })?.fields;
+        if (Array.isArray(fields)) {
+          for (const f of fields) {
+            const key = (f as { key?: unknown })?.key;
+            const label = (f as { label?: unknown })?.label;
+            if (typeof key === 'string' && typeof label === 'string') {
+              out[key] = label;
+            }
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  private diffSnapshots(
+    prev: Record<string, unknown>,
+    curr: Record<string, unknown>,
+    labels: Record<string, string>,
+  ): string[] {
+    const changed: string[] = [];
+    let financeChanged = false;
+    const keys = new Set([...Object.keys(prev), ...Object.keys(curr)]);
+    for (const key of keys) {
+      if (this.normalizeForCompare(prev[key]) === this.normalizeForCompare(curr[key])) {
+        continue; // equal after normalization → no real (non-format) change
+      }
+      // Finance N + the finance charge collapse to a single group entry.
+      if (key === 'finance_charge' || /^finance_\d+_/.test(key)) {
+        financeChanged = true;
+        continue;
+      }
+      changed.push(labels[key] ?? this.humanizeKey(key));
+    }
+    if (financeChanged) changed.push('Finance');
+    return changed;
+  }
+
+  // Normalize a value so ONLY auto-format differences (case, surrounding/duplicate
+  // whitespace, currency/number formatting) collapse to equality. Any real content
+  // change (different characters/digits) survives — a legitimate edit is never eaten.
+  private normalizeForCompare(value: unknown): string {
+    if (value == null) return '';
+    if (typeof value === 'object') return JSON.stringify(value);
+    const s = String(value).trim().toLowerCase().replace(/\s+/g, ' ');
+    const numeric = s.replace(/[$,\s]/g, '');
+    if (numeric !== '' && /^-?\d*\.?\d+$/.test(numeric)) {
+      return String(parseFloat(numeric)); // "12000" === "12,000.00" === "$12000.0"
+    }
+    return s;
+  }
+
+  private humanizeKey(key: string): string {
+    // Fallback label for a field the schema doesn't name — never a raw id.
+    const words = key.replace(/[_-]+/g, ' ').trim();
+    return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
   }
 
   // Receipt-only: evaluate the resend policy v2 for the UI's countdown / limit.

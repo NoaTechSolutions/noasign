@@ -36,6 +36,21 @@ export function DocumentVersionTimeline({ versions }: DocumentVersionTimelinePro
                 {version.changedBy.name || version.changedBy.email}
               </div>
             ) : null}
+            {/* M1: WHAT changed in this edit. v1 (or no diff) is the creation;
+                later versions list the changed field labels as chips. */}
+            {version.versionNumber <= 1 || !version.changedFields?.length ? (
+              <div className="documents-v2-version-timeline__change documents-v2-version-timeline__change--created">
+                {version.versionNumber <= 1 ? 'Created' : 'No field changes'}
+              </div>
+            ) : (
+              <div className="documents-v2-version-timeline__changes">
+                {version.changedFields.map((field) => (
+                  <span key={field} className="documents-v2-version-timeline__change-chip">
+                    {field}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ))}
