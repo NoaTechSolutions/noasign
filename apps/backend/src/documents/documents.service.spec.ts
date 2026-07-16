@@ -1133,6 +1133,26 @@ describe('DocumentsService', () => {
       expect(prismaMock.document.update).not.toHaveBeenCalled();
     });
 
+    it('soft-deletes a SEND_FAILED doc (never reached the client → deleted, not voided)', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue({
+        id: 'doc-fail',
+        status: DocumentStatus.SEND_FAILED,
+      });
+      prismaMock.document.update.mockResolvedValue({ id: 'doc-fail' });
+
+      await service.deleteDocument('user-1', 'doc-fail');
+
+      expect(prismaMock.document.update).toHaveBeenCalledWith({
+        where: { id: 'doc-fail' },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
     it('throws NotFound when the doc is out of scope or already deleted', async () => {
       prismaMock.user.findUnique.mockResolvedValue({
         id: 'user-1',

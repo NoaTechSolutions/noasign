@@ -387,8 +387,11 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
   const actions: V2DocumentAction[] = ['view'];
   switch (doc.status as DocumentStatus) {
     case 'DRAFT':
+      // Refined rule: a DRAFT contract NEVER reached the client → DELETE (soft),
+      // aligned with invoices/receipts. Cancel (= void the BoldSign signature
+      // request → CANCELLED) is only for docs the client received (SENT/VIEWED).
       // Edit is per-card now (✏️ inside the detail modal), not a kebab action.
-      actions.push('send', 'cancel');
+      actions.push('send', 'delete');
       break;
     case 'SENT':
     case 'VIEWED':

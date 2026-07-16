@@ -1567,8 +1567,16 @@ export class DocumentsService {
     });
 
     if (!document) throw new NotFoundException('Document not found');
-    if (document.status !== DocumentStatus.DRAFT) {
-      throw new BadRequestException('Only draft documents can be deleted');
+    // Soft-delete is for docs the client NEVER received: a DRAFT (never sent) or a
+    // SEND_FAILED (the send never landed). Anything the client DID receive is VOID
+    // (sale docs) or CANCELLED (signature docs), never deleted.
+    if (
+      document.status !== DocumentStatus.DRAFT &&
+      document.status !== DocumentStatus.SEND_FAILED
+    ) {
+      throw new BadRequestException(
+        'Only draft or send-failed documents can be deleted',
+      );
     }
 
     await this.prisma.document.update({

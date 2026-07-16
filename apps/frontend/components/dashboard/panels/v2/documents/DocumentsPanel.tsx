@@ -606,12 +606,13 @@ export function DocumentsPanel({
       setReceiptSendConfirm({ docId, email, isResend: action !== 'send' });
       return;
     }
-    // Discard maps to CANCELLED for BOTH receipts and invoices. Rule: a discarded
-    // doc is SEND_FAILED — the send never reached the client → CANCELLED, never
-    // VOID. (Invoices used to be VOIDed here, which claimed the client got a doc
-    // they never received.) VOID stays only for genuinely-issued (SENT) docs.
+    // Discard maps to DELETE (soft) for receipts AND invoices. Refined rule: a
+    // discarded doc is SEND_FAILED — the send NEVER reached the client — so it's
+    // deleted, the same as a DRAFT. CANCELLED is exclusive to signature docs
+    // (voiding a BoldSign request); VOID is only for genuinely-issued sale docs.
+    // Routes through the same soft-delete confirm as the DRAFT 'delete' action.
     if (action === 'discard') {
-      setConfirmAction({ action: 'cancel', docId });
+      setDeleteConfirm({ docId });
       return;
     }
     // Send / Cancel are destructive-ish and irreversible → confirm first.
@@ -891,8 +892,8 @@ export function DocumentsPanel({
       {deleteConfirm ? (
         <ConfirmActionModal
           isOpen
-          title="Delete draft?"
-          message="This draft will be deleted and removed from your list. It can't be restored — there's no self-service restore for deleted drafts yet."
+          title="Delete document?"
+          message="This document will be deleted and removed from your list. It can't be restored — there's no self-service restore for deleted documents yet."
           confirmLabel="Delete"
           cancelLabel="Cancel"
           variant="danger"
