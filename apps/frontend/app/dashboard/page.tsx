@@ -21,7 +21,6 @@ import { isFutureDate } from "../../components/dashboard/panels/v2/documents/doc
 import { formatDisplayDate } from "../../lib/format";
 import type {
   V2DocumentItem,
-  DocumentVersion as V2DocumentVersion,
   DocumentDetail as V2DocumentDetail,
   BackendDocumentAction as V2BackendDocumentAction,
 } from "../../components/dashboard/panels/v2/documents";
@@ -2540,28 +2539,6 @@ function DashboardPageInner() {
       onDownloadPdf: (docId: string) => {
         void handleDownloadFinalPdf(docId);
       },
-      onFetchVersions: async (
-        docId: string,
-      ): Promise<V2DocumentVersion[]> => {
-        const detail = await apiRequest<{
-          versions?: Array<{
-            id: string;
-            versionNumber: number;
-            createdAt: string;
-            changedByUserId?: string | null;
-            changedFields?: string[];
-          }>;
-        }>(`/documents/${docId}`);
-        return (detail.versions ?? []).map((v) => ({
-          id: v.id,
-          versionNumber: v.versionNumber,
-          createdAt: v.createdAt,
-          changedBy: null,
-          // M1: carry the changed-field labels through so the sidebar timeline
-          // shows them too (was dropped here — same backend-ok/display-drop family).
-          changedFields: v.changedFields ?? [],
-        }));
-      },
       onFetchDocument: handleFetchDocumentDetail,
       onFetchPdfUrl: (docId: string): Promise<string> =>
         handlePreviewFinalPdf(docId),
@@ -2687,7 +2664,6 @@ function DashboardPageInner() {
           onSyncStatus={documentsV2.onSyncStatus}
           onPreviewPdf={documentsV2.onPreviewPdf}
           onDownloadPdf={documentsV2.onDownloadPdf}
-          onFetchVersions={documentsV2.onFetchVersions}
           onFetchDocument={documentsV2.onFetchDocument}
           onFetchPdfUrl={documentsV2.onFetchPdfUrl}
           onUpdateDraft={documentsV2.onUpdateDraft}

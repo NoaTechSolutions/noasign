@@ -28,7 +28,6 @@ import type {
   V2DocumentAction,
   BackendDocumentAction,
   StatusFilter,
-  DocumentVersion,
   DocumentDetail,
 } from './types';
 import toast from 'react-hot-toast';
@@ -119,7 +118,6 @@ export interface DocumentsPanelProps {
   onSyncStatus: (docId: string) => Promise<void>;
   onPreviewPdf: (docId: string) => void;
   onDownloadPdf: (docId: string) => void;
-  onFetchVersions?: (docId: string) => Promise<DocumentVersion[]>;
   onFetchDocument: (docId: string) => Promise<DocumentDetail>;
   onFetchPdfUrl?: (docId: string) => Promise<string>;
   onUpdateDraft?: (
