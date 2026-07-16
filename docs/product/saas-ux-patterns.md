@@ -148,3 +148,33 @@ dedicated follow-up (H2b), not yet done.
 
 **Backend.** Receipt/invoice PDFs already print `MM/DD/YYYY`
 (`formatInvoiceDate`/`formatFromParts` in `receipts.service.ts`).
+
+## §8 — Validation is per-input: red border + inline message, never silent
+
+Every form validation error is shown **on the specific input that failed**, not as
+a single generic error at the top of the form, and a blocked save **never fails
+silently**.
+
+**The rule.**
+1. The **input that fails** gets a red border (`form-input--error` / the module's
+   `*--error` class — e.g. `wizard-field__input--error`, `gep-input--error`).
+2. The message goes **inline, right below that input**, and is **specific to the
+   field** ("Last name is required"), never a generic top banner ("First and last
+   name are required").
+3. A save/next is **blocked with a visible reason** — never a silent no-op, a bare
+   flash, or a raw backend-error toast. If a required field is empty, the user must
+   SEE which field and why.
+
+**Applies to CREATE and EDIT, in every module.** The reference implementations are
+the document **wizard** (`BaseField` → label + `*` + inline `wizard-field__error`)
+and the **edit popups** (invoice/receipt/contract inline errors). The customers
+form was aligned to this (`CustomerFormDrawer`: `fieldErrors` map + `form-input--error`
++ `form-field-error`, validated on both Next and Save so a cleared required field
+can't reach the backend and fail silently).
+
+**Standardization status.** The pattern is consistent (per-field error map + a
+`*--error` border class + an inline message element) but there is **no single
+shared field component** yet — the wizard uses `BaseField`, other forms wire the
+classes directly. Extracting one shared `FormField`/`FieldError` primitive and
+migrating every module onto it is a worthwhile dedicated refactor; until then, new
+forms MUST follow the same three rules above using the existing classes.
