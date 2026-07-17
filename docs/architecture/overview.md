@@ -136,8 +136,8 @@ There is **one** `Document` model (table `documents`) backing all document famil
 **Contract flow (BoldSign-driven):**
 
 ```
-1. User creates DRAFT         → POST /v1/documents/draft
-2. User sends document        → POST /v1/documents/:id/send
+1. User creates DRAFT         → POST /documents/draft
+2. User sends document        → POST /documents/:id/send
                                   ↳ SignatureProvider → BoldSign create + deliver
                                   ↳ (send failure) → status = SEND_FAILED
 3. Recipient views            → BoldSign webhook → VIEWED

@@ -38,7 +38,7 @@ _Last reviewed: 2026-07-17._
 - **Resend email + async bounce webhooks** (SEND_FAILED) — [../architecture/email-delivery-and-bounces.md](../architecture/email-delivery-and-bounces.md)
 - **Sentry** observability (front + back, PII-scrubbed)
 - **e2e tests on real Postgres** in CI + staging deploy **health check** — [../development/testing.md](../development/testing.md), [../operations/health-check.md](../operations/health-check.md)
-- **`/v1` API prefix**, production + staging environments live, SSL, CI/CD pipelines
+- **Production + staging environments live**, SSL, CI/CD pipelines (the `/v1` API prefix is **not** shipped — it's a pending B2B item; see [../architecture/b2b-integration.md](../architecture/b2b-integration.md))
 - **Public landing page** (v1, EN/ES, dark mode, on SiteGround)
 
 ---
