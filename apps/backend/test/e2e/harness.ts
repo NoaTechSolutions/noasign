@@ -23,23 +23,23 @@ export interface TestApp {
 }
 
 export function buildProviderMock(): Record<string, jest.Mock> {
+  // Shapes match signature-provider.types.ts exactly (SignatureDocumentResponse
+  // is { id, status }; getSigningLink returns a bare URL string; downloadDocumentPdf
+  // returns SignatureBinaryResponse) — a wrong shape here would silently break send.
   return {
-    // A created BoldSign document — the send flow reads providerDocumentId + status.
-    createDocumentFromTemplate: jest.fn().mockResolvedValue({
-      providerDocumentId: 'bs-doc-1',
-      status: 'document.draft',
-      providerStatus: 'document.draft',
-    }),
-    getDocumentStatus: jest
+    createDocumentFromTemplate: jest
       .fn()
-      .mockResolvedValue({ status: 'document.draft', providerStatus: 'document.draft' }),
+      .mockResolvedValue({ id: 'bs-doc-1', status: 'document.draft' }),
+    getDocumentStatus: jest.fn().mockResolvedValue({ status: 'document.draft' }),
     waitForDocumentDraft: jest.fn().mockResolvedValue(undefined),
     sendDocument: jest.fn().mockResolvedValue(undefined),
     resendDocument: jest.fn().mockResolvedValue(undefined),
-    downloadDocumentPdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-1.4 test')),
-    getSigningLink: jest
-      .fn()
-      .mockResolvedValue({ signingLink: 'https://sign.test/x', signingUrl: 'https://sign.test/x' }),
+    downloadDocumentPdf: jest.fn().mockResolvedValue({
+      buffer: Buffer.from('%PDF-1.4 test'),
+      contentType: 'application/pdf',
+      contentDisposition: null,
+    }),
+    getSigningLink: jest.fn().mockResolvedValue('https://sign.test/x'),
   };
 }
 
