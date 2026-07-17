@@ -27,6 +27,11 @@ it is **deleted**, not voided. Void/Cancel are for already-issued docs (SENT).
 Deletes are soft — the actor stops seeing the doc; a SUPERADMIN still sees it
 flagged as deleted.
 
+The full rule — which of the three kill-mechanisms (Delete / Cancel / Void) fires
+for which type and state, and why each is stored differently — lives in
+[../architecture/document-lifecycle.md](../architecture/document-lifecycle.md).
+This §3 is the UX-behavior view; that doc is the canonical business rule.
+
 ## §4 — Send requires a deliverable channel
 
 An action that emails the recipient (Send) must pre-flight its channel. No email

@@ -149,7 +149,7 @@ There is **one** `Document` model (table `documents`) backing all document famil
 
 ### Cancelled vs Void vs Delete
 
-These are **three different mechanisms** on the `Document` model — see [document-lifecycle-cancelled-vs-void.md](document-lifecycle-cancelled-vs-void.md) for the full rule:
+These are **three different mechanisms** on the `Document` model — see [document-lifecycle.md](document-lifecycle.md) for the full rule:
 
 | Mechanism | Field | Meaning |
 |---|---|---|

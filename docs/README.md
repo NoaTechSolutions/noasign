@@ -22,7 +22,7 @@
 | File | Description |
 |---|---|
 | [architecture/overview.md](architecture/overview.md) | System architecture, module map (21 modules), document model & lifecycle, external services |
-| [architecture/document-lifecycle-cancelled-vs-void.md](architecture/document-lifecycle-cancelled-vs-void.md) | **Business rule** — Cancelled vs Void vs Delete: the decision, the table, and the code that implements it |
+| [architecture/document-lifecycle.md](architecture/document-lifecycle.md) | **Business rule** — Delete vs Cancel vs Void: the three kill-mechanisms, why each is stored differently, and the code that implements them |
 | [architecture/document-types-coupling-analysis.md](architecture/document-types-coupling-analysis.md) | How coupled contracts / receipts / invoices are today, and why the answer is logical separation in the monolith (not microservices) |
 | [architecture/schema-driven-forms.md](architecture/schema-driven-forms.md) | Dynamic forms: `FormDefinition.schemaJson` + `SignatureTemplate` field mapping |
 | [architecture/invoice-pdf-strategy.md](architecture/invoice-pdf-strategy.md) | DIRECT_PDF invoice generation: AcroForm-overlay engine vs legacy AcroForm |

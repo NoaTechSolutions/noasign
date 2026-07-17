@@ -74,8 +74,16 @@ The backend had **no PDF→image rasterizer**. Added `pdf-to-img` (pdfjs +
 
 `scripts/dev-helpers/gen-template-thumbnails.js` renders each active RECEIPT
 standard with the **real** `ReceiptPdfService` + sample data, rasterizes page 1,
-and writes `assets/templates/previews/<slug>.png`. Re-run it after adding a
-template. PNGs are committed.
+and writes `assets/templates/previews/<slug>.png`. PNGs are committed.
+
+> ⚠️ **The generator is NOT the alta path — do not run it.** The card PNGs are
+> **owner-curated by hand**; `gen-template-thumbnails.js` overwrites them. This
+> section describes the original rasterizer, but the curated-by-hand rule
+> **supersedes** it. The single canonical procedure for adding a template —
+> including the preview-PNG spec (2 files, 1190×1683) — is
+> **[../operations/template-alta.md](../operations/template-alta.md)**. Sections
+> below (Round 4, Round 5) already state the do-not-run rule; this note reconciles
+> the earlier wording with them.
 
 ## Frontend
 
