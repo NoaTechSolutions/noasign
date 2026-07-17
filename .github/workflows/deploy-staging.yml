@@ -281,4 +281,34 @@ jobs:
           echo "--- Reloading frontend (zero-downtime) ---"
           pm2 reload ntssign-frontend --update-env
 
-          echo "--- Frontend deploy complete ---"
+          echo "--- Frontend health check ---"
+
+          # 1) LOCAL — did the frontend process actually come up on the VM?
+          #    Short warmup window (Next needs a moment after a PM2 reload).
+          LOCAL_UP=false
+          for i in $(seq 1 6); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://127.0.0.1:3001/ || echo 000)
+            [ "$CODE" = "200" ] && { LOCAL_UP=true; break; }
+            echo "  local try $i/6: HTTP $CODE — retrying in 5s"; sleep 5
+          done
+          if [ "$LOCAL_UP" != "true" ]; then
+            echo "::error title=Frontend did not start::DEPLOY PROBLEM — the frontend is NOT serving on 127.0.0.1:3001 after the pm2 reload. This is the BUILD/APP (check the frontend build output + 'pm2 logs ntssign-frontend'). It is NOT a network issue."
+            exit 1
+          fi
+          echo "  local origin serving (127.0.0.1:3001 -> 200)"
+
+          # 2) PUBLIC — is the site reachable from outside? Wider window (~2min)
+          #    to ride out DNS/warmup/transient blips before failing the deploy.
+          PUBLIC_UP=false
+          for i in $(seq 1 12); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://app-staging.ntssign.com/ || echo 000)
+            [ "$CODE" = "200" ] && { PUBLIC_UP=true; break; }
+            echo "  public try $i/12: HTTP $CODE — retrying in 10s"; sleep 10
+          done
+          if [ "$PUBLIC_UP" != "true" ]; then
+            echo "::error title=Site unreachable (NOT a code bug)::The frontend is UP locally (127.0.0.1:3001 -> 200) but app-staging.ntssign.com is NOT returning 200. This is NETWORK / DNS / nginx / Cloudflare — NOT the deploy and NOT the code. Do NOT hunt for a code bug: check the Cloudflare proxy status (DNS-only vs Proxied), DNS, the nginx sites-enabled symlink, and the origin cert. The deployed build is fine."
+            exit 1
+          fi
+          echo "  public URL serving (app-staging.ntssign.com -> 200)"
+
+          echo "--- Frontend deploy complete (health check passed: local + public) ---"
