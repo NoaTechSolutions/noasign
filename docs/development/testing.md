@@ -31,7 +31,19 @@ back to the doc. This is the cheap half of "how does a business-rule doc not lie
 >
 > **A green e2e run does NOT prove the owner sees the change.** The tests hit the same *endpoints* the frontend calls, but a rendering or wiring bug in the UI — a panel that doesn't mount, a component reading the wrong field — sails past them untouched. To confirm a change is really visible, **verify the actual component that mounts the view**, not just that the API returns 200. (This cost a full round on M1 — don't repeat it.)
 
-Also not covered yet: there is **no receipt or invoice lifecycle e2e** — only `smoke` and `contract-lifecycle`. The harness is written to be reusable across those suites; they just don't exist yet.
+## Coverage map — what's caught, and what's caught by NOBODY
+
+The tools catch **different** things — no single one covers everything. 4 of the 5 bug families this week were **frontend**, and the 🔴 rows below are exactly where they lived. Know the gaps *before* trusting a green run:
+
+| Bug class | Real example | Caught by | Status |
+|---|---|---|---|
+| Backend lifecycle invariants (delete-guard, void→`supersededAt`, enum values) | an endpoint routing Delete→Cancelled | `contract-lifecycle` + `receipt-lifecycle` e2e + `lifecycle-invariants` unit | ✅ covered |
+| **Frontend action routing** (which endpoint the kebab calls) | the 2026-07-14 lie: Discard→cancel | Vitest (`getAvailableActions`) | 🔴 **NO test — caught by nobody** |
+| **Real wiring** (does the app actually MOUNT the component?) | M1: `DocumentVersionTimeline` was perfect but never mounted | Playwright (browser) | 🔴 **NO test — caught by nobody** |
+| Frontend logic / validation (optional vs required fields) | R1 | Vitest + Testing Library | 🔴 **NO test** |
+| CSS / layout / real render | J4 (modal showed a stale photo) | Playwright / visual | 🔴 **NO test** |
+
+> ⚠️ **The 🔴 rows are the point of this table.** A green backend suite does **not** mean the frontend works. The `receipt-lifecycle` candado pins the delete/void ENDPOINTS — it does **not** know which endpoint the frontend's kebab calls. A re-drift of the 2026-07-14 routing bug would leave every backend test green. That gap closes only with **Vitest (`getAvailableActions`)** for the routing and **Playwright** for the real mount — both pending.
 
 ---
 
@@ -43,6 +55,7 @@ Also not covered yet: there is **no receipt or invoice lifecycle e2e** — only 
 |---|---|
 | `smoke.e2e-spec.ts` | Proves the harness: boots the real app on the `*_test` DB, serves public `GET /version`, runs a real `document.count()`, asserts `GET /users/me` → 401 without a token. |
 | `contract-lifecycle.e2e-spec.ts` | Drives a contract `DRAFT → SENT → SIGNED → COMPLETED` through the real endpoints + the BoldSign webhook (`POST /boldsign/webhooks/events`), asserting the real persisted `DocumentStatus`; also asserts sending a non-DRAFT is rejected. |
+| `receipt-lifecycle.e2e-spec.ts` | **BACKEND-invariants candado for receipts** — pins the kill-action ENDPOINT behavior against `document-lifecycle.md`: `DELETE`→soft-delete (`deletedAt`, **not** Cancelled), void→`supersededAt`+status stays `SENT`, plus the guards (can't delete a SENT receipt, can't void a DRAFT). Fails with a message pointing to the doc. ⚠️ Backend only — see the coverage map for what it does **not** cover. |
 
 Support (not specs): `harness.ts` (boots the real `AppModule`; mocks **only** BoldSign / email / R2), `fixtures.ts` (`resetDb`, `seedContractTenant`), `env-setup.ts` (jest `setupFiles`), `global-setup.js` (jest `globalSetup`).
 
@@ -71,6 +84,8 @@ npm run test:e2e
 2. else `DATABASE_URL` with `_test` appended to the db name (local convenience).
 
 `global-setup.js` runs once and does `prisma db push --skip-generate --accept-data-loss` to sync the schema — **`db push`, not `migrate`**, so the dev DB's migration-history drift never touches the test DB.
+
+> **e2e runs SERIALLY** (`maxWorkers: 1` in `jest-e2e.json`). Every spec shares the one `*_test` DB and `TRUNCATE`s it in `beforeEach`, so parallel jest workers would wipe each other's data mid-test — a flaky failure that only appears once a second resetting spec exists (it did, when `receipt-lifecycle` was added). Don't remove `maxWorkers: 1` without first giving each worker its own database.
 
 > **Safety guard.** Both setup files **hard-refuse to run** unless the resolved DB name ends in `_test`. This is deliberate — it makes it impossible for an e2e run (which resets/pushes the schema with `--accept-data-loss`) to ever hit your real dev database.
 

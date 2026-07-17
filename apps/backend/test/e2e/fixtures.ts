@@ -1,4 +1,5 @@
 import * as bcrypt from 'bcrypt';
+import { DocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 // Wipe every table before a suite/test seeds fresh, so runs are isolated and
@@ -81,4 +82,67 @@ export async function seedContractTenant(
   });
 
   return { company, user, documentType, formDefinition, signatureTemplate };
+}
+
+export interface ReceiptTenant {
+  company: { id: string };
+  user: { id: string; email: string; role: string; companyProfileId: string | null };
+  documentType: { id: string; code: string };
+  formDefinition: { id: string };
+}
+
+// A receipts tenant: a company + ACTIVE user + a PAYMENT_RECEIPT (DIRECT_PDF) type
+// wired to a form. Enough to seed receipt Documents and drive the delete/void
+// endpoints. The receipt CREATE path (PDF generation) is intentionally NOT
+// exercised here — these tests pin the lifecycle INVARIANTS, not PDF rendering.
+export async function seedReceiptTenant(
+  prisma: PrismaService,
+): Promise<ReceiptTenant> {
+  const company = await prisma.companyProfile.create({
+    data: { companyName: 'E2E Receipts Co' },
+  });
+  const user = await prisma.user.create({
+    data: {
+      email: 'e2e.receipts@test.local',
+      passwordHash: bcrypt.hashSync('e2e-pass', 4),
+      role: 'USER',
+      status: 'ACTIVE',
+      companyProfileId: company.id,
+    },
+  });
+  // code MUST be 'PAYMENT_RECEIPT' — receipts.service resolves receipts by this code.
+  const documentType = await prisma.documentType.create({
+    data: { name: 'E2E Receipt', code: 'PAYMENT_RECEIPT', generationMode: 'DIRECT_PDF' },
+  });
+  const formDefinition = await prisma.formDefinition.create({
+    data: {
+      name: 'E2E Receipt Form',
+      documentTypeId: documentType.id,
+      isActive: true,
+      schemaJson: { sections: [] },
+    },
+  });
+  return { company, user, documentType, formDefinition };
+}
+
+// Seed a receipt Document directly in a given status — bypasses the PDF-generating
+// create endpoint (not what these tests exercise). Returns the created row's id.
+let receiptSeq = 0;
+export async function createReceiptDoc(
+  prisma: PrismaService,
+  tenant: ReceiptTenant,
+  status: DocumentStatus,
+): Promise<{ id: string; status: DocumentStatus }> {
+  receiptSeq += 1;
+  return prisma.document.create({
+    data: {
+      documentNumber: `REC-E2E-${receiptSeq}`,
+      userId: tenant.user.id,
+      companyProfileId: tenant.company.id,
+      documentTypeId: tenant.documentType.id,
+      formDefinitionId: tenant.formDefinition.id,
+      status,
+    },
+    select: { id: true, status: true },
+  });
 }
