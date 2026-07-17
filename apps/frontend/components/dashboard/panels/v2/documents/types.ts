@@ -393,6 +393,13 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
       // Edit is per-card now (✏️ inside the detail modal), not a kebab action.
       actions.push('send', 'delete');
       break;
+    case 'SEND_FAILED':
+      // A bounced contract NEVER reached the client → DELETE (soft), same as a
+      // DRAFT. Without this case the doc was a dead-end: view-only, stuck in the
+      // list forever with no action. (Sale docs use 'discard' for this; contracts
+      // reuse 'delete'.)
+      actions.push('delete');
+      break;
     case 'SENT':
     case 'VIEWED':
       // 'sync' removed from the kebab — the 10s polling syncs status on its own.
