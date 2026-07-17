@@ -13,8 +13,8 @@ on:
         description: 'One-shot: assign a plan + receipt fields to a staging tenant'
         type: boolean
         default: false
-      stp_company_id:
-        description: 'set_tenant_plan: CompanyProfile.id (default = World Pavers staging)'
+      target_company_id:
+        description: 'Shared CompanyProfile.id for set_tenant_plan / seed_receipt_catalog / templates_visibility_setup (run ONE op at a time). Default = World Pavers STAGING. ⚠️ PROD op: pass the prod id EXPLICITLY = a6150399-8bd8-4b26-88fc-0f3d38acc1ea (associate-owner fails safe on an id absent from the target DB).'
         type: string
         default: '7aaad16a-6d76-4c36-97c7-b9ce3e45b801'
       stp_plan:
@@ -41,10 +41,6 @@ on:
         description: 'One-shot: seed the 3 standard receipt designs + wire them per-tenant'
         type: boolean
         default: false
-      rc_company_id:
-        description: 'seed_receipt_catalog: CompanyProfile.id to wire (default = World Pavers staging)'
-        type: string
-        default: '7aaad16a-6d76-4c36-97c7-b9ce3e45b801'
       rc_default_slug:
         description: 'seed_receipt_catalog: which design becomes the tenant default'
         type: choice
@@ -57,10 +53,6 @@ on:
         description: 'One-shot: seed template catalog + make receipt-classic PRIVATE to World Pavers (Templates visibility)'
         type: boolean
         default: false
-      tvs_wpc_company_id:
-        description: 'templates_visibility_setup: World Pavers CompanyProfile.id that owns receipt-classic'
-        type: string
-        default: 'a6150399-8bd8-4b26-88fc-0f3d38acc1ea'
       seed_laura:
         description: 'One-shot: seed the Laura invoice test tenant + her private events template'
         type: boolean
@@ -128,7 +120,7 @@ jobs:
       - name: Seed receipt catalog + wire designs (one-shot, gated)
         if: github.event.inputs.seed_receipt_catalog == 'true'
         env:
-          RC_COMPANY_ID: ${{ github.event.inputs.rc_company_id }}
+          RC_COMPANY_ID: ${{ github.event.inputs.target_company_id }}
           RC_DEFAULT_SLUG: ${{ github.event.inputs.rc_default_slug }}
         run: |
           set -e
@@ -154,7 +146,7 @@ jobs:
       - name: Templates visibility setup (one-shot, gated)
         if: github.event.inputs.templates_visibility_setup == 'true'
         env:
-          TVS_WPC_ID: ${{ github.event.inputs.tvs_wpc_company_id }}
+          TVS_WPC_ID: ${{ github.event.inputs.target_company_id }}
         run: |
           set -e
           export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -236,7 +228,7 @@ jobs:
       - name: Set tenant plan (one-shot, gated)
         if: github.event.inputs.set_tenant_plan == 'true'
         env:
-          COMPANY_ID: ${{ github.event.inputs.stp_company_id }}
+          COMPANY_ID: ${{ github.event.inputs.target_company_id }}
           PLAN: ${{ github.event.inputs.stp_plan }}
           MONTHLY_RECEIPT_LIMIT: ${{ github.event.inputs.stp_receipt_limit }}
           DRY_RUN: ${{ github.event.inputs.stp_dry_run }}

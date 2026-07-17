@@ -4,8 +4,11 @@ Two workflows are configured:
 
 | Workflow | File | Trigger |
 |---|---|---|
-| CI | `.github/workflows/ci.yml` | Every push and pull request to `main` |
+| CI | `.github/workflows/ci.yml` | Every push and PR to `main` or `develop` |
+| Deploy to staging | `.github/workflows/deploy-staging.yml` | Push to `develop` (+ gated one-shot ops via manual **Run workflow**) |
 | Deploy to production | `.github/workflows/deploy-prod.yml` | Push to `main` or manual trigger |
+
+Other workflow files also exist: `deploy-landing.yml`, `prod-maintenance.yml`.
 
 ---
 
@@ -104,6 +107,18 @@ Frontend:
 The `--update-env` flag tells pm2 to reload the environment variables from
 the `.env` file on the VM, so you don't need to restart pm2 manually after
 changing env vars.
+
+---
+
+## ⚠️ workflow_dispatch input cap — 10 maximum
+
+**The GitHub "Run workflow" form renders at most 10 inputs.** If a `workflow_dispatch` defines 11 or more, the 11th onward are **silently hidden** — the workflow still parses and runs, there is **no error or warning**, the extra inputs simply never appear in the UI.
+
+**The symptom (how to catch it):** an input **exists in the YAML but does not appear in the Run-workflow dropdown**. Nothing fails — it's just missing. So when someone says *"I don't see option X"* and X is defined in the file, **count the inputs**: X is almost certainly beyond position #10. (Same shape as the nginx traps in [../operations/health-check.md](../operations/health-check.md) — the danger is that it's *silent*, so the value is recognizing the symptom.)
+
+This bit `deploy-staging.yml` on 2026-07-17: it had **12** inputs, so `seed_laura` (#12) was invisible and could not be triggered. Fixed by merging the three per-op `*_company_id` inputs into one shared `target_company_id` (→ **10**). ⚠️ It now sits at **exactly 10 — the next input added re-breaks it.** The durable fix (a separate `staging-ops.yml` so the deploy workflow stops accumulating one-shot inputs) is tracked in the backlog.
+
+**Before adding a `workflow_dispatch` input: count the existing ones.** At 10, don't add — consolidate or split the workflow first.
 
 ---
 

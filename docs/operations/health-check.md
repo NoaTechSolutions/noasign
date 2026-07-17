@@ -41,6 +41,8 @@ When stage 2 sends you to nginx, two default behaviors produce **false negatives
 
 > **Trap 2 — the nginx `access.log` does NOT record the `Host` by default.** The default `combined` log format has no `$host`. So grepping the access log for `app-staging.ntssign.com` **never returns anything**, even when requests are arriving — because the domain was never written to the log, not because traffic isn't coming. Confirm the `server_name` with `nginx -T`, or add `$host` to a custom `log_format` if you need per-Host lines.
 
+**Related deploy-workflow trap** (same silent-failure family): the GitHub `workflow_dispatch` form shows **at most 10 inputs** — an 11th+ input exists in the YAML but is invisible in the UI, with no error. See [../deployment/github-actions.md](../deployment/github-actions.md#workflow_dispatch-input-cap--10-maximum).
+
 ---
 
 ## No auto-rollback
