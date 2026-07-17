@@ -107,7 +107,7 @@ Living, day-to-day state: **session-state** that changes constantly and doesn't 
 |---|---|
 | [STATUS.md](STATUS.md) | **Stub → Drive**: living project status snapshot (environments, shipped, in-progress) |
 | [architecture/pending.md](architecture/pending.md) | **Stub → Drive**: backlog / pending work (durable facts were rescued to `overview.md`) |
-| [SESSION-RESUME.md](SESSION-RESUME.md) | End-of-session resume / next-step handoff (session-state) |
+| [SESSION-RESUME.md](SESSION-RESUME.md) | **Stub → Drive**: end-of-session resume / next-step handoff |
 
 ---
 

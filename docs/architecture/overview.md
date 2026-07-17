@@ -185,6 +185,12 @@ Form schemas are stored in `FormDefinition.schemaJson` and rendered dynamically 
 
 - **Web users:** JWT stored in HTTP-only cookie (`ntssign_access_token`)
 - **API consumers (B2B):** API Keys — see [b2b-integration.md](b2b-integration.md)
+- **Public document links** (the recipient signing link + the signature-complete page): a
+  **server-signed token** — an HMAC over a small payload (`documentId`, expiry, purpose) using
+  **`PUBLIC_LINK_SECRET`** (kept separate from `JWT_SECRET`), verified server-side in the public
+  controllers under `documents/`. This is a **third auth path**, distinct from the web JWT and B2B
+  API keys — no session cookie is involved. (For the exact token construction, the code is the
+  source of truth.)
 
 JWT payload: `{ sub, email, role, companyProfileId }`
 

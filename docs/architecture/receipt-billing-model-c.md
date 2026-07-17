@@ -110,6 +110,14 @@ fields, NOT this map — so manual overrides survive.
 - **RECEIPTS_ONLY contract gate:** `getDocumentTypes` excludes BOLDSIGN types when the tenant's
   `contractsEnabled === false`; contract creation is rejected server-side for those tenants.
 
+> ### ⚠️ Billing is display-only — nothing is auto-charged
+>
+> Overage is **computed and shown**, never collected. `billing.service.ts` estimates
+> `overagePrice × overageDocuments`; **no payment processor reads it** — `billing/` touches no
+> Stripe/charge path (verified 2026-07-17). An overage receipt is still created and sent; the
+> number is informational. If anyone invoices off the shown estimate, that is a **manual, external**
+> step, not something the system does. (Payment collection / Stripe is future — see the roadmap.)
+
 ## 7. Frontend
 
 - Extend `/billing/current-usage` with `receiptsUsed`, `monthlyReceiptLimit`, `remainingReceipts`,
