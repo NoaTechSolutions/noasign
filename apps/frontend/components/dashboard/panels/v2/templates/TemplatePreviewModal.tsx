@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { API_URL } from '@/lib/api';
@@ -18,6 +18,7 @@ export function TemplatePreviewModal({
   onClose,
 }: TemplatePreviewModalProps) {
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   useBlockScroll(true);
 
@@ -78,12 +79,25 @@ export function TemplatePreviewModal({
         </header>
 
         <div className="template-modal__body">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageSrc}
-            alt={`${displayName} full document`}
-            className="template-modal__img"
-          />
+          {previewFailed ? (
+            // §10: honest placeholder — never another template's image.
+            <div className="template-modal__no-preview" aria-label="No preview available yet">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="9" cy="9" r="1.6" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+              <p>No preview available yet for this template.</p>
+            </div>
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={imageSrc}
+              alt={`${displayName} full document`}
+              className="template-modal__img"
+              onError={() => setPreviewFailed(true)}
+            />
+          )}
         </div>
       </div>
     </div>,
