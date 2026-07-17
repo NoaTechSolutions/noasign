@@ -114,6 +114,13 @@ one mechanism would be worse, not cleaner:
 > voided document's `status` still says `SENT`, and a UI that reads it directly
 > will show "Sent" for a voided receipt.
 
+> **These invariants are pinned by a test.** The exact enum values and the deliberate
+> absence of `VOID` are asserted by `apps/backend/src/documents/lifecycle-invariants.spec.ts`
+> (a fast unit test — no DB). If the code drifts from this doc, that test turns **red**
+> with a message pointing back here — so this doc can't silently start lying the way the
+> 2026-07-14 note did. When you intentionally change the lifecycle, update the doc **and**
+> the test together.
+
 ---
 
 ## Why the owner sees different badges

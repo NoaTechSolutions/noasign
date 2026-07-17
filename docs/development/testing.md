@@ -14,6 +14,15 @@ _Verified against `apps/backend/test/` + `.github/workflows/ci.yml` — 2026-07-
 
 The e2e job exists because **a mocked DB can be green while the real thing is broken**. It spins up a `postgres:16` service container (`POSTGRES_DB=noasign_test`) and runs the suite against it.
 
+### Doc-pinning characterization tests
+
+Some unit tests exist to keep a **doc** honest, not to test behavior. Example:
+`src/documents/lifecycle-invariants.spec.ts` asserts the `DocumentStatus` enum matches
+what `docs/architecture/document-lifecycle.md` documents (and that `VOID` is intentionally
+absent) — if the code drifts from the doc, the test turns **red** with a message pointing
+back to the doc. This is the cheap half of "how does a business-rule doc not lie?": the
+**mechanical** claims get pinned by a test; the prose still needs discipline. Fast, no DB.
+
 ---
 
 ## > ⚠️ What the e2e tests do NOT cover
