@@ -207,3 +207,37 @@ supports both flows: **delete-first** (customers: `await onDelete(id)` then
 mobile cards). **Not** Members — deactivating a member keeps the row (marked
 inactive), so there is no removal to animate. Any future table whose delete removes
 a row MUST reuse `useRowExit` + `.row-exiting`, never re-implement the animation.
+
+## §10 — Template previews: honest placeholder + the curated-PNG alta step
+
+Template preview thumbnails are **pre-generated PNGs committed to the repo** at
+`apps/backend/assets/templates/previews/<slug>.png` (card) + `<slug>-full.png`
+(modal), served by `GET /templates/previews/:file`. They are **owner-curated by
+hand** — never run `gen-template-thumbnails.js` (it overwrites the curated PNGs).
+
+**Two ways a tenant gets a template, two preview outcomes.**
+- **(a) A catalog standard given in exclusivity** → privatize it IN PLACE
+  (`associate-template-owner.js <slug> <companyId>`). The slug is unchanged, so its
+  committed PNG still serves. This is the receipt pattern (`receipt-classic` → WPC)
+  and now the invoice pattern (`invoice-standard-v1` → Laura). **Preview just works.**
+- **(b) A bespoke per-tenant template** → a NEW slug with no PNG yet. This is the
+  real prod case every time a client gets their own template.
+
+**For (b) — the honest placeholder (never fake a preview).** A missing PNG 404s;
+the card/modal `onError` shows a neutral **"No preview yet"** placeholder (icon +
+text), styled as a calm normal state. It **NEVER falls back to another template's
+image** — that would misrepresent what this template looks like (same false-claim
+family as the "cannot be undone" copy or a lying "Saved!"). The backend keeps a
+missing file as a plain 404 (expected, not logged), but logs an ERROR if a file
+**exists yet fails to read** (permissions/corruption) — so the graceful UI never
+masks a real broken asset.
+
+**The alta checklist step (manual, until automated).** Creating a bespoke template
+is NOT done until its preview PNG is curated:
+- **Files:** `<slug>.png` (card) and `<slug>-full.png` (modal).
+- **Format / size:** PNG, **1190×1683 px** (a Letter page; the card box crops via CSS).
+- **Location:** `apps/backend/assets/templates/previews/` — committed to the repo, so
+  it reaches every environment (local + staging + prod), the same way the catalog PNGs do.
+- **Do NOT** run `gen-template-thumbnails.js`. The owner produces the PNG by hand.
+Until this step is automated (generate-on-create), it MUST be in the alta checklist —
+or a new prod client ships with no preview.
