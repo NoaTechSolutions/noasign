@@ -226,6 +226,20 @@ See [../development/local.md](../development/local.md) for how to run the tests 
 
 ---
 
+## Known limitations & standing decisions
+
+**Current-state facts, not a backlog.** Each is here because a developer *will* hit it and needs the **why** — the improvement *tasks* live in the Drive backlog, these are how the system **is** today.
+
+- **The database connection pool is untuned.** Prisma uses its default pool; it has not been sized for load. This is a **tuning gap, not a Prisma limitation** — it's changeable (connection-limit params on `DATABASE_URL`, or an explicit pool config) when load requires it.
+
+- **BoldSign metadata keys still use the `noasign` prefix.** The product was renamed noasign → ntssign, but the metadata keys written into BoldSign documents were **deliberately left as `noasign`**: changing them breaks correlation with the documents **already created** in BoldSign, which carry the old keys. This is **historical, not an oversight.** ⚠️ **Trap:** whoever undertakes the full noasign → ntssign rename (a Drive-backlog task) must account for this — a naive rename breaks prod BoldSign lookups.
+
+- **The schema-driven-forms admin UI is not in production — by decision.** New clients are onboarded via **DB scripts**, not an admin panel. The panel exists (validation shipped; a preview component has a rendering bug and is unused). This was **chosen**, not skipped for lack of time — hand-running scripts is fine at current volume. **Revisit condition:** when client volume justifies a self-serve admin UI. (A decision without its revision condition is one nobody dares revisit.) See [schema-driven-forms.md](schema-driven-forms.md).
+
+- **The dashboard is coupled to a parallel request fan-out that includes billing.** `loadWorkspace` fetches several endpoints in parallel to build the dashboard, so **a billing failure degrades the whole dashboard**, not just the billing card. Partially mitigated (fan-out reduced 9 → 4 requests). This is the fact to reach for when the dashboard behaves oddly and the cause isn't obvious.
+
+---
+
 ## Scalability Path
 
 See [b2b-integration.md](b2b-integration.md) for the B2B API roadmap.

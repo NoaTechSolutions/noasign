@@ -33,7 +33,6 @@
 | [architecture/mobile-bottom-sheet-pattern.md](architecture/mobile-bottom-sheet-pattern.md) | **Standard** mobile bottom-sheet + SubSheetHeader back-nav; react-pdf viewer |
 | [architecture/b2b-integration.md](architecture/b2b-integration.md) | API key auth, outbound webhooks, B2B integration design |
 | [architecture/known-issue-setstate-in-effect.md](architecture/known-issue-setstate-in-effect.md) | Known issue: setState-in-effect pattern and where it's suppressed |
-| [architecture/pending.md](architecture/pending.md) | Architectural items pending implementation |
 
 ---
 
@@ -100,14 +99,15 @@ Repeatable procedures — how to do a thing, and how to read what the system tel
 
 ---
 
-## Project status
+## Project status & backlog — in Drive
 
-Living, day-to-day state. Per the governance rule above, this is **session-state** (it changes constantly and does not pass the 6-month test), so it is being moved out of git into Drive — maintained by Claude:
+Living, day-to-day state: **session-state** that changes constantly and doesn't pass the 6-month test, so it lives in **Drive**, maintained by Claude. The repo keeps only a **stub with the link** — ⚠️ don't edit the stubs, the original is in Drive:
 
-| File | Description |
+| In repo | What it is |
 |---|---|
-| [STATUS.md](STATUS.md) | Living project status snapshot (environments, shipped, in-progress) |
-| [SESSION-RESUME.md](SESSION-RESUME.md) | End-of-session resume / next-step handoff |
+| [STATUS.md](STATUS.md) | **Stub → Drive**: living project status snapshot (environments, shipped, in-progress) |
+| [architecture/pending.md](architecture/pending.md) | **Stub → Drive**: backlog / pending work (durable facts were rescued to `overview.md`) |
+| [SESSION-RESUME.md](SESSION-RESUME.md) | End-of-session resume / next-step handoff (session-state) |
 
 ---
 
