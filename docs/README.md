@@ -42,12 +42,24 @@
 | File | Description |
 |---|---|
 | [development/local.md](development/local.md) | Local dev setup, ports, database, seeds, smoke/unit tests, BoldSign webhooks |
+| [development/testing.md](development/testing.md) | The 3 CI test layers, the e2e-on-real-Postgres suite, how to run it locally, and **what it does NOT cover (the frontend)** |
 | [deployment/production.md](deployment/production.md) | Production deploy guide, Oracle Cloud, nginx, SSL, pm2 |
 | [deployment/staging.md](deployment/staging.md) | Staging environment setup and deploy process |
 | [deployment/backups.md](deployment/backups.md) | Prod DB backup → R2, restore procedure, retention, staging |
 | [deployment/prod-release-runbook.md](deployment/prod-release-runbook.md) | Step-by-step prod release runbook (backup → checks → merge → verify); reusable |
 | [deployment/ssh-staging.md](deployment/ssh-staging.md) | SSH access to the staging VM |
 | [deployment/github-actions.md](deployment/github-actions.md) | CI/CD pipeline setup, GitHub Actions, environment secrets |
+
+---
+
+## Operations (runbooks)
+
+Repeatable procedures — how to do a thing, and how to read what the system tells you.
+
+| File | Description |
+|---|---|
+| [operations/template-alta.md](operations/template-alta.md) | Checklist for adding a template, including the curated preview PNG spec (1190×1683, 2 files, and **never run `gen-template-thumbnails.js`**) |
+| [operations/health-check.md](operations/health-check.md) | The staging deploy health check: what each stage checks, what each error message means, and the two nginx traps that cause false negatives |
 
 ---
 
