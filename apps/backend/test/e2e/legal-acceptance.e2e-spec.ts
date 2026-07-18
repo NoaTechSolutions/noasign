@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { LegalDocType } from '@prisma/client';
 import { bootstrapTestApp, closeTestApp, signToken, TestApp } from './harness';
 import { resetDb, seedReceiptTenant, ReceiptTenant } from './fixtures';
+import { LegalService } from '../../src/legal/legal.service';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
@@ -109,6 +110,57 @@ describe('legal acceptance — mechanism candado', () => {
       );
     }
     // ...and it must NOT count as pending (you can't be asked to accept nothing).
+    const status = await request(server())
+      .get('/legal/acceptance-status')
+      .set('Authorization', bearer());
+    expect(status.body.mustAccept).toBe(false);
+  });
+
+  // ── LOCK 1: activating a DRAFT is refused (the lawyer is the gate, in code) ──
+  it('LOCK: activating a DRAFT without override → REFUSED, stays inactive', async () => {
+    const legal = ctx.app.get(LegalService);
+    const draft = await seedVersion(LegalDocType.TERMS, '# Draft', {
+      isActive: false,
+    }); // seedVersion always sets isDraft: true
+
+    let refused = false;
+    try {
+      await legal.activateVersion(draft.id);
+    } catch {
+      refused = true;
+    }
+    const after = await ctx.prisma.legalDocumentVersion.findUnique({
+      where: { id: draft.id },
+    });
+    if (!refused || after?.isActive) {
+      throw new Error(
+        `Activating a DRAFT (unreviewed) version without an explicit override MUST be ` +
+          `refused and leave it inactive — otherwise an accidental activation blocks real ` +
+          `clients with unapproved text. Got refused=${refused}, isActive=${after?.isActive}. ` +
+          `See docs/architecture/legal-acceptance.md ("content is the gate").`,
+      );
+    }
+    // The explicit override is the only way to activate a draft (for testing).
+    await legal.activateVersion(draft.id, { allowDraft: true });
+    const now = await ctx.prisma.legalDocumentVersion.findUnique({
+      where: { id: draft.id },
+    });
+    expect(now?.isActive).toBe(true);
+  });
+
+  // ── LOCK 2: a normal seed activates NOTHING (isActive defaults false) ──
+  it('LOCK: seeding inactive drafts does NOT block anyone (mustAccept stays false)', async () => {
+    await seedVersion(LegalDocType.TERMS, '# Draft T', { isActive: false });
+    await seedVersion(LegalDocType.PRIVACY, '# Draft P', { isActive: false });
+
+    const status = await request(server())
+      .get('/legal/acceptance-status')
+      .set('Authorization', bearer());
+    expect(status.body.mustAccept).toBe(false);
+  });
+
+  // ── LOCK 3: no active version at all → no popup ──
+  it('LOCK: no active version → mustAccept false (no popup, nothing to block)', async () => {
     const status = await request(server())
       .get('/legal/acceptance-status')
       .set('Authorization', bearer());

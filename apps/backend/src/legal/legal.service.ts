@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { LegalDocType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -10,6 +14,41 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class LegalService {
   constructor(private readonly prisma: PrismaService) {}
+
+  // Make a version THE active one for its docType (exactly one active per docType).
+  // ⚠️ THE LOCK — "the lawyer is the gate, in code": a DRAFT (unreviewed text) is
+  // REFUSED unless an explicit `allowDraft` override is passed. So no accidental
+  // activation of unreviewed terms can ever block real clients — even if someone
+  // runs the activation by mistake, an unapproved draft won't go live. (We can't
+  // key this on NODE_ENV: staging AND prod are both `production`.) A real go-live
+  // uses a lawyer-approved, non-draft version → no override needed.
+  async activateVersion(
+    versionId: string,
+    opts: { allowDraft?: boolean } = {},
+  ) {
+    const v = await this.prisma.legalDocumentVersion.findUnique({
+      where: { id: versionId },
+    });
+    if (!v) throw new NotFoundException('Legal version not found');
+    if (v.isDraft && !opts.allowDraft) {
+      throw new BadRequestException(
+        `Refusing to activate a DRAFT (unreviewed) ${v.docType} version. A draft must ` +
+          `be reviewed/approved (isDraft=false) before it can go live — or pass an ` +
+          `explicit allowDraft override for testing. The lawyer is the gate, in code.`,
+      );
+    }
+    await this.prisma.$transaction([
+      this.prisma.legalDocumentVersion.updateMany({
+        where: { docType: v.docType, isActive: true },
+        data: { isActive: false },
+      }),
+      this.prisma.legalDocumentVersion.update({
+        where: { id: versionId },
+        data: { isActive: true },
+      }),
+    ]);
+    return { activated: { docType: v.docType, version: v.version } };
+  }
 
   // The active, servable version for a docType. 404 if none — the popup/footer
   // must never link to a docType that isn't actually servable.
