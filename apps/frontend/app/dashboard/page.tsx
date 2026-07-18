@@ -10,6 +10,7 @@ import { detectBrowserTimeZone } from "../../lib/tenant-date";
 import { getPlanEntry } from "../../lib/plan-catalog";
 import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
+import { LegalAcceptanceGate } from "../../components/legal/LegalAcceptanceGate";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel, TemplatesPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
 import { invoiceRecipientName } from "../../components/dashboard/panels/v2/documents/types";
@@ -2726,14 +2727,19 @@ function DashboardPageInner() {
       );
 
     return (
-      <DashboardShell
-        user={shellUser}
-        currentPanel={newLayoutPanel}
-        onSignOut={handleSignOut}
-        isLoading={isLoading}
-      >
-        {panelContent}
-      </DashboardShell>
+      <>
+        <DashboardShell
+          user={shellUser}
+          currentPanel={newLayoutPanel}
+          onSignOut={handleSignOut}
+          isLoading={isLoading}
+        >
+          {panelContent}
+        </DashboardShell>
+        {/* Blocking legal-acceptance gate — checked once at app load; blocks until
+            accept or log out. Renders null unless the user must accept. */}
+        <LegalAcceptanceGate onSignOut={handleSignOut} />
+      </>
     );
   }
 
