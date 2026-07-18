@@ -102,3 +102,16 @@ npm run test:e2e
 | `npm run test:e2e` | Backend e2e on a real `*_test` DB (above). |
 | `npm run test:smoke` | Hits a running API (`scripts/smoke-api.mjs`) — a live smoke check, not part of CI's Jest jobs. |
 | `npm run test:cov` | Unit tests with coverage. |
+
+## Validating the legal-acceptance popup locally
+
+The popup only appears when there's an **active** legal version the current user hasn't accepted. By default nothing is active (drafts seed `isActive: false`), so it's invisible. To see + re-test it (from `apps/backend`, `.env` auto-loaded):
+
+```bash
+node scripts/seed-legal-draft.js                         # once: seed the DRAFT versions (inactive)
+node scripts/legal-set-active.js on --allow-draft        # activate → popup appears at next app load
+node scripts/legal-set-active.js off                     # deactivate → popup gone
+node scripts/legal-reset-acceptance.js <email>           # delete a user's acceptance → popup appears AGAIN
+```
+
+Acceptance is a one-time act per version, so **`legal-reset-acceptance.js` is what lets you test the flow more than once**. `--allow-draft` is required to activate a draft (mirrors the `isDraft` guard — a normal go-live uses a lawyer-approved, non-draft version). See [../architecture/legal-acceptance.md](../architecture/legal-acceptance.md).
