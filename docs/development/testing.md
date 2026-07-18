@@ -56,6 +56,7 @@ The tools catch **different** things — no single one covers everything. 4 of t
 | `smoke.e2e-spec.ts` | Proves the harness: boots the real app on the `*_test` DB, serves public `GET /version`, runs a real `document.count()`, asserts `GET /users/me` → 401 without a token. |
 | `contract-lifecycle.e2e-spec.ts` | Drives a contract `DRAFT → SENT → SIGNED → COMPLETED` through the real endpoints + the BoldSign webhook (`POST /boldsign/webhooks/events`), asserting the real persisted `DocumentStatus`; also asserts sending a non-DRAFT is rejected. |
 | `receipt-lifecycle.e2e-spec.ts` | **BACKEND-invariants candado for receipts** — pins the kill-action ENDPOINT behavior against `document-lifecycle.md`: `DELETE`→soft-delete (`deletedAt`, **not** Cancelled), void→`supersededAt`+status stays `SENT`, plus the guards (can't delete a SENT receipt, can't void a DRAFT). Fails with a message pointing to the doc. ⚠️ Backend only — see the coverage map for what it does **not** cover. |
+| `invoice-lifecycle.e2e-spec.ts` | **BACKEND-invariants candado for invoices** — mirror of the receipt one. Its "void a DRAFT → rejected" case guards a bug that **actually regressed** (`voidInvoice` once skipped the SENT check while `voidReceipt` enforced it). Same backend-only boundary. |
 
 Support (not specs): `harness.ts` (boots the real `AppModule`; mocks **only** BoldSign / email / R2), `fixtures.ts` (`resetDb`, `seedContractTenant`), `env-setup.ts` (jest `setupFiles`), `global-setup.js` (jest `globalSetup`).
 
@@ -85,7 +86,9 @@ npm run test:e2e
 
 `global-setup.js` runs once and does `prisma db push --skip-generate --accept-data-loss` to sync the schema — **`db push`, not `migrate`**, so the dev DB's migration-history drift never touches the test DB.
 
-> **e2e runs SERIALLY** (`maxWorkers: 1` in `jest-e2e.json`). Every spec shares the one `*_test` DB and `TRUNCATE`s it in `beforeEach`, so parallel jest workers would wipe each other's data mid-test — a flaky failure that only appears once a second resetting spec exists (it did, when `receipt-lifecycle` was added). Don't remove `maxWorkers: 1` without first giving each worker its own database.
+> **e2e runs SERIALLY** (`maxWorkers: 1` in `jest-e2e.json`). Every spec shares the one `*_test` DB and `TRUNCATE`s it in `beforeEach`, so parallel jest workers would wipe each other's data mid-test — a flaky failure that only appears once a second resetting spec exists (it did, when `receipt-lifecycle` was added; before that the contract e2e was passing by *timing luck*, not by design).
+>
+> **Tradeoff (know it before "optimizing"):** serial means total time **grows linearly** with the number of spec files. Today it's ~8s / a few specs — fine. The day it hurts, the fix is **NOT** removing `maxWorkers: 1` (that revives the race) — it's giving **each jest worker its own database** (e.g. suffix the DB name with `JEST_WORKER_ID` in `env-setup.ts` + create it in `global-setup.js`). Until that's built, serial stays.
 
 > **Safety guard.** Both setup files **hard-refuse to run** unless the resolved DB name ends in `_test`. This is deliberate — it makes it impossible for an e2e run (which resets/pushes the schema with `--accept-data-loss`) to ever hit your real dev database.
 

@@ -146,3 +146,55 @@ export async function createReceiptDoc(
     select: { id: true, status: true },
   });
 }
+
+// An invoices tenant — same shape as a receipts tenant, but the DIRECT_PDF type
+// carries code 'INVOICE' (receipts.service resolves invoices by this code).
+export async function seedInvoiceTenant(
+  prisma: PrismaService,
+): Promise<ReceiptTenant> {
+  const company = await prisma.companyProfile.create({
+    data: { companyName: 'E2E Invoices Co' },
+  });
+  const user = await prisma.user.create({
+    data: {
+      email: 'e2e.invoices@test.local',
+      passwordHash: bcrypt.hashSync('e2e-pass', 4),
+      role: 'USER',
+      status: 'ACTIVE',
+      companyProfileId: company.id,
+    },
+  });
+  const documentType = await prisma.documentType.create({
+    data: { name: 'E2E Invoice', code: 'INVOICE', generationMode: 'DIRECT_PDF' },
+  });
+  const formDefinition = await prisma.formDefinition.create({
+    data: {
+      name: 'E2E Invoice Form',
+      documentTypeId: documentType.id,
+      isActive: true,
+      schemaJson: { sections: [] },
+    },
+  });
+  return { company, user, documentType, formDefinition };
+}
+
+// Seed an invoice Document directly in a given status (INV-numbered for clarity).
+let invoiceSeq = 0;
+export async function createInvoiceDoc(
+  prisma: PrismaService,
+  tenant: ReceiptTenant,
+  status: DocumentStatus,
+): Promise<{ id: string; status: DocumentStatus }> {
+  invoiceSeq += 1;
+  return prisma.document.create({
+    data: {
+      documentNumber: `INV-E2E-${invoiceSeq}`,
+      userId: tenant.user.id,
+      companyProfileId: tenant.company.id,
+      documentTypeId: tenant.documentType.id,
+      formDefinitionId: tenant.formDefinition.id,
+      status,
+    },
+    select: { id: true, status: true },
+  });
+}

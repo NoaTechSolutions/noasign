@@ -2,7 +2,6 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
-  "_comment_maxWorkers": "SERIAL, non-negotiable: every e2e spec shares ONE *_test DB and TRUNCATEs it in beforeEach. Parallel workers wipe each other's data mid-test (a flaky failure that only shows once a 2nd resetting spec exists). maxWorkers:1 makes the shared DB safe. Do not remove without giving each worker its own DB.",
   "maxWorkers": 1,
   "testRegex": ".e2e-spec.ts$",
   "setupFiles": ["<rootDir>/e2e/env-setup.ts"],
