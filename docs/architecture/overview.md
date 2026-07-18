@@ -244,6 +244,8 @@ See [../development/local.md](../development/local.md) for how to run the tests 
 
 **Current-state facts, not a backlog.** Each is here because a developer *will* hit it and needs the **why** — the improvement *tasks* live in the Drive backlog, these are how the system **is** today.
 
+- **Not all of the product is in this repo.** The public `ntssign.com` **landing is a separate Next.js codebase** (behind Cloudflare) — **NOT here** (verified 2026-07-18). Only the *app* (`app.ntssign.com`) and *API* (`api.ntssign.com`) deploy from this repo. The static `ntssign-landing-v3.html` + `siteground*.md` guides that used to live here were **stale fossils** (now removed) describing an obsolete static→SiteGround deploy — they misled a Terms-links "fix" that never reached production. Where the live landing's source and deploy live is the owner's separate infra, not known from here.
+
 - **The database connection pool is untuned.** Prisma uses its default pool; it has not been sized for load. This is a **tuning gap, not a Prisma limitation** — it's changeable (connection-limit params on `DATABASE_URL`, or an explicit pool config) when load requires it.
 
 - **BoldSign metadata keys still use the `noasign` prefix.** The product was renamed noasign → ntssign, but the metadata keys written into BoldSign documents were **deliberately left as `noasign`**: changing them breaks correlation with the documents **already created** in BoldSign, which carry the old keys. This is **historical, not an oversight.** ⚠️ **Trap:** whoever undertakes the full noasign → ntssign rename (a Drive-backlog task) must account for this — a naive rename breaks prod BoldSign lookups.

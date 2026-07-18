@@ -3,6 +3,8 @@
 **NTSsign** is a multi-tenant SaaS platform for creating, sending, and tracking business documents — signed contracts (via BoldSign) and financial documents (receipts + invoices, generated in-house). Built by NoaTechSolutions.
 
 > **How this folder is governed.** A doc lives here only if it passes the test _"is this still true in 6 months?"_ — durable truth about the product (architecture, business rules, processes). Day-to-day session state (status snapshots, this-week priorities) lives in Drive, not in git. If you find a doc that has gone stale, fix it or flag it — a doc that lies is worse than no doc.
+>
+> **⚠️ The repo is a source, and a source can lie.** A file existing in git does **not** prove it is live. Before documenting something as real, verify it is actually running/deployed — not just present in the repo. _Evidence this matters:_ the 2026-07-17 docs-cleanup batch — whose whole purpose was to kill lying docs — itself shipped **two new lies** (a `/v1` API prefix that doesn't exist, and "landing deployed to SiteGround"), both by inheriting from **stale repo fossils without verifying they were live.**
 
 ---
 
@@ -112,17 +114,13 @@ Living, day-to-day state: **session-state** that changes constantly and doesn't 
 
 ---
 
-## Landing page & misc
+## Misc
 
-> ⚠️ **These are STALE fossils, pending removal.** The live `ntssign.com` landing is a **separate Next.js codebase — NOT in this repo** (verified 2026-07-18; served behind Cloudflare). The files below describe an obsolete static→SiteGround deploy that is no longer reality and have misled edits. Do not trust them.
+> The public `ntssign.com` **landing lives in a separate Next.js codebase — NOT in this repo** (see [architecture/overview.md → Known limitations](architecture/overview.md#known-limitations--standing-decisions)). The old static landing HTML + SiteGround deploy guides + landing build-instructions were **stale fossils** and were **removed 2026-07-18** (they described an obsolete static→SiteGround deploy and had misled edits).
 
 | File | Description |
 |---|---|
-| `ntssign-landing-v3.html` | ⚠️ STALE — static landing HTML, **NOT deployed** (the live landing is a separate Next.js codebase) |
-| `siteground.md`, `siteground-landing-setup.md` | SiteGround hosting + landing deploy setup |
-| `linear-tasks-landing-siteground.md` | Linear task list for the landing work |
-| `CLAUDE_CODE_INSTRUCTIONS.md`, `INSTRUCCIONES-CLAUDE-CODE-LANDING.md` | Claude Code instructions for the landing project |
-| `PANEL-EXTRACTION-GUIDE.md` | Guide for extracting UI panels |
+| `PANEL-EXTRACTION-GUIDE.md` | Guide for extracting dashboard UI panels from the monolith into `ModuleLayout` modules (dashboard, not landing) |
 | `designs/*.html` | Static HTML mockups (billing, customers, dashboard, profile) |
 
 ---
