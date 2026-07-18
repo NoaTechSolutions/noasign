@@ -114,11 +114,11 @@ Living, day-to-day state: **session-state** that changes constantly and doesn't 
 
 ## Landing page & misc
 
-The public landing (SiteGround) and one-off setup guides:
+> ⚠️ **These are STALE fossils, pending removal.** The live `ntssign.com` landing is a **separate Next.js codebase — NOT in this repo** (verified 2026-07-18; served behind Cloudflare). The files below describe an obsolete static→SiteGround deploy that is no longer reality and have misled edits. Do not trust them.
 
 | File | Description |
 |---|---|
-| `ntssign-landing-v3.html` | Public landing page (deployed to SiteGround) |
+| `ntssign-landing-v3.html` | ⚠️ STALE — static landing HTML, **NOT deployed** (the live landing is a separate Next.js codebase) |
 | `siteground.md`, `siteground-landing-setup.md` | SiteGround hosting + landing deploy setup |
 | `linear-tasks-landing-siteground.md` | Linear task list for the landing work |
 | `CLAUDE_CODE_INSTRUCTIONS.md`, `INSTRUCCIONES-CLAUDE-CODE-LANDING.md` | Claude Code instructions for the landing project |

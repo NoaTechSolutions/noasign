@@ -26,7 +26,7 @@ Designed to be consumed both by end users through the web UI, and by **external 
               │                          │                          │
               ▼                          ▼                          ▼
    ┌─────────────────┐    ┌─────────────────────────────────────────────┐
-   │   SiteGround     │    │              Oracle Cloud VM                │
+   │   Cloudflare     │    │              Oracle Cloud VM                │
    │  (landing page)  │    │                                             │
    │                   │    │  ┌─────────────┐    ┌──────────────────┐  │
    │  index.html       │    │  │    nginx     │────│  NTSsign Backend │  │
@@ -58,10 +58,18 @@ Designed to be consumed both by end users through the web UI, and by **external 
 Internet
   ↓
 Cloudflare DNS
-  ├── ntssign.com     → SiteGround (landing estática HTML/CSS/JS)
+  ├── ntssign.com     → a SEPARATE Next.js landing (NOT in this repo), behind Cloudflare
   ├── app.ntssign.com → Oracle Cloud VM (Next.js :3001)
   └── api.ntssign.com → Oracle Cloud VM (NestJS :3000)
 ```
+
+> ⚠️ **The `ntssign.com` landing is a SEPARATE Next.js codebase — NOT in this repo.**
+> Verified 2026-07-18: `ntssign.com` serves a React/Next.js SSR page behind Cloudflare,
+> **not** the static `docs/ntssign-landing-v3.html` in this repo. That HTML file and the
+> `siteground*.md` guides here are **stale fossils** describing a static→SiteGround deploy
+> that is no longer reality (they misled a Terms-links "fix" that never reached production).
+> **Where the live landing's source and deploy live is not known from this repo** — it is
+> the owner's separate infra.
 
 ---
 
