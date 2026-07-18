@@ -84,6 +84,25 @@ export function DashboardShell({
             {children}
           </div>
         </main>
+
+        {/* Legal footer — Terms/Privacy/Cookies must be reachable from inside the
+            app (not just the marketing pages). Open in a new tab so the user never
+            loses in-progress work. Links point to the real pages (no dead anchors). */}
+        <footer
+          className="dashboard-legal-footer"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "16px",
+            padding: "16px 24px",
+            fontSize: "12px",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>Terms</a>
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>Privacy</a>
+          <a href="/cookies" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>Cookies</a>
+        </footer>
       </div>
     </div>
   );

@@ -54,7 +54,7 @@ export default function Home() {
             className="h-[3px] w-[3px] rounded-full opacity-50"
             style={{ background: "currentColor" }}
           />
-          <a href="#privacy" className="text-inherit transition hover:text-[color:var(--text-primary)]">
+          <a href="/privacy" className="text-inherit transition hover:text-[color:var(--text-primary)]">
             Privacy
           </a>
           <span
@@ -62,7 +62,7 @@ export default function Home() {
             className="h-[3px] w-[3px] rounded-full opacity-50"
             style={{ background: "currentColor" }}
           />
-          <a href="#terms" className="text-inherit transition hover:text-[color:var(--text-primary)]">
+          <a href="/terms" className="text-inherit transition hover:text-[color:var(--text-primary)]">
             Terms
           </a>
           <span
