@@ -10,6 +10,7 @@
  * This script writes the DB directly; it is a LOCAL/testing convenience, NOT the
  * production go-live path (that uses a lawyer-approved, non-draft version).
  */
+require('dotenv/config'); // auto-load apps/backend/.env → DATABASE_URL (no env var to set)
 const { PrismaClient } = require('@prisma/client');
 
 const VERSION = 'v1-draft';

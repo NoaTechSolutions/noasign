@@ -10,6 +10,7 @@
  * The real go-live uses a lawyer-approved (isDraft:false) version, activated
  * without the override — see docs/architecture/legal-acceptance.md.
  */
+require('dotenv/config'); // auto-load apps/backend/.env → DATABASE_URL (no env var to set)
 const fs = require('fs');
 const path = require('path');
 const { createHash } = require('crypto');
