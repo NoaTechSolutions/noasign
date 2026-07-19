@@ -6,6 +6,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { createRequestIdMiddleware } from './common/request-id.middleware';
 
 function validateRequiredEnv() {
   const required = [
@@ -40,6 +41,10 @@ async function bootstrap() {
 
   expressApp.disable('x-powered-by');
   expressApp.set('trust proxy', normalizeTrustProxy(process.env.TRUST_PROXY));
+
+  // First middleware: assign/propagate a correlation id so it wraps the whole
+  // request (headers, context) before anything else runs.
+  app.use(createRequestIdMiddleware());
 
   app.use(createSecurityHeadersMiddleware());
 
