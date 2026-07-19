@@ -17,26 +17,27 @@ on:
           - set-env
           - post-deploy-check
           - receipts-readiness
+          - precheck-migrations
+          - verify-correlativo
+          - seed-receipt-template
+          - release-precheck
           - set-tenant-plan
       company_id:
-        description: 'set-tenant-plan: CompanyProfile.id to update'
+        description: 'companyProfileId for seed-receipt-template / set-tenant-plan (e.g. a6150399-...)'
         type: string
         required: false
+        default: ''
       plan:
-        description: 'set-tenant-plan: plan to assign (seeds receipt fields)'
+        description: 'set-tenant-plan: target plan'
         type: choice
         required: false
-        default: RECEIPTS_ONLY
+        default: PRO_UNLIMITED
         options:
-          - STARTER
           - LAUNCH
-          - PRO
           - SCALE
           - PRO_UNLIMITED
-          - PAY_PER_CONTRACT
-          - RECEIPTS_ONLY
       dry_run:
-        description: 'set-tenant-plan: preview only (uncheck to apply)'
+        description: 'set-tenant-plan: true = diagnose only (no write)'
         type: boolean
         required: false
         default: true
@@ -46,31 +47,170 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # 6) Assign a plan to a tenant + seed its receipt-billing fields from
-  #    PLAN_DEFAULTS (single source of truth). DRY_RUN by default. Only plan +
-  #    receipt fields change; contract overrides (monthlyDocLimit/isUnlimited)
-  #    are preserved.
+  # 10) Set a tenant's billing plan (planName + isUnlimited). dry_run=true only
+  #     diagnoses (prints current plan + the worldpaversco usage). Touches ONLY
+  #     the CompanyProfile plan fields — never documents/numbers.
   set-tenant-plan:
     if: github.event.inputs.step == 'set-tenant-plan'
-    name: Set tenant plan + receipt fields
+    name: Set tenant plan (diagnose / write)
     runs-on: [self-hosted, linux, production]
     environment: production
     steps:
-      - name: Apply plan via PLAN_DEFAULTS (dry-run unless dry_run=false)
+      - name: Diagnose + optionally set plan
         env:
-          COMPANY_ID: ${{ github.event.inputs.company_id }}
+          CID: ${{ github.event.inputs.company_id }}
           PLAN: ${{ github.event.inputs.plan }}
-          # inputs are strings: 'true' (dry-run, default) / 'false' (apply).
-          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          DRY: ${{ github.event.inputs.dry_run }}
+        run: |
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: no DATABASE_URL"; exit 1; fi
+          if [ -z "${CID:-}" ]; then echo "ERROR: company_id input required"; exit 1; fi
+          DATABASE_URL="$DB" CID="$CID" PLAN="${PLAN:-PRO_UNLIMITED}" DRY="${DRY:-true}" node -e '
+            const { PrismaClient } = require("@prisma/client");
+            const p = new PrismaClient();
+            const cid = process.env.CID, plan = process.env.PLAN, dry = process.env.DRY !== "false";
+            (async () => {
+              const c = await p.companyProfile.findUnique({ where: { id: cid }, select: { id:true, companyName:true, planName:true, monthlyDocLimit:true, isUnlimited:true, overagePrice:true } });
+              if (!c) { console.error("Company not found:", cid); process.exit(1); }
+              console.log("=== BEFORE ===", JSON.stringify(c));
+              // Usage of worldpaversco THIS billing period (per-user, non-master).
+              const period = new Date().toISOString().slice(0,7);
+              const wp = await p.user.findUnique({ where: { email: "worldpaversco@gmail.com" }, select: { id:true, role:true } });
+              if (wp) {
+                const used = await p.document.count({ where: { userId: wp.id, countedInBilling: true, billingPeriod: period } });
+                console.log("worldpaversco usage:", JSON.stringify({ role: wp.role, billingPeriod: period, countedDocsUsed: used, monthlyDocLimit: c.monthlyDocLimit, isUnlimited: c.isUnlimited, remaining: c.isUnlimited ? "UNLIMITED" : Math.max(c.monthlyDocLimit - used, 0) }));
+              }
+              if (dry) { console.log("=== DRY-RUN — no changes written ==="); await p.$disconnect(); return; }
+              const updated = await p.companyProfile.update({ where: { id: cid }, data: { planName: plan, isUnlimited: plan === "PRO_UNLIMITED" }, select: { planName:true, isUnlimited:true, monthlyDocLimit:true } });
+              console.log("=== AFTER (plan fields only) ===", JSON.stringify(updated));
+              await p.$disconnect();
+            })().catch((e) => { console.error("ERR", e.message); process.exit(1); });
+          '
+
+  # 9) Read-only pre/post-release check for the superadmin + per-user receipt fix.
+  release-precheck:
+    if: github.event.inputs.step == 'release-precheck'
+    name: Release pre/post-check (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Report contracts/receipts numbering + single superadmin
+        run: |
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL"; exit 1; fi
+          DATABASE_URL="$DB" node -e '
+            const { PrismaClient } = require("@prisma/client");
+            const p = new PrismaClient();
+            const pad = (n) => String(n).padStart(6, "0");
+            const numOf = (s, code) => parseInt(s.slice((code + "-").length), 10);
+            (async () => {
+              const u = await p.user.findUnique({ where: { email: "worldpaversco@gmail.com" }, select: { id: true, companyProfileId: true } });
+              console.log("worldpaversco:", JSON.stringify(u));
+              const contracts = await p.document.findMany({ where: { userId: u.id, documentType: { code: "CONSTRUCTION_CONTRACT" } }, select: { documentNumber: true } });
+              const cNums = contracts.map((d) => numOf(d.documentNumber, "CONSTRUCTION_CONTRACT")).filter((n) => !isNaN(n));
+              console.log("CONTRACTS of worldpaversco:", contracts.map((d) => d.documentNumber).sort().join(", ") || "(none)");
+              console.log("  -> next per-user contract:", "CONSTRUCTION_CONTRACT-" + pad(Math.max(0, ...cNums) + 1));
+              const receipts = await p.document.findMany({ where: { userId: u.id, documentType: { code: "PAYMENT_RECEIPT" } }, select: { documentNumber: true } });
+              const rNums = receipts.map((d) => numOf(d.documentNumber, "PAYMENT_RECEIPT")).filter((n) => !isNaN(n));
+              console.log("RECEIPTS of worldpaversco: count =", receipts.length);
+              console.log("  -> next per-user receipt documentNumber:", "PAYMENT_RECEIPT-" + pad(Math.max(0, ...rNums) + 1));
+              const rc = await p.receiptCounter.findFirst({ where: { companyProfileId: u.companyProfileId, year: 2026 }, select: { lastNumber: true } });
+              console.log("receiptCounter (tenant a6150399, 2026):", rc ? rc.lastNumber : "ABSENT -> first REC-2026-0001");
+              const totalReceipts = await p.document.count({ where: { documentType: { code: "PAYMENT_RECEIPT" } } });
+              console.log("SANITY total PAYMENT_RECEIPT (all tenants):", totalReceipts);
+              const masters = await p.user.findMany({ where: { role: "MASTER" }, select: { email: true } });
+              console.log("MASTERS in prod:", masters.length, "->", masters.map((m) => m.email).join(", "));
+              await p.$disconnect();
+            })().catch((e) => { console.error("ERR", e.message); process.exit(1); });
+          '
+
+  # 8) WRITE: create/update a tenant's ReceiptTemplate (per-tenant onboarding).
+  #    Requires the company_id input. The PAYMENT_RECEIPT type+form come from the
+  #    data migration (must already be deployed). Idempotent (upsert by company+name).
+  seed-receipt-template:
+    if: github.event.inputs.step == 'seed-receipt-template'
+    name: Seed receipt template (write)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Create/update the tenant ReceiptTemplate
         run: |
           set -euo pipefail
           export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
           cd ~/apps/ntssign/apps/backend
-          if [ -z "${COMPANY_ID:-}" ]; then echo "ERROR: company_id input is required"; exit 1; fi
+          CID="${{ github.event.inputs.company_id }}"
+          if [ -z "$CID" ]; then echo "ERROR: company_id input is required for seed-receipt-template"; exit 1; fi
           DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
-          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL from .env"; exit 1; fi
-          DATABASE_URL="$DB" node scripts/set-tenant-plan.js
-          echo "GATE: review BEFORE/WILL SET above. Re-run with dry_run unchecked to apply."
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL"; exit 1; fi
+          DATABASE_URL="$DB" node scripts/dev-helpers/_seed-receipt-template.js "$CID"
+
+  # 7) Read-only: after the per-user migration, show every CONSTRUCTION_CONTRACT
+  #    with its owner (userId/email/company) + each user's current max, so we can
+  #    confirm WorldPaver's 000001/000002 are intact and compute each user's next.
+  verify-correlativo:
+    if: github.event.inputs.step == 'verify-correlativo'
+    name: Verify correlativo ownership (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Show contracts by owner + per-user max
+        run: |
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL"; exit 1; fi
+          DATABASE_URL="$DB" node -e '
+            const { PrismaClient } = require("@prisma/client");
+            const p = new PrismaClient();
+            (async () => {
+              const docs = await p.document.findMany({
+                where: { documentType: { code: "CONSTRUCTION_CONTRACT" } },
+                select: { documentNumber: true, status: true, userId: true, user: { select: { email: true } }, companyProfile: { select: { companyName: true } } },
+                orderBy: { documentNumber: "asc" },
+              });
+              console.log("=== CONSTRUCTION_CONTRACT documents (by number) ===");
+              for (const d of docs) {
+                console.log(`${d.documentNumber} | ${d.status} | user=${d.user && d.user.email} (${d.userId}) | company=${d.companyProfile && d.companyProfile.companyName}`);
+              }
+              // Per-user current max → next = max+1 (the per-user correlativo).
+              const byUser = {};
+              for (const d of docs) {
+                const m = /(\d+)$/.exec(d.documentNumber); if (!m) continue;
+                const n = parseInt(m[1], 10);
+                const k = (d.user && d.user.email) || d.userId;
+                if (!byUser[k] || n > byUser[k]) byUser[k] = n;
+              }
+              console.log("=== per-user max → next ===");
+              for (const [email, max] of Object.entries(byUser)) {
+                console.log(`${email}: max=${String(max).padStart(6,"0")} -> next=${String(max+1).padStart(6,"0")}`);
+              }
+              await p.$disconnect();
+            })().catch(e => { console.error("ERR", e.message); process.exit(1); });
+          '
+
+  # 6) Read-only: confirm the per-tenant and per-user correlativo migrations
+  #    won't violate their unique indexes (no duplicate (scope, type, number)).
+  #    Logically impossible (numbers were globally unique) — confirm before migrating.
+  precheck-migrations:
+    if: github.event.inputs.step == 'precheck-migrations'
+    name: Pre-check correlativo uniqueness (read-only)
+    runs-on: [self-hosted, linux, production]
+    environment: production
+    steps:
+      - name: Check for duplicate (scope, type, number)
+        run: |
+          cd ~/apps/ntssign/apps/backend
+          DB="$(grep -m1 -E '^[[:space:]]*DATABASE_URL[[:space:]]*=' .env | sed -E 's/^[[:space:]]*DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')"
+          if [ -z "$DB" ]; then echo "ERROR: could not read DATABASE_URL"; exit 1; fi
+          echo "=== per-TENANT dups (migration 20260609000000) — expect 0 ==="
+          psql "$DB" -c "SELECT count(*) AS per_tenant_dups FROM (SELECT 1 FROM \"documents\" GROUP BY \"companyProfileId\", \"documentTypeId\", \"documentNumber\" HAVING count(*) > 1) t;" || echo "(query failed)"
+          echo "=== per-USER dups (migration 20260609120000) — expect 0 ==="
+          psql "$DB" -c "SELECT count(*) AS per_user_dups FROM (SELECT 1 FROM \"documents\" GROUP BY \"userId\", \"documentTypeId\", \"documentNumber\" HAVING count(*) > 1) t;" || echo "(query failed)"
+          echo "GATE: both 0 → both unique migrations are safe to apply."
 
   # 5) Read-only: can these users create receipts? Reports their tenants/roles,
   #    whether the PAYMENT_RECEIPT type+form exist, and each tenant's receipt
