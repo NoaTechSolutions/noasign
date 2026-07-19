@@ -1,0 +1,4 @@
+# Treat PDFs as binary so git never applies text/EOL normalization to the
+# receipt & invoice base templates (would corrupt the byte stream and break
+# coordinate calibration / AcroForm structure).
+*.pdf binary

@@ -18,6 +18,7 @@ export const PAYMENT_METHODS = [
   'CREDIT_DEBIT_CARD',
   'CHEQUE',
   'BANK_TRANSFER',
+  'ZELLE',
   'OTHER',
 ] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -48,6 +49,13 @@ export class CreateReceiptDto {
   @IsOptional()
   @IsString()
   other_label?: string;
+
+  // Free-form notes. Generic optional field — only drawn on templates whose
+  // fieldMappingJson maps `notes` (today: the "moderno" design). Stored in
+  // dataJson regardless so the detail view can show it.
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   // Required — every receipt states what the payment was for.
   @IsString()

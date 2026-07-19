@@ -19,8 +19,26 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// The one validated receipt design today (WPC). Same hand-measured coordinates
-// used by _seed-receipt-template.js — kept in sync intentionally.
+// enum -> friendly label for payment_method drawn as TEXT (moderno / basic-v2).
+// basic-v1 draws it as a checkbox instead, so it doesn't need labels.
+const METHOD_LABELS = {
+  CASH: 'Cash',
+  CREDIT_DEBIT_CARD: 'Credit/Debit Card',
+  CHEQUE: 'Cheque',
+  BANK_TRANSFER: 'Bank Transfer',
+  ZELLE: 'Zelle',
+  OTHER: 'Other',
+};
+
+// The 3 owner-designed standard receipts (US Letter, 612x792). Coordinates are
+// hand-calibrated per design via _calibrate-receipt.js (render + compare) against
+// the PRODUCTION engine. NOTE: these base PDFs were exported with an unbalanced
+// content-stream transform (a horizontal scale on stamped content, unlike the
+// WPC base), so the x values here are calibrated to THIS base as-is — re-export a
+// base and its slug's coordinates must be re-calibrated. Single shared series
+// number: numberFormat "{NNNN}" (0001, 4 digits). Signature slots are left empty
+// (Phase 3 — business-owner signature). WPC 'receipt-classic' kept as a non-
+// default legacy standard.
 const WPC_FIELD_MAPPING = {
   receipt_number: { type: 'text', x: 387, baseline: 488.5, font: 'Montserrat-Regular', size: 16, color: '#000000', autoShiftRightLimit: 558 },
   date: { type: 'text', x: 428, lineTop: 331, font: 'Carlito', size: 11.5 },
@@ -36,35 +54,157 @@ const WPC_FIELD_MAPPING = {
   },
 };
 
-// Standard receipt catalog. Add more entries here as the owner delivers designs.
 const RECEIPT_STANDARDS = [
   {
-    slug: 'receipt-classic',
-    name: 'Classic Receipt',
-    description: 'Default standard payment-receipt design (WPC base PDF).',
-    basePdfPath: 'assets/templates/wpc_receipt.pdf',
-    pageWidth: 612,
-    pageHeight: 792,
-    mediaBoxOffsetY: 7.92,
-    numberFormat: 'REC-{YYYY}-{NNNN}',
-    isActive: true,
+    slug: 'receipt-basic-v1',
+    name: 'Basic (checkboxes)',
+    description: 'Classic receipt with payment-method checkboxes. Zelle marks "Other".',
+    basePdfPath: 'assets/templates/receipt-basic-v1.pdf',
+    numberFormat: 'N° {NNNN}',
     isDefault: true,
+    fieldMappingJson: {
+      receipt_number: { type: 'text', x: 428, lineTop: 193, font: 'Montserrat-Black', size: 20, autoShiftRightLimit: 572 },
+      client: { type: 'text', x: 158, lineTop: 225, font: 'Carlito', size: 13.5 },
+      date: { type: 'text', x: 420, lineTop: 225, font: 'Carlito', size: 13.5 },
+      amount: { type: 'currency', x: 138, lineTop: 250, font: 'Carlito', size: 13.5 },
+      payment_method: {
+        type: 'checkbox_group', lineTop: 273.5, mark: 'X', font: 'Carlito-Bold', size: 11,
+        options: { CASH: 58, CREDIT_DEBIT_CARD: 120, CHEQUE: 253, BANK_TRANSFER: 328, OTHER: 445, ZELLE: 445 },
+      },
+      other_label: { type: 'text', x: 470, lineTop: 278, font: 'Carlito', size: 13.5 },
+      payment_for: { type: 'text', x: 142, lineTop: 320, font: 'Carlito', size: 13.5 },
+      received_by: { type: 'text', x: 140, lineTop: 344, font: 'Carlito', size: 13.5 },
+      // Signature slot (Phase 3 supplies the owner PNG; drawn only when present).
+      signature_image: { type: 'signature_image', x: 410, lineTop: 300, w: 150, h: 48 },
+    },
+  },
+  {
+    slug: 'receipt-moderno-v1',
+    name: 'Moderno (blocks + notes)',
+    description: 'Styled block design with a Notes field. Method printed as text.',
+    basePdfPath: 'assets/templates/receipt-moderno-v1.pdf',
+    numberFormat: '{NNNN}',
+    isDefault: false,
+    fieldMappingJson: {
+      receipt_number: { type: 'text', x: 82.5, lineTop: 184, font: 'Carlito-Bold', size: 11, color: '#12235c' },
+      date: { type: 'text', x: 333, lineTop: 184, font: 'Carlito-Bold', size: 11, color: '#12235c' },
+      client: { type: 'text', x: 82.5, lineTop: 239, font: 'Carlito', size: 11, color: '#12235c' },
+      payment_for: { type: 'text', x: 82.5, lineTop: 292, font: 'Carlito', size: 11, color: '#12235c' },
+      amount: { type: 'currency', x: 82, lineTop: 358, font: 'Carlito-Bold', size: 11, color: '#12235c' },
+      payment_method: { type: 'text', x: 270, lineTop: 354, font: 'Carlito', size: 10, color: '#12235c', labels: METHOD_LABELS },
+      received_by: { type: 'text', x: 448, lineTop: 354, font: 'Carlito', size: 9, color: '#12235c' },
+      notes: { type: 'text', x: 82, lineTop: 409, font: 'Carlito', size: 10, color: '#12235c' },
+      signature_image: { type: 'signature_image', x: 388, lineTop: 425, w: 175, h: 42 },
+    },
+  },
+  {
+    slug: 'receipt-basic-v2',
+    name: 'Minimal',
+    description: 'Minimal "Payment Receipt". Method printed as text; large number by the signature.',
+    basePdfPath: 'assets/templates/receipt-basic-v2.pdf',
+    numberFormat: 'N° {NNNN}',
+    isDefault: false,
+    fieldMappingJson: {
+      client: { type: 'text', x: 158, lineTop: 281, font: 'Carlito', size: 13.5 },
+      payment_for: { type: 'text', x: 138, lineTop: 311.5, font: 'Carlito', size: 13.5 },
+      date: { type: 'text', x: 465, lineTop: 311.5, font: 'Carlito', size: 13.5 },
+      amount: { type: 'currency', x: 152, lineTop: 344, font: 'Carlito', size: 13.5 },
+      payment_method: { type: 'text', x: 472, lineTop: 344, font: 'Carlito', size: 13.5, labels: METHOD_LABELS },
+      received_by: { type: 'text', x: 142, lineTop: 372.5, font: 'Carlito', size: 13.5 },
+      receipt_number: { type: 'text', x: 42, lineTop: 420, font: 'Montserrat-Black', size: 24 },
+      signature_image: { type: 'signature_image', x: 460, lineTop: 378, w: 150, h: 45 },
+    },
+  },
+  {
+    slug: 'receipt-classic',
+    name: 'Classic (WPC — legacy)',
+    description: 'Original World Pavers design. Kept as a non-default legacy standard.',
+    basePdfPath: 'assets/templates/wpc_receipt.pdf',
+    numberFormat: 'REC-{YYYY}-{NNNN}',
+    isDefault: false,
     fieldMappingJson: WPC_FIELD_MAPPING,
   },
-];
+].map((s) => ({
+  pageWidth: 612,
+  pageHeight: 792,
+  mediaBoxOffsetY: 7.92,
+  isActive: true,
+  ...s,
+}));
+
+// Invoice standards (Phase 2, DIRECT_PDF via AcroForm fill). renderMode 'acroform':
+// the engine fills the base PDF's NAMED form fields and flattens — no coordinate
+// calibration. A4 base (595.2 x 841.9), clean mediaBox origin. fieldMappingJson maps
+// each data key to its form field (name defaults to the key) + appearance. The base
+// PDF supports ONE line item today; a bounded multi-row base is an owner decision
+// (see docs/architecture/invoice-pdf-strategy.md).
+const INVOICE_STANDARDS = [
+  {
+    slug: 'invoice-standard-v1',
+    name: 'Invoice (standard)',
+    description: 'Single line-item invoice, rendered by AcroForm fill.',
+    basePdfPath: 'assets/templates/INVOCE_LauraBravo.pdf',
+    numberFormat: 'INV-{YYYY}-{NNNN}',
+    isDefault: true,
+    renderMode: 'acroform',
+    fieldMappingJson: {
+      billed_to: { multiline: true, size: 9 },
+      number: { size: 9 },
+      date: { size: 9 },
+      service: { multiline: true, size: 9 },
+      quantity: { size: 9 },
+      price: { type: 'currency', size: 9 },
+      total: { type: 'currency', size: 9 },
+      subtotal: { type: 'currency', size: 9 },
+      gran_total: { type: 'currency', size: 11 },
+    },
+  },
+].map((s) => ({
+  pageWidth: 595.2,
+  pageHeight: 841.9,
+  mediaBoxOffsetY: 0,
+  isActive: true,
+  ...s,
+}));
 
 const CONTRACT_STANDARD_SLUG = 'contract-standard-a';
 
 (async () => {
   try {
     // --- Receipts ---
+    const receiptType = await prisma.documentType.findUnique({
+      where: { code: 'PAYMENT_RECEIPT' },
+    });
     for (const s of RECEIPT_STANDARDS) {
+      const data = {
+        ...s,
+        category: 'RECEIPT',
+        documentTypeId: receiptType ? receiptType.id : null,
+      };
       const up = await prisma.receiptTemplateStandard.upsert({
         where: { slug: s.slug },
-        update: s,
-        create: s,
+        update: data,
+        create: data,
       });
       console.log(`ReceiptTemplateStandard upserted: ${up.slug} (${up.id}) default=${up.isDefault}`);
+    }
+
+    // --- Invoices (DIRECT_PDF via AcroForm; separate category + document type) ---
+    const invoiceType = await prisma.documentType.findUnique({
+      where: { code: 'INVOICE' },
+    });
+    for (const s of INVOICE_STANDARDS) {
+      const data = {
+        ...s,
+        category: 'INVOICE',
+        documentTypeId: invoiceType ? invoiceType.id : null,
+      };
+      const up = await prisma.receiptTemplateStandard.upsert({
+        where: { slug: s.slug },
+        update: data,
+        create: data,
+      });
+      console.log(`ReceiptTemplateStandard upserted: ${up.slug} (${up.id}) category=INVOICE mode=${up.renderMode}`);
     }
 
     // --- Contracts (best-effort tag of an existing global template) ---

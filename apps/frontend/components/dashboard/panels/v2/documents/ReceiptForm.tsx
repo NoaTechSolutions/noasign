@@ -28,6 +28,8 @@ export interface CreateReceiptPayload {
   payment_current?: number;
   payment_total?: number;
   received_by?: string;
+  // Free-form notes. Only printed on templates that map `notes` (moderno today).
+  notes?: string;
   send: boolean;
   // Superadmin flow: borrow the selected user's receipt template (the doc still
   // becomes the creator's). Omitted for normal users (their company template).
@@ -46,15 +48,19 @@ type PaymentMethod =
   | 'CREDIT_DEBIT_CARD'
   | 'CHEQUE'
   | 'BANK_TRANSFER'
+  | 'ZELLE'
   | 'OTHER';
 
 // Visual order mirrors the printed receipt (CASH · CREDIT/DEBIT CARD · CHEQUE ·
-// BANK TRANSFER · OTHER). Single-select: ticking one unticks the rest.
+// BANK TRANSFER · ZELLE · OTHER). Single-select: ticking one unticks the rest.
+// Note: basic-v1's printed art has no Zelle checkbox — a Zelle receipt there is
+// marked "Other". Text templates (moderno/basic-v2) print "Zelle" via the label map.
 const METHODS: Array<{ value: PaymentMethod; label: string }> = [
   { value: 'CASH', label: 'Cash' },
   { value: 'CREDIT_DEBIT_CARD', label: 'Credit/Debit Card' },
   { value: 'CHEQUE', label: 'Cheque' },
   { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'ZELLE', label: 'Zelle' },
   { value: 'OTHER', label: 'Other' },
 ];
 
@@ -119,6 +125,7 @@ export function ReceiptForm({
 
   const [receivedBy, setReceivedBy] = useState(defaultReceivedBy);
   const [editingReceivedBy, setEditingReceivedBy] = useState(false);
+  const [notes, setNotes] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   // Sending emails the receipt to the client — confirm first (irreversible).
@@ -183,6 +190,7 @@ export function ReceiptForm({
       payment_current: multiPayment ? Number(paymentCurrent) : 1,
       payment_total: multiPayment ? Number(paymentTotal) : 1,
       received_by: receivedBy.trim() || undefined,
+      notes: notes.trim() || undefined,
       send,
       receiptTemplateId,
     });
@@ -367,6 +375,16 @@ export function ReceiptForm({
               </button>
             </div>
           )}
+        </BaseField>
+
+        <BaseField label="Notes" icon={<FileText size={14} />}>
+          <textarea
+            className="wizard-field__input"
+            value={notes}
+            rows={2}
+            placeholder="Optional — printed only on templates that show notes"
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </BaseField>
       </section>
 

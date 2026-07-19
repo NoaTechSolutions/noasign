@@ -13,6 +13,7 @@ import { ContactModule } from './contact/contact.module';
 import { LeadsModule } from './leads/leads.module';
 import { CustomersModule } from './customers/customers.module';
 import { ReceiptsModule } from './receipts/receipts.module';
+import { TemplatesModule } from './templates/templates.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
     LeadsModule,
     CustomersModule,
     ReceiptsModule,
+    TemplatesModule,
   ],
   providers: [
     {

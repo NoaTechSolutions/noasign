@@ -41,6 +41,7 @@ interface ReceiptPdfSource {
   received_by?: string | null;
   other_label?: string | null;
   payment_method: string;
+  notes?: string | null;
 }
 
 @Injectable()
@@ -113,7 +114,8 @@ export class ReceiptsService {
       where: { id: companyProfileId },
       select: { receiptsUnlimited: true, monthlyReceiptLimit: true },
     });
-    const receiptsUnlimited = isSuperadmin || (profile?.receiptsUnlimited ?? false);
+    const receiptsUnlimited =
+      isSuperadmin || (profile?.receiptsUnlimited ?? false);
     if (receiptsUnlimited) return { billingPeriod, isReceiptOverage: false };
     const used = await this.prisma.document.count({
       where: { companyProfileId, countedAsReceipt: true, billingPeriod },
@@ -199,6 +201,7 @@ export class ReceiptsService {
       received_by: dto.received_by,
       other_label: dto.other_label,
       payment_method: dto.payment_method,
+      notes: dto.notes,
     });
 
     // Stored record, keyed to MATCH the form schema so the detail view renders
@@ -216,6 +219,7 @@ export class ReceiptsService {
       payment_total: dto.payment_total ?? 1,
       received_by: dto.received_by ?? '',
       phone: dto.phone ?? '',
+      notes: dto.notes ?? '',
       receipt_number: receiptNumber,
     };
 
@@ -361,6 +365,7 @@ export class ReceiptsService {
       received_by: src.received_by ?? '',
       other_label: src.other_label ?? '',
       payment_method: src.payment_method,
+      notes: src.notes ?? '',
     };
   }
 
@@ -807,25 +812,25 @@ export class ReceiptsService {
    */
   /**
    * Resolve the active per-tenant DIRECT_PDF template for a category (generic —
-   * RECEIPT today, INVOICE next). V2 (behind RECEIPT_TEMPLATE_RESOLVER_V2) reads
-   * the CompanyTemplate catalog default; it ALWAYS falls back to the legacy
-   * "newest active per-tenant template" so tenants without a CompanyTemplate keep
-   * working. With the flag off it is pure-legacy. The backfill (migration
-   * 20260706160000) makes V2 return the same template as legacy for every tenant,
-   * so flipping the flag is a no-op. Does not touch the SUPERADMIN borrow path.
+   * RECEIPT today, INVOICE next). Prefers the tenant's CompanyTemplate default —
+   * the template chosen on the Templates screen — and ALWAYS falls back to the
+   * legacy "newest active per-tenant template" when the tenant has no
+   * CompanyTemplate default (e.g. environments where the backfill has not run).
+   * The backfill (migration 20260706160000) seeds every existing tenant a default
+   * equal to the legacy pick, so enabling this preference is a proven no-op until
+   * the user explicitly selects a different template. Does not touch the
+   * SUPERADMIN borrow path.
    */
   private async resolveActivePdfTemplate(
     companyProfileId: string,
     category: TemplateCategory,
   ): Promise<ReceiptTemplate | null> {
-    if (process.env.RECEIPT_TEMPLATE_RESOLVER_V2 === 'true') {
-      const assignment = await this.prisma.companyTemplate.findFirst({
-        where: { companyProfileId, category, isDefault: true, isActive: true },
-        include: { receiptTemplate: true },
-      });
-      if (assignment?.receiptTemplate?.isActive) {
-        return assignment.receiptTemplate;
-      }
+    const assignment = await this.prisma.companyTemplate.findFirst({
+      where: { companyProfileId, category, isDefault: true, isActive: true },
+      include: { receiptTemplate: true },
+    });
+    if (assignment?.receiptTemplate?.isActive) {
+      return assignment.receiptTemplate;
     }
     return this.prisma.receiptTemplate.findFirst({
       where: { companyProfileId, isActive: true },

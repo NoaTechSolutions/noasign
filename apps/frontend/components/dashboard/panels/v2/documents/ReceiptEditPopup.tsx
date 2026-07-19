@@ -20,6 +20,7 @@ const PAYMENT_METHODS: Array<{ value: string; label: string }> = [
   { value: 'CREDIT_DEBIT_CARD', label: 'Credit / Debit card' },
   { value: 'CHEQUE', label: 'Cheque' },
   { value: 'BANK_TRANSFER', label: 'Bank transfer' },
+  { value: 'ZELLE', label: 'Zelle' },
   { value: 'OTHER', label: 'Other' },
 ];
 

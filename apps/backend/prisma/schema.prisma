@@ -80,11 +80,13 @@ enum PlanName {
   RECEIPTS_ONLY
 }
 
-// Template feature: two document categories with different backing engines.
+// Template feature: document categories with different backing engines.
 // RECEIPT = DIRECT_PDF (base PDF + coordinates). CONTRACT = BoldSign template.
+// INVOICE = DIRECT_PDF via AcroForm fill (base PDF + named form fields).
 enum TemplateCategory {
   RECEIPT
   CONTRACT
+  INVOICE
 }
 
 model CompanyProfile {
@@ -151,6 +153,9 @@ model CompanyProfile {
   companyTemplates   CompanyTemplate[]
   // Generic per-(type, year) visible-series counters (REC-/INV-…).
   documentSeriesCounters DocumentSeriesCounter[]
+  // Catalog standards PRIVATE to this tenant (owner-only visibility). Global
+  // standards have a null owner and are visible to everyone.
+  ownedTemplateStandards ReceiptTemplateStandard[] @relation("OwnedTemplateStandards")
 
   @@map("company_profiles")
 }
@@ -476,6 +481,11 @@ model ReceiptTemplateStandard {
   mediaBoxOffsetY  Float    @default(0)
   fieldMappingJson Json
   numberFormat     String   @default("REC-{YYYY}-{NNNN}")
+  // How the PDF engine renders this template:
+  //   "overlay"  = stamp text at absolute coordinates over the base PDF (receipts).
+  //   "acroform" = fill named AcroForm fields on the base PDF, then flatten (invoices).
+  // For "acroform", fieldMappingJson maps dataKey -> { field, size, color, ... }.
+  renderMode       String   @default("overlay")
   isActive         Boolean  @default(true)
   // Default standard within its category (used by onboarding when no explicit
   // standard is chosen).
@@ -484,14 +494,20 @@ model ReceiptTemplateStandard {
   // document type (RECEIPT today, INVOICE next). The receipt_* name is legacy.
   category         TemplateCategory?
   documentTypeId   String?
+  // Visibility/ownership: null = GLOBAL (every tenant sees it); a set value =
+  // PRIVATE to that tenant (only its users see it; SUPERADMIN sees all). Kept on
+  // the standard so the catalog list can filter by tenant without per-tenant rows.
+  ownerCompanyProfileId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   instances        ReceiptTemplate[]
   companyTemplates CompanyTemplate[]
   documentType     DocumentType?     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  ownerCompanyProfile CompanyProfile? @relation("OwnedTemplateStandards", fields: [ownerCompanyProfileId], references: [id], onDelete: SetNull)
 
   @@index([documentTypeId])
+  @@index([ownerCompanyProfileId])
   @@map("receipt_template_standards")
 }
 

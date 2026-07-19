@@ -30,6 +30,10 @@ export type { MembersPanelProps } from './members';
 export { LockedUsersPanel } from './locked-users';
 export type { LockedUsersPanelProps } from './locked-users';
 
+// Templates panel V2 (Capa 1) — receipt design picker with previews — subfolder.
+export { TemplatesPanel } from './templates';
+export type { TemplateCatalogItem } from './templates';
+
 // Billing panel V3 (top cards + overage alert + plan-features + compare modal)
 export { BillingPanel } from './BillingPanel';
 export { TopCardsSection } from './TopCardsSection';

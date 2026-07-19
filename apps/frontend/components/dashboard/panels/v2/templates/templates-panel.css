@@ -1,0 +1,609 @@
+/* ============================================
+   TEMPLATES PANEL — follows docs/product/design-system.md EXACTLY.
+   Base rules = light mode (navy #022977). Dark overrides (sky #05a5ff) are
+   scoped to :root[data-theme="dark"] ONLY — data-theme is the source of truth
+   (the html carries a stale .dark class in light mode, so .dark is NOT used).
+   Only two font weights: 400 and 500.
+   ============================================ */
+
+.templates-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  height: 100%;
+}
+
+/* Panel-head classes (.panel-head, .panel-head__main, .panel-head__title) are
+   global — shared across V2 panels. Reused here, not redefined. */
+
+/* ============================================
+   TAB BAR + CTA ROW
+   ============================================ */
+
+.templates-tabbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+/* Segmented control — navy with opacities (design-system: no generic grays). */
+.templates-tabs {
+  display: inline-flex;
+  gap: var(--sp-1);
+  padding: 4px;
+  border-radius: 999px;
+  background: #f0f4ff;
+  border: 0.5px solid rgba(2, 41, 119, 0.12);
+}
+
+.templates-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(2, 41, 119, 0.5);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.templates-tab:hover:not(.templates-tab--active) {
+  color: rgba(2, 41, 119, 0.75);
+}
+
+.templates-tab--active {
+  background: #ffffff;
+  color: #022977;
+  box-shadow: 0 1px 3px rgba(2, 41, 119, 0.12);
+}
+
+.templates-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(2, 41, 119, 0.25);
+}
+
+/* Secondary AMBER button (design-system §3). Flat — no gradient. */
+.templates-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 26px;
+  border: none;
+  border-radius: 8px;
+  background: #ff9900;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.templates-cta:hover {
+  background: #cc7a00; /* amber hover — same in light & dark */
+}
+
+.templates-cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.35);
+}
+
+/* ============================================
+   GRID — 2 per row, collapse to 1 on narrow screens
+   ============================================ */
+
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .templates-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   CARD — vertical feature card (image on top)
+   ============================================ */
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: #f7f8fa; /* feature card light */
+  border: 0.5px solid rgba(2, 41, 119, 0.1);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Active = current selection: 2.5px navy ring (light) + green badge. */
+.template-card--active {
+  border: 2.5px solid #022977;
+}
+
+/* ── Media (full-width preview, top) ── */
+
+.template-card__thumb {
+  position: relative;
+  width: 100%;
+  /* Fixed-height CONTAIN box so rows stay even AND the full receipt model is
+     always visible (never cropped). Any letterboxing sits on the neutral
+     navy-tinted surface, so it reads as intentional matting. */
+  height: 190px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: #e8eeff; /* neutral navy-tinted surface */
+  overflow: hidden;
+  border-bottom: 0.5px solid rgba(2, 41, 119, 0.1);
+}
+
+.template-card__img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border-radius: 3px;
+}
+
+.template-card__badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: #22c55e; /* success */
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.template-card__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.template-card__spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid rgba(2, 41, 119, 0.2);
+  border-top-color: #022977;
+  animation: templatesSpin 0.7s linear infinite;
+}
+
+@keyframes templatesSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Body (below image) ── */
+
+.template-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.template-card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-card__title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #022977; /* H3 navy */
+  line-height: 1.25;
+}
+
+.template-card__current {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(2, 41, 119, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.template-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Ghost / outline navy button (design-system §3). */
+.template-card__preview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 2.5px solid #022977;
+  background: #ffffff;
+  color: #022977;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.template-card__preview-btn:hover {
+  background: #022977;
+  color: #ffffff;
+}
+
+/* Primary navy button (design-system §3). */
+.template-card__set-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #022977;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.template-card__set-btn:hover:not(:disabled) {
+  background: #0400f0; /* electric — primary hover only */
+}
+
+.template-card__set-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Skeleton ── */
+
+.template-card--skeleton .template-card__thumb {
+  background: var(--bg-hover);
+}
+
+/* ============================================
+   COMING SOON (Invoice tab)
+   ============================================ */
+
+.templates-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 60px 24px;
+  border-radius: 12px;
+  background: #f7f8fa;
+  border: 0.5px solid rgba(2, 41, 119, 0.1);
+}
+
+.templates-soon__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: #e8eeff;
+  color: #022977;
+}
+
+.templates-soon__title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #022977;
+}
+
+.templates-soon__text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(2, 41, 119, 0.7);
+  line-height: 1.6;
+}
+
+/* ============================================
+   PREVIEW MODAL (full document)
+   ============================================ */
+
+.template-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  animation: templatesFadeIn 0.15s ease-out;
+}
+
+.template-modal {
+  display: flex;
+  flex-direction: column;
+  width: auto;
+  max-width: min(900px, 92vw);
+  max-height: 92vh;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 20px 60px rgba(2, 41, 119, 0.28);
+  overflow: hidden;
+  animation: templatesModalIn 0.18s ease-out;
+}
+
+.template-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 0.5px solid rgba(2, 41, 119, 0.12);
+}
+
+.template-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #022977;
+  line-height: 1.25;
+}
+
+.template-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgba(2, 41, 119, 0.7);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.template-modal__close:hover {
+  background: rgba(2, 41, 119, 0.08);
+  color: #022977;
+}
+
+.template-modal__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(2, 41, 119, 0.25);
+}
+
+.template-modal__body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  overflow: auto;
+  background: #f0f4ff;
+}
+
+.template-modal__img {
+  max-width: 100%;
+  max-height: 85vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(2, 41, 119, 0.15);
+}
+
+@keyframes templatesFadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes templatesModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* ============================================
+   ERROR / EMPTY STATES
+   ============================================ */
+
+.templates-panel__error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border-radius: 8px;
+  border: 0.5px solid var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.templates-panel__retry {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 2.5px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.templates-panel__retry:hover {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.templates-panel__empty {
+  padding: 40px 24px;
+  text-align: center;
+  border-radius: 12px;
+  border: 0.5px solid rgba(2, 41, 119, 0.1);
+  background: #f7f8fa;
+  color: rgba(2, 41, 119, 0.7);
+  font-size: 14px;
+}
+
+/* ============================================
+   DARK MODE OVERRIDES — :root[data-theme="dark"] ONLY (never .dark)
+   sky #05a5ff / dark surfaces
+   ============================================ */
+
+:root[data-theme="dark"] .templates-tabs {
+  background: #0f1628;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .templates-tab {
+  color: rgba(200, 216, 240, 0.55);
+}
+
+:root[data-theme="dark"] .templates-tab:hover:not(.templates-tab--active) {
+  color: rgba(200, 216, 240, 0.85);
+}
+
+:root[data-theme="dark"] .templates-tab--active {
+  background: #161d30;
+  color: #05a5ff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme="dark"] .templates-tab:focus-visible {
+  box-shadow: 0 0 0 3px rgba(5, 165, 255, 0.3);
+}
+
+/* Amber CTA is identical in dark — no override needed. */
+
+:root[data-theme="dark"] .template-card {
+  background: #161d30;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .template-card--active {
+  border: 2.5px solid #05a5ff;
+}
+
+:root[data-theme="dark"] .template-card__thumb {
+  background: rgba(5, 165, 255, 0.12);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .template-card__overlay {
+  background: rgba(11, 15, 26, 0.6);
+}
+
+:root[data-theme="dark"] .template-card__spinner {
+  border-color: rgba(5, 165, 255, 0.25);
+  border-top-color: #05a5ff;
+}
+
+:root[data-theme="dark"] .template-card__title {
+  color: #f0f4ff;
+}
+
+:root[data-theme="dark"] .template-card__current {
+  color: rgba(5, 165, 255, 0.85);
+}
+
+/* Ghost preview → sky outline in dark. */
+:root[data-theme="dark"] .template-card__preview-btn {
+  background: transparent;
+  color: #05a5ff;
+  border-color: #05a5ff;
+}
+
+:root[data-theme="dark"] .template-card__preview-btn:hover {
+  background: #05a5ff;
+  color: #00183a;
+}
+
+/* Primary → sky fill, dark ink, sky-light hover. */
+:root[data-theme="dark"] .template-card__set-btn {
+  background: #05a5ff;
+  color: #00183a;
+}
+
+:root[data-theme="dark"] .template-card__set-btn:hover:not(:disabled) {
+  background: #33b8ff;
+}
+
+:root[data-theme="dark"] .templates-soon {
+  background: #161d30;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .templates-soon__icon {
+  background: rgba(5, 165, 255, 0.12);
+  color: #05a5ff;
+}
+
+:root[data-theme="dark"] .templates-soon__title {
+  color: #f0f4ff;
+}
+
+:root[data-theme="dark"] .templates-soon__text {
+  color: #c8d8f0;
+}
+
+:root[data-theme="dark"] .template-modal {
+  background: #161d30;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="dark"] .template-modal__head {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .template-modal__title {
+  color: #f0f4ff;
+}
+
+:root[data-theme="dark"] .template-modal__close {
+  color: rgba(200, 216, 240, 0.7);
+}
+
+:root[data-theme="dark"] .template-modal__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f0f4ff;
+}
+
+:root[data-theme="dark"] .template-modal__body {
+  background: #0f1628;
+}
+
+:root[data-theme="dark"] .templates-panel__empty {
+  background: #161d30;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #c8d8f0;
+}

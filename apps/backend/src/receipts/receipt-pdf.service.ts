@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { degrees, PDFDocument, PDFFont, PDFPage, rgb } from 'pdf-lib';
+import {
+  degrees,
+  PDFDocument,
+  PDFFont,
+  PDFPage,
+  PDFTextField,
+  rgb,
+} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -11,7 +18,11 @@ import * as path from 'path';
  * World Pavers preview (mediaBoxOffsetY=7.92, full font embed).
  */
 
-export type ReceiptFieldType = 'text' | 'currency' | 'checkbox_group';
+export type ReceiptFieldType =
+  | 'text'
+  | 'currency'
+  | 'checkbox_group'
+  | 'signature_image';
 
 export interface ReceiptFieldMapping {
   type: ReceiptFieldType;
@@ -25,6 +36,19 @@ export interface ReceiptFieldMapping {
   autoShiftRightLimit?: number;
   mark?: string;
   options?: Record<string, number>;
+  // For a `text` field whose value is an enum (e.g. payment_method rendered as
+  // text instead of a checkbox_group): maps the raw value to a friendly label
+  // ("CREDIT_DEBIT_CARD" -> "Credit/Debit Card"). Falls back to the raw value.
+  labels?: Record<string, string>;
+  // AcroForm mode only: the named form field to fill (defaults to the data key).
+  field?: string;
+  // AcroForm mode only: enable multi-line text in the field box.
+  multiline?: boolean;
+  // For a `signature_image` field: box (points) the PNG is drawn into. lineTop is
+  // the box's TOP; w/h its size. The image source comes from data[key] (a PNG path
+  // or bytes) — Phase 3 supplies the owner's signature; not drawn when absent.
+  w?: number;
+  h?: number;
 }
 
 export interface ReceiptTemplateLike {
@@ -51,7 +75,7 @@ export class ReceiptPdfService {
 
   async generate(
     template: ReceiptTemplateLike,
-    data: Record<string, string | number>,
+    data: Record<string, string | number | Uint8Array>,
     opts?: { watermark?: string },
   ): Promise<Buffer> {
     const baseBytes = fs.readFileSync(
@@ -87,6 +111,28 @@ export class ReceiptPdfService {
     };
 
     for (const [key, m] of Object.entries(template.fieldMappingJson)) {
+      if (m.type === 'signature_image') {
+        // Signature PNG drawn into the box (lineTop=top, w/h size). Source is
+        // data[key] (a PNG file path or bytes). Not drawn when absent, so real
+        // receipts stay blank until Phase 3 supplies the owner's signature.
+        const src = data[key];
+        if (src == null || src === '' || typeof src === 'number') continue;
+        const bytes =
+          typeof src === 'string'
+            ? fs.readFileSync(path.resolve(process.cwd(), src))
+            : src;
+        const img = await pdfDoc.embedPng(bytes);
+        const w = m.w ?? img.width;
+        const h = m.h ?? img.height;
+        page.drawImage(img, {
+          x: m.x ?? 0,
+          y: template.pageHeight - (m.lineTop ?? 0) - h,
+          width: w,
+          height: h,
+        });
+        continue;
+      }
+
       if (m.type === 'checkbox_group') {
         const selected = data[key];
         const optionX = m.options?.[String(selected)];
@@ -103,9 +149,11 @@ export class ReceiptPdfService {
       }
 
       const raw = data[key];
-      if (raw == null || raw === '') continue;
+      if (raw == null || raw === '' || typeof raw === 'object') continue;
       const value =
-        m.type === 'currency' ? this.formatCurrency(raw) : String(raw);
+        m.type === 'currency'
+          ? this.formatCurrency(raw)
+          : (m.labels?.[String(raw)] ?? String(raw));
       const font = await getFont(m.font);
       const size = m.size ?? 11.5;
       let x = m.x ?? 0;
@@ -128,6 +176,106 @@ export class ReceiptPdfService {
     // fallback; the primary void path overlays the EXISTING PDF — stampWatermark).
     if (opts?.watermark) {
       this.drawWatermark(page, await getFont('Montserrat-Black'), opts.watermark);
+    }
+
+    return Buffer.from(await pdfDoc.save());
+  }
+
+  /**
+   * AcroForm render mode ('acroform'): fill the base PDF's NAMED form fields
+   * (instead of stamping text at coordinates), force a consistent appearance
+   * (Carlito + a chosen color, overriding whatever DA the PDF editor left — e.g. a
+   * near-white default), then FLATTEN so the recipient can't edit the values.
+   * Because positions come from the base PDF, there is NO coordinate calibration.
+   * Used by invoices; leaves the overlay `generate()` path (receipts) untouched.
+   *
+   * fieldMappingJson (per data key): { field?, type?, size?, color?, multiline?, labels? }
+   *   - field:     AcroForm field name (defaults to the data key itself)
+   *   - type:      'currency' formats the value as $#,##0.00
+   *   - labels:    enum value -> friendly label map
+   *   - color:     hex (defaults to brand navy #12235c)
+   *   - a `signature_image` entry with { x, lineTop, w, h } is overlaid by
+   *     coordinates AFTER flatten (a PDF signature widget is not an image slot).
+   * Missing/empty values are skipped, so unused (bounded) rows render blank.
+   */
+  async generateFromAcroForm(
+    template: ReceiptTemplateLike,
+    data: Record<string, string | number | Uint8Array>,
+    opts?: { watermark?: string },
+  ): Promise<Buffer> {
+    const baseBytes = fs.readFileSync(
+      path.resolve(process.cwd(), template.basePdfPath),
+    );
+    const pdfDoc = await PDFDocument.load(baseBytes);
+    pdfDoc.registerFontkit(fontkit);
+    const appearanceFont = await pdfDoc.embedFont(
+      fs.readFileSync(
+        path.join(this.assetsRoot, 'fonts', FONT_FILES[DEFAULT_FONT]),
+      ),
+    );
+    const form = pdfDoc.getForm();
+
+    const signatures: { m: ReceiptFieldMapping; src: string | Uint8Array }[] = [];
+    for (const [key, m] of Object.entries(template.fieldMappingJson)) {
+      if (m.type === 'signature_image') {
+        const src = data[key];
+        if (src != null && src !== '' && typeof src !== 'number') {
+          signatures.push({ m, src });
+        }
+        continue;
+      }
+      const raw = data[key];
+      if (raw == null || raw === '' || typeof raw === 'object') continue;
+      const value =
+        m.type === 'currency'
+          ? this.formatCurrency(raw)
+          : (m.labels?.[String(raw)] ?? String(raw));
+      const fieldName = m.field ?? key;
+      let field: PDFTextField;
+      try {
+        field = form.getTextField(fieldName);
+      } catch {
+        continue; // field absent on this base PDF — tolerate
+      }
+      const size = m.size ?? 9;
+      if (m.multiline) field.enableMultiline();
+      field.setText(value);
+      field.setFontSize(size);
+      // Force appearance: override the editor's DA. The /Helv name is only used to
+      // parse size+color; glyphs come from updateFieldAppearances(appearanceFont).
+      field.acroField.setDefaultAppearance(`/Helv ${size} Tf ${this.daColor(m.color)}`);
+    }
+
+    form.updateFieldAppearances(appearanceFont);
+    form.flatten();
+
+    const page = pdfDoc.getPages()[0];
+    for (const { m, src } of signatures) {
+      const bytes =
+        typeof src === 'string'
+          ? fs.readFileSync(path.resolve(process.cwd(), src))
+          : src;
+      const img = await pdfDoc.embedPng(bytes);
+      const w = m.w ?? img.width;
+      const h = m.h ?? img.height;
+      page.drawImage(img, {
+        x: m.x ?? 0,
+        y: template.pageHeight - (m.lineTop ?? 0) - h,
+        width: w,
+        height: h,
+      });
+    }
+
+    if (opts?.watermark) {
+      this.drawWatermark(
+        page,
+        await pdfDoc.embedFont(
+          fs.readFileSync(
+            path.join(this.assetsRoot, 'fonts', FONT_FILES['Montserrat-Black']),
+          ),
+        ),
+        opts.watermark,
+      );
     }
 
     return Buffer.from(await pdfDoc.save());
@@ -194,5 +342,13 @@ export class ReceiptPdfService {
       parseInt(h.slice(2, 4), 16) / 255,
       parseInt(h.slice(4, 6), 16) / 255,
     );
+  }
+
+  // A PDF default-appearance color operator ("r g b rg") from a hex string.
+  // Defaults to brand navy so AcroForm text never inherits an unusable editor DA.
+  private daColor(hex?: string): string {
+    const h = (hex ?? '#12235c').replace('#', '');
+    const c = (i: number) => (parseInt(h.slice(i, i + 2), 16) / 255).toFixed(4);
+    return `${c(0)} ${c(2)} ${c(4)} rg`;
   }
 }
