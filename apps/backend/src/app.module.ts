@@ -18,6 +18,7 @@ import { TemplatesModule } from './templates/templates.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { VersionModule } from './version/version.module';
 import { LegalModule } from './legal/legal.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { LegalModule } from './legal/legal.module';
     NotificationsModule,
     VersionModule,
     LegalModule,
+    HealthModule,
   ],
   providers: [
     {
