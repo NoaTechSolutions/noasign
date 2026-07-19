@@ -10,6 +10,7 @@ import { StatusStrip, type StatusStripItem } from './StatusStrip';
 import { RecentDocumentsTable } from './RecentDocumentsTable';
 import type { ReceiptStats } from './ReceiptMetricCards';
 import { getPlanEntry } from '@/lib/plan-catalog';
+import { ComingSoonModal } from '@/components/dashboard/shared/ComingSoonModal';
 
 interface DashboardUser {
   id: string;
@@ -101,6 +102,9 @@ export function OverviewPanel({
   const receiptsOnly = !contractsEnabled;
   const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  // "View history →" on the status card is a heads-up popup for now — the
+  // History module isn't available yet (see the muted "SOON" nav entry).
+  const [showHistorySoon, setShowHistorySoon] = useState(false);
   // Skeletons only on the FIRST load — a background refetch updates the numbers
   // in place (no flash/flicker). "Refresco suave."
   const statsLoadedRef = useRef(false);
@@ -136,12 +140,32 @@ export function OverviewPanel({
   const docsThisMonth = usage?.documentsUsed ?? 0;
   const ppcCost = docsThisMonth * ppcPerDoc;
 
-  // Document status counts for the compact status strip.
+  // Current calendar month — the document status card is scoped to the month in
+  // progress (subtitle: "July 2026 · current month"), NOT all-time totals. Read
+  // once per render as stable primitives so the useMemo below isn't invalidated
+  // every render (a fresh Date object would be a new reference each time).
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const statusSubtitle = `${now.toLocaleString('en-US', { month: 'long' })} ${currentYear} · current month`;
+
+  // Document status counts for the compact status strip — current month only.
   const docStatus = useMemo<StatusStripItem[]>(() => {
     const counts: Record<string, number> = {
       DRAFT: 0, SENT: 0, VIEWED: 0, SIGNED: 0, COMPLETED: 0, CANCELLED: 0,
     };
     (documents ?? []).forEach((d) => {
+      // Scope to the current calendar month by creation date. A document created
+      // in a prior month is excluded — these numbers are intentionally lower
+      // than the all-time totals the card used to show.
+      const created = d.createdAt ? new Date(d.createdAt) : null;
+      if (
+        !created ||
+        created.getMonth() !== currentMonth ||
+        created.getFullYear() !== currentYear
+      ) {
+        return;
+      }
       const k = (d.status ?? '').toUpperCase();
       if (k in counts) counts[k] += 1;
     });
@@ -152,7 +176,7 @@ export function OverviewPanel({
       { key: 'signed', label: 'Signed', count: counts.SIGNED, icon: <PenLine size={18} />, tone: 'signed' },
       { key: 'cancelled', label: 'Cancelled', count: counts.CANCELLED, icon: <Ban size={18} />, tone: 'cancelled' },
     ];
-  }, [documents]);
+  }, [documents, currentMonth, currentYear]);
 
   // Receipt status counts (from GET /documents/receipt/stats). Cancelled + Void
   // are folded into one "Cancelled" mini-card.
@@ -223,9 +247,14 @@ export function OverviewPanel({
       {/* Row 3 — compact status strip (6 document statuses / 4 receipt statuses). */}
       <StatusStrip
         title={receiptsOnly ? 'Receipt status' : 'Document status'}
+        subtitle={receiptsOnly ? undefined : statusSubtitle}
         items={receiptsOnly ? receiptStatus : docStatus}
         variant={receiptsOnly ? 'receipts' : 'documents'}
         isLoading={receiptsOnly ? isLoading || statsLoading : isLoading}
+        footerLink={{
+          label: 'View history',
+          onClick: () => setShowHistorySoon(true),
+        }}
       />
 
       {/* Row 4 — recent documents / receipts. */}
@@ -234,6 +263,12 @@ export function OverviewPanel({
         isLoading={isLoading}
         entity={receiptsOnly ? 'receipt' : 'document'}
         onView={onOpenDocument}
+      />
+
+      <ComingSoonModal
+        isOpen={showHistorySoon}
+        message="Document history is under construction. It'll be available here soon."
+        onClose={() => setShowHistorySoon(false)}
       />
     </div>
   );

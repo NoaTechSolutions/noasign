@@ -10,6 +10,7 @@ import {
   Prisma,
   ReceiptTemplate,
   StorageProvider,
+  TemplateCategory,
 } from '@prisma/client';
 import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -167,10 +168,10 @@ export class ReceiptsService {
         throw new NotFoundException('Selected receipt template not found');
       }
     } else {
-      template = await this.prisma.receiptTemplate.findFirst({
-        where: { companyProfileId, isActive: true },
-        orderBy: { createdAt: 'desc' },
-      });
+      template = await this.resolveActivePdfTemplate(
+        companyProfileId,
+        TemplateCategory.RECEIPT,
+      );
       if (!template) {
         throw new NotFoundException(
           'No receipt template configured for this company',
@@ -181,6 +182,7 @@ export class ReceiptsService {
     const year = new Date().getFullYear();
     const receiptNumber = await this.nextReceiptNumber(
       companyProfileId,
+      docType.id,
       year,
       template.numberFormat,
     );
@@ -803,15 +805,54 @@ export class ReceiptsService {
    * is keyed by year. The transaction + atomic upsert/increment prevents two
    * concurrent receipts from getting the same number.
    */
+  /**
+   * Resolve the active per-tenant DIRECT_PDF template for a category (generic —
+   * RECEIPT today, INVOICE next). V2 (behind RECEIPT_TEMPLATE_RESOLVER_V2) reads
+   * the CompanyTemplate catalog default; it ALWAYS falls back to the legacy
+   * "newest active per-tenant template" so tenants without a CompanyTemplate keep
+   * working. With the flag off it is pure-legacy. The backfill (migration
+   * 20260706160000) makes V2 return the same template as legacy for every tenant,
+   * so flipping the flag is a no-op. Does not touch the SUPERADMIN borrow path.
+   */
+  private async resolveActivePdfTemplate(
+    companyProfileId: string,
+    category: TemplateCategory,
+  ): Promise<ReceiptTemplate | null> {
+    if (process.env.RECEIPT_TEMPLATE_RESOLVER_V2 === 'true') {
+      const assignment = await this.prisma.companyTemplate.findFirst({
+        where: { companyProfileId, category, isDefault: true, isActive: true },
+        include: { receiptTemplate: true },
+      });
+      if (assignment?.receiptTemplate?.isActive) {
+        return assignment.receiptTemplate;
+      }
+    }
+    return this.prisma.receiptTemplate.findFirst({
+      where: { companyProfileId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   private nextReceiptNumber(
     companyProfileId: string,
+    documentTypeId: string,
     year: number,
     format: string,
   ): Promise<string> {
+    // Generic per-(tenant, documentType, year) visible series (REC-/INV-…).
+    // Atomic increment via upsert. Backfilled from the legacy ReceiptCounter so
+    // the receipt series continues at the same next number (see migration
+    // 20260706140000). ReceiptCounter is now frozen legacy.
     return this.prisma.$transaction(async (tx) => {
-      const counter = await tx.receiptCounter.upsert({
-        where: { companyProfileId_year: { companyProfileId, year } },
-        create: { companyProfileId, year, lastNumber: 1 },
+      const counter = await tx.documentSeriesCounter.upsert({
+        where: {
+          companyProfileId_documentTypeId_year: {
+            companyProfileId,
+            documentTypeId,
+            year,
+          },
+        },
+        create: { companyProfileId, documentTypeId, year, lastNumber: 1 },
         update: { lastNumber: { increment: 1 } },
       });
       return format
@@ -829,17 +870,16 @@ export class ReceiptsService {
     code: string,
     userId: string,
   ): Promise<string> {
-    const prefix = `${code}-`;
-    const existing = await this.prisma.document.findMany({
-      where: { userId, documentTypeId, documentNumber: { startsWith: prefix } },
-      select: { documentNumber: true },
-    });
-    let max = 0;
-    for (const d of existing) {
-      const n = parseInt(d.documentNumber.slice(prefix.length), 10);
-      if (!Number.isNaN(n) && n > max) max = n;
-    }
-    return `${prefix}${String(max + 1).padStart(6, '0')}`;
+    // Atomic per-(user, type) increment (replaces an O(n) max-in-memory scan that
+    // raced under concurrency). Backfilled continuity — migration 20260706150000.
+    const counter = await this.prisma.$transaction((tx) =>
+      tx.userDocumentSequence.upsert({
+        where: { userId_documentTypeId: { userId, documentTypeId } },
+        create: { userId, documentTypeId, lastNumber: 1 },
+        update: { lastNumber: { increment: 1 } },
+      }),
+    );
+    return `${code}-${String(counter.lastNumber).padStart(6, '0')}`;
   }
 
   /**

@@ -73,7 +73,7 @@ async function main() {
     update: {
       companyProfileId: companyProfile.id,
       passwordHash,
-      role: UserRole.MASTER,
+      role: UserRole.SUPERADMIN,
       status: UserStatus.ACTIVE,
       mustChangePassword: false,
     },
@@ -81,7 +81,7 @@ async function main() {
       companyProfileId: companyProfile.id,
       email,
       passwordHash,
-      role: UserRole.MASTER,
+      role: UserRole.SUPERADMIN,
       status: UserStatus.ACTIVE,
       mustChangePassword: false,
     },

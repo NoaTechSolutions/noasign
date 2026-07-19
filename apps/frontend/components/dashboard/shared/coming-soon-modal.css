@@ -1,0 +1,69 @@
+/* Coming soon / under construction popup. Centered card with a tool icon,
+   title, description and a single dismiss button. Theme-aware via shared tokens.
+   The "-overlay" suffix opts into the global backdrop blur (see globals.css). */
+.coming-soon-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  /* Same layer as .discard-modal-overlay so it sits above panels/other modals. */
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.coming-soon-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  max-width: 380px;
+  padding: 28px 26px 22px;
+  background: var(--bg-card, #fff);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.coming-soon-modal__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  color: var(--brand-accent);
+  background: var(--brand-accent-soft);
+}
+
+.coming-soon-modal__title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-heading);
+}
+
+.coming-soon-modal__desc {
+  margin: 0 0 20px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+
+.coming-soon-modal__btn {
+  border: none;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #ffffff;
+  background: var(--brand-accent);
+  transition: background-color 0.15s ease;
+}
+
+.coming-soon-modal__btn:hover {
+  background: var(--brand-accent-hover);
+}
