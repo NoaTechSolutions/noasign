@@ -63,19 +63,25 @@ Cloudflare DNS
   └── api.ntssign.com → Oracle Cloud VM (NestJS :3000)
 ```
 
-> ⚠️ **The `ntssign.com` landing is a SEPARATE Next.js codebase — NOT in this repo.**
-> Verified 2026-07-18: `ntssign.com` serves a React/Next.js SSR page behind Cloudflare,
-> **not** the static `docs/ntssign-landing-v3.html` in this repo. That HTML file and the
-> `siteground*.md` guides here are **stale fossils** describing a static→SiteGround deploy
-> that is no longer reality (they misled a Terms-links "fix" that never reached production).
-> **Where the live landing's source and deploy live is not known from this repo** — it is
-> the owner's separate infra.
+> ✅ **The `ntssign.com` landing IS in this repo** (corrected 2026-07-19).
+> Source: `apps/frontend/app/(marketing)/` (`page.tsx` + `terms/`, `privacy/`, `pricing/`,
+> `cookies/`). Build/deploy: `scripts/export-landing.sh` produces a Next.js **static export**
+> that is FTP'd to **SiteGround** (Apache, behind Cloudflare) by
+> `.github/workflows/deploy-landing.yml` — prod on push to `main`, staging on push to `develop`.
+> The live-site markers confirm it: `/_next/static/*` chunks + `charSet` = a Next static export,
+> **not** an SSR page and **not** a separate codebase.
+>
+> **Drift lesson:** an earlier version of this note said the landing was "a separate codebase,
+> NOT here" and that the fossil was "removed" — **both were WRONG.** That conclusion was written
+> as "verified 2026-07-18" but never re-checked against the code, and it misled a Terms-links
+> "fix". **"Verified" is not forever.** The stale, unreferenced `ntssign-landing-v3.html` fossil
+> was still present and is **removed in this commit**.
 
 ---
 
 ## Module Map
 
-The backend is 21 NestJS modules under `apps/backend/src/`. Grouped by role:
+The backend is **20 NestJS modules** under `apps/backend/src/` — files with a `.module.ts` wired into `AppModule` (hard count 2026-07-19: 9 Domain · 4 Integrations · 6 Supporting · 1 Infra). Grouped by role below. Note: `common`, `config`, and `observability` are utility folders, **not** wired modules (no `.module.ts`), so they don't count toward the 20. (Was 19 until the `health` module was added on 2026-07-19 — "verified" counts drift as code changes.)
 
 ### Domain
 
@@ -89,6 +95,7 @@ The backend is 21 NestJS modules under `apps/backend/src/`. Grouped by role:
 | `company-profile` | Read/update the tenant `CompanyProfile`; first-write-wins auto-detected timezone |
 | `users` | User self-service (`/users/me`), CRUD, account-request handling, admin password resets |
 | `auth` | Login/register/logout, JWT via httpOnly cookie, password change/forgot/reset; `JwtAuthGuard` |
+| `legal` | Legal-acceptance gate: serves the active Terms/Privacy version, records per-user acceptance (IP captured), append-only; blocks a draft from being activated ("the lawyer is the gate") |
 
 ### Integrations
 
@@ -107,8 +114,9 @@ The backend is 21 NestJS modules under `apps/backend/src/`. Grouped by role:
 | `notifications` | Channel fan-out (currently email) + hourly cron (`DeferredNotifyService`) that notifies creators when a future-dated document's issue date arrives |
 | `leads` | Public two-step marketing-lead capture from the post-signature page |
 | `contact` | Public contact form protected by a Cloudflare Turnstile guard |
-| `observability` | Sentry PII/secret scrubbing (`scrubEvent`), kept byte-identical with the frontend copy |
+| `observability` | Sentry PII/secret scrubbing (`scrubEvent`), kept byte-identical with the frontend copy — utility, no module file (not one of the 19) |
 | `version` | Public `GET /version` returning the running git commit / build info |
+| `health` | Public `GET /health` (liveness, never touches the DB) + `GET /health/ready` (readiness, `SELECT 1`, 503 if Postgres unreachable); minimal `{status}` body, no sensitive info |
 
 ### Infra
 
@@ -244,7 +252,7 @@ See [../development/local.md](../development/local.md) for how to run the tests 
 
 **Current-state facts, not a backlog.** Each is here because a developer *will* hit it and needs the **why** — the improvement *tasks* live in the Drive backlog, these are how the system **is** today.
 
-- **Not all of the product is in this repo.** The public `ntssign.com` **landing is a separate Next.js codebase** (behind Cloudflare) — **NOT here** (verified 2026-07-18). Only the *app* (`app.ntssign.com`) and *API* (`api.ntssign.com`) deploy from this repo. The static `ntssign-landing-v3.html` + `siteground*.md` guides that used to live here were **stale fossils** (now removed) describing an obsolete static→SiteGround deploy — they misled a Terms-links "fix" that never reached production. Where the live landing's source and deploy live is the owner's separate infra, not known from here.
+- **The landing IS in this repo** (corrected 2026-07-19). The public `ntssign.com` landing is a Next.js **static export** of `apps/frontend/app/(marketing)/`, FTP'd to **SiteGround** (behind Cloudflare) by `.github/workflows/deploy-landing.yml` — deployed alongside the *app* (`app.ntssign.com`) and *API* (`api.ntssign.com`), all from this repo. An earlier note here wrongly called the landing "a separate codebase, not here" and claimed the `ntssign-landing-v3.html` fossil was "removed" — the fossil was still present (unreferenced) and is removed in this commit. This was **drift**: a stale "verified 2026-07-18" conclusion that was never re-checked against the code. Lesson: **"verified" is not forever — re-check against the code before trusting a doc claim.**
 
 - **The database connection pool is untuned.** Prisma uses its default pool; it has not been sized for load. This is a **tuning gap, not a Prisma limitation** — it's changeable (connection-limit params on `DATABASE_URL`, or an explicit pool config) when load requires it.
 
