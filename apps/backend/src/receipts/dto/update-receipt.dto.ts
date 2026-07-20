@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsIn,
   IsInt,
@@ -18,6 +19,28 @@ export class UpdateReceiptDto {
   @IsOptional()
   @IsString()
   client?: string;
+
+  // Billed-to split (mirrors createReceipt). When present, the service recomposes
+  // `client` from these and stores the parts in dataJson.
+  @IsOptional()
+  @IsBoolean()
+  business?: boolean;
+
+  @IsOptional()
+  @IsString()
+  company_name?: string;
+
+  @IsOptional()
+  @IsString()
+  first_name?: string;
+
+  @IsOptional()
+  @IsString()
+  middle_name?: string;
+
+  @IsOptional()
+  @IsString()
+  last_name?: string;
 
   @IsOptional()
   @IsNumber()

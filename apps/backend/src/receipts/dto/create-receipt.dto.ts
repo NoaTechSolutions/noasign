@@ -24,8 +24,35 @@ export const PAYMENT_METHODS = [
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export class CreateReceiptDto {
+  // Composed recipient name. Optional now: the service composes it from the
+  // billed-to split below (business → company_name; else first/middle/last) and
+  // only falls back to this when no split parts are sent (e.g. the reissue path).
+  @IsOptional()
   @IsString()
-  client: string;
+  client?: string;
+
+  // Billed-to split (mirrors the invoice). A business receipt uses company_name;
+  // otherwise first/middle/last. Stored in dataJson so the detail can reconstruct
+  // the split.
+  @IsOptional()
+  @IsBoolean()
+  business?: boolean;
+
+  @IsOptional()
+  @IsString()
+  company_name?: string;
+
+  @IsOptional()
+  @IsString()
+  first_name?: string;
+
+  @IsOptional()
+  @IsString()
+  middle_name?: string;
+
+  @IsOptional()
+  @IsString()
+  last_name?: string;
 
   // Numeric amount; the generator formats it as $X,XXX.XX.
   @IsNumber()
@@ -92,6 +119,12 @@ export class CreateReceiptDto {
   @IsOptional()
   @IsBoolean()
   send?: boolean;
+
+  // Opt-in (only meaningful for a future issue date): email the creator when the
+  // deferred receipt reaches its issue date and is ready to finalize.
+  @IsOptional()
+  @IsBoolean()
+  notifyOnIssueDate?: boolean;
 
   @ValidateIf((o: CreateReceiptDto) => o.send === true)
   @IsEmail()

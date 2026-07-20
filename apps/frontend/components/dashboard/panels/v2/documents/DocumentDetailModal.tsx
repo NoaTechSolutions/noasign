@@ -12,6 +12,7 @@ import { FieldRow } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
 import { ReceiptEditPopup } from './ReceiptEditPopup';
+import { InvoiceEditPopup } from './InvoiceEditPopup';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import type {
   V2DocumentItem,
@@ -20,7 +21,8 @@ import type {
   SchemaField,
   SchemaSection,
 } from './types';
-import { getStatusBadgeClass, getStatusLabel } from './types';
+import { isDeferredPending } from './types';
+import { StatusBadge } from './StatusBadge';
 import { FINANCE_COLORS, FinanceCard } from './finance-cards';
 import { CurrencyInput } from './CurrencyInput';
 import { forceTwoDecimals } from './currency';
@@ -49,6 +51,22 @@ interface DocumentDetailModalProps {
   // the fly), edit is allowed in DRAFT/SEND_FAILED, and uses a receipt-specific
   // edit popup + fetcher instead of the BoldSign contract flow.
   isReceipt?: boolean;
+  // Invoice-specific (DIRECT_PDF, code INVOICE): schema sections billed_to /
+  // service / pricing rendered with a bespoke layout (NOT the contract pricing
+  // groups), edit reopens the wizard prefilled, and the PDF tab is shown only
+  // once the invoice is SENT (regenerated from a dedicated endpoint).
+  isInvoice?: boolean;
+  onFetchInvoicePdf?: (docId: string) => Promise<string>;
+  // Edit a DRAFT invoice in place (PATCH /documents/invoice/:id) — mirrors the
+  // receipt edit popup instead of reopening the full creation wizard.
+  onUpdateInvoice?: (
+    docId: string,
+    payload: {
+      data: Record<string, string>;
+      customerId?: string;
+      notifyOnIssueDate?: boolean;
+    },
+  ) => Promise<void>;
   onUpdateReceipt?: (
     docId: string,
     payload: Record<string, unknown>,
@@ -266,6 +284,9 @@ export function DocumentDetailModal({
   onFetchPdfUrl,
   onUpdateDraft,
   isReceipt = false,
+  isInvoice = false,
+  onFetchInvoicePdf,
+  onUpdateInvoice,
   onUpdateReceipt,
   onReissueReceipt,
   autoOpenReissue = false,
@@ -286,6 +307,11 @@ export function DocumentDetailModal({
   const [financeOn, setFinanceOn] = useState(false);
   // Receipt edit popup (DRAFT/SEND_FAILED only — a SENT receipt is immutable).
   const [receiptEditOpen, setReceiptEditOpen] = useState(false);
+  // Invoice edit popup (DRAFT only — mirrors the receipt edit flow: in-place
+  // PATCH over the detail, never a re-created document). Holds the SECTION being
+  // edited so the popup is scoped to it (like the contract GroupEditPopup), not
+  // the whole invoice.
+  const [invoiceEditSection, setInvoiceEditSection] = useState<SchemaSection | null>(null);
   // Reissue popup (SENT receipt only — corrects + voids the original).
   const [reissueOpen, setReissueOpen] = useState(false);
   // Irreversible-action warning shown before the reissue form opens.
@@ -312,6 +338,11 @@ export function DocumentDetailModal({
   const fetchReceiptPdfRef = useRef(onFetchReceiptPdf);
   useEffect(() => {
     fetchReceiptPdfRef.current = onFetchReceiptPdf;
+  });
+  // Invoices regenerate their PDF from their own endpoint (GET /documents/invoice/:id/pdf).
+  const fetchInvoicePdfRef = useRef(onFetchInvoicePdf);
+  useEffect(() => {
+    fetchInvoicePdfRef.current = onFetchInvoicePdf;
   });
 
   const loadDetail = useCallback(() => {
@@ -345,6 +376,7 @@ export function DocumentDetailModal({
         e.key === 'Escape' &&
         !editGroup &&
         !receiptEditOpen &&
+        !invoiceEditSection &&
         !reissueOpen &&
         !reissueConfirm
       ) {
@@ -353,7 +385,7 @@ export function DocumentDetailModal({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, editGroup, receiptEditOpen, reissueOpen, reissueConfirm]);
+  }, [onClose, editGroup, receiptEditOpen, invoiceEditSection, reissueOpen, reissueConfirm]);
 
   // Header info — prefer the loaded detail, fall back to the list item.
   const status = (detail?.status ?? listItem?.status ?? 'DRAFT') as string;
@@ -361,6 +393,10 @@ export function DocumentDetailModal({
   const tenant = detail?.companyProfile?.companyName ?? '';
   const headerDate = fmtDate(detail?.contractDate ?? detail?.createdAt ?? listItem?.createdAt);
   const isSigned = status === 'SIGNED' || status === 'COMPLETED';
+  // A deferred (future-dated) doc waiting for its issue date — the list item
+  // carries isDeferred/issueDate; the detail payload doesn't, so read the list
+  // item. Drives the "Scheduled" badge (teal) and gates the footer Send.
+  const scheduled = listItem ? isDeferredPending(listItem) : false;
 
   const sections =
     detail?.formDefinition?.schemaJson?.sections?.length
@@ -371,7 +407,10 @@ export function DocumentDetailModal({
     ...sections.map((s) => ({ key: s.key, label: s.label })),
     { key: 'timeline', label: 'Timeline' },
     // Contracts: PDF only once signed. Receipts: always (regenerated on the fly).
-    ...(isSigned || isReceipt ? [{ key: 'pdf', label: 'PDF' }] : []),
+    // Invoices: only once SENT (a draft/scheduled invoice has no issued PDF yet).
+    ...(isSigned || isReceipt || (isInvoice && status === 'SENT')
+      ? [{ key: 'pdf', label: isInvoice ? 'Preview' : 'PDF' }]
+      : []),
   ];
 
   // Default to the first tab; reset if the current tab no longer exists (e.g.
@@ -389,11 +428,14 @@ export function DocumentDetailModal({
   // pdfLoading stuck true forever ("Loading preview…" never resolved).
   useEffect(() => {
     if (activeTab !== 'pdf') return;
-    // Receipts regenerate from a dedicated endpoint; contracts use final-pdf.
+    // Invoices and receipts each regenerate from their own endpoint; contracts
+    // use the signed final-pdf.
     const fetcher =
-      isReceipt && fetchReceiptPdfRef.current
-        ? fetchReceiptPdfRef.current
-        : fetchPdfRef.current;
+      isInvoice && fetchInvoicePdfRef.current
+        ? fetchInvoicePdfRef.current
+        : isReceipt && fetchReceiptPdfRef.current
+          ? fetchReceiptPdfRef.current
+          : fetchPdfRef.current;
     if (!fetcher) return;
     let cancelled = false;
     setPdfLoading(true);
@@ -410,7 +452,7 @@ export function DocumentDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [activeTab, documentId, isReceipt]);
+  }, [activeTab, documentId, isReceipt, isInvoice]);
 
   // Revoke the blob URL when it's replaced or the modal unmounts (avoid leaks).
   useEffect(() => {
@@ -423,16 +465,20 @@ export function DocumentDetailModal({
     void onAction(action, documentId);
     if (action === 'sync') {
       loadDetail();
-    } else if (
-      action !== 'download' &&
-      action !== 'preview' &&
-      // send/cancel now open a confirmation popup (handled by the panel) — keep
-      // this modal open behind it; the panel closes it once confirmed.
-      action !== 'send' &&
-      action !== 'cancel'
-    ) {
-      onClose();
+      return;
     }
+    // These keep the detail open: the PDF actions act in-place, and
+    // cancel/discard/(contract & receipt) send open a confirmation popup that the
+    // panel owns — it closes this modal once confirmed. Invoice send is optimistic
+    // (no confirm popup), so it falls through and closes the modal itself.
+    const keepsOpen =
+      action === 'download' ||
+      action === 'preview' ||
+      action === 'cancel' ||
+      action === 'discard' ||
+      action === 'delete' ||
+      (action === 'send' && !isInvoice);
+    if (!keepsOpen) onClose();
   };
 
   const dataJson = detail?.data?.dataJson ?? {};
@@ -442,12 +488,19 @@ export function DocumentDetailModal({
     isReceipt &&
     (status === 'DRAFT' || status === 'SEND_FAILED') &&
     Boolean(onUpdateReceipt);
+  // Invoices edit in place via InvoiceEditPopup (mirrors the receipt edit flow:
+  // a compact popup over the detail that PATCHes the SAME document). The backend
+  // only allows editing a DRAFT invoice (incl. scheduled), so gate on DRAFT.
+  const canEditInvoice = isInvoice && status === 'DRAFT' && Boolean(onUpdateInvoice);
 
   // Reissue (2c): a SENT receipt is corrected by reissuing (never edited). Once
   // voided (supersededAt) it can't be reissued again.
-  const isVoidedReceipt = isReceipt && Boolean(detail?.supersededAt);
+  const isVoided = (isReceipt || isInvoice) && Boolean(detail?.supersededAt);
+  // B7: a soft-deleted doc reaches here only for a SUPERADMIN — read it off the
+  // list item (which carries deletedAt). Reads as "Deleted"; no footer actions.
+  const isDeleted = Boolean(listItem?.deletedAt);
   const canReissue =
-    isReceipt && status === 'SENT' && !isVoidedReceipt && Boolean(onReissueReceipt);
+    isReceipt && status === 'SENT' && !isVoided && Boolean(onReissueReceipt);
   const reissuedTo = detail?.supersededBy?.[0] ?? null; // this one → its replacement
   const reissues = detail?.supersedes ?? null; // this one corrects → the original
 
@@ -552,10 +605,14 @@ export function DocumentDetailModal({
           <div className="doc-detail-modal-header__main">
             <div className="doc-detail-modal-header__title-row">
               <h2 className="doc-detail-modal-header__number">{number}</h2>
-              {isVoidedReceipt ? (
-                <span className="doc-status-badge doc-status-badge--void">VOID</span>
+              {isDeleted ? (
+                <StatusBadge status="DELETED" />
+              ) : isVoided ? (
+                <StatusBadge status="VOID" />
+              ) : scheduled ? (
+                <StatusBadge status="SCHEDULED" />
               ) : (
-                <span className={`doc-status-badge ${getStatusBadgeClass(status)}`}>{getStatusLabel(status)}</span>
+                <StatusBadge status={status} />
               )}
             </div>
             <div className="doc-detail-modal-header__subtitle">
@@ -646,13 +703,16 @@ export function DocumentDetailModal({
             {/* Content */}
             <div className="doc-detail-modal-content">
               {activeTab === 'timeline' ? (
-                <TimelineTab detail={detail} isReceipt={isReceipt} />
+                // Invoices, like receipts, have no signing lifecycle — the
+                // Created/Sent/Edited/Cancelled timeline fits both.
+                <TimelineTab detail={detail} isReceipt={isReceipt || isInvoice} />
               ) : activeTab === 'pdf' ? (
                 <PdfTab
+                  title={isInvoice ? 'Invoice' : isReceipt ? 'Receipt' : 'Signed Document'}
                   url={pdfUrl}
                   loading={pdfLoading}
                   onDownload={
-                    isReceipt
+                    isReceipt || isInvoice
                       ? () => {
                           // Receipt PDF isn't persisted — download the blob we
                           // already regenerated for the iframe.
@@ -667,7 +727,15 @@ export function DocumentDetailModal({
                 />
               ) : (
                 (() => {
-                  const groups = getGroupsForTab(activeTab, dataJson);
+                  // The hardcoded contract groups (client/project/pricing/others)
+                  // are ONLY for BoldSign contracts. Receipts and invoices are
+                  // schema-driven — skip them so an invoice's `pricing` section key
+                  // doesn't collide with the contract pricing handler (which would
+                  // render empty contract_amount/finance fields).
+                  const groups =
+                    !isReceipt && !isInvoice
+                      ? getGroupsForTab(activeTab, dataJson)
+                      : null;
                   if (groups) {
                     const renderCard = (g: CardGroup) => (
                       <GroupCard
@@ -693,9 +761,26 @@ export function DocumentDetailModal({
                       </>
                     );
                   }
+                  const section =
+                    sections.find((s) => s.key === activeTab) ?? null;
+                  // Invoices: bespoke layout (billed_to / service / pricing) keyed
+                  // on the real invoice fields; Edit reopens the wizard prefilled.
+                  if (isInvoice) {
+                    return (
+                      <InvoiceSectionTab
+                        section={section}
+                        dataJson={dataJson}
+                        onEdit={
+                          canEditInvoice && section
+                            ? () => setInvoiceEditSection(section)
+                            : undefined
+                        }
+                      />
+                    );
+                  }
                   return (
                     <SectionTab
-                      section={sections.find((s) => s.key === activeTab) ?? null}
+                      section={section}
                       dataJson={dataJson}
                       twoColumns={isReceipt}
                       onEdit={
@@ -711,8 +796,15 @@ export function DocumentDetailModal({
 
             {/* Footer actions — hidden on the PDF tab so its single Download
                 button isn't duplicated by the footer's (COMPLETED) Download. */}
-            {activeTab !== 'pdf' && !isVoidedReceipt && (
-              <DetailFooter status={status} onAction={runAction} isSuperadmin={isSuperadmin} />
+            {activeTab !== 'pdf' && !isVoided && !isDeleted && (
+              <DetailFooter
+                status={status}
+                onAction={runAction}
+                isSuperadmin={isSuperadmin}
+                isInvoice={isInvoice}
+                isReceipt={isReceipt}
+                isDeferred={scheduled}
+              />
             )}
           </>
         )}
@@ -780,6 +872,22 @@ export function DocumentDetailModal({
           onSave={async (payload) => {
             await onUpdateReceipt(documentId, payload);
             setReceiptEditOpen(false);
+            loadDetail();
+          }}
+        />
+      ) : null}
+
+      {invoiceEditSection && onUpdateInvoice ? (
+        <InvoiceEditPopup
+          section={invoiceEditSection}
+          dataJson={dataJson as Record<string, unknown>}
+          onClose={() => setInvoiceEditSection(null)}
+          onSave={async (data, notifyOnIssueDate) => {
+            // PATCH the SAME invoice with ONLY this section's fields (never
+            // creates a new one). A Billed to edit may carry a new issue date +
+            // the notify opt-in, which the backend uses to (re)schedule.
+            await onUpdateInvoice(documentId, { data, notifyOnIssueDate });
+            setInvoiceEditSection(null);
             loadDetail();
           }}
         />
@@ -1104,6 +1212,107 @@ function SectionTab({
   );
 }
 
+// Invoice detail (DIRECT_PDF, code INVOICE). Bespoke layout per schema section
+// (billed_to / service / pricing) keyed on the real invoice dataJson fields —
+// composes the recipient name (individual vs business), fuses the address, and
+// shows a single Total (the three computed money fields are identical for a
+// single-line invoice). Field labels/types come from the schema when present.
+function InvoiceSectionTab({
+  section,
+  dataJson,
+  onEdit,
+}: {
+  section: SchemaSection | null;
+  dataJson: Record<string, unknown>;
+  onEdit?: () => void;
+}) {
+  if (!section) {
+    return (
+      <div className="doc-detail-modal__hint">No details available for this section.</div>
+    );
+  }
+  const byKey = new Map(section.fields.map((f) => [f.key, f]));
+  const str = (key: string): string => {
+    const raw = dataJson[key];
+    return typeof raw === 'string' ? raw : raw == null ? '' : String(raw);
+  };
+  // Formatted display value (currency/date via the schema field type), or '—'.
+  const val = (key: string): string => {
+    const raw = dataJson[key];
+    if (raw == null || raw === '') return '—';
+    const f = byKey.get(key);
+    return (f ? formatValue(f, raw) : String(raw)) || '—';
+  };
+
+  let body: React.ReactNode;
+  let icon: React.ReactNode;
+
+  if (section.key === 'service') {
+    icon = <Wrench size={14} />;
+    body = (
+      <>
+        <div className="receipt-detail-grid receipt-detail-grid--2">
+          <FieldRow label="Service" value={val('service_type')} />
+          <FieldRow label="Event date" value={val('event_date')} />
+        </div>
+        <div className="receipt-detail-grid receipt-detail-grid--2">
+          <FieldRow label="Event name" value={val('event_name')} />
+          <FieldRow label="Event location" value={val('event_location')} />
+        </div>
+      </>
+    );
+  } else if (section.key === 'pricing') {
+    icon = <DollarSign size={14} />;
+    // gran_total is the canonical grand total; fall back to total if unset.
+    const total = str('gran_total').trim() ? val('gran_total') : val('total');
+    body = (
+      <>
+        <div className="receipt-detail-grid receipt-detail-grid--2">
+          <FieldRow label="Quantity" value={val('quantity')} />
+          <FieldRow label="Price" value={val('price')} />
+        </div>
+        <FieldRow label="Total" value={total} />
+      </>
+    );
+  } else {
+    // billed_to (default): recipient identity + contact + address.
+    icon = <User size={14} />;
+    const business = dataJson.business === true || dataJson.business === 'true';
+    const recipient = business
+      ? str('company_name').trim()
+      : ['first_name', 'middle_name', 'last_name']
+          .map((k) => str(k).trim())
+          .filter(Boolean)
+          .join(' ');
+    // Server-added invoice_date (MM/DD/YYYY) is the issued date; fall back to the
+    // raw issueDate field when a draft hasn't been finalized yet.
+    const issue = str('invoice_date').trim() ? str('invoice_date') : val('issueDate');
+    const cityStateZip = [
+      str('city').trim(),
+      [str('state').trim(), str('zip').trim()].filter(Boolean).join(' '),
+    ]
+      .filter(Boolean)
+      .join(', ');
+    body = (
+      <>
+        <div className="receipt-detail-grid receipt-detail-grid--2">
+          <FieldRow label={business ? 'Company' : 'Recipient'} value={recipient || '—'} />
+          <FieldRow label="Issue date" value={issue || '—'} />
+        </div>
+        <FieldRow label="Email" value={val('recipient_email')} />
+        <FieldRow label="Street address" value={val('street')} />
+        <FieldRow label="City / State / ZIP" value={cityStateZip || '—'} />
+      </>
+    );
+  }
+
+  return (
+    <DetailCard icon={icon} title={section.label} onEdit={onEdit}>
+      {body}
+    </DetailCard>
+  );
+}
+
 function TimelineTab({
   detail,
   isReceipt = false,
@@ -1196,16 +1405,18 @@ function PdfTab({
   url,
   loading,
   onDownload,
+  title = 'Signed Document',
 }: {
   url: string | null;
   loading: boolean;
   onDownload: () => void;
+  title?: string;
 }) {
   return (
     <div className="doc-detail-modal__section card-legend doc-detail-pdf-card">
       <span className="card-legend__label">
         <span className="card-legend__icon"><FileSignature size={14} /></span>
-        <span className="card-legend__title">Signed Document</span>
+        <span className="card-legend__title">{title}</span>
       </span>
       {loading ? (
         <div className="doc-detail-modal__hint">Loading PDF…</div>
@@ -1237,13 +1448,45 @@ function DetailFooter({
   status,
   onAction,
   isSuperadmin = false,
+  isInvoice = false,
+  isReceipt = false,
+  isDeferred = false,
 }: {
   status: string;
   onAction: (action: V2DocumentAction) => void;
   isSuperadmin?: boolean;
+  isInvoice?: boolean;
+  isReceipt?: boolean;
+  // A scheduled (deferred) invoice can't be sent until its issue date arrives.
+  isDeferred?: boolean;
 }) {
   let left: React.ReactNode = null;
   let right: React.ReactNode = null;
+
+  // Invoices AND receipts (DIRECT_PDF): their only footer state is a DRAFT —
+  // Delete (B7: a draft is deleted, never voided) + (Send unless scheduled).
+  // A SENT doc's Download lives inside its Preview/PDF tab.
+  if (isInvoice || isReceipt) {
+    if (status === 'DRAFT') {
+      left = (
+        <button type="button" className="btn-danger" onClick={() => onAction('delete')}>
+          Delete
+        </button>
+      );
+      right = isDeferred ? null : (
+        <button type="button" className="btn-warning" onClick={() => onAction('send')}>
+          Send
+        </button>
+      );
+    }
+    if (!left && !right) return null;
+    return (
+      <div className="doc-detail-modal-footer">
+        <div className="doc-detail-modal-footer__left">{left}</div>
+        <div className="doc-detail-modal-footer__actions">{right}</div>
+      </div>
+    );
+  }
 
   switch (status) {
     case 'DRAFT':

@@ -66,11 +66,82 @@
   border-left: 4px solid var(--amber);
 }
 
+/* Status stat pills — each state's card uses the SAME --status-* family token as
+   its badge (single source of truth). Current families: Draft = gray, Sent =
+   blue, Scheduled = amber, Completed = green, Void = red. */
+.documents-v2-stat-pill--sent {
+  background: linear-gradient(135deg, var(--status-sent-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-sent);
+}
+.documents-v2-stat-pill--draft {
+  background: linear-gradient(135deg, var(--status-draft-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-draft);
+}
+.documents-v2-stat-pill--scheduled {
+  background: linear-gradient(135deg, var(--status-scheduled-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-scheduled);
+}
+.documents-v2-stat-pill--completed {
+  background: linear-gradient(135deg, var(--status-completed-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-completed);
+}
+.documents-v2-stat-pill--void {
+  background: linear-gradient(135deg, var(--status-void-bg) 0%, var(--surface) 100%);
+  border-left: 4px solid var(--status-void);
+}
+
 .documents-v2-stat-pill__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 8px;
+}
+
+/* Pill state icon — tinted with the pill's own family colour. */
+.documents-v2-stat-pill__icon {
+  flex-shrink: 0;
+}
+.documents-v2-stat-pill--sent .documents-v2-stat-pill__icon {
+  color: var(--status-sent);
+}
+.documents-v2-stat-pill--draft .documents-v2-stat-pill__icon {
+  color: var(--status-draft);
+}
+.documents-v2-stat-pill--scheduled .documents-v2-stat-pill__icon {
+  color: var(--status-scheduled);
+}
+.documents-v2-stat-pill--void .documents-v2-stat-pill__icon {
+  color: var(--status-void);
+}
+
+/* Total pill header: label on the left, "Detail →" link on the right. */
+.documents-v2-stat-pill__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.documents-v2-stat-pill__head .documents-v2-stat-pill__label {
+  margin-bottom: 0;
+}
+.documents-v2-stat-pill__detail {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.documents-v2-stat-pill__detail:hover {
+  opacity: 0.75;
+  text-decoration: underline;
 }
 
 .documents-v2-stat-pill__value {
@@ -258,11 +329,18 @@
 .doc-status-badge {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 500;
   padding: 2px 8px;
   border-radius: 20px;
   white-space: nowrap;
+}
+
+/* Leading state icon — sits on the badge baseline, never shrinks, inherits the
+   family text colour. */
+.doc-status-badge__icon {
+  flex-shrink: 0;
 }
 
 /* All colours from the SINGLE SOURCE (globals.css --status-*) — shared with the
@@ -297,6 +375,14 @@
   color: var(--status-cancelled);
 }
 
+/* B7: soft-deleted doc — SUPERADMIN-only. Muted gray so it reads as "gone",
+   visibly distinct from an active Draft. */
+.doc-status-badge--deleted {
+  background: var(--status-draft-bg);
+  color: var(--status-draft);
+  opacity: 0.7;
+}
+
 /* Send failed — stronger red than "cancelled" to flag it needs attention. */
 .doc-status-badge--failed {
   background: var(--status-failed-bg);
@@ -314,6 +400,13 @@
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
+}
+
+/* Scheduled — a deferred (future-dated) doc waiting for its issue date. Teal,
+   deliberately distinct from navy Draft so the two states never read alike. */
+.doc-status-badge--scheduled {
+  background: var(--status-scheduled-bg);
+  color: var(--status-scheduled);
 }
 
 .doc-detail-modal-header__actions {
@@ -1284,6 +1377,9 @@
   display: none;
 }
 .documents-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 12px;

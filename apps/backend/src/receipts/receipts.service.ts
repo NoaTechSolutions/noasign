@@ -7,6 +7,7 @@ import {
 import {
   DocumentFileType,
   DocumentStatus,
+  GenerationMode,
   Prisma,
   ReceiptTemplate,
   StorageProvider,
@@ -18,6 +19,7 @@ import { EmailService } from '../email/email.service';
 import { R2Service } from '../storage/r2.service';
 import { ReceiptPdfService, ReceiptTemplateLike } from './receipt-pdf.service';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
+import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateReceiptDto } from './dto/update-receipt.dto';
 import { normalizeEmail } from '../common/resend-cooldown';
 import {
@@ -25,8 +27,16 @@ import {
   nextSendCount,
   receiptResendBlockMessage,
 } from '../common/receipt-resend-policy';
+import {
+  isDueInTenantTz,
+  isFutureCalendarDate,
+  parseCalendarDate,
+  tenantCurrentYear,
+  toDateOnly,
+} from '../common/tenant-date';
 
 const RECEIPT_TYPE_CODE = 'PAYMENT_RECEIPT';
+const INVOICE_TYPE_CODE = 'INVOICE';
 
 // Fields the generator draws onto the base PDF — shared shape between a fresh
 // create (from the DTO) and a regenerate (from the stored dataJson).
@@ -189,11 +199,26 @@ export class ReceiptsService {
       template.numberFormat,
     );
 
+    // Compose the recipient name from the billed-to split (business →
+    // company_name; else first/middle/last), falling back to the raw `client`
+    // when no split parts were sent (e.g. the reissue path). The composed string
+    // is what the PDF draws; the parts are stored in dataJson below.
+    const composedClient = dto.business
+      ? (dto.company_name ?? '').trim()
+      : [dto.first_name, dto.middle_name, dto.last_name]
+          .map((s) => (s ?? '').trim())
+          .filter(Boolean)
+          .join(' ');
+    const client = composedClient || (dto.client ?? '').trim();
+    if (!client) {
+      throw new BadRequestException('Client name is required');
+    }
+
     // Data the generator draws onto the base PDF (keys match fieldMappingJson).
     const pdfData = this.buildPdfData({
       receipt_number: receiptNumber,
       date: dto.date,
-      client: dto.client,
+      client,
       amount: dto.amount,
       payment_current: dto.payment_current,
       payment_total: dto.payment_total,
@@ -208,7 +233,14 @@ export class ReceiptsService {
     // every field. Empty optionals are '' (not undefined → dropped). `email`
     // mirrors recipientEmail (the schema field is `email`).
     const dataJson: Record<string, string | number> = {
-      client: dto.client,
+      client,
+      // Billed-to split parts (mirrors the invoice) so the detail can reconstruct
+      // business vs person. The composed `client` above stays the display value.
+      business: dto.business ? 'true' : '',
+      company_name: dto.company_name ?? '',
+      first_name: dto.first_name ?? '',
+      middle_name: dto.middle_name ?? '',
+      last_name: dto.last_name ?? '',
       email: dto.recipientEmail ?? '',
       amount: dto.amount,
       date: dto.date,
@@ -235,6 +267,13 @@ export class ReceiptsService {
       userId,
     );
 
+    // Editable issue date (receipt `date`, MM/DD/YYYY): validated against the
+    // tenant's rule (>= Jan 1 of the tenant's current year) and stored on the
+    // issueDate column. The dataJson/PDF keep using dto.date as before. A FUTURE
+    // date defers the receipt: it stays DRAFT and is not sent until the date.
+    const { column: issueDateColumn, isFuture: isDeferred } =
+      await this.resolveIssueDate(companyProfileId, dto.date);
+
     // FASE 1 — honest send state: the receipt is ALWAYS created as DRAFT first.
     // We only flip it to SENT after the email actually leaves, or to SEND_FAILED
     // if the provider rejects it. No more false "sent" before the email goes out.
@@ -249,6 +288,11 @@ export class ReceiptsService {
         receiptTemplateId: template.id,
         status: DocumentStatus.DRAFT,
         contractDate: new Date(),
+        issueDate: issueDateColumn,
+        isDeferred,
+        notifyOnIssueDate: isDeferred
+          ? (dto.notifyOnIssueDate ?? false)
+          : false,
         countedInBilling: false,
         isOverage: false,
         // Reissue (2c): link the new receipt to the original it corrects.
@@ -272,7 +316,8 @@ export class ReceiptsService {
       );
     }
 
-    if (!send) {
+    // A deferred (future-dated) receipt is never sent at create — it waits.
+    if (!send || isDeferred) {
       return { document, receiptNumber, pdf: pdfBuffer };
     }
 
@@ -290,7 +335,7 @@ export class ReceiptsService {
       const { id: providerEmailId } = await this.email.sendReceipt({
         to: dto.recipientEmail,
         receiptNumber,
-        clientName: dto.client,
+        clientName: client,
         companyName: company?.companyName ?? 'NTSsign',
         pdfBuffer,
       });
@@ -354,6 +399,689 @@ export class ReceiptsService {
 
   // Build the generator input (keys match fieldMappingJson). Shared by a fresh
   // create (from the DTO) and a regenerate (from the stored dataJson).
+  // ───────────────────────────────────────────────────────────────────────────
+  // INVOICES (Phase 2) — DIRECT_PDF, NEVER BoldSign. Parallel to createReceipt:
+  // reuses the same numbering / documentNumber / R2-persist helpers, but (a) uses
+  // the INVOICE document type + template category, (b) dispatches the render by the
+  // template's standard renderMode (acroform-overlay = the hybrid engine), and
+  // (c) adapts the schema-driven wizard form data into the invoice base PDF's flat
+  // AcroForm fields. Kept OUT of createReceipt so the receipt path is untouched.
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Create an invoice PDF from the tenant's active INVOICE template, persist it as
+   * a DRAFT Document, and (best-effort) store the PDF in R2. Money is recomputed
+   * server-side from quantity × price — the client's totals are never trusted.
+   * Returns the document + the correlative INV- number + the generated buffer.
+   */
+  async createInvoice(userId: string, dto: CreateInvoiceDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const companyProfileId = user.companyProfileId;
+
+    const docType = await this.prisma.documentType.findUnique({
+      where: { code: INVOICE_TYPE_CODE },
+    });
+    if (!docType) {
+      throw new NotFoundException(
+        `Document type ${INVOICE_TYPE_CODE} not found — run the invoice seed`,
+      );
+    }
+    // Shadow-BoldSign guard: an invoice is DIRECT_PDF. If the type is still
+    // BOLDSIGN, creating it here would produce a broken signature-less row — refuse
+    // instead. (The seed sets generationMode=DIRECT_PDF; this catches a stale row.)
+    if (docType.generationMode !== 'DIRECT_PDF') {
+      throw new BadRequestException(
+        'INVOICE document type is not DIRECT_PDF — fix its generationMode',
+      );
+    }
+    const formDefinition = await this.prisma.formDefinition.findFirst({
+      where: { documentTypeId: docType.id, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!formDefinition) {
+      throw new NotFoundException('No active invoice form definition');
+    }
+
+    const template = await this.resolveActivePdfTemplate(
+      companyProfileId,
+      TemplateCategory.INVOICE,
+    );
+    if (!template) {
+      throw new NotFoundException(
+        'No invoice template configured for this company',
+      );
+    }
+
+    const year = new Date().getFullYear();
+    const receiptNumber = await this.nextReceiptNumber(
+      companyProfileId,
+      docType.id,
+      year,
+      template.numberFormat,
+    );
+
+    // Editable issue date: from the wizard (YYYY-MM-DD) when present, else today.
+    // Validated against the tenant's rule (>= Jan 1 of the tenant's current year)
+    // and stored on the issueDate column; the MM/DD/YYYY string feeds the PDF. A
+    // FUTURE issue date defers the invoice: it stays DRAFT and is NOT sent until the
+    // date arrives (the send is ignored below).
+    const { column: issueDateColumn, isFuture: isDeferred } =
+      await this.resolveIssueDate(companyProfileId, dto.data.issueDate);
+    const issueParts = parseCalendarDate(dto.data.issueDate);
+    const issueDate = issueParts
+      ? this.formatInvoicePartsUS(issueParts)
+      : this.formatInvoiceDate(new Date());
+
+    // Stored dataJson = the raw wizard data + the server-authoritative number,
+    // issue date and recomputed money. It is the SINGLE source the create render
+    // and any re-render both read from (buildInvoicePdfData).
+    const dataJson = this.buildInvoiceDataJson(
+      dto.data,
+      receiptNumber,
+      issueDate,
+    );
+    const pdfData = this.buildInvoicePdfData(dataJson);
+    const pdfBuffer = await this.renderInvoice(template, pdfData);
+
+    const documentNumber = await this.generateReceiptDocumentNumber(
+      docType.id,
+      docType.code,
+      userId,
+    );
+
+    const document = await this.prisma.document.create({
+      data: {
+        documentNumber,
+        userId,
+        companyProfileId,
+        customerId: dto.customerId ?? null,
+        documentTypeId: docType.id,
+        formDefinitionId: formDefinition.id,
+        receiptTemplateId: template.id,
+        status: DocumentStatus.DRAFT,
+        contractDate: new Date(),
+        issueDate: issueDateColumn,
+        isDeferred,
+        notifyOnIssueDate: isDeferred
+          ? (dto.notifyOnIssueDate ?? false)
+          : false,
+        countedInBilling: false,
+        isOverage: false,
+        data: { create: { dataJson } },
+      },
+    });
+
+    try {
+      await this.persistReceiptToR2(
+        document.id,
+        companyProfileId,
+        pdfBuffer,
+        `${receiptNumber}.pdf`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[ReceiptsService] R2 persist failed for invoice ${receiptNumber}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    // Draft — no email (same shape as createReceipt). A deferred (future-dated)
+    // invoice is NEVER sent at create, even with send=true: it waits for its date.
+    if (!dto.send || isDeferred) {
+      return { document, receiptNumber, pdf: pdfBuffer };
+    }
+
+    // Send: email the invoice PDF to the recipient. SAME mechanism as receipts —
+    // never throws on delivery failure; flips SENT / SEND_FAILED and returns the
+    // real status so the UI toast reflects the truth. (No receipt-quota counting.)
+    const recipientEmail = (
+      dto.recipientEmail ??
+      dataJson.recipient_email ??
+      ''
+    ).trim();
+    if (!recipientEmail) {
+      throw new BadRequestException(
+        'recipientEmail is required when send=true',
+      );
+    }
+    const company = await this.prisma.companyProfile.findUnique({
+      where: { id: companyProfileId },
+      select: { companyName: true },
+    });
+    const clientName =
+      (dataJson.company_name ?? '').trim() ||
+      [dataJson.first_name, dataJson.last_name]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ') ||
+      'Customer';
+
+    try {
+      const { id: providerEmailId } = await this.email.sendInvoice({
+        to: recipientEmail,
+        receiptNumber,
+        clientName,
+        companyName: company?.companyName ?? 'NTSsign',
+        pdfBuffer,
+      });
+      const sent = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SENT,
+          sentAt: new Date(),
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
+          providerEmailId: providerEmailId || null,
+          sendError: null,
+        },
+      });
+      return { document: sent, receiptNumber, pdf: pdfBuffer };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[ReceiptsService] Invoice ${receiptNumber} email failed: ${reason}`,
+      );
+      const failed = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: reason,
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
+        },
+      });
+      return {
+        document: failed,
+        receiptNumber,
+        pdf: pdfBuffer,
+        sendError: reason,
+      };
+    }
+  }
+
+  /**
+   * Finalize (send) an existing DRAFT invoice — the manual "finalize" path used
+   * once a deferred invoice reaches its issue date, and for any draft invoice the
+   * user chose not to send at create. Regenerates the PDF from stored data and
+   * emails it (same mechanism as createReceipt: never throws on delivery failure,
+   * flips SENT / SEND_FAILED). Blocked while the invoice is still deferred.
+   */
+  async sendDraftInvoice(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+      include: { data: true, receiptTemplate: true },
+    });
+    if (!document || !document.receiptTemplate) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (document.status !== DocumentStatus.DRAFT) {
+      throw new BadRequestException('Only draft invoices can be sent');
+    }
+    // A deferred invoice can't be finalized before its issue date arrives.
+    await this.assertDeferredDue(document);
+
+    const dataJson =
+      (document.data?.dataJson as Record<string, string> | undefined) ?? {};
+    const recipientEmail = (dataJson.recipient_email ?? '').trim();
+    if (!recipientEmail) {
+      throw new BadRequestException('This invoice has no recipient email');
+    }
+
+    const pdfBuffer = await this.renderInvoice(
+      document.receiptTemplate,
+      this.buildInvoicePdfData(dataJson),
+    );
+    const company = await this.prisma.companyProfile.findUnique({
+      where: { id: user.companyProfileId },
+      select: { companyName: true },
+    });
+    const clientName =
+      (dataJson.company_name ?? '').trim() ||
+      [dataJson.first_name, dataJson.last_name]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ') ||
+      'Customer';
+    const receiptNumber = dataJson.receipt_number ?? document.documentNumber;
+
+    try {
+      const { id: providerEmailId } = await this.email.sendInvoice({
+        to: recipientEmail,
+        receiptNumber,
+        clientName,
+        companyName: company?.companyName ?? 'NTSsign',
+        pdfBuffer,
+      });
+      const sent = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SENT,
+          sentAt: new Date(),
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
+          providerEmailId: providerEmailId || null,
+          sendError: null,
+        },
+      });
+      return { document: sent };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[ReceiptsService] Invoice ${document.documentNumber} send failed: ${reason}`,
+      );
+      const failed = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: reason,
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: 1,
+          lastAttemptAt: new Date(),
+        },
+      });
+      return { document: failed, sendError: reason };
+    }
+  }
+
+  /**
+   * Stream a freshly-regenerated invoice PDF from the stored form data, using the
+   * SAME renderMode dispatch + adapter as create — a view/download is byte-for-byte
+   * the same pipeline. (Invoices are not emailed in this phase.)
+   */
+  async streamInvoicePdf(
+    userId: string,
+    documentId: string,
+    res: Response,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, companyProfileId: user.companyProfileId },
+      include: { data: true, receiptTemplate: true },
+    });
+    if (!document || !document.receiptTemplate) {
+      throw new NotFoundException('Invoice not found');
+    }
+    const dataJson =
+      (document.data?.dataJson as Record<string, string> | undefined) ?? {};
+    const pdfData = this.buildInvoicePdfData(dataJson);
+    const pdfBuffer = await this.renderInvoice(
+      document.receiptTemplate,
+      pdfData,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${document.documentNumber}.pdf"`,
+    );
+    res.end(pdfBuffer);
+  }
+
+  /**
+   * Edit a DRAFT invoice: merge the new form data over the stored data, recompute
+   * the money server-side, re-render + re-persist the PDF, and keep the same
+   * number + issue date. Mirrors updateReceipt (DRAFT-only, tenant-scoped).
+   */
+  async updateInvoice(
+    userId: string,
+    documentId: string,
+    dto: CreateInvoiceDto,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+      include: { data: true, receiptTemplate: true },
+    });
+    if (!document) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (document.status !== DocumentStatus.DRAFT) {
+      throw new BadRequestException('Only draft invoices can be edited');
+    }
+
+    // Start from the stored form data (string-coerced), overwrite with the edit.
+    const stored: Record<string, string> = {};
+    const raw = document.data?.dataJson;
+    if (raw && typeof raw === 'object') {
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof v === 'string') stored[k] = v;
+        else if (typeof v === 'number') stored[k] = String(v);
+      }
+    }
+    const mergedForm = { ...stored, ...dto.data };
+    // Preserve the original number; recompute totals from qty×price.
+    const receiptNumber = stored.receipt_number ?? '';
+
+    // Issue date + schedule. Only when the edit actually carries an issueDate
+    // (the "Billed to" section) do we re-resolve it — which enforces the same
+    // past-year rule as create and recomputes the defer/schedule state. Editing
+    // any other section leaves the date and schedule untouched.
+    const editHasIssueDate =
+      typeof dto.data.issueDate === 'string' && dto.data.issueDate.trim() !== '';
+    let issueDateStr =
+      stored.invoice_date ?? this.formatInvoiceDate(new Date());
+    let issueDateColumn = document.issueDate;
+    let isDeferred = document.isDeferred;
+    let notifyOnIssueDate = document.notifyOnIssueDate;
+    let deferredNotifiedAt = document.deferredNotifiedAt;
+
+    if (editHasIssueDate) {
+      const resolved = await this.resolveIssueDate(
+        user.companyProfileId,
+        dto.data.issueDate,
+      );
+      const parts = parseCalendarDate(dto.data.issueDate);
+      issueDateStr = parts
+        ? this.formatInvoicePartsUS(parts)
+        : this.formatInvoiceDate(new Date());
+      issueDateColumn = resolved.column;
+      isDeferred = resolved.isFuture;
+      // Automatic state transitions driven by the new date:
+      //  • future  → (re)schedule: keep/refresh the opt-in.
+      //  • today/past → un-defer: clear the opt-in.
+      // Always reset deferredNotifiedAt so the hourly scanner notifies at the NEW
+      // date and never fires (again) for a stale/cancelled schedule.
+      notifyOnIssueDate = isDeferred
+        ? (dto.notifyOnIssueDate ?? document.notifyOnIssueDate ?? false)
+        : false;
+      deferredNotifiedAt = null;
+    }
+
+    const dataJson = this.buildInvoiceDataJson(
+      mergedForm,
+      receiptNumber,
+      issueDateStr,
+    );
+
+    const updated = await this.prisma.document.update({
+      where: { id: document.id },
+      data: {
+        customerId: dto.customerId ?? document.customerId,
+        lastEditedAt: new Date(),
+        issueDate: issueDateColumn,
+        isDeferred,
+        notifyOnIssueDate,
+        deferredNotifiedAt,
+        data: { update: { dataJson } },
+      },
+      include: { data: true },
+    });
+
+    // Re-render + overwrite the stored PDF so a view/download reflects the edit.
+    const template =
+      document.receiptTemplate ??
+      (await this.resolveActivePdfTemplate(
+        user.companyProfileId,
+        TemplateCategory.INVOICE,
+      ));
+    if (template) {
+      try {
+        const pdfBuffer = await this.renderInvoice(
+          template,
+          this.buildInvoicePdfData(dataJson),
+        );
+        await this.persistReceiptToR2(
+          document.id,
+          user.companyProfileId,
+          pdfBuffer,
+          `${receiptNumber || document.documentNumber}.pdf`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `[ReceiptsService] invoice re-render/persist failed for ${document.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return { document: updated };
+  }
+
+  /**
+   * Void an invoice: mark it VOID (supersededAt) and clear any deferred schedule,
+   * so a cancelled/scheduled invoice reads as VOID everywhere (list, badge, card,
+   * timeline) — the same VOID treatment receipts get. Terminal: a voided invoice
+   * cannot be voided again.
+   */
+  async voidInvoice(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+    });
+    if (!document) throw new NotFoundException('Invoice not found');
+    if (document.supersededAt) {
+      throw new BadRequestException('This invoice is already void');
+    }
+    const updated = await this.prisma.document.update({
+      where: { id: documentId },
+      data: {
+        supersededAt: new Date(),
+        // No longer scheduled — drop the defer flags + cancel any pending notify.
+        isDeferred: false,
+        notifyOnIssueDate: false,
+        deferredNotifiedAt: null,
+      },
+    });
+    return { document: updated };
+  }
+
+  // Dispatch the render by the template's standard renderMode:
+  //   'acroform-overlay' → generateFromAcroFormOverlay (hybrid — invoices)
+  //   'acroform'         → generateFromAcroForm (legacy AcroForm fill)
+  //   'overlay'/other    → generate (coordinate stamp — receipts)
+  // renderMode lives on ReceiptTemplateStandard (not the per-tenant instance), so
+  // resolve it via the instance's standardId. Defaults to the hybrid engine.
+  private async renderInvoice(
+    template: ReceiptTemplate,
+    pdfData: Record<string, string | number>,
+  ): Promise<Buffer> {
+    const like = template as unknown as ReceiptTemplateLike;
+    const standard = template.standardId
+      ? await this.prisma.receiptTemplateStandard.findUnique({
+          where: { id: template.standardId },
+          select: { renderMode: true },
+        })
+      : null;
+    const mode = standard?.renderMode ?? 'acroform-overlay';
+    if (mode === 'acroform-overlay') {
+      return this.receiptPdf.generateFromAcroFormOverlay(like, pdfData);
+    }
+    if (mode === 'acroform') {
+      return this.receiptPdf.generateFromAcroForm(like, pdfData);
+    }
+    return this.receiptPdf.generate(like, pdfData);
+  }
+
+  // ── Invoice data adapters ───────────────────────────────────────────────────
+
+  private formatInvoiceDate(d: Date): string {
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${mm}/${dd}/${d.getFullYear()}`;
+  }
+
+  /**
+   * Issue-date policy (invoices AND receipts): the user-editable issue date may not
+   * be earlier than January 1 of the tenant's CURRENT year (in the tenant's
+   * timezone). Returns the @db.Date column value for the calendar date, or null when
+   * no parseable date is given. Throws BadRequest on a past-year date. Accepts both
+   * "YYYY-MM-DD" (invoice date input) and "MM/DD/YYYY" (receipt US format).
+   */
+  private async resolveIssueDate(
+    companyProfileId: string,
+    raw: string | null | undefined,
+  ): Promise<{ column: Date | null; isFuture: boolean }> {
+    const parts = parseCalendarDate(raw);
+    if (!parts) return { column: null, isFuture: false };
+    const profile = await this.prisma.companyProfile.findUnique({
+      where: { id: companyProfileId },
+      select: { timezone: true },
+    });
+    const tz = profile?.timezone;
+    if (parts.year < tenantCurrentYear(tz)) {
+      throw new BadRequestException(
+        'The issue date cannot be earlier than January 1 of the current year.',
+      );
+    }
+    return {
+      column: toDateOnly(parts),
+      isFuture: isFutureCalendarDate(parts, tz),
+    };
+  }
+
+  /** MM/DD/YYYY string for the invoice PDF, straight from calendar parts (no Date
+   *  round-trip, so no timezone drift). */
+  private formatInvoicePartsUS(parts: {
+    year: number;
+    month: number;
+    day: number;
+  }): string {
+    const mm = String(parts.month).padStart(2, '0');
+    const dd = String(parts.day).padStart(2, '0');
+    return `${mm}/${dd}/${parts.year}`;
+  }
+
+  /** Send guard for deferred (future-dated) documents: a deferred doc cannot be
+   *  sent/finalized until its issue date has arrived in the tenant's timezone. */
+  private async assertDeferredDue(document: {
+    companyProfileId: string | null;
+    issueDate: Date | null;
+    isDeferred: boolean;
+  }): Promise<void> {
+    if (!document.isDeferred || !document.issueDate) return;
+    const profile = document.companyProfileId
+      ? await this.prisma.companyProfile.findUnique({
+          where: { id: document.companyProfileId },
+          select: { timezone: true },
+        })
+      : null;
+    if (!isDueInTenantTz(document.issueDate, profile?.timezone)) {
+      const due = document.issueDate.toISOString().slice(0, 10);
+      throw new BadRequestException(
+        `This document is scheduled for ${due} and cannot be sent until then.`,
+      );
+    }
+  }
+
+  private toMoney(raw: string | number | null | undefined): number {
+    const n = Number(String(raw ?? '').replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  private fmtMoney(n: number): string {
+    return n.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  // Merge the raw wizard form data with the server number, issue date and the
+  // recomputed money (total = qty × price; subtotal = total; gran_total = subtotal,
+  // since Laura is a single line). This is exactly what is stored in dataJson and
+  // the only input to buildInvoicePdfData — create and re-render stay consistent.
+  private buildInvoiceDataJson(
+    form: Record<string, string>,
+    receiptNumber: string,
+    issueDate: string,
+  ): Record<string, string> {
+    const qty = Math.max(
+      0,
+      Math.trunc(
+        Number(String(form.quantity ?? '').replace(/[^0-9]/g, '')) || 0,
+      ),
+    );
+    const price = this.toMoney(form.price);
+    const total = qty * price;
+    return {
+      ...form,
+      quantity: String(qty),
+      price: this.fmtMoney(price),
+      total: this.fmtMoney(total),
+      subtotal: this.fmtMoney(total),
+      gran_total: this.fmtMoney(total),
+      receipt_number: receiptNumber,
+      invoice_date: issueDate,
+    };
+  }
+
+  // Adapt the stored invoice data into the base PDF's flat AcroForm fields:
+  // billed_to = 3 composed lines, service = 4 composed lines, the SHORT display
+  // number ("0001" — the label already reads "Invoice No."), and money already
+  // formatted with NO "$" (the base art draws the "$"). Field names MUST match the
+  // template's fieldMappingJson — note gran_total (not grand_total).
+  private buildInvoicePdfData(
+    data: Record<string, string>,
+  ): Record<string, string | number> {
+    const name =
+      (data.company_name ?? '').trim() ||
+      [data.first_name, data.middle_name, data.last_name]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ');
+    const cityState = [data.city, data.state]
+      .map((s) => (s ?? '').trim())
+      .filter(Boolean)
+      .join(', ');
+    const cityStateZip = [cityState, (data.zip ?? '').trim()]
+      .filter(Boolean)
+      .join(' ');
+    const billed_to = [name, (data.street ?? '').trim(), cityStateZip]
+      .filter((l) => l && l.length)
+      .join('\n');
+
+    const service = [
+      (data.service_type ?? '').trim(),
+      `Event Date: ${(data.event_date ?? '').trim()}`,
+      `Event Name: ${(data.event_name ?? '').trim()}`,
+      `Event Location: ${(data.event_location ?? '').trim()}`,
+    ].join('\n');
+
+    // Short number for the small box; the canonical INV-YYYY-NNNN stays in dataJson.
+    const numberShort =
+      (data.receipt_number ?? '').split('-').pop() ||
+      (data.receipt_number ?? '');
+
+    return {
+      billed_to,
+      number: numberShort,
+      date: data.invoice_date ?? '',
+      service,
+      quantity: data.quantity ?? '',
+      price: data.price ?? '',
+      total: data.total ?? '',
+      subtotal: data.subtotal ?? '',
+      gran_total: data.gran_total ?? '',
+    };
+  }
+
   private buildPdfData(src: ReceiptPdfSource): Record<string, string | number> {
     return {
       receipt_number: src.receipt_number,
@@ -516,6 +1244,8 @@ export class ReceiptsService {
    */
   async resendReceipt(userId: string, documentId: string) {
     const document = await this.loadReceiptForUser(userId, documentId);
+    // A deferred receipt can't be sent before its issue date arrives.
+    await this.assertDeferredDue(document);
     const isFailed = document.status === DocumentStatus.SEND_FAILED;
     const isSent = document.status === DocumentStatus.SENT;
     const isDraft = document.status === DocumentStatus.DRAFT;
@@ -786,6 +1516,30 @@ export class ReceiptsService {
     setIf('received_by', dto.received_by);
     setIf('phone', dto.phone);
 
+    // Billed-to split: when the edit carries it, recompose `client` from the
+    // parts and store them (mirrors createReceipt). Otherwise the setIf('client')
+    // above stands (older / no-split edits).
+    const hasSplit =
+      dto.business !== undefined ||
+      dto.company_name !== undefined ||
+      dto.first_name !== undefined ||
+      dto.middle_name !== undefined ||
+      dto.last_name !== undefined;
+    if (hasSplit) {
+      const composed = dto.business
+        ? (dto.company_name ?? '').trim()
+        : [dto.first_name, dto.middle_name, dto.last_name]
+            .map((s) => (s ?? '').trim())
+            .filter(Boolean)
+            .join(' ');
+      if (composed) merged.client = composed;
+      merged.business = dto.business ? 'true' : '';
+      merged.company_name = (dto.company_name ?? '').trim();
+      merged.first_name = (dto.first_name ?? '').trim();
+      merged.middle_name = (dto.middle_name ?? '').trim();
+      merged.last_name = (dto.last_name ?? '').trim();
+    }
+
     const updated = await this.prisma.document.update({
       where: { id: document.id },
       data: {
@@ -908,16 +1662,26 @@ export class ReceiptsService {
       now.getMonth() + 1,
     ).padStart(2, '0')}`;
 
+    // Count the tenant's DIRECT_PDF documents — receipts AND invoices. Both are
+    // the "documents" this dashboard summarizes for a receipts-only tenant.
     const receipts = await this.prisma.document.findMany({
       where: {
         companyProfileId: user.companyProfileId,
-        documentType: { code: RECEIPT_TYPE_CODE },
+        documentType: {
+          code: { in: [RECEIPT_TYPE_CODE, INVOICE_TYPE_CODE] },
+        },
+        // B7: a soft-deleted doc is not an issued receipt/invoice — keep it out
+        // of the dashboard counts (for everyone, including SUPERADMIN).
+        deletedAt: null,
       },
       select: {
         status: true,
         supersededAt: true,
         countedAsReceipt: true,
         billingPeriod: true,
+        sentAt: true,
+        isDeferred: true,
+        documentType: { select: { code: true } },
         data: { select: { dataJson: true } },
       },
     });
@@ -927,15 +1691,35 @@ export class ReceiptsService {
     let sendFailed = 0;
     let cancelled = 0;
     let voided = 0;
+    // Deferred (future-dated) drafts — a SUBSET of `draft` (kept whole for the
+    // Overview breakdown); the Documents pills split it out into its own card.
+    let scheduled = 0;
     let amountThisMonth = 0;
     let receiptsThisMonth = 0;
+    // Tenant-wide type split for the dashboard's separated cards (owner spec
+    // 2026-07-11): every receipt / invoice / signature doc of the tenant, ALL
+    // statuses (not scoped to draft/sent). Receipts + invoices are derived from
+    // the DIRECT_PDF findMany above; signatures are counted separately below.
+    let invoicesCount = 0;
+    let receiptsCount = 0;
+    // This-month counts split by type, for the Overview "detail" popup. Their sum
+    // equals receiptsThisMonth (the "Receipts this month" card), so the popup's
+    // Total always matches the card. Same conditions as the combined counter below.
+    let receiptsMonthCount = 0;
+    let invoicesMonthCount = 0;
 
     for (const r of receipts) {
+      if (r.documentType?.code === INVOICE_TYPE_CODE) {
+        invoicesCount++;
+      } else {
+        receiptsCount++;
+      }
       // VOID is derived (supersededAt set); the internal status stays SENT.
       if (r.supersededAt) {
         voided++;
       } else if (r.status === DocumentStatus.DRAFT) {
         draft++;
+        if (r.isDeferred) scheduled++;
       } else if (r.status === DocumentStatus.SENT) {
         sent++;
       } else if (r.status === DocumentStatus.SEND_FAILED) {
@@ -944,13 +1728,32 @@ export class ReceiptsService {
         cancelled++;
       }
 
-      // $ this month = amount of receipts counted toward billing this period.
-      if (r.countedAsReceipt && r.billingPeriod === billingPeriod) {
-        receiptsThisMonth++;
+      // $ + count this month. Receipts: billing-counted this period (Model C).
+      // Invoices don't consume the receipt quota (not countedAsReceipt), so they
+      // count here when SENT with sentAt in the current period — reading their
+      // gran_total (a formatted "1,234.56" string), not the receipt `amount`.
+      const isInvoice = r.documentType?.code === INVOICE_TYPE_CODE;
+      if (isInvoice) {
+        const sentPeriod =
+          r.status === DocumentStatus.SENT && r.sentAt
+            ? `${r.sentAt.getFullYear()}-${String(
+                r.sentAt.getMonth() + 1,
+              ).padStart(2, '0')}`
+            : null;
+        if (sentPeriod === billingPeriod) {
+          invoicesMonthCount++;
+          const dataJson = (r.data?.dataJson ?? {}) as Record<string, unknown>;
+          amountThisMonth += this.toMoney(this.readStr(dataJson.gran_total));
+        }
+      } else if (r.countedAsReceipt && r.billingPeriod === billingPeriod) {
+        receiptsMonthCount++;
         const dataJson = (r.data?.dataJson ?? {}) as Record<string, unknown>;
         amountThisMonth += this.readNum(dataJson.amount, 0);
       }
     }
+
+    // "Receipts this month" card = receipts + invoices billed/sent this period.
+    receiptsThisMonth = receiptsMonthCount + invoicesMonthCount;
 
     // Top 5 clients by receipt count (all-time). Grouped in the DB, then joined to
     // the customer name. Receipts without a customer are excluded.
@@ -958,7 +1761,9 @@ export class ReceiptsService {
       by: ['customerId'],
       where: {
         companyProfileId: user.companyProfileId,
-        documentType: { code: RECEIPT_TYPE_CODE },
+        documentType: {
+          code: { in: [RECEIPT_TYPE_CODE, INVOICE_TYPE_CODE] },
+        },
         customerId: { not: null },
       },
       _count: { customerId: true },
@@ -980,14 +1785,38 @@ export class ReceiptsService {
       count: g._count.customerId,
     }));
 
+    // Signature documents (BoldSign) live under BOLDSIGN document types — NOT in
+    // the DIRECT_PDF findMany above — so they need their own tenant-wide count.
+    const signaturesCount =
+      (await this.prisma.document.count({
+        where: {
+          companyProfileId: user.companyProfileId,
+          documentType: { generationMode: GenerationMode.BOLDSIGN },
+        },
+      })) ?? 0;
+
     return {
       billingPeriod,
       receiptsThisMonth,
       // "Total issued" = active (non-void) sent receipts.
       totalIssued: sent,
       amountThisMonth,
-      byStatus: { draft, sent, sendFailed, cancelled, void: voided },
+      byStatus: { draft, sent, sendFailed, cancelled, void: voided, scheduled },
       topClients,
+      // Separated per-type counters for the dashboard cards (informational).
+      documentCounts: {
+        invoices: invoicesCount,
+        receipts: receiptsCount,
+        signatures: signaturesCount,
+        total: invoicesCount + receiptsCount + signaturesCount,
+      },
+      // This-month split by type for the Overview "detail" popup. Total ===
+      // receiptsThisMonth (the card figure).
+      monthlyCounts: {
+        receipts: receiptsMonthCount,
+        invoices: invoicesMonthCount,
+        total: receiptsMonthCount + invoicesMonthCount,
+      },
     };
   }
 }

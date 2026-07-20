@@ -6,11 +6,13 @@ import { useTheme } from "next-themes";
 import toast from "react-hot-toast";
 import { SendToast } from "../../components/dashboard/panels/v2/documents/SendToast";
 import { API_URL, apiRequest } from "../../lib/api";
+import { detectBrowserTimeZone } from "../../lib/tenant-date";
 import { getPlanEntry } from "../../lib/plan-catalog";
 import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel, TemplatesPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
+import { invoiceRecipientName } from "../../components/dashboard/panels/v2/documents/types";
 import type {
   V2DocumentItem,
   DocumentVersion as V2DocumentVersion,
@@ -160,6 +162,11 @@ export type DashboardDocument = {
   completedAt?: string | null;
   countedInBilling: boolean;
   isOverage: boolean;
+  // Issue-date feature: editable issue date (ISO) + deferred (future-dated) state.
+  issueDate?: string | null;
+  isDeferred?: boolean;
+  notifyOnIssueDate?: boolean;
+  deferredNotifiedAt?: string | null;
   // Reissue (2c): set on a receipt once it has been superseded/voided.
   supersededAt?: string | null;
   documentType?: {
@@ -495,6 +502,11 @@ function DashboardPageInner() {
   const [error, setError] = useState("");
 
   const staticDataLoaded = useRef(false);
+  // Fires the browser-timezone auto-detect once per session (see effect below).
+  const tzSyncedRef = useRef(false);
+  // Bumped on every loadWorkspace so the panels' mount-only receipt-stats effect
+  // refetches after a create/send (loadWorkspace itself doesn't fetch that stat).
+  const [workspaceVersion, setWorkspaceVersion] = useState(0);
 
   const loadWorkspace = useCallback(
     async (currentSelectedId?: string | null) => {
@@ -565,6 +577,11 @@ function DashboardPageInner() {
 
       setSelectedDocumentId(nextSelectedId);
 
+      // Bump so the panels' receipt-stats effect refetches /documents/receipt/stats
+      // (that stat isn't part of loadWorkspace) — keeps the Documents/Overview
+      // cards in sync after creating/sending a receipt OR invoice.
+      setWorkspaceVersion((v) => v + 1);
+
       return {
         myDocuments,
         nextSelectedId,
@@ -592,6 +609,19 @@ function DashboardPageInner() {
     localStorage.setItem("theme", "dark");
     setTheme("dark");
   }, [setTheme]);
+
+  // Auto-detect the tenant's timezone from the browser and save it once, after the
+  // user is authenticated. The backend sets it only if the tenant has none yet
+  // (first-write-wins), so this is safe to fire on every login. Best-effort — a
+  // failure never blocks the dashboard, and no timezone → America/New_York fallback.
+  useEffect(() => {
+    if (!dashboardUser?.id || tzSyncedRef.current) return;
+    tzSyncedRef.current = true;
+    apiRequest("/company-profile/timezone", {
+      method: "PATCH",
+      body: { timezone: detectBrowserTimeZone() },
+    }).catch(() => {});
+  }, [dashboardUser?.id]);
 
   useEffect(() => {
     function syncUser() {
@@ -1181,6 +1211,25 @@ function DashboardPageInner() {
     return window.URL.createObjectURL(blob);
   }
 
+  // Invoice PDF is regenerated on the fly (GET /documents/invoice/:id/pdf), same
+  // as the receipt flow — powers the SENT invoice's Preview tab in the detail.
+  async function handleFetchInvoicePdf(documentId: string): Promise<string> {
+    const response = await fetch(
+      `${API_URL}/documents/invoice/${documentId}/pdf`,
+      { credentials: "include" },
+    );
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearSession();
+        router.replace("/");
+        return "";
+      }
+      throw new Error(`Request failed with status ${response.status}`);
+    }
+    const blob = await response.blob();
+    return window.URL.createObjectURL(blob);
+  }
+
   // Optimistic send: show a top-right toast with an animated bar that resolves
   // to the REAL result (SENT → success; SEND_FAILED / cooldown 400 → error with
   // the reason). The caller has already closed the popup. Fire-and-forget.
@@ -1293,6 +1342,22 @@ function DashboardPageInner() {
     });
     await loadWorkspace();
     toast.success("Receipt voided");
+  }
+
+  async function handleVoidInvoice(documentId: string): Promise<void> {
+    await apiRequest(`/documents/invoice/${documentId}/void`, {
+      method: "POST",
+    });
+    await loadWorkspace();
+    toast.success("Invoice voided");
+  }
+
+  // B7: soft-delete a DRAFT document (invoice or receipt). The backend stamps
+  // deletedAt; the owner stops seeing it (a SUPERADMIN still does).
+  async function handleDeleteDocument(documentId: string): Promise<void> {
+    await apiRequest(`/documents/${documentId}`, { method: "DELETE" });
+    await loadWorkspace();
+    toast.success("Draft deleted");
   }
 
   async function handleUpdateDraft(
@@ -1598,12 +1663,15 @@ function DashboardPageInner() {
         return response.customers;
       },
       onCreateCustomer: async (data: V2CustomerFormData) => {
-        return apiRequest<Customer>("/customers", { method: "POST", body: data });
+        return apiRequest<Customer>("/customers", {
+          method: "POST",
+          body: sanitizeCustomerCreate(data as unknown as Record<string, unknown>),
+        });
       },
       onUpdateCustomer: async (id: string, data: V2CustomerFormData) => {
         return apiRequest<Customer>(`/customers/${id}`, {
           method: "PATCH",
-          body: data,
+          body: sanitizeCustomerUpdate(data as unknown as Record<string, unknown>),
         });
       },
       onDeleteCustomer: async (id: string) => {
@@ -1798,6 +1866,10 @@ function DashboardPageInner() {
           const v = dj[k];
           if (typeof v === "string" && v.trim()) return v.trim();
         }
+        // Invoices keep the recipient in the billed_to fields (company_name or
+        // first/last), not the NAME_KEYS above.
+        const invoiceName = invoiceRecipientName(dj);
+        if (invoiceName) return invoiceName;
         return doc.lastSentRecipientEmail || "—";
       };
       return backendDocs.map((doc) => ({
@@ -2165,6 +2237,11 @@ function DashboardPageInner() {
       },
       onCreateReceipt: async (payload: {
         client: string;
+        business?: boolean;
+        company_name?: string;
+        first_name?: string;
+        middle_name?: string;
+        last_name?: string;
         recipientEmail?: string;
         amount: number;
         date: string;
@@ -2175,6 +2252,7 @@ function DashboardPageInner() {
         payment_total?: number;
         received_by?: string;
         send: boolean;
+        notifyOnIssueDate?: boolean;
         receiptTemplateId?: string;
       }) => {
         if (payload.send) {
@@ -2218,6 +2296,96 @@ function DashboardPageInner() {
           );
           return { status: "DRAFT", sendError: null };
         }
+      },
+      onCreateInvoice: async (payload: {
+        data: Record<string, string>;
+        customerId?: string;
+        send?: boolean;
+        recipientEmail?: string;
+        notifyOnIssueDate?: boolean;
+      }) => {
+        // "Create and send": reuse the receipt send feedback (animated toast that
+        // resolves to the REAL SENT / SEND_FAILED result). Optimistic — the modal
+        // has already closed. No PDF is opened automatically.
+        if (payload.send) {
+          runSendWithToast(
+            async () => {
+              const res = await apiRequest<{
+                message: string;
+                document: { status: string };
+                sendError: string | null;
+              }>("/documents/invoice", { method: "POST", body: payload });
+              await loadWorkspace();
+              return {
+                status: res.document?.status ?? "SENT",
+                sendError: res.sendError ?? null,
+              };
+            },
+            { loading: "Sending invoice…", success: "Invoice sent successfully" },
+          );
+          return;
+        }
+        // Draft — plain create toast, NO auto-opened PDF (standard doc feedback).
+        const tid = toast.loading("Creating invoice…");
+        try {
+          await apiRequest("/documents/invoice", {
+            method: "POST",
+            body: payload,
+          });
+        } catch (e) {
+          toast.dismiss(tid);
+          throw e; // modal surfaces the error inline + stays open for a retry
+        }
+        toast.success("Invoice created", { id: tid });
+        try {
+          await loadWorkspace();
+        } catch {
+          /* list refresh is best-effort */
+        }
+      },
+      onUpdateInvoice: async (
+        docId: string,
+        payload: {
+          data: Record<string, string>;
+          customerId?: string;
+          notifyOnIssueDate?: boolean;
+        },
+      ) => {
+        const tid = toast.loading("Saving invoice…");
+        try {
+          await apiRequest(`/documents/invoice/${docId}`, {
+            method: "PATCH",
+            body: payload,
+          });
+        } catch (e) {
+          toast.dismiss(tid);
+          throw e; // modal keeps the inline error + stays open
+        }
+        toast.success("Invoice updated", { id: tid });
+        try {
+          await loadWorkspace();
+        } catch {
+          /* list refresh is best-effort */
+        }
+      },
+      // Finalize a DRAFT invoice (send). Uses the shared send-toast (SENT /
+      // SEND_FAILED); the backend blocks it while the invoice is still deferred.
+      onSendInvoice: async (docId: string) => {
+        runSendWithToast(
+          async () => {
+            const res = await apiRequest<{
+              message: string;
+              document: { status: string };
+              sendError: string | null;
+            }>(`/documents/invoice/${docId}/send`, { method: "POST" });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          },
+          { loading: "Sending invoice…", success: "Invoice sent successfully" },
+        );
       },
       defaultReceivedBy: (() => {
         const userName = [dashboardUser?.firstName, dashboardUser?.lastName]
@@ -2293,7 +2461,10 @@ function DashboardPageInner() {
       onUpdateReceipt: handleUpdateReceipt,
       onReissueReceipt: handleReissueReceipt,
       onVoidReceipt: handleVoidReceipt,
+      onVoidInvoice: handleVoidInvoice,
+      onDeleteDocument: handleDeleteDocument,
       onFetchReceiptPdf: handleFetchReceiptPdf,
+      onFetchInvoicePdf: handleFetchInvoicePdf,
     };
 
     const panelContent =
@@ -2308,6 +2479,7 @@ function DashboardPageInner() {
           isLoading={isLoading}
           contractsEnabled={usage?.contractsEnabled ?? true}
           onFetchReceiptStats={fetchReceiptStats}
+          receiptStatsRefreshKey={workspaceVersion}
           onNewDocument={() => router.push("/dashboard?panel=documents&new=1")}
           onOpenDocument={(docId) => router.push(`/dashboard?panel=documents&doc=${docId}`)}
           onViewAllAttention={() => router.push("/dashboard?panel=documents&status=SENT")}
@@ -2384,6 +2556,9 @@ function DashboardPageInner() {
           onRefreshCustomers={refreshCustomers}
           onCreateDraft={documentsV2.onCreateDraft}
           onCreateReceipt={documentsV2.onCreateReceipt}
+          onCreateInvoice={documentsV2.onCreateInvoice}
+          onUpdateInvoice={documentsV2.onUpdateInvoice}
+          onSendInvoice={documentsV2.onSendInvoice}
           defaultReceivedBy={documentsV2.defaultReceivedBy}
           onEditDocument={documentsV2.onEditDocument}
           onDocumentAction={documentsV2.onDocumentAction}
@@ -2398,10 +2573,14 @@ function DashboardPageInner() {
           onUpdateReceipt={documentsV2.onUpdateReceipt}
           onReissueReceipt={documentsV2.onReissueReceipt}
           onVoidReceipt={documentsV2.onVoidReceipt}
+          onVoidInvoice={documentsV2.onVoidInvoice}
+          onDeleteDocument={documentsV2.onDeleteDocument}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
+          onFetchInvoicePdf={documentsV2.onFetchInvoicePdf}
           isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
           contractsEnabled={usage?.contractsEnabled ?? true}
           onFetchReceiptStats={fetchReceiptStats}
+          receiptStatsRefreshKey={workspaceVersion}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={handleFetchTypesAsUser}
           receiptQuota={
@@ -2523,6 +2702,46 @@ const BUSINESS_OPTIONAL_FIELDS = [
   "primaryContactState",
   "primaryContactZipCode",
 ] as const satisfies ReadonlyArray<keyof CustomerBusinessFormValues>;
+
+// The V2 customer form emits '' for untouched optionals. The backend's
+// @IsOptional does NOT skip empty strings, so an '' email/uuid fails @IsEmail /
+// @IsUUID with a 400 ("email must be an email"). CREATE: drop empty optionals.
+// PATCH: send null so the field is explicitly cleared (null IS skipped by
+// @IsOptional). Both recurse into the nested `business` object.
+function sanitizeCustomerCreate(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) out[key] = trimmed;
+    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+      const nested = sanitizeCustomerCreate(value as Record<string, unknown>);
+      if (Object.keys(nested).length) out[key] = nested;
+    } else if (value != null) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function sanitizeCustomerUpdate(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      out[key] = trimmed ? trimmed : null;
+    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+      out[key] = sanitizeCustomerUpdate(value as Record<string, unknown>);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 function buildBusinessCreatePayload(
   business: CustomerBusinessFormValues,

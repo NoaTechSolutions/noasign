@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -114,6 +117,17 @@ export class DocumentsController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.documentsService.cancelDocument(req.user.id, id);
+  }
+
+  // B7 soft-delete: a DRAFT is deleted (soft), never voided. Service gates it to
+  // DRAFT + owner scope and stamps deletedAt.
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteDocument(
+    @Req() req: any,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    await this.documentsService.deleteDocument(req.user.id, id);
   }
 
   @Post(':id/reactivate')

@@ -408,27 +408,42 @@ input {
   --shadow-elev:   0 4px 16px rgba(2,41,119,0.10);
   --shadow-elev-1: 0 2px 6px rgba(2,41,119,0.06);
 
-  /* Status badges — SINGLE SOURCE for the 6 document states (+ receipt-only
-     failed/void). Consumed by the overview status strip, the Recent badges and
-     the Documents-module badges. Each state: a foreground colour + a soft tint
-     bg. Do NOT hardcode these hexes anywhere else. */
-  --status-draft:        #022977;
-  --status-draft-bg:     rgba(2, 41, 119, 0.10);
-  --status-sent:         #05a5ff;
-  --status-sent-bg:      rgba(5, 165, 255, 0.12);
-  --status-viewed:       #e08600;
-  --status-viewed-bg:    rgba(224, 134, 0, 0.12);
-  --status-signed:       #6d5ae0;
-  --status-signed-bg:    rgba(109, 90, 224, 0.12);
-  --status-completed:    #10b981;
-  --status-completed-bg: rgba(16, 185, 129, 0.12);
-  --status-cancelled:    #ef4444;
-  --status-cancelled-bg: rgba(239, 68, 68, 0.12);
-  /* Receipt-only states */
-  --status-failed:       #e08600;
-  --status-failed-bg:    rgba(224, 134, 0, 0.12);
-  --status-void:         #ef4444;
-  --status-void-bg:      rgba(239, 68, 68, 0.12);
+  /* Status colour SYSTEM — SINGLE SOURCE. Five colour families; every document
+     state maps to exactly one family (see STATUS_META in status-badge.tsx). Each
+     family = a foreground colour + a soft tint bg. Change a family here and every
+     badge / stat card / filter / overview strip that references it updates. Do
+     NOT hardcode these hexes anywhere else. */
+  --status-gray:         #64748b;
+  --status-gray-bg:      rgba(100, 116, 139, 0.12);
+  --status-blue:         #2563eb;
+  --status-blue-bg:      rgba(37, 99, 235, 0.12);
+  --status-green:        #059669;
+  --status-green-bg:     rgba(5, 150, 105, 0.12);
+  --status-amber:        #d97706;
+  --status-amber-bg:     rgba(217, 119, 6, 0.12);
+  --status-red:          #dc2626;
+  --status-red-bg:       rgba(220, 38, 38, 0.12);
+
+  /* Per-state aliases → family. Keep the existing badge / overview class names
+     working while the colour lives in ONE place. */
+  --status-draft:        var(--status-gray);
+  --status-draft-bg:     var(--status-gray-bg);
+  --status-scheduled:    var(--status-amber);
+  --status-scheduled-bg: var(--status-amber-bg);
+  --status-viewed:       var(--status-amber);
+  --status-viewed-bg:    var(--status-amber-bg);
+  --status-signed:       var(--status-blue);
+  --status-signed-bg:    var(--status-blue-bg);
+  --status-sent:         var(--status-blue);
+  --status-sent-bg:      var(--status-blue-bg);
+  --status-completed:    var(--status-green);
+  --status-completed-bg: var(--status-green-bg);
+  --status-failed:       var(--status-red);
+  --status-failed-bg:    var(--status-red-bg);
+  --status-cancelled:    var(--status-red);
+  --status-cancelled-bg: var(--status-red-bg);
+  --status-void:         var(--status-red);
+  --status-void-bg:      var(--status-red-bg);
 
   /* Gradients */
   --gradient-welcome: linear-gradient(135deg, #022977 0%, #0400f0 100%);
@@ -482,24 +497,37 @@ input {
   --shadow-elev:   0 4px 16px rgba(0,0,0,0.40);
   --shadow-elev-1: 0 2px 6px rgba(0,0,0,0.32);
 
-  /* Status badges — single source (dark variants). See the light block. */
-  --status-draft:        #93b4ff;
-  --status-draft-bg:     rgba(59, 130, 246, 0.16);
-  --status-sent:         #5cc6ff;
-  --status-sent-bg:      rgba(5, 165, 255, 0.16);
-  --status-viewed:       #fbbf24;
-  --status-viewed-bg:    rgba(245, 158, 11, 0.16);
-  --status-signed:       #a99bf0;
-  --status-signed-bg:    rgba(109, 90, 224, 0.22);
-  --status-completed:    #6ee7b7;
-  --status-completed-bg: rgba(16, 185, 129, 0.14);
-  --status-cancelled:    #f87171;
-  --status-cancelled-bg: rgba(239, 68, 68, 0.16);
-  /* Receipt-only states */
-  --status-failed:       #fbbf24;
-  --status-failed-bg:    rgba(245, 158, 11, 0.16);
-  --status-void:         #f87171;
-  --status-void-bg:      rgba(239, 68, 68, 0.16);
+  /* Status colour SYSTEM — dark variants. See the light block. Families first,
+     then per-state aliases. */
+  --status-gray:         #94a3b8;
+  --status-gray-bg:      rgba(148, 163, 184, 0.16);
+  --status-blue:         #60a5fa;
+  --status-blue-bg:      rgba(96, 165, 250, 0.16);
+  --status-green:        #34d399;
+  --status-green-bg:     rgba(52, 211, 153, 0.16);
+  --status-amber:        #fbbf24;
+  --status-amber-bg:     rgba(251, 191, 36, 0.16);
+  --status-red:          #f87171;
+  --status-red-bg:       rgba(248, 113, 113, 0.16);
+
+  --status-draft:        var(--status-gray);
+  --status-draft-bg:     var(--status-gray-bg);
+  --status-scheduled:    var(--status-amber);
+  --status-scheduled-bg: var(--status-amber-bg);
+  --status-viewed:       var(--status-amber);
+  --status-viewed-bg:    var(--status-amber-bg);
+  --status-signed:       var(--status-blue);
+  --status-signed-bg:    var(--status-blue-bg);
+  --status-sent:         var(--status-blue);
+  --status-sent-bg:      var(--status-blue-bg);
+  --status-completed:    var(--status-green);
+  --status-completed-bg: var(--status-green-bg);
+  --status-failed:       var(--status-red);
+  --status-failed-bg:    var(--status-red-bg);
+  --status-cancelled:    var(--status-red);
+  --status-cancelled-bg: var(--status-red-bg);
+  --status-void:         var(--status-red);
+  --status-void-bg:      var(--status-red-bg);
 
   /* Gradients */
   --gradient-welcome: linear-gradient(135deg, #05a5ff 0%, #0291dd 100%);

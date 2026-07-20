@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { DocumentsPanelHeader } from './DocumentsPanelHeader';
 import { DocumentsStats } from './DocumentsStats';
 import { ReceiptStatsPills } from './ReceiptStatsPills';
-import { ReceiptsUsageCard } from '../ReceiptsUsageCard';
+import { GeneratedDocsCard } from './GeneratedDocsCard';
+import { MonthBreakdownModal } from '../MonthBreakdownModal';
 import type { ReceiptStats } from '../ReceiptMetricCards';
 import { DocumentsToolbar } from './DocumentsToolbar';
 import { DocumentsTable } from './DocumentsTable';
@@ -29,7 +30,14 @@ import type {
   DocumentVersion,
   DocumentDetail,
 } from './types';
-import { BACKEND_ACTIONS, isReceiptDoc, isVoidedReceipt } from './types';
+import toast from 'react-hot-toast';
+import {
+  BACKEND_ACTIONS,
+  isDeferredPending,
+  isInvoiceDoc,
+  isReceiptDoc,
+  isVoidedDoc,
+} from './types';
 // Reuse the Clients bottom-sheet styles (card-actions-*) for the mobile document
 // card's Actions sheet — same pattern, no duplication. customer-card-* rules
 // target customer elements only, so they don't affect documents.
@@ -62,6 +70,25 @@ export interface DocumentsPanelProps {
   onCreateReceipt?: (
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
+  // Phase 2 — invoices (DIRECT_PDF, schema-driven wizard). POST /documents/invoice.
+  // `send` + `recipientEmail` drive "Create and send" (reuses the receipt email).
+  onCreateInvoice?: (payload: {
+    data: Record<string, string>;
+    customerId?: string;
+    send?: boolean;
+    recipientEmail?: string;
+  }) => Promise<void>;
+  // Edit a DRAFT invoice — PATCH /documents/invoice/:id (same body shape).
+  onUpdateInvoice?: (
+    docId: string,
+    payload: {
+      data: Record<string, string>;
+      customerId?: string;
+      notifyOnIssueDate?: boolean;
+    },
+  ) => Promise<void>;
+  // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send.
+  onSendInvoice?: (docId: string) => Promise<void>;
   defaultReceivedBy?: string;
   // Model C — receipt quota, forwarded to the receipt form's quota/overage hint.
   receiptQuota?: {
@@ -80,6 +107,8 @@ export interface DocumentsPanelProps {
   contractsEnabled?: boolean;
   // Receipts-only: fetches GET /documents/receipt/stats for the stat pills.
   onFetchReceiptStats?: () => Promise<ReceiptStats>;
+  // Bumped by the page after a create/send so the stats effect refetches.
+  receiptStatsRefreshKey?: number;
   // Superadmin flow: SUPERADMIN picks any user (all tenants) to borrow templates.
   selectableUsers?: SelectableUser[];
   onFetchTypesAsUser?: (userId: string) => Promise<DocumentTypeOption[]>;
@@ -109,7 +138,14 @@ export interface DocumentsPanelProps {
   ) => Promise<void>;
   // Void (2c): mark a SENT receipt VOID with no replacement.
   onVoidReceipt?: (docId: string) => Promise<void>;
+  // Void an invoice (owner decision: cancelling an invoice → VOID).
+  onVoidInvoice?: (docId: string) => Promise<void>;
+  // B7: soft-delete a DRAFT document (DELETE /documents/:id).
+  onDeleteDocument?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
+  // Invoice-specific (DIRECT_PDF, code INVOICE): regenerated PDF for the SENT
+  // invoice's Preview tab (GET /documents/invoice/:id/pdf).
+  onFetchInvoicePdf?: (docId: string) => Promise<string>;
   isSuperadmin?: boolean;
 }
 
@@ -136,11 +172,14 @@ export function DocumentsPanel({
   onRefreshCustomers,
   onCreateDraft,
   onCreateReceipt,
+  onCreateInvoice,
+  onUpdateInvoice,
+  onSendInvoice,
   defaultReceivedBy,
   receiptQuota,
-  receiptUsage,
   contractsEnabled = true,
   onFetchReceiptStats,
+  receiptStatsRefreshKey,
   selectableUsers,
   onFetchTypesAsUser,
   onEditDocument,
@@ -155,7 +194,10 @@ export function DocumentsPanel({
   onUpdateReceipt,
   onReissueReceipt,
   onVoidReceipt,
+  onVoidInvoice,
+  onDeleteDocument,
   onFetchReceiptPdf,
+  onFetchInvoicePdf,
   isSuperadmin = false,
 }: DocumentsPanelProps) {
   // Filters + search seeded from the URL so they survive a reload / can be shared.
@@ -184,6 +226,18 @@ export function DocumentsPanel({
   const [showCreateModal, setShowCreateModal] = useState(
     () => searchParams.get('new') === '1',
   );
+  // One-shot: preselect a document type by code in the create modal (Templates →
+  // Invoice "Create invoice" deep-links here with ?new=1&newType=INVOICE).
+  const [createTypeCode] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('newType');
+  });
+  // When editing an invoice, the creation modal opens with its data preloaded and
+  // submits a PATCH instead of a POST (null = create mode).
+  const [editInvoice, setEditInvoice] = useState<{
+    documentId: string;
+    data: Record<string, string>;
+  } | null>(null);
   // When the create modal opens (toolbar "New Document" OR the Overview's
   // ?new=1 deep-link — both set showCreateModal), refetch the customers so the
   // "Client" selector reflects clients created since this page loaded (the
@@ -209,6 +263,15 @@ export function DocumentsPanel({
   const [reissueOnOpen, setReissueOnOpen] = useState(false);
   // Direct-void confirmation (kebab "Void" — no replacement created).
   const [voidConfirm, setVoidConfirm] = useState<{ docId: string } | null>(null);
+  // Blocked-send warning (B6): a doc with no email on file can't be sent — we
+  // show an acknowledgement dialog and never fire the send. The detail modal (if
+  // open) stays open behind it.
+  const [noEmailWarn, setNoEmailWarn] = useState(false);
+  // Delete confirmation (B7): a DRAFT is soft-deleted (not voided) after a
+  // confirm. The actor stops seeing it; a SUPERADMIN still does.
+  const [deleteConfirm, setDeleteConfirm] = useState<{ docId: string } | null>(
+    null,
+  );
   // In-flight receipt resends — locks out double-clicks (ajuste 3).
   const resendingRef = useRef<Set<string>>(new Set());
   const [sessionId] = useState<string>(() => {
@@ -264,8 +327,10 @@ export function DocumentsPanel({
     // Mirror the open document so it survives a reload; cleared when the detail
     // closes (selectedDocId null -> removed).
     sync('doc', selectedDocId ?? '');
-    // `new` stays one-shot — it opens the create modal on mount, then is stripped.
+    // `new`/`newType` stay one-shot — they open + preset the create modal on
+    // mount, then are stripped.
     params.delete('new');
+    params.delete('newType');
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
   }, [search, statusFilter, typeFilter, selectedDocId]);
 
@@ -274,12 +339,15 @@ export function DocumentsPanel({
     setCurrentPage(1);
   }, [search, statusFilter, typeFilter]);
 
-  // Receipts-only: fetch the receipt stats for the stat pills.
+  // Fetch the receipt stats: powers the receipts-only stat pills AND the per-type
+  // document cards (which show for every tenant, hence not gated on receiptsOnly).
   const receiptsOnly = !contractsEnabled;
   const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  // "Detail →" on the Total status pill → by-type TOTALS popup.
+  const [showTotalsModal, setShowTotalsModal] = useState(false);
   useEffect(() => {
-    if (!receiptsOnly || !onFetchReceiptStats) return;
+    if (!onFetchReceiptStats) return;
     let active = true;
     const load = async () => {
       setStatsLoading(true);
@@ -296,7 +364,7 @@ export function DocumentsPanel({
     return () => {
       active = false;
     };
-  }, [receiptsOnly, onFetchReceiptStats]);
+  }, [receiptsOnly, onFetchReceiptStats, receiptStatsRefreshKey]);
 
   const filteredDocuments = useMemo(() => {
     let filtered = documents;
@@ -316,11 +384,24 @@ export function DocumentsPanel({
     }
     if (statusFilter === 'VOID') {
       // Derived state: a voided receipt keeps internal status SENT.
-      filtered = filtered.filter((doc) => isVoidedReceipt(doc));
+      filtered = filtered.filter((doc) => isVoidedDoc(doc));
+    } else if (statusFilter === 'SCHEDULED') {
+      // Derived state: a deferred (future-dated) draft awaiting its issue date.
+      filtered = filtered.filter(
+        (doc) => isDeferredPending(doc) && !isVoidedDoc(doc),
+      );
+    } else if (statusFilter === 'DRAFT') {
+      // A scheduled (deferred) draft shows under Scheduled, not Draft.
+      filtered = filtered.filter(
+        (doc) =>
+          doc.status === 'DRAFT' &&
+          !isDeferredPending(doc) &&
+          !isVoidedDoc(doc),
+      );
     } else if (statusFilter !== 'all') {
       // A voided receipt shows under VOID, not under its internal status.
       filtered = filtered.filter(
-        (doc) => doc.status === statusFilter && !isVoidedReceipt(doc),
+        (doc) => doc.status === statusFilter && !isVoidedDoc(doc),
       );
     }
     if (typeFilter !== 'all') {
@@ -388,6 +469,23 @@ export function DocumentsPanel({
       return;
     }
     if (action === 'edit') {
+      // Invoices reopen the schema-driven wizard prefilled (PATCH on submit);
+      // everything else keeps the legacy edit route.
+      if (doc && isInvoiceDoc(doc)) {
+        try {
+          const detail = await onFetchDocument(docId);
+          const raw = (detail?.data?.dataJson ?? {}) as Record<string, unknown>;
+          const flat: Record<string, string> = {};
+          for (const [k, v] of Object.entries(raw)) {
+            if (typeof v === 'string' || typeof v === 'number') flat[k] = String(v);
+          }
+          setEditInvoice({ documentId: docId, data: flat });
+          setShowCreateModal(true);
+        } catch {
+          toast.error('Could not load the invoice for editing');
+        }
+        return;
+      }
       onEditDocument(docId);
       return;
     }
@@ -419,6 +517,28 @@ export function DocumentsPanel({
       setVoidConfirm({ docId });
       return;
     }
+    // B7: soft-delete a DRAFT — confirm first, then DELETE /documents/:id.
+    if (action === 'delete') {
+      setDeleteConfirm({ docId });
+      return;
+    }
+    // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send. Blocked
+    // server-side while still deferred (and the kebab hides it until due).
+    if (action === 'send' && doc && isInvoiceDoc(doc)) {
+      // B6: no email on file → warn and don't attempt the send (the backend
+      // would reject it). The detail modal, if open, stays open behind the warn.
+      const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
+      const email = (
+        doc?.customer?.email ||
+        (typeof dj?.recipient_email === 'string' ? dj.recipient_email : '')
+      ).trim();
+      if (!email) {
+        setNoEmailWarn(true);
+        return;
+      }
+      await onSendInvoice?.(docId);
+      return;
+    }
     // Any receipt email — send (DRAFT), resend (SENT) or retry (SEND_FAILED) —
     // confirms first; on confirm it fires the send-toast.
     if (
@@ -426,15 +546,26 @@ export function DocumentsPanel({
       receipt
     ) {
       const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
-      const email =
-        doc?.customer?.email ??
-        (typeof dj?.email === 'string' ? dj.email : '');
+      const email = (
+        doc?.customer?.email ||
+        (typeof dj?.email === 'string' ? dj.email : '')
+      ).trim();
+      // B6: same guard as invoices — no email, no send, just a warning.
+      if (!email) {
+        setNoEmailWarn(true);
+        return;
+      }
       setReceiptSendConfirm({ docId, email, isResend: action !== 'send' });
       return;
     }
-    // Discard a receipt = cancel it (with confirmation).
+    // Discard: a receipt = cancel it; an invoice = VOID it (owner decision —
+    // same VOID treatment as receipts). Both confirm first.
     if (action === 'discard') {
-      setConfirmAction({ action: 'cancel', docId });
+      if (doc && isInvoiceDoc(doc)) {
+        setVoidConfirm({ docId });
+      } else {
+        setConfirmAction({ action: 'cancel', docId });
+      }
       return;
     }
     // Send / Cancel are destructive-ish and irreversible → confirm first.
@@ -479,22 +610,28 @@ export function DocumentsPanel({
         title={receiptsOnly ? 'Receipts' : 'Documents'}
       />
 
-      {/* Counters: contract stats, or receipt stats for receipts-only tenants. */}
+      {/* Status counters. Receipts/invoices module: Sent · Draft · Scheduled ·
+          Void (no Total pill / by-type popup — that lives on the Overview). The
+          contract module keeps its Total pill with the by-type "Detail →" popup. */}
       {receiptsOnly ? (
-        <ReceiptStatsPills stats={receiptStats} isLoading={isLoading || statsLoading} />
+        <ReceiptStatsPills
+          stats={receiptStats}
+          isLoading={isLoading || statsLoading}
+        />
       ) : (
-        <DocumentsStats stats={stats} isLoading={isLoading} />
+        <DocumentsStats
+          stats={stats}
+          isLoading={isLoading}
+          onTotalDetail={() => setShowTotalsModal(true)}
+        />
       )}
 
-      {receiptUsage ? (
-        <ReceiptsUsageCard
-          used={receiptUsage.used}
-          limit={receiptUsage.limit}
-          unlimited={receiptUsage.unlimited}
-          overagePrice={receiptUsage.overagePrice}
-          isLoading={isLoading}
-        />
-      ) : null}
+      {/* Generated documents this month — Receipts | Invoices (two columns). */}
+      <GeneratedDocsCard
+        receiptsThisMonth={receiptStats?.monthlyCounts?.receipts ?? 0}
+        invoicesThisMonth={receiptStats?.monthlyCounts?.invoices ?? 0}
+        isLoading={isLoading || statsLoading}
+      />
 
       <DocumentsToolbar
         search={search}
@@ -589,6 +726,9 @@ export function DocumentsPanel({
           onFetchPdfUrl={onFetchPdfUrl}
           onUpdateDraft={onUpdateDraft}
           isReceipt={selectedDocument ? isReceiptDoc(selectedDocument) : false}
+          isInvoice={selectedDocument ? isInvoiceDoc(selectedDocument) : false}
+          onFetchInvoicePdf={onFetchInvoicePdf}
+          onUpdateInvoice={onUpdateInvoice}
           onUpdateReceipt={onUpdateReceipt}
           onReissueReceipt={onReissueReceipt}
           autoOpenReissue={reissueOnOpen}
@@ -605,9 +745,18 @@ export function DocumentsPanel({
           isSuperadmin={isSuperadmin}
           selectableUsers={selectableUsers}
           onFetchTypesAsUser={onFetchTypesAsUser}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => {
+            setShowCreateModal(false);
+            setEditInvoice(null);
+          }}
           onCreate={onCreateDraft}
           onCreateReceipt={onCreateReceipt}
+          onCreateInvoice={onCreateInvoice}
+          onUpdateInvoice={onUpdateInvoice}
+          editInvoice={editInvoice ?? undefined}
+          initialDocumentTypeCode={
+            editInvoice ? 'INVOICE' : (createTypeCode ?? undefined)
+          }
           defaultReceivedBy={defaultReceivedBy}
           receiptQuota={receiptQuota}
         />
@@ -657,22 +806,84 @@ export function DocumentsPanel({
         />
       ) : null}
 
-      {voidConfirm ? (
+      {noEmailWarn ? (
         <ConfirmActionModal
           isOpen
-          title="Void receipt?"
-          message="This receipt will be marked as VOID and cannot be undone. Continue?"
-          confirmLabel="Void"
+          title="Can't send — no email on file"
+          message="This document has no email address registered, so it can't be sent. Add a recipient email first, then try again."
+          confirmLabel="Got it"
+          variant="amber"
+          onConfirm={() => setNoEmailWarn(false)}
+          onCancel={() => setNoEmailWarn(false)}
+        />
+      ) : null}
+
+      {deleteConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title="Delete draft?"
+          message="This draft will be deleted and removed from your list. This can't be undone from here."
+          confirmLabel="Delete"
           cancelLabel="Cancel"
           variant="danger"
           onConfirm={() => {
-            const { docId } = voidConfirm;
-            setVoidConfirm(null);
-            void onVoidReceipt?.(docId);
+            const { docId } = deleteConfirm;
+            setDeleteConfirm(null);
+            void onDeleteDocument?.(docId);
+            // Close the detail (if open) so the updated list shows.
+            setSelectedDocId(null);
           }}
-          onCancel={() => setVoidConfirm(null)}
+          onCancel={() => setDeleteConfirm(null)}
         />
       ) : null}
+
+      {voidConfirm ? (
+        (() => {
+          const voidDoc = documents.find((d) => d.id === voidConfirm.docId);
+          const voidIsInvoice = voidDoc ? isInvoiceDoc(voidDoc) : false;
+          const noun = voidIsInvoice ? 'invoice' : 'receipt';
+          return (
+            <ConfirmActionModal
+              isOpen
+              title={`Void ${noun}?`}
+              message={`This ${noun} will be marked as VOID and cannot be undone. Continue?`}
+              confirmLabel="Void"
+              cancelLabel="Cancel"
+              variant="danger"
+              onConfirm={() => {
+                const { docId } = voidConfirm;
+                setVoidConfirm(null);
+                if (voidIsInvoice) void onVoidInvoice?.(docId);
+                else void onVoidReceipt?.(docId);
+                // Close the detail (if open) so the updated list shows.
+                setSelectedDocId(null);
+              }}
+              onCancel={() => setVoidConfirm(null)}
+            />
+          );
+        })()
+      ) : null}
+
+      {/* By-type TOTALS popup (from the Total pill's "Detail →"). All-time totals,
+          NOT this month — distinct from the Overview month popup. Documents line
+          only for tipo-documento tenants. */}
+      <MonthBreakdownModal
+        isOpen={showTotalsModal}
+        onClose={() => setShowTotalsModal(false)}
+        title="Documents by type"
+        subtitle="All time"
+        counts={
+          receiptStats?.documentCounts
+            ? {
+                receipts: receiptStats.documentCounts.receipts,
+                invoices: receiptStats.documentCounts.invoices,
+                documents: receiptStats.documentCounts.signatures,
+                total: receiptStats.documentCounts.total,
+              }
+            : null
+        }
+        showDocuments={!receiptsOnly}
+      />
     </div>
   );
 }

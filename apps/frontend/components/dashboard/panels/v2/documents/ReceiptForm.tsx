@@ -15,9 +15,18 @@ import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { applyTransform } from './wizard/types';
 import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
+import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
+import { detectBrowserTimeZone, tenantCurrentYear } from '@/lib/tenant-date';
 
 export interface CreateReceiptPayload {
+  // Composed recipient name (kept for the PDF). The backend re-composes it from
+  // the split parts below and stores the parts in dataJson.
   client: string;
+  business?: boolean;
+  company_name?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
   recipientEmail?: string;
   phone?: string;
   amount: number;
@@ -31,6 +40,8 @@ export interface CreateReceiptPayload {
   // Free-form notes. Only printed on templates that map `notes` (moderno today).
   notes?: string;
   send: boolean;
+  // Opt-in for the deferred (future-dated) "ready to finalize" email.
+  notifyOnIssueDate?: boolean;
   // Superadmin flow: borrow the selected user's receipt template (the doc still
   // becomes the creator's). Omitted for normal users (their company template).
   receiptTemplateId?: string;
@@ -82,6 +93,11 @@ interface ReceiptFormProps {
   // Pre-fill from the client picked in the setup card (shared with contracts).
   prefillClient?: string;
   prefillEmail?: string;
+  // Whether the picked customer is a business (drives the initial toggle state).
+  prefillBusiness?: boolean;
+  // Only the WorldPavers custom template draws the "N of M" field — gate the
+  // "part of multiple payments" toggle on it. Global templates hide it.
+  supportsMultiPayment?: boolean;
   // Superadmin flow: the selected user's receipt template to borrow (threaded
   // into the create payload). Undefined for the normal company-template path.
   receiptTemplateId?: string;
@@ -104,17 +120,44 @@ export function ReceiptForm({
   defaultReceivedBy,
   prefillClient,
   prefillEmail,
+  prefillBusiness,
   receiptTemplateId,
+  supportsMultiPayment = false,
   receiptQuota,
   onCreate,
   onClose,
 }: ReceiptFormProps) {
-  const [client, setClient] = useState(prefillClient ?? '');
+  // Billed-to split (mirrors the invoice): Business → company name, else
+  // first/middle/last. The composed name feeds validation + the payload.
+  const [business, setBusiness] = useState(Boolean(prefillBusiness));
+  const [companyName, setCompanyName] = useState(
+    prefillBusiness ? (prefillClient ?? '') : '',
+  );
+  const [firstName, setFirstName] = useState(
+    !prefillBusiness ? (prefillClient ?? '') : '',
+  );
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const composedClient = business
+    ? companyName.trim()
+    : [firstName, middleName, lastName]
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(' ');
   const [email, setEmail] = useState(prefillEmail ?? '');
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(todayIso());
+  // "Different day" mirrors the invoice: off = issued today (field hidden), on =
+  // pick an issue date. The effective date is what validation/submit use.
+  const [differentDay, setDifferentDay] = useState(false);
+  const effectiveDate = differentDay ? date : todayIso();
   const [paymentFor, setPaymentFor] = useState('');
+  // Pending send flag while the issue-date disclaimer is open (null = closed).
+  const [disclaimerSend, setDisclaimerSend] = useState<boolean | null>(null);
+  // Issue-date floor: Jan 1 of the tenant's current year. Browser zone as a hint;
+  // the backend enforces with the authoritative tenant timezone.
+  const yearStart = `${tenantCurrentYear(detectBrowserTimeZone())}-01-01`;
 
   const [method, setMethod] = useState<PaymentMethod | ''>('');
   const [otherLabel, setOtherLabel] = useState('');
@@ -138,7 +181,23 @@ export function ReceiptForm({
   const [seenPrefillClient, setSeenPrefillClient] = useState(prefillClient);
   if (prefillClient !== seenPrefillClient) {
     setSeenPrefillClient(prefillClient);
-    if (prefillClient) setClient(prefillClient);
+    if (prefillClient) {
+      // A picked customer's fullName can't be split reliably — drop it into the
+      // matching single field for the customer's type; the user adjusts if needed.
+      const isBiz = Boolean(prefillBusiness);
+      setBusiness(isBiz);
+      if (isBiz) {
+        setCompanyName(prefillClient);
+        setFirstName('');
+        setMiddleName('');
+        setLastName('');
+      } else {
+        setFirstName(prefillClient);
+        setMiddleName('');
+        setLastName('');
+        setCompanyName('');
+      }
+    }
   }
   const [seenPrefillEmail, setSeenPrefillEmail] = useState(prefillEmail);
   if (prefillEmail !== seenPrefillEmail) {
@@ -147,9 +206,14 @@ export function ReceiptForm({
   }
 
   function validate(send: boolean): string | null {
-    if (!client.trim()) return 'Client is required';
+    if (!composedClient) {
+      return business ? 'Company name is required' : 'Client name is required';
+    }
     if (!amount || Number(amount) <= 0) return 'Amount is required';
-    if (!date) return 'Date is required';
+    if (differentDay && !date) return 'Date is required';
+    if (effectiveDate < yearStart) {
+      return 'Issue date cannot be before January 1 of the current year';
+    }
     if (!method) return 'Select a payment method';
     if (method === 'OTHER' && !otherLabel.trim()) {
       return 'Describe the "Other" payment method';
@@ -174,16 +238,30 @@ export function ReceiptForm({
       return;
     }
     setError(null);
+    // Issue date ≠ today → require the disclaimer acknowledgement before creating.
+    if (effectiveDate !== todayIso()) {
+      setDisclaimerSend(send);
+      return;
+    }
+    doCreate(send, false);
+  }
+
+  function doCreate(send: boolean, notifyOnIssueDate: boolean) {
     // Optimistic: close immediately; the parent shows the progress toast (a
     // top-right animated bar for send, a simple toast for draft) with the REAL
     // result. No in-form spinner/overlay — the popup is already gone.
     onClose();
     void onCreate({
-      client: client.trim(),
+      client: composedClient,
+      business,
+      company_name: business ? companyName.trim() : undefined,
+      first_name: business ? undefined : firstName.trim() || undefined,
+      middle_name: business ? undefined : middleName.trim() || undefined,
+      last_name: business ? undefined : lastName.trim() || undefined,
       recipientEmail: email.trim() || undefined,
       phone: phone.trim() || undefined,
       amount: Number(amount),
-      date: toUsDate(date),
+      date: toUsDate(effectiveDate),
       payment_method: method as PaymentMethod,
       other_label: method === 'OTHER' ? otherLabel.trim() : undefined,
       payment_for: paymentFor.trim(),
@@ -192,6 +270,7 @@ export function ReceiptForm({
       received_by: receivedBy.trim() || undefined,
       notes: notes.trim() || undefined,
       send,
+      notifyOnIssueDate,
       receiptTemplateId,
     });
   }
@@ -214,16 +293,89 @@ export function ReceiptForm({
       <section className="receipt-section">
         <h3 className="receipt-section__title">Payment details</h3>
         <div className="wizard-section__fields">
-          {/* Client — full width */}
-          <BaseField label="Client" icon={<User size={14} />} required>
-            <input
-              type="text"
-              className="wizard-field__input"
-              value={client}
-              placeholder="Full name"
-              onChange={(e) => setClient(applyTransform(e.target.value, 'titleCase'))}
+          {/* Toggles row (Business customer + Different day) — mirrors the invoice. */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '0.4rem 1.25rem',
+            }}
+          >
+            <WizardToggleRow
+              label="Business customer"
+              checked={business}
+              onChange={setBusiness}
             />
-          </BaseField>
+            <WizardToggleRow
+              label="Different day"
+              checked={differentDay}
+              onChange={setDifferentDay}
+            />
+          </div>
+
+          {/* Issue date — only when Different day is on (else = today). */}
+          {differentDay ? (
+            <BaseField label="Issue date" icon={<Calendar size={14} />} required>
+              <input
+                type="date"
+                className="wizard-field__input"
+                value={date}
+                min={yearStart}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </BaseField>
+          ) : null}
+
+          {/* Recipient name — company OR first/middle/last (billed-to split). */}
+          {business ? (
+            <BaseField label="Company name" icon={<User size={14} />} required>
+              <input
+                type="text"
+                className="wizard-field__input"
+                value={companyName}
+                placeholder="Company name"
+                onChange={(e) =>
+                  setCompanyName(applyTransform(e.target.value, 'titleCase'))
+                }
+              />
+            </BaseField>
+          ) : (
+            <>
+              <div className="wizard-section__row wizard-section__row--2col">
+                <BaseField label="First name" icon={<User size={14} />} required>
+                  <input
+                    type="text"
+                    className="wizard-field__input"
+                    value={firstName}
+                    onChange={(e) =>
+                      setFirstName(applyTransform(e.target.value, 'titleCase'))
+                    }
+                  />
+                </BaseField>
+                <BaseField label="Last name" required>
+                  <input
+                    type="text"
+                    className="wizard-field__input"
+                    value={lastName}
+                    onChange={(e) =>
+                      setLastName(applyTransform(e.target.value, 'titleCase'))
+                    }
+                  />
+                </BaseField>
+              </div>
+              <BaseField label="Middle name">
+                <input
+                  type="text"
+                  className="wizard-field__input"
+                  value={middleName}
+                  onChange={(e) =>
+                    setMiddleName(applyTransform(e.target.value, 'titleCase'))
+                  }
+                />
+              </BaseField>
+            </>
+          )}
 
           {/* Email + Phone — 2 columns (stack on mobile) */}
           <div className="wizard-section__row wizard-section__row--2col">
@@ -250,28 +402,17 @@ export function ReceiptForm({
             </BaseField>
           </div>
 
-          {/* Amount + Date — 2 columns (stack on mobile) */}
-          <div className="wizard-section__row wizard-section__row--2col">
-            <BaseField label="Amount" icon={<DollarSign size={14} />} required>
-              <div className="wizard-field__currency-wrapper">
-                <span className="wizard-field__currency-prefix">$</span>
-                <CurrencyInput
-                  value={amount}
-                  onChange={setAmount}
-                  className="wizard-field__currency-input"
-                />
-              </div>
-            </BaseField>
-
-            <BaseField label="Date" icon={<Calendar size={14} />} required>
-              <input
-                type="date"
-                className="wizard-field__input"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+          {/* Amount — full width (the Date lives up top behind "Different day"). */}
+          <BaseField label="Amount" icon={<DollarSign size={14} />} required>
+            <div className="wizard-field__currency-wrapper">
+              <span className="wizard-field__currency-prefix">$</span>
+              <CurrencyInput
+                value={amount}
+                onChange={setAmount}
+                className="wizard-field__currency-input"
               />
-            </BaseField>
-          </div>
+            </div>
+          </BaseField>
 
           {/* Payment for — full width, required */}
           <BaseField label="Payment for" icon={<FileText size={14} />} required>
@@ -320,32 +461,38 @@ export function ReceiptForm({
       {/* ── Section 3: Options ───────────────────────────────────── */}
       <section className="receipt-section">
         <h3 className="receipt-section__title">Options</h3>
-        <WizardToggleRow
-          label="Part of multiple payments / financing?"
-          checked={multiPayment}
-          onChange={setMultiPayment}
-        />
-        {multiPayment ? (
-          <div className="receipt-pair-row">
-            <BaseField label="Payment #">
-              <input
-                type="number"
-                min={1}
-                className="wizard-field__input"
-                value={paymentCurrent}
-                onChange={(e) => setPaymentCurrent(e.target.value)}
-              />
-            </BaseField>
-            <BaseField label="Of (total)">
-              <input
-                type="number"
-                min={1}
-                className="wizard-field__input"
-                value={paymentTotal}
-                onChange={(e) => setPaymentTotal(e.target.value)}
-              />
-            </BaseField>
-          </div>
+        {/* Multi-payment ("N of M") only exists on templates that draw it — the
+            WorldPavers custom template. Hidden on the global/catalog templates. */}
+        {supportsMultiPayment ? (
+          <>
+            <WizardToggleRow
+              label="Part of multiple payments / financing?"
+              checked={multiPayment}
+              onChange={setMultiPayment}
+            />
+            {multiPayment ? (
+              <div className="receipt-pair-row">
+                <BaseField label="Payment #">
+                  <input
+                    type="number"
+                    min={1}
+                    className="wizard-field__input"
+                    value={paymentCurrent}
+                    onChange={(e) => setPaymentCurrent(e.target.value)}
+                  />
+                </BaseField>
+                <BaseField label="Of (total)">
+                  <input
+                    type="number"
+                    min={1}
+                    className="wizard-field__input"
+                    value={paymentTotal}
+                    onChange={(e) => setPaymentTotal(e.target.value)}
+                  />
+                </BaseField>
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         <BaseField label="Received by" icon={<User size={14} />}>
@@ -380,6 +527,7 @@ export function ReceiptForm({
         <BaseField label="Notes" icon={<FileText size={14} />}>
           <textarea
             className="wizard-field__input"
+            style={{ resize: 'none' }}
             value={notes}
             rows={2}
             placeholder="Optional — printed only on templates that show notes"
@@ -448,6 +596,20 @@ export function ReceiptForm({
         }}
         onCancel={() => setConfirmSend(false)}
       />
+
+      {/* Issue date ≠ today → mandatory acknowledgement before creating. Future
+          date → also offers the "notify when ready to finalize" opt-in. */}
+      {disclaimerSend !== null ? (
+        <IssueDateDisclaimerModal
+          showNotifyOptIn={effectiveDate > todayIso()}
+          onCancel={() => setDisclaimerSend(null)}
+          onConfirm={(notify) => {
+            const send = disclaimerSend ?? false;
+            setDisclaimerSend(null);
+            doCreate(send, notify);
+          }}
+        />
+      ) : null}
     </>
   );
 }

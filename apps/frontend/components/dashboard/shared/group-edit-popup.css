@@ -24,7 +24,7 @@
 
 .gep-panel {
   width: 90%;
-  max-width: 420px;
+  max-width: 460px;
   max-height: 90vh;
   background: var(--bg-card);
   border: 0.5px solid var(--border-soft);
@@ -105,6 +105,35 @@
   border-top: 0.5px solid var(--border-soft);
 }
 
+/* Saving state — a blocking card that replaces the form + footer while a save
+   is in flight (see saas-ux-patterns §5). Keeps a stable panel height so the
+   swap doesn't jump. */
+.gep-saving {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 44px 20px;
+  min-height: 180px;
+}
+
+.gep-saving__spinner {
+  color: var(--brand-accent);
+  animation: gepSpin 0.8s linear infinite;
+}
+
+@keyframes gepSpin {
+  to { transform: rotate(360deg); }
+}
+
+.gep-saving__label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-body);
+}
+
 /* Pencil button in group headers */
 .gep-edit-btn {
   width: 26px;
@@ -128,6 +157,30 @@
 }
 
 /* Reuse btn-cancel/btn-save from profile-panel-v2.css */
+
+/* Section label — groups fields inside a longer edit popup (e.g. the invoice
+   edit: Billed to / Service / Pricing). Matches the popup's muted-label style. */
+.gep-section-label {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.gep-section-label:first-child {
+  margin-top: 0;
+}
+
+/* Two toggles side by side (Business customer + Different day), wrapping to a
+   column on a narrow popup. */
+.gep-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.25rem;
+}
 
 /* ── Typed field inputs (currency / date) ─────────────────────────────
    Used by DocumentDetailModal's FieldInput. Phone/number/state reuse the

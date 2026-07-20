@@ -4,6 +4,7 @@ import React from 'react';
 import { Plus, Search, X } from 'lucide-react';
 import type { StatusFilter } from './types';
 import { STATUS_FILTER_OPTIONS } from './types';
+import { statusMeta } from './StatusBadge';
 
 interface DocumentsToolbarProps {
   search: string;
@@ -15,10 +16,11 @@ interface DocumentsToolbarProps {
   entity?: 'document' | 'receipt';
 }
 
-// Statuses a receipt can really have (no VIEWED/SIGNED/COMPLETED).
+// Statuses a receipt/invoice can really have (no VIEWED/SIGNED/COMPLETED).
 const RECEIPT_STATUS_VALUES = new Set<StatusFilter>([
   'all',
   'DRAFT',
+  'SCHEDULED',
   'SENT',
   'SEND_FAILED',
   'CANCELLED',
@@ -71,21 +73,32 @@ export function DocumentsToolbar({
 
       {/* Desktop (≥1024px): single-select status tabs. */}
       <div className="documents-filter-tabs" role="group" aria-label="Status filter">
-        {statusTabs.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            className={
-              `documents-filter-tab` +
-              (tab.value === 'all' ? ' documents-filter-tab--all' : '') +
-              (statusFilter === tab.value ? ' documents-filter-tab--active' : '')
-            }
-            onClick={() => onStatusFilterChange(tab.value)}
-            aria-pressed={statusFilter === tab.value}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {statusTabs.map((tab) => {
+          // Same status icon as the badges/cards (single source). "All" has none.
+          const Icon = tab.value === 'all' ? null : statusMeta(tab.value).icon;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              className={
+                `documents-filter-tab` +
+                (tab.value === 'all' ? ' documents-filter-tab--all' : '') +
+                (statusFilter === tab.value ? ' documents-filter-tab--active' : '')
+              }
+              onClick={() => onStatusFilterChange(tab.value)}
+              aria-pressed={statusFilter === tab.value}
+            >
+              {Icon ? (
+                <Icon
+                  size={13}
+                  className="documents-filter-tab__icon"
+                  aria-hidden="true"
+                />
+              ) : null}
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="documents-v2-toolbar__filters">

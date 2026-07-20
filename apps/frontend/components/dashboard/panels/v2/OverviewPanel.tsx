@@ -5,6 +5,7 @@ import { WelcomeCard } from './WelcomeCard';
 import { MonthVolumeCard } from './MonthVolumeCard';
 import { HighlightCard } from './HighlightCard';
 import { ReceiptSummaryCard } from './ReceiptSummaryCard';
+import { MonthBreakdownModal } from './MonthBreakdownModal';
 import { TopClientsCard } from './TopClientsCard';
 import { StatusStrip, type StatusStripItem } from './StatusStrip';
 import { RecentDocumentsTable } from './RecentDocumentsTable';
@@ -83,6 +84,8 @@ export interface OverviewPanelProps {
   contractsEnabled?: boolean;
   // Receipts-only: fetches GET /documents/receipt/stats (provided by the page).
   onFetchReceiptStats?: () => Promise<ReceiptStats>;
+  // Bumped by the page after a create/send so the stats effect refetches.
+  receiptStatsRefreshKey?: number;
   onNewDocument?: () => void;
   onOpenDocument?: (docId: string) => void;
   onViewAllAttention?: () => void;
@@ -96,6 +99,7 @@ export function OverviewPanel({
   isLoading,
   contractsEnabled = true,
   onFetchReceiptStats,
+  receiptStatsRefreshKey,
   onNewDocument,
   onOpenDocument,
 }: OverviewPanelProps) {
@@ -105,12 +109,16 @@ export function OverviewPanel({
   // "View history →" on the status card is a heads-up popup for now — the
   // History module isn't available yet (see the muted "SOON" nav entry).
   const [showHistorySoon, setShowHistorySoon] = useState(false);
+  // "Detail →" on the Receipts-this-month card → this-month-by-type popup.
+  const [showMonthDetail, setShowMonthDetail] = useState(false);
   // Skeletons only on the FIRST load — a background refetch updates the numbers
   // in place (no flash/flicker). "Refresco suave."
   const statsLoadedRef = useRef(false);
 
   useEffect(() => {
-    if (!receiptsOnly || !onFetchReceiptStats) return;
+    // Fetch for ALL tenants (not just receipts-only): the per-type document cards
+    // need these counts everywhere. Receipts-only-specific UI below stays gated.
+    if (!onFetchReceiptStats) return;
     let active = true;
     const load = async () => {
       if (!statsLoadedRef.current) setStatsLoading(true);
@@ -130,7 +138,7 @@ export function OverviewPanel({
     return () => {
       active = false;
     };
-  }, [receiptsOnly, onFetchReceiptStats]);
+  }, [receiptsOnly, onFetchReceiptStats, receiptStatsRefreshKey]);
 
   // Savings maths for the document highlight card: pay-per-doc ($12/doc) vs the
   // plan's monthly price.
@@ -219,6 +227,7 @@ export function OverviewPanel({
               receiptsThisMonth={receiptStats?.receiptsThisMonth ?? 0}
               amountThisMonth={receiptStats?.amountThisMonth ?? 0}
               isLoading={isLoading || statsLoading}
+              onDetail={() => setShowMonthDetail(true)}
             />
             <TopClientsCard
               clients={receiptStats?.topClients ?? []}
@@ -269,6 +278,15 @@ export function OverviewPanel({
         isOpen={showHistorySoon}
         message="Document history is under construction. It'll be available here soon."
         onClose={() => setShowHistorySoon(false)}
+      />
+
+      {/* This-month-by-type breakdown for the Receipts-this-month card. Monthly
+          counts (not totals). Documents line only for tipo-documento tenants. */}
+      <MonthBreakdownModal
+        isOpen={showMonthDetail}
+        onClose={() => setShowMonthDetail(false)}
+        monthly={receiptStats?.monthlyCounts ?? null}
+        showDocuments={!receiptsOnly}
       />
     </div>
   );

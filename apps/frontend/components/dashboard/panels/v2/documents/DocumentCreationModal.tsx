@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { useBeforeUnload } from '@/lib/use-before-unload';
 import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
+import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
 import { DocumentSetupCard } from './DocumentSetupCard';
 import {
   ReceiptForm,
@@ -52,6 +53,25 @@ interface DocumentCreationModalProps {
   onCreateReceipt?: (
     payload: CreateReceiptPayload,
   ) => Promise<ReceiptCreateResult>;
+  // INVOICE types (also DIRECT_PDF) render the schema-driven wizard and submit
+  // here instead of the receipt form. Payload matches POST /documents/invoice.
+  onCreateInvoice?: (payload: {
+    data: Record<string, string>;
+    customerId?: string;
+    send?: boolean;
+    recipientEmail?: string;
+    notifyOnIssueDate?: boolean;
+  }) => Promise<void>;
+  // Edit mode for an existing DRAFT invoice: preload its data into the wizard and
+  // PATCH on submit instead of creating a new one.
+  onUpdateInvoice?: (
+    docId: string,
+    payload: { data: Record<string, string>; customerId?: string },
+  ) => Promise<void>;
+  editInvoice?: { documentId: string; data: Record<string, string> };
+  // When opened from the Templates → Invoice tab, preselect this document type by
+  // code (+ its first form definition) so the user lands straight on the form.
+  initialDocumentTypeCode?: string;
   defaultReceivedBy?: string;
   // Model C — receipt quota for the receipt form's quota/overage hint.
   receiptQuota?: {
@@ -103,6 +123,10 @@ export function DocumentCreationModal({
   onClose,
   onCreate,
   onCreateReceipt,
+  onCreateInvoice,
+  onUpdateInvoice,
+  editInvoice,
+  initialDocumentTypeCode,
   defaultReceivedBy,
   receiptQuota,
 }: DocumentCreationModalProps) {
@@ -115,6 +139,11 @@ export function DocumentCreationModal({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Pending invoice action while the issue-date disclaimer is open (null = closed).
+  const [pendingInvoice, setPendingInvoice] = useState<{
+    send: boolean;
+    dataJson: Record<string, string>;
+  } | null>(null);
   // Wizard's unsaved-changes state, lifted up so backdrop/Escape/X can gate close.
   const [wizardDirty, setWizardDirty] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
@@ -128,6 +157,19 @@ export function DocumentCreationModal({
   >(null);
   const [loadingTypes, setLoadingTypes] = useState(false);
   const effectiveTypes = overrideTypes ?? documentTypes;
+
+  // Preselect a document type by code (Templates → Invoice "Create invoice") once
+  // the catalog is available, so the user lands straight on the form.
+  useEffect(() => {
+    if (!initialDocumentTypeCode || setup.documentTypeId) return;
+    const t = effectiveTypes.find((d) => d.code === initialDocumentTypeCode);
+    if (!t) return;
+    setSetup((prev) => ({
+      ...prev,
+      documentTypeId: t.id,
+      formDefinitionId: t.formDefinitions[0]?.id ?? '',
+    }));
+  }, [initialDocumentTypeCode, effectiveTypes, setup.documentTypeId]);
 
   async function handleAsUserChange(userId: string) {
     setAsUserId(userId);
@@ -245,6 +287,103 @@ export function DocumentCreationModal({
     }
   }
 
+  // INVOICE is also DIRECT_PDF but renders the schema-driven wizard and submits to
+  // POST /documents/invoice. It MUST be checked before isReceipt so a DIRECT_PDF
+  // invoice isn't captured by the receipt branch. Invoices need neither a signature
+  // template nor a contract date, so they use their own submit gate.
+  const isInvoice =
+    selectedDocType?.code === 'INVOICE' &&
+    (!!onCreateInvoice || !!onUpdateInvoice);
+  const canSubmitInvoice = !!setup.documentTypeId && !!setup.formDefinitionId;
+
+  // Edit mode: reconstruct the "business" toggle from the saved data (a non-empty
+  // company_name means the invoice was created as a business).
+  const editToggles = useMemo<Record<string, boolean> | undefined>(() => {
+    if (!editInvoice || !schema) return undefined;
+    const isBusiness = Boolean((editInvoice.data.company_name ?? '').trim());
+    const overrides: Record<string, boolean> = {};
+    for (const section of schema.sections) {
+      for (const toggle of section.toggles ?? []) {
+        if (toggle.key === 'business') {
+          overrides[`${section.key}:${toggle.key}`] = isBusiness;
+        }
+      }
+    }
+    return Object.keys(overrides).length > 0 ? overrides : undefined;
+  }, [editInvoice, schema]);
+
+  // Issue date ≠ today → require the disclaimer acknowledgement before saving.
+  function handleInvoiceSubmit(dataJson: Record<string, string>) {
+    if (dataJson.issueDate && dataJson.issueDate !== todayIso()) {
+      setPendingInvoice({ send: false, dataJson });
+      return Promise.resolve();
+    }
+    return doInvoiceSubmit(dataJson);
+  }
+
+  async function doInvoiceSubmit(
+    dataJson: Record<string, string>,
+    notifyOnIssueDate = false,
+  ) {
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      if (editInvoice && onUpdateInvoice) {
+        await onUpdateInvoice(editInvoice.documentId, {
+          data: dataJson,
+          customerId: setup.customerId || undefined,
+        });
+      } else {
+        await onCreateInvoice!({
+          data: dataJson,
+          customerId: setup.customerId || undefined,
+          notifyOnIssueDate,
+        });
+      }
+      onClose();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Unable to save invoice',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // "Create and send": the wizard has already validated the recipient email
+  // (sendRequiredFields) before calling this. Reuses the receipt send feedback.
+  function handleInvoiceSend(dataJson: Record<string, string>) {
+    if (dataJson.issueDate && dataJson.issueDate !== todayIso()) {
+      setPendingInvoice({ send: true, dataJson });
+      return Promise.resolve();
+    }
+    return doInvoiceSend(dataJson);
+  }
+
+  async function doInvoiceSend(
+    dataJson: Record<string, string>,
+    notifyOnIssueDate = false,
+  ) {
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await onCreateInvoice!({
+        data: dataJson,
+        customerId: setup.customerId || undefined,
+        send: true,
+        recipientEmail: (dataJson.recipient_email ?? '').trim() || undefined,
+        notifyOnIssueDate,
+      });
+      onClose();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Unable to send invoice',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   // DIRECT_PDF (receipt) types render the receipt form below the setup card
   // instead of the BoldSign wizard — the setup card stays for type + client.
   const isReceipt =
@@ -268,7 +407,7 @@ export function DocumentCreationModal({
             id="docs-v2-creation-modal-title"
             className="docs-v2-creation-modal__title"
           >
-            New Document
+            {editInvoice ? 'Edit Invoice' : 'New Document'}
           </h2>
           <button
             type="button"
@@ -312,16 +451,60 @@ export function DocumentCreationModal({
             customers={customers}
             value={setup}
             onChange={setSetup}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !!editInvoice}
             isSuperadmin={isSuperadmin}
           />
 
-          {isReceipt ? (
+          {isInvoice ? (
+            <>
+              {submitError ? (
+                <div className="docs-v2-creation-modal__error" role="alert">
+                  {submitError}
+                </div>
+              ) : null}
+
+              {hasValidSchema ? (
+                <DocumentWizard
+                  key={
+                    editInvoice
+                      ? `edit-${editInvoice.documentId}`
+                      : `${setup.documentTypeId}-${setup.formDefinitionId}`
+                  }
+                  schema={schema!}
+                  initialValues={editInvoice?.data}
+                  clientPrefill={editInvoice ? undefined : clientPrefill}
+                  onDirtyChange={setWizardDirty}
+                  initialToggles={editInvoice ? editToggles : initialToggles}
+                  persistKey={editInvoice ? undefined : persistKey}
+                  canSubmit={canSubmitInvoice}
+                  isSubmitting={isSubmitting}
+                  onSubmit={handleInvoiceSubmit}
+                  onCancel={onClose}
+                  submitLabel={editInvoice ? 'Save changes' : 'Create invoice'}
+                  onSend={
+                    !editInvoice && onCreateInvoice
+                      ? handleInvoiceSend
+                      : undefined
+                  }
+                  sendLabel="Create and send"
+                  sendRequiredFields={['recipient_email']}
+                />
+              ) : (
+                <div className="docs-v2-creation-modal__placeholder">
+                  No form schema configured for this invoice type.
+                </div>
+              )}
+            </>
+          ) : isReceipt ? (
             <ReceiptForm
               defaultReceivedBy={defaultReceivedBy ?? ''}
               prefillClient={selectedCustomer?.fullName}
               prefillEmail={selectedCustomer?.email ?? undefined}
+              prefillBusiness={selectedCustomer?.customerType === 'BUSINESS'}
               receiptTemplateId={selectedDocType?.receiptTemplateId}
+              supportsMultiPayment={
+                selectedDocType?.receiptTemplateSupportsMultiPayment ?? false
+              }
               receiptQuota={receiptQuota}
               onCreate={onCreateReceipt!}
               onClose={onClose}
@@ -367,6 +550,22 @@ export function DocumentCreationModal({
         }}
         onCancel={() => setShowDiscard(false)}
       />
+
+      {/* Issue date ≠ today → mandatory acknowledgement before saving the invoice.
+          Future date → also offers the "notify when ready to finalize" opt-in. */}
+      {pendingInvoice !== null ? (
+        <IssueDateDisclaimerModal
+          showNotifyOptIn={pendingInvoice.dataJson.issueDate > todayIso()}
+          onCancel={() => setPendingInvoice(null)}
+          onConfirm={(notify) => {
+            const pending = pendingInvoice;
+            setPendingInvoice(null);
+            void (pending.send
+              ? doInvoiceSend(pending.dataJson, notify)
+              : doInvoiceSubmit(pending.dataJson, notify));
+          }}
+        />
+      ) : null}
     </div>
   );
 }

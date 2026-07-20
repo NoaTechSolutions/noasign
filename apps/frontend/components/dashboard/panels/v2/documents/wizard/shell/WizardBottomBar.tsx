@@ -10,6 +10,13 @@ interface WizardBottomBarProps {
   onCancel: () => void;
   onContinue: () => void;
   onSubmit: () => void;
+  // Label of the final submit button (defaults to "Create draft").
+  submitLabel?: string;
+  // Optional SECOND primary action on the last section (e.g. "Create and send").
+  // When present, the primary submit becomes the secondary/outline button and
+  // this one takes the filled primary style (mirrors the receipt form footer).
+  onSend?: () => void;
+  sendLabel?: string;
 }
 
 export function WizardBottomBar({
@@ -20,8 +27,12 @@ export function WizardBottomBar({
   onCancel,
   onContinue,
   onSubmit,
+  submitLabel = 'Create draft',
+  onSend,
+  sendLabel = 'Create and send',
 }: WizardBottomBarProps) {
   const disabledSubmit = isSubmitting || !canSubmit;
+  const submitClass = onSend ? 'wizard-btn--secondary' : 'wizard-btn--primary';
   return (
     <div className="wizard-bottom-bar">
       {tabError ? (
@@ -38,14 +49,26 @@ export function WizardBottomBar({
           Cancel
         </button>
         {isLastSection ? (
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={disabledSubmit}
-            className={`wizard-btn wizard-btn--primary${disabledSubmit ? ' wizard-btn--primary-disabled' : ''}`}
-          >
-            {isSubmitting ? 'Creating...' : 'Create draft'}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={disabledSubmit}
+              className={`wizard-btn ${submitClass}${disabledSubmit ? ' wizard-btn--primary-disabled' : ''}`}
+            >
+              {isSubmitting ? 'Creating...' : submitLabel}
+            </button>
+            {onSend ? (
+              <button
+                type="button"
+                onClick={onSend}
+                disabled={disabledSubmit}
+                className={`wizard-btn wizard-btn--primary${disabledSubmit ? ' wizard-btn--primary-disabled' : ''}`}
+              >
+                {isSubmitting ? 'Sending...' : sendLabel}
+              </button>
+            ) : null}
+          </>
         ) : (
           <button
             type="button"

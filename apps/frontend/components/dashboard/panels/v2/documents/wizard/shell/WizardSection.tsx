@@ -7,6 +7,7 @@ import { WizardToggleRow } from './WizardToggleRow';
 import { groupFields, todayIso } from '../types';
 import type { SchemaField, SchemaSection } from '../types';
 import { FinanceCard, PricingCard, CONTRACT_ACCENT } from '../../finance-cards';
+import { detectBrowserTimeZone, tenantCurrentYear } from '@/lib/tenant-date';
 
 // finance_1_amount / finance_2_description / finance_3_date ... → grouped into
 // the matching numbered Finance card (①②③④).
@@ -48,6 +49,9 @@ export function WizardSection({
   onUpdateItem,
 }: WizardSectionProps) {
   const today = todayIso();
+  // Floor for the issue date: Jan 1 of the tenant's current year. Uses the browser
+  // zone as a hint (the backend enforces with the authoritative tenant timezone).
+  const yearStart = `${tenantCurrentYear(detectBrowserTimeZone())}-01-01`;
 
   function isFieldVisible(field: SchemaField): boolean {
     if (field.hideWhen) {
@@ -60,6 +64,7 @@ export function WizardSection({
 
   function getMinDate(field: SchemaField): string | undefined {
     if (field.validation?.minDate === 'today') return today;
+    if (field.validation?.minDate === 'yearStart') return yearStart;
     if (field.validation?.minDateFrom) {
       const other = fields[field.validation.minDateFrom]?.trim();
       return other || today;
@@ -164,15 +169,19 @@ export function WizardSection({
         />
       ) : null}
 
-      {otherToggles.map((toggle) => (
-        <WizardToggleRow
-          key={toggle.key}
-          label={toggle.label}
-          checked={customToggles[`${section.key}:${toggle.key}`] ?? false}
-          disabled={readOnly}
-          onChange={(value) => onSetCustomToggle(toggle.key, value)}
-        />
-      ))}
+      {otherToggles.length > 0 ? (
+        <div className="wizard-section__toggles">
+          {otherToggles.map((toggle) => (
+            <WizardToggleRow
+              key={toggle.key}
+              label={toggle.label}
+              checked={customToggles[`${section.key}:${toggle.key}`] ?? false}
+              disabled={readOnly}
+              onChange={(value) => onSetCustomToggle(toggle.key, value)}
+            />
+          ))}
+        </div>
+      ) : null}
 
       <div className="wizard-section__fields">
         {financeToggle ? (

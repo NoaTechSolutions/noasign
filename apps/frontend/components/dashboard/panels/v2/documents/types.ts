@@ -1,5 +1,6 @@
 import type { DashboardDocument } from '@/app/dashboard/page';
 import { formatDocumentStatus } from '@/lib/document-status';
+import { detectBrowserTimeZone, tenantLocalDate } from '@/lib/tenant-date';
 
 export type { DashboardDocument };
 
@@ -12,8 +13,9 @@ export type DocumentStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
-// 'VOID' is a derived filter (receipts with supersededAt) — not a DocumentStatus.
-export type StatusFilter = 'all' | DocumentStatus | 'VOID';
+// 'VOID' (receipts with supersededAt) and 'SCHEDULED' (deferred future-dated
+// drafts) are derived filters — neither is a real DocumentStatus.
+export type StatusFilter = 'all' | DocumentStatus | 'VOID' | 'SCHEDULED';
 
 /** Internal V2 action vocabulary. Dispatch logic in DocumentsPanel maps each
  *  to its corresponding handler prop — view/edit/sync/preview/download are
@@ -37,7 +39,9 @@ export type V2DocumentAction =
   // Reissue a SENT receipt (2c): create a corrected copy + void the original.
   | 'reissue'
   // Void a SENT receipt (2c): mark VOID with no replacement.
-  | 'void';
+  | 'void'
+  // B7: soft-delete a DRAFT (not an issued doc → deleted, never voided).
+  | 'delete';
 
 /** Subset matching page.tsx `DocumentAction` (the backend-bound one). */
 export type BackendDocumentAction = 'send' | 'resend' | 'cancel' | 'reactivate';
@@ -75,6 +79,9 @@ export interface V2DocumentItem extends DashboardDocument {
   // Reissue (2c): set on the original once it has been superseded → drives the
   // red VOID badge in the list.
   supersededAt?: string | null;
+  // B7 soft-delete: set (only visible to a SUPERADMIN) → drives the "Deleted"
+  // badge. Absent/null for live docs.
+  deletedAt?: string | null;
 }
 
 /** Schema-driven form definition (subset of FormDefinition.schemaJson). */
@@ -136,6 +143,26 @@ export interface DocumentVersion {
   } | null;
 }
 
+/**
+ * Recipient name held in an invoice's form data. Invoices don't use
+ * `customer_name`/`client` — the billed_to recipient lives in the wizard fields:
+ * `company_name` (business) or `first_name` + `last_name` (individual). Mirrors
+ * the backend's buildInvoicePdfData name composition. Returns '' when absent.
+ */
+export function invoiceRecipientName(
+  dataJson: Record<string, unknown> | null | undefined,
+): string {
+  if (!dataJson) return '';
+  const company = dataJson.company_name;
+  if (typeof company === 'string' && company.trim()) return company.trim();
+  const composed = ['first_name', 'last_name']
+    .map((k) => dataJson[k])
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    .map((v) => v.trim())
+    .join(' ');
+  return composed;
+}
+
 export function getCustomerDisplayName(doc: V2DocumentItem): string {
   if (doc.customer?.name) return doc.customer.name;
   if (doc.customer?.email) return doc.customer.email;
@@ -144,6 +171,10 @@ export function getCustomerDisplayName(doc: V2DocumentItem): string {
   const dataJson = doc.data?.dataJson;
   const fromData = dataJson?.customer_name ?? dataJson?.client;
   if (typeof fromData === 'string' && fromData.trim()) return fromData.trim();
+  // Invoices carry the recipient in the billed_to fields (company_name or
+  // first/last), not customer_name/client.
+  const invoiceName = invoiceRecipientName(dataJson);
+  if (invoiceName) return invoiceName;
   return 'No customer';
 }
 
@@ -195,6 +226,14 @@ export function isReceiptDoc(doc: {
   return doc.documentType?.code === 'PAYMENT_RECEIPT';
 }
 
+/** An invoice (DIRECT_PDF, code INVOICE) — DIRECT_PDF like a receipt but with its
+ *  own create/edit pipeline (POST/PATCH /documents/invoice), not the BoldSign flow. */
+export function isInvoiceDoc(doc: {
+  documentType?: { code?: string | null } | null;
+}): boolean {
+  return doc.documentType?.code === 'INVOICE';
+}
+
 /** A reissued receipt — its internal status stays SENT, but it is DISPLAYED as
  *  VOID (status, badge) and is terminal (no resend / reissue). Derived from
  *  supersededAt so DocumentStatus (shared with contracts) is never polluted. */
@@ -205,7 +244,47 @@ export function isVoidedReceipt(doc: {
   return isReceiptDoc(doc) && Boolean(doc.supersededAt);
 }
 
+/** A voided DIRECT_PDF document — a receipt OR an invoice with supersededAt set.
+ *  Both display as VOID (badge/card/list/timeline); the internal status is left
+ *  untouched. Used for DISPLAY; receipt-only actions still gate on isReceiptDoc. */
+export function isVoidedDoc(doc: {
+  documentType?: { code?: string | null } | null;
+  supersededAt?: string | null;
+}): boolean {
+  return (isReceiptDoc(doc) || isInvoiceDoc(doc)) && Boolean(doc.supersededAt);
+}
+
+// B7: a soft-deleted doc only ever reaches the frontend for a SUPERADMIN (the
+// backend hides it from everyone else), so a truthy deletedAt → show "Deleted".
+export function isDeletedDoc(doc: { deletedAt?: string | null }): boolean {
+  return Boolean(doc.deletedAt);
+}
+
+/** A deferred (future-dated) document whose issue date has NOT arrived yet — it
+ *  can't be sent/finalized. Browser zone is a hint; the backend enforces with the
+ *  tenant's authoritative timezone. */
+export function isDeferredPending(doc: {
+  isDeferred?: boolean;
+  issueDate?: string | null;
+}): boolean {
+  if (!doc.isDeferred || !doc.issueDate) return false;
+  return doc.issueDate.slice(0, 10) > tenantLocalDate(detectBrowserTimeZone());
+}
+
+/** "Scheduled for YYYY-MM-DD" label for a deferred-pending doc, else null. */
+export function scheduledLabel(doc: {
+  isDeferred?: boolean;
+  issueDate?: string | null;
+}): string | null {
+  return isDeferredPending(doc)
+    ? `Scheduled for ${doc.issueDate!.slice(0, 10)}`
+    : null;
+}
+
 export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
+  // B7: a soft-deleted doc (SUPERADMIN-only view) is terminal — view only, no
+  // re-delete/send. No restore yet (that's F1).
+  if (isDeletedDoc(doc)) return ['view'];
   // Receipts (DIRECT_PDF): the PDF is always viewable; a SENT receipt is issued
   // and is NOT cancellable; a failed one can be retried or discarded. Edit is a
   // per-card pencil (DRAFT/SEND_FAILED), not a kebab action.
@@ -213,7 +292,9 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     const actions: V2DocumentAction[] = ['view', 'viewPdf'];
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
-        actions.push('send', 'discard');
+        // A deferred receipt can't be sent until its issue date arrives. A DRAFT
+        // is deleted (soft), never voided (B7).
+        actions.push(...(isDeferredPending(doc) ? ['delete'] : ['send', 'delete']) as V2DocumentAction[]);
         break;
       case 'SENT':
         // A voided receipt is terminal: no resend, no reissue, no void.
@@ -221,6 +302,38 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
         break;
       case 'SEND_FAILED':
         actions.push('retry', 'discard');
+        break;
+    }
+    return actions;
+  }
+
+  // Invoices (DIRECT_PDF): the kebab EXACTLY MIRRORS the receipt kebab, adapted to
+  // invoice semantics. Like receipts, Edit is a per-card pencil in the detail —
+  // NOT a kebab action. The one adaptation: the PDF ('viewPdf') only appears once
+  // SENT (a draft/scheduled invoice has no issued PDF yet), whereas a receipt's
+  // PDF always regenerates. Receipt-2c actions (resend/reissue/void/retry) have no
+  // invoice equivalent, so none are invented. Every status keeps "View details".
+  if (isInvoiceDoc(doc)) {
+    const actions: V2DocumentAction[] = ['view'];
+    // A voided invoice is terminal — view only (no edit / send / re-void).
+    if (doc.supersededAt) return actions;
+    switch (doc.status as DocumentStatus) {
+      case 'DRAFT':
+        // Mirrors receipt DRAFT (send + delete); a scheduled invoice can't send
+        // until its issue date arrives. A DRAFT is deleted (soft), never voided (B7).
+        actions.push(
+          ...((isDeferredPending(doc)
+            ? ['delete']
+            : ['send', 'delete']) as V2DocumentAction[]),
+        );
+        break;
+      case 'SENT':
+        // Mirrors receipt SENT's base (view + viewPdf).
+        actions.push('viewPdf');
+        break;
+      case 'SEND_FAILED':
+        // Mirrors receipt SEND_FAILED's discard; re-sending is via edit → send.
+        actions.push('discard');
         break;
     }
     return actions;
@@ -265,6 +378,7 @@ export function getActionLabel(action: V2DocumentAction): string {
     discard: 'Discard',
     reissue: 'Reissue',
     void: 'Void',
+    delete: 'Delete',
   };
   return labels[action];
 }
@@ -292,6 +406,7 @@ export function getStatusLabel(status: string): string {
 export const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'all', label: 'All statuses' },
   { value: 'DRAFT', label: 'Draft' },
+  { value: 'SCHEDULED', label: 'Scheduled' },
   { value: 'SENT', label: 'Sent' },
   { value: 'VOID', label: 'Void' },
   { value: 'SEND_FAILED', label: 'Send failed' },

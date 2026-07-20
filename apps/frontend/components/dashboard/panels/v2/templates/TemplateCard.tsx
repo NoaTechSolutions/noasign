@@ -12,17 +12,21 @@ interface TemplateCardProps {
   busy: boolean;
   onActivate: (slug: string) => void;
   onPreview: (template: TemplateCatalogItem) => void;
+  // When provided (invoice tab), the primary action becomes "Create invoice"
+  // instead of "Set as active" — it opens the creation form for this template.
+  onCreate?: (slug: string) => void;
 }
 
 // Vertical feature card: full-width preview image on top (uncropped, contain),
 // then name + status, then the actions row. The card itself is NOT clickable —
-// actions are the explicit "Preview" and "Set as active" buttons.
+// actions are the explicit "Preview" and "Set as active"/"Create invoice" buttons.
 export function TemplateCard({
   template,
   activating,
   busy,
   onActivate,
   onPreview,
+  onCreate,
 }: TemplateCardProps) {
   const { slug, name, isActive, previewUrl } = template;
 
@@ -96,7 +100,16 @@ export function TemplateCard({
             Preview
           </button>
 
-          {!isActive && (
+          {onCreate ? (
+            <button
+              type="button"
+              className="template-card__set-btn"
+              disabled={busy}
+              onClick={() => onCreate(slug)}
+            >
+              {activating ? 'Opening…' : 'Create invoice'}
+            </button>
+          ) : !isActive ? (
             <button
               type="button"
               className="template-card__set-btn"
@@ -105,7 +118,7 @@ export function TemplateCard({
             >
               {activating ? 'Activating…' : 'Set as active'}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

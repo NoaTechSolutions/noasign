@@ -53,6 +53,14 @@ on:
           - receipt-basic-v1
           - receipt-moderno-v1
           - receipt-basic-v2
+      templates_visibility_setup:
+        description: 'One-shot: seed template catalog + make receipt-classic PRIVATE to World Pavers (Templates visibility)'
+        type: boolean
+        default: false
+      tvs_wpc_company_id:
+        description: 'templates_visibility_setup: World Pavers CompanyProfile.id that owns receipt-classic'
+        type: string
+        default: 'a6150399-8bd8-4b26-88fc-0f3d38acc1ea'
 
 # Only one deploy at a time
 concurrency:
@@ -132,6 +140,31 @@ jobs:
           node scripts/seed-template-catalog.js
           echo "--- Wiring per-tenant receipt templates from the new standards (default=$RC_DEFAULT_SLUG) ---"
           node scripts/dev-helpers/_wire-receipt-standards.js "$RC_COMPANY_ID" "$RC_DEFAULT_SLUG"
+
+      # Gated one-shot for the Templates module go-live: (b) seed the catalog
+      # (idempotent upsert; does NOT touch ownership or card PNGs) and (c) make
+      # receipt-classic PRIVATE to World Pavers so the visibility filter hides it
+      # from other tenants. Surgical — no legacy per-tenant wire (the new resolver
+      # self-heals via ensureActive). Does a safety dump first. NEVER runs the
+      # thumbnail generator (card PNGs are owner-managed). ONLY on explicit dispatch.
+      - name: Templates visibility setup (one-shot, gated)
+        if: github.event.inputs.templates_visibility_setup == 'true'
+        env:
+          TVS_WPC_ID: ${{ github.event.inputs.tvs_wpc_company_id }}
+        run: |
+          set -e
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DATABASE_URL="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d '=' -f2-)"
+          DATABASE_URL="${DATABASE_URL%\"}"; DATABASE_URL="${DATABASE_URL#\"}"
+          DATABASE_URL="${DATABASE_URL%\'}"; DATABASE_URL="${DATABASE_URL#\'}"
+          export DATABASE_URL
+          echo "--- PRE-SETUP safety dump of affected tables (captured in run logs) ---"
+          node scripts/dev-helpers/_dump-receipt-tables.js "$TVS_WPC_ID"
+          echo "--- (b) Seeding the standard receipt/invoice catalog (idempotent upsert) ---"
+          node scripts/seed-template-catalog.js
+          echo "--- (c) Making receipt-classic PRIVATE to World Pavers ($TVS_WPC_ID) ---"
+          node scripts/associate-template-owner.js receipt-classic "$TVS_WPC_ID"
 
       # Gated one-shot seed. ONLY runs when triggered via workflow_dispatch with
       # seed_test_users=true — never on normal pushes to develop. Idempotent +

@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReceiptsService } from './receipts.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,6 +11,7 @@ const prismaMock = {
   documentType: { findUnique: jest.fn() },
   formDefinition: { findFirst: jest.fn() },
   receiptTemplate: { findFirst: jest.fn() },
+  companyTemplate: { findFirst: jest.fn() },
   companyProfile: { findUnique: jest.fn() },
   document: {
     findMany: jest.fn(),
@@ -55,7 +57,12 @@ describe('ReceiptsService — superadmin borrow', () => {
     r2Mock.isConfigured.mockReturnValue(false);
     prismaMock.$transaction.mockImplementation(async (cb: any) =>
       cb({
-        receiptCounter: {
+        // Current counter tables (migrations 20260706140000/150000). The legacy
+        // receiptCounter was replaced by these two atomic upsert series.
+        documentSeriesCounter: {
+          upsert: jest.fn().mockResolvedValue({ lastNumber: 1 }),
+        },
+        userDocumentSequence: {
           upsert: jest.fn().mockResolvedValue({ lastNumber: 1 }),
         },
       }),
@@ -106,12 +113,10 @@ describe('ReceiptsService — superadmin borrow', () => {
       where: { id: 'rt-wp', isActive: true },
     });
     // The internal documentNumber is scoped to the CREATOR (super) — not global —
-    // so borrowing never consumes the form owner's number sequence.
-    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ userId: 'super' }),
-      }),
-    );
+    // so borrowing never consumes the form owner's number sequence. That scoping
+    // is asserted on the document.create call below (userId: 'super') and the
+    // resulting REC- number; the legacy findMany max-scan was replaced by the
+    // per-(user, type) userDocumentSequence upsert (migration 20260706150000).
     // Document belongs to the creator (super / nts) with the borrowed template;
     // the REC- counter uses the creator's tenant → REC-2026-0001.
     expect(prismaMock.document.create).toHaveBeenCalledWith(
@@ -158,7 +163,12 @@ describe('ReceiptsService — receipt billing on send', () => {
     r2Mock.isConfigured.mockReturnValue(false);
     prismaMock.$transaction.mockImplementation(async (cb: any) =>
       cb({
-        receiptCounter: {
+        // Current counter tables (migrations 20260706140000/150000). The legacy
+        // receiptCounter was replaced by these two atomic upsert series.
+        documentSeriesCounter: {
+          upsert: jest.fn().mockResolvedValue({ lastNumber: 1 }),
+        },
+        userDocumentSequence: {
           upsert: jest.fn().mockResolvedValue({ lastNumber: 1 }),
         },
       }),
@@ -207,6 +217,27 @@ describe('ReceiptsService — receipt billing on send', () => {
     send: true,
     recipientEmail: 'c@example.com',
   } as const;
+
+  it('rejects a receipt whose issue date is before Jan 1 of the current year', async () => {
+    await expect(
+      service.createReceipt('u', { ...BASE_DTO, date: '06/09/2020' } as never),
+    ).rejects.toThrow(BadRequestException);
+    expect(prismaMock.document.create).not.toHaveBeenCalled();
+  });
+
+  it('defers a future-dated receipt: DRAFT + isDeferred, never sent even with send=true', async () => {
+    await service.createReceipt('u', {
+      ...SEND_DTO,
+      date: '12/31/2099',
+      notifyOnIssueDate: true,
+    } as never);
+
+    // Deferred → the email is NOT sent at create.
+    expect(emailMock.sendReceipt).not.toHaveBeenCalled();
+    const createData = prismaMock.document.create.mock.calls[0][0].data;
+    expect(createData.isDeferred).toBe(true);
+    expect(createData.notifyOnIssueDate).toBe(true);
+  });
 
   it('counts the receipt on first send (under limit → not overage)', async () => {
     // STARTER tenant: limit 20, 5 already used this period.
@@ -371,6 +402,7 @@ describe('ReceiptsService — getReceiptStats', () => {
       sendFailed: 1,
       cancelled: 1,
       void: 1,
+      scheduled: 0,
     });
     expect(stats.amountThisMonth).toBeCloseTo(1149.5); // 100 + 50.5 + 999 (counted this period)
     expect(stats.receiptsThisMonth).toBe(3);
@@ -393,8 +425,121 @@ describe('ReceiptsService — getReceiptStats', () => {
       sendFailed: 0,
       cancelled: 0,
       void: 0,
+      scheduled: 0,
     });
     expect(stats.amountThisMonth).toBe(0);
     expect(stats.totalIssued).toBe(0);
+  });
+
+  it('exposes tenant-wide documentCounts split by type (invoices / receipts / signatures / total)', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      companyProfileId: 'tenant-3',
+    });
+    prismaMock.document.groupBy.mockResolvedValue([]);
+    // DIRECT_PDF documents (receipts + invoices) come from findMany — the same
+    // array the receipt stats already read. Type is derived from documentType.code.
+    prismaMock.document.findMany.mockResolvedValue([
+      {
+        status: 'SENT',
+        supersededAt: null,
+        countedAsReceipt: false,
+        billingPeriod: null,
+        sentAt: null,
+        documentType: { code: 'PAYMENT_RECEIPT' },
+        data: { dataJson: {} },
+      },
+      {
+        status: 'DRAFT',
+        supersededAt: null,
+        countedAsReceipt: false,
+        billingPeriod: null,
+        sentAt: null,
+        documentType: { code: 'PAYMENT_RECEIPT' },
+        data: { dataJson: {} },
+      },
+      {
+        status: 'DRAFT',
+        supersededAt: null,
+        countedAsReceipt: false,
+        billingPeriod: null,
+        sentAt: null,
+        documentType: { code: 'INVOICE' },
+        data: { dataJson: {} },
+      },
+    ]);
+    // Signature (BoldSign) documents are counted with a separate query — they are
+    // NOT part of the DIRECT_PDF findMany above.
+    prismaMock.document.count.mockResolvedValue(4);
+
+    const stats = await service.getReceiptStats('user-3');
+
+    expect(stats.documentCounts).toEqual({
+      invoices: 1,
+      receipts: 2,
+      signatures: 4,
+      total: 7,
+    });
+    // The signature count filters the tenant's BOLDSIGN document types.
+    expect(prismaMock.document.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          companyProfileId: 'tenant-3',
+          documentType: { generationMode: 'BOLDSIGN' },
+        }),
+      }),
+    );
+  });
+
+  it('splits this-month counts by type (monthlyCounts) so the popup Total matches the card', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      companyProfileId: 'tenant-4',
+    });
+    prismaMock.document.groupBy.mockResolvedValue([]);
+
+    const now = new Date();
+    const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    prismaMock.document.findMany.mockResolvedValue([
+      // Receipt counted this period → receipts month count.
+      {
+        status: 'SENT',
+        supersededAt: null,
+        countedAsReceipt: true,
+        billingPeriod: period,
+        sentAt: now,
+        documentType: { code: 'PAYMENT_RECEIPT' },
+        data: { dataJson: { amount: 100 } },
+      },
+      // Invoice SENT this period → invoices month count.
+      {
+        status: 'SENT',
+        supersededAt: null,
+        countedAsReceipt: false,
+        billingPeriod: null,
+        sentAt: now,
+        documentType: { code: 'INVOICE' },
+        data: { dataJson: { gran_total: '50.00' } },
+      },
+      // Receipt from a PAST period → excluded from this month's split.
+      {
+        status: 'SENT',
+        supersededAt: null,
+        countedAsReceipt: true,
+        billingPeriod: '2020-01',
+        sentAt: new Date('2020-01-15'),
+        documentType: { code: 'PAYMENT_RECEIPT' },
+        data: { dataJson: { amount: 999 } },
+      },
+    ]);
+
+    const stats = await service.getReceiptStats('user-4');
+
+    expect(stats.monthlyCounts).toEqual({
+      receipts: 1,
+      invoices: 1,
+      total: 2,
+    });
+    // Popup Total must equal the "Receipts this month" card figure.
+    expect(stats.monthlyCounts.total).toBe(stats.receiptsThisMonth);
   });
 });

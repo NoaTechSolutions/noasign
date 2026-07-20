@@ -223,6 +223,8 @@ export class DocumentsService {
       providerLastSyncedAt: document.providerLastSyncedAt ?? null,
       lastManualReminderAt: document.lastManualReminderAt ?? null,
       lastSentRecipientEmail: document.lastSentRecipientEmail ?? null,
+      // B7: exposed so a SUPERADMIN's list can badge a soft-deleted doc.
+      deletedAt: document.deletedAt ?? null,
       sendAvailableAt: sendAvailableAt?.toISOString() ?? null,
       sendAvailableInSeconds,
       canSend: this.canSendDraftDocument(document, now),
@@ -305,9 +307,13 @@ export class DocumentsService {
       throw new BadRequestException('User does not have a company profile');
     }
 
+    // B7 soft-delete: a normal user never resolves a deleted document — not in
+    // the list, not in detail, not for any action (the scope is reused across
+    // every read). A SUPERADMIN sees the whole tenant INCLUDING deleted docs
+    // (rendered with a "Deleted" badge), so no deletedAt filter for them.
     return user.role === 'SUPERADMIN'
       ? { companyProfileId: user.companyProfileId }
-      : { userId: user.id };
+      : { userId: user.id, deletedAt: null };
   }
 
   private isResendEligibleStatus(status?: string | null) {
@@ -619,6 +625,10 @@ export class DocumentsService {
           providerTemplateId: string | null;
         }>;
         receiptTemplateId?: string;
+        // True when the active receipt template can draw the "N of M" multi-
+        // payment field (fieldMappingJson has `payment_n`) — e.g. the WorldPavers
+        // custom template. Gates the "part of multiple payments" toggle.
+        receiptTemplateSupportsMultiPayment?: boolean;
       }
     >();
 
@@ -694,9 +704,15 @@ export class DocumentsService {
       const receiptTemplates = await this.prisma.receiptTemplate.findMany({
         where: { companyProfileId: effectiveCompanyProfileId, isActive: true },
         orderBy: { createdAt: 'desc' },
-        select: { id: true },
+        select: { id: true, fieldMappingJson: true },
       });
       if (receiptTemplates.length > 0) {
+        // The active template drives the "N of M" multi-payment field only when
+        // its mapping draws it (payment_n) — WorldPavers' custom template does,
+        // the catalog templates don't.
+        const activeMapping = (receiptTemplates[0].fieldMappingJson ??
+          {}) as Record<string, unknown>;
+        const supportsMultiPayment = 'payment_n' in activeMapping;
         const directTypes = await this.prisma.documentType.findMany({
           where: { generationMode: 'DIRECT_PDF' },
           include: {
@@ -723,6 +739,7 @@ export class DocumentsService {
             // The (effective user's) tenant template to borrow — the frontend
             // passes it to createReceipt for the superadmin flow.
             receiptTemplateId: receiptTemplates[0].id,
+            receiptTemplateSupportsMultiPayment: supportsMultiPayment,
           });
         }
       }
@@ -1383,6 +1400,28 @@ export class DocumentsService {
       message: 'Document cancelled successfully',
       document: this.serializeDocument(updatedDocument),
     };
+  }
+
+  // B7 soft-delete: a DRAFT is deleted (soft), never voided. Void stays for
+  // issued (SENT) receipts/invoices. Stamps deletedAt so the owner stops seeing
+  // it while a SUPERADMIN still can (see getDocumentAccessScope). No restore here
+  // — that's a future feature (F1).
+  async deleteDocument(userId: string, documentId: string): Promise<void> {
+    const scope = await this.getDocumentAccessScope(userId);
+
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, ...scope },
+    });
+
+    if (!document) throw new NotFoundException('Document not found');
+    if (document.status !== DocumentStatus.DRAFT) {
+      throw new BadRequestException('Only draft documents can be deleted');
+    }
+
+    await this.prisma.document.update({
+      where: { id: documentId },
+      data: { deletedAt: new Date() },
+    });
   }
 
   async reactivateDocument(userId: string, documentId: string) {

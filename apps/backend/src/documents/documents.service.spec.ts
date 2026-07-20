@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DocumentStatus } from '@prisma/client';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,6 +56,13 @@ const prismaMock = {
   companyProfile: {
     findUnique: jest.fn(),
   },
+  // Correlativo numbering now runs through an atomic per-(user, type) sequence
+  // inside a transaction (migration 20260706150000), replacing the old
+  // document.findMany max-scan.
+  userDocumentSequence: {
+    upsert: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 const signatureProviderServiceMock = {
@@ -84,6 +91,13 @@ describe('DocumentsService', () => {
     prismaMock.companyProfile.findUnique.mockResolvedValue({
       contractsEnabled: true,
     });
+    // Numbering: $transaction runs its callback with the mock itself as the tx
+    // client, so tx.userDocumentSequence.upsert resolves to the mocked fn. Default
+    // sequence → lastNumber 1 (first doc for that user/type); tests override it.
+    prismaMock.$transaction.mockImplementation(
+      (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+    );
+    prismaMock.userDocumentSequence.upsert.mockResolvedValue({ lastNumber: 1 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -126,7 +140,10 @@ describe('DocumentsService', () => {
   it('getDocumentTypes (asUserId) borrows a cross-tenant target user’s receipt template', async () => {
     // caller = SUPERADMIN (company-1); target = USER in a DIFFERENT tenant (company-2).
     prismaMock.user.findUnique
-      .mockResolvedValueOnce({ role: 'SUPERADMIN', companyProfileId: 'company-1' })
+      .mockResolvedValueOnce({
+        role: 'SUPERADMIN',
+        companyProfileId: 'company-1',
+      })
       .mockResolvedValueOnce({
         id: 'user-2',
         role: 'USER',
@@ -689,8 +706,8 @@ describe('DocumentsService', () => {
       documentTypeId: 'type-1',
     });
     prismaMock.document.findFirst.mockResolvedValue(null);
-    // Per-user numbering scopes the max to (userId, type).
-    prismaMock.document.findMany.mockResolvedValue([]);
+    // First doc for (user-1, type-1) → the per-user sequence starts at 1.
+    prismaMock.userDocumentSequence.upsert.mockResolvedValue({ lastNumber: 1 });
     prismaMock.document.create.mockResolvedValue({
       id: 'doc-new',
       documentNumber: 'CON-000001',
@@ -772,10 +789,9 @@ describe('DocumentsService', () => {
       id: 'tpl-1',
       documentTypeId: 'type-1',
     });
-    // This user already has CON-000002 → next must be CON-000003 for this user.
-    prismaMock.document.findMany.mockResolvedValue([
-      { documentNumber: 'CON-000002' },
-    ]);
+    // This user's sequence is already at 2 → the atomic increment returns 3, so
+    // the next number is CON-000003 for this user.
+    prismaMock.userDocumentSequence.upsert.mockResolvedValue({ lastNumber: 3 });
     prismaMock.document.findFirst.mockResolvedValue(null);
     prismaMock.document.create.mockResolvedValue({
       id: 'doc-new',
@@ -795,10 +811,13 @@ describe('DocumentsService', () => {
       dataJson: {},
     });
 
-    // The max lookup is scoped to the creator's userId (not the tenant).
-    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+    // The correlativo comes from the per-(user, type) sequence, scoped to the
+    // creator's userId (not the tenant) via the composite unique key.
+    expect(prismaMock.userDocumentSequence.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ userId: 'user-1' }),
+        where: {
+          userId_documentTypeId: { userId: 'user-1', documentTypeId: 'type-1' },
+        },
       }),
     );
     expect(prismaMock.document.create).toHaveBeenCalledWith(
@@ -826,7 +845,8 @@ describe('DocumentsService', () => {
       id: 'tpl-owned-by-someone-else',
       documentTypeId: 'type-1',
     });
-    prismaMock.document.findMany.mockResolvedValue([]); // master owns no CON docs
+    // Master (user-1) owns no CON docs → their own sequence starts at 1.
+    prismaMock.userDocumentSequence.upsert.mockResolvedValue({ lastNumber: 1 });
     prismaMock.document.findFirst.mockResolvedValue(null);
     prismaMock.document.create.mockResolvedValue({
       id: 'doc-new',
@@ -846,11 +866,13 @@ describe('DocumentsService', () => {
       dataJson: {},
     });
 
-    // Number scoped to the master (user-1) — NOT a guard rejection, NOT the form
-    // owner's sequence.
-    expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+    // Number drawn from the master's OWN sequence (user-1) — NOT a guard
+    // rejection, NOT the form owner's sequence.
+    expect(prismaMock.userDocumentSequence.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ userId: 'user-1' }),
+        where: {
+          userId_documentTypeId: { userId: 'user-1', documentTypeId: 'type-1' },
+        },
       }),
     );
     expect(result.document.documentNumber).toBe('CON-000001');
@@ -951,5 +973,100 @@ describe('DocumentsService', () => {
     await expect(
       service.simulateDocumentCompleted('user-1', 'doc-viewed'),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  // ── B7: soft-delete of documents ──────────────────────────────────────────
+  // A DRAFT is deleted (soft), never voided. Void stays for issued (SENT) docs.
+  // A deleted doc disappears for the owner; a SUPERADMIN still sees it.
+  describe('deleteDocument (B7 soft-delete)', () => {
+    it('soft-deletes a DRAFT by stamping deletedAt, scoped to the owner', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue({
+        id: 'doc-del',
+        status: DocumentStatus.DRAFT,
+      });
+      prismaMock.document.update.mockResolvedValue({ id: 'doc-del' });
+
+      await service.deleteDocument('user-1', 'doc-del');
+
+      // Normal user is scoped to their own, not-already-deleted docs.
+      expect(prismaMock.document.findFirst).toHaveBeenCalledWith({
+        where: { id: 'doc-del', userId: 'user-1', deletedAt: null },
+      });
+      expect(prismaMock.document.update).toHaveBeenCalledWith({
+        where: { id: 'doc-del' },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it('rejects deleting a non-DRAFT document (issued docs are voided, not deleted)', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue({
+        id: 'doc-sent',
+        status: DocumentStatus.SENT,
+      });
+
+      await expect(
+        service.deleteDocument('user-1', 'doc-sent'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prismaMock.document.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFound when the doc is out of scope or already deleted', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue(null);
+
+      await expect(service.deleteDocument('user-1', 'missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('getMyDocuments soft-delete visibility (B7)', () => {
+    it('hides soft-deleted docs from a normal user', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findMany.mockResolvedValue([]);
+
+      await service.getMyDocuments('user-1');
+
+      expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-1', deletedAt: null },
+        }),
+      );
+    });
+
+    it('shows every doc (incl. deleted) to a SUPERADMIN across the tenant', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'SUPERADMIN',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findMany.mockResolvedValue([]);
+
+      await service.getMyDocuments('user-1');
+
+      expect(prismaMock.document.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { companyProfileId: 'company-1' },
+        }),
+      );
+    });
   });
 });

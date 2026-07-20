@@ -108,6 +108,12 @@ model CompanyProfile {
   state                 String?
   zipCode               String?
   country               String?
+  // IANA timezone for the tenant — used for ALL issue-date day boundaries (today /
+  // future / Jan 1 of the year / the deferred-notify cron). Auto-detected from the
+  // browser on first login (PATCH /company-profile/me). Deliberately nullable with
+  // NO db default: NULL means "not detected yet" so the autosave knows to set it;
+  // app code falls back to DEFAULT_TENANT_TZ (America/New_York) while NULL.
+  timezone              String?
   logoUrl               String?
   licenseNumber         String?
 
@@ -636,6 +642,10 @@ model Document {
   signedAt               DateTime?
   completedAt            DateTime?
   cancelledAt            DateTime?
+  // B7 soft-delete — null = live, timestamp = deleted. A deleted DRAFT is hidden
+  // from its owner; a SUPERADMIN still sees it flagged. Distinct from CANCELLED
+  // (a real lifecycle state) and from the receipt VOID (derived from supersededAt).
+  deletedAt              DateTime?
   lastManualReminderAt   DateTime?
   lastSentRecipientEmail String?
 
@@ -663,6 +673,18 @@ model Document {
   // back-relation supersededBy.
   supersedesId    String?
   supersededAt    DateTime?
+
+  // Issue-date feature (invoices AND receipts). issueDate = the user-editable
+  // calendar date of the transaction (date-only @db.Date, compared in the tenant's
+  // timezone). DISTINCT from createdAt (the immutable real creation timestamp — the
+  // audit trail) and from contractDate. A FUTURE issueDate forces the doc to DRAFT
+  // until the date arrives: isDeferred flags it, notifyOnIssueDate = the creator
+  // opted into the "ready to finalize" notification, deferredNotifiedAt stamps when
+  // that notification fired (idempotency for the daily/hourly scan).
+  issueDate          DateTime? @db.Date
+  isDeferred         Boolean   @default(false)
+  notifyOnIssueDate  Boolean   @default(false)
+  deferredNotifiedAt DateTime?
 
   countedInBilling Boolean @default(false)
   isOverage        Boolean @default(false)
@@ -696,6 +718,7 @@ model Document {
   @@index([documentTypeId])
   @@index([status])
   @@index([createdAt])
+  @@index([companyProfileId, deletedAt])
   @@index([providerDocumentId])
   // FASE 2: bounce webhooks look up the document by the Resend message id.
   @@index([providerEmailId])

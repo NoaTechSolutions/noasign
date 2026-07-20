@@ -12,11 +12,13 @@ import {
   getAvailableActions,
   getCustomerDisplayName,
   getDocumentTypeDisplayName,
-  getStatusBadgeClass,
-  getStatusLabel,
+  isDeferredPending,
+  isDeletedDoc,
   isReceiptDoc,
-  isVoidedReceipt,
+  isVoidedDoc,
+  scheduledLabel,
 } from './types';
+import { StatusBadge } from './StatusBadge';
 import { friendlySendError } from '@/lib/send-error';
 import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
 
@@ -102,12 +104,17 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
               {getCustomerDisplayName(document)}
             </div>
             <div className="documents-v2-card__badges">
-              {isVoidedReceipt(document) ? (
-                <span className="doc-status-badge doc-status-badge--void">VOID</span>
+              {isDeletedDoc(document) ? (
+                <StatusBadge status="DELETED" />
+              ) : isVoidedDoc(document) ? (
+                <StatusBadge status="VOID" />
+              ) : isDeferredPending(document) ? (
+                <StatusBadge
+                  status="SCHEDULED"
+                  title={scheduledLabel(document) ?? undefined}
+                />
               ) : (
-                <span className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}>
-                  {getStatusLabel(document.status)}
-                </span>
+                <StatusBadge status={document.status} />
               )}
             </div>
             {/* Mobile has no hover — show the failure reason inline, always visible. */}
@@ -139,7 +146,15 @@ export function DocumentCard({ document, selected, onAction, receiptsOnly = fals
               <div className="documents-v2-card__info-row">
                 <span className="documents-v2-card__label">Status</span>
                 <span>
-                  {isVoidedReceipt(document) ? 'VOID' : getStatusLabel(document.status)}
+                  {isDeletedDoc(document) ? (
+                    <StatusBadge status="DELETED" />
+                  ) : isVoidedDoc(document) ? (
+                    <StatusBadge status="VOID" />
+                  ) : isDeferredPending(document) ? (
+                    <StatusBadge status="SCHEDULED" />
+                  ) : (
+                    <StatusBadge status={document.status} />
+                  )}
                 </span>
               </div>
             </div>

@@ -11,11 +11,13 @@ import {
   getAvailableActions,
   getCustomerDisplayName,
   getDocumentTypeDisplayName,
-  getStatusBadgeClass,
-  getStatusLabel,
+  isDeferredPending,
+  isDeletedDoc,
   isReceiptDoc,
-  isVoidedReceipt,
+  isVoidedDoc,
+  scheduledLabel,
 } from './types';
+import { StatusBadge } from './StatusBadge';
 import { friendlySendError } from '@/lib/send-error';
 import { ReceiptResendMenuItem } from './ReceiptResendMenuItem';
 
@@ -98,20 +100,25 @@ export function DocumentTableRow({
       <td className="documents-v2-row__time">{formatDate(document.createdAt)}</td>
       {/* 4. Status */}
       <td>
-        {isVoidedReceipt(document) ? (
-          <span className="doc-status-badge doc-status-badge--void">VOID</span>
+        {isDeletedDoc(document) ? (
+          <StatusBadge status="DELETED" />
+        ) : isVoidedDoc(document) ? (
+          <StatusBadge status="VOID" />
+        ) : isDeferredPending(document) ? (
+          <StatusBadge
+            status="SCHEDULED"
+            title={scheduledLabel(document) ?? undefined}
+          />
         ) : (
-          <span
-            className={`doc-status-badge ${getStatusBadgeClass(document.status)}`}
+          <StatusBadge
+            status={document.status}
             // Desktop: hover the "Send failed" badge to see why it failed.
             title={
               document.status === 'SEND_FAILED'
                 ? friendlySendError(document.sendError) ?? undefined
                 : undefined
             }
-          >
-            {getStatusLabel(document.status)}
-          </span>
+          />
         )}
       </td>
       {/* 5. Actions */}
