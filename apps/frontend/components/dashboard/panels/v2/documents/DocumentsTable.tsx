@@ -156,7 +156,7 @@ export function DocumentsTable({
                 'Type'
               )}
             </th>
-            <th>Date</th>
+            <th>Created</th>
             <th>
               {onQuickFilterStatus ? (
                 <QuickFilterTh

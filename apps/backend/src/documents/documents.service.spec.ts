@@ -52,6 +52,7 @@ const prismaMock = {
   },
   receiptTemplate: {
     findMany: jest.fn(),
+    findFirst: jest.fn(),
   },
   companyProfile: {
     findUnique: jest.fn(),
@@ -218,6 +219,91 @@ describe('DocumentsService', () => {
     ]);
   });
 
+  it('getDocumentTypes does NOT offer INVOICE when the tenant has no invoice template (L3)', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      role: 'USER',
+      companyProfileId: 'company-1',
+    });
+    prismaMock.userDocumentConfig.findMany.mockResolvedValue([]);
+    prismaMock.receiptTemplate.findMany.mockResolvedValue([
+      { id: 'rt-rec', fieldMappingJson: {} },
+    ]);
+    // No active invoice template for this tenant.
+    prismaMock.receiptTemplate.findFirst.mockResolvedValue(null);
+    prismaMock.documentType.findMany.mockResolvedValue([
+      {
+        id: 'dt-inv',
+        name: 'Invoice',
+        code: 'INVOICE',
+        generationMode: 'DIRECT_PDF',
+        formDefinitions: [
+          { id: 'f-global', name: 'Invoice (Laura)', schemaJson: {} },
+        ],
+      },
+      {
+        id: 'dt-rec',
+        name: 'Receipt',
+        code: 'PAYMENT_RECEIPT',
+        generationMode: 'DIRECT_PDF',
+        formDefinitions: [
+          { id: 'f-rec', name: 'Payment Receipt Form', schemaJson: {} },
+        ],
+      },
+    ]);
+
+    const result = await service.getDocumentTypes('user-1');
+
+    // The leak: without this fix the global 'Invoice (Laura)' form was offered.
+    expect(result.find((t) => t.code === 'INVOICE')).toBeUndefined();
+    expect(result.find((t) => t.code === 'PAYMENT_RECEIPT')).toBeDefined();
+  });
+
+  it('getDocumentTypes offers INVOICE with the tenant own template form, not the global one (L3)', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      role: 'USER',
+      companyProfileId: 'company-1',
+    });
+    prismaMock.userDocumentConfig.findMany.mockResolvedValue([]);
+    prismaMock.receiptTemplate.findMany.mockResolvedValue([
+      { id: 'rt-rec', fieldMappingJson: {} },
+    ]);
+    prismaMock.receiptTemplate.findFirst.mockResolvedValue({
+      id: 'rt-inv',
+      standard: {
+        formDefinition: {
+          id: 'f-own',
+          name: 'Invoice (own)',
+          schemaJson: { own: true },
+        },
+      },
+    });
+    prismaMock.documentType.findMany.mockResolvedValue([
+      {
+        id: 'dt-inv',
+        name: 'Invoice',
+        code: 'INVOICE',
+        generationMode: 'DIRECT_PDF',
+        // A DIFFERENT global form — must NOT be the one returned.
+        formDefinitions: [
+          { id: 'f-global', name: 'GLOBAL — must not leak', schemaJson: {} },
+        ],
+      },
+    ]);
+
+    const result = await service.getDocumentTypes('user-1');
+    const invoice = result.find((t) => t.code === 'INVOICE') as
+      | { formDefinitions: Array<{ id: string }>; receiptTemplateId?: string }
+      | undefined;
+
+    expect(invoice).toBeDefined();
+    expect(invoice?.formDefinitions).toEqual([
+      { id: 'f-own', name: 'Invoice (own)', schemaJson: { own: true } },
+    ]);
+    expect(invoice?.receiptTemplateId).toBe('rt-inv');
+  });
+
   it('updateDraftDocument rejects documents outside DRAFT status', async () => {
     prismaMock.document.findFirst.mockResolvedValue({
       id: 'doc-1',
@@ -234,6 +320,33 @@ describe('DocumentsService', () => {
         dataJson: {},
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('updateDraftDocument stamps lastEditedAt so the contract timeline shows an Edited event (J4)', async () => {
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'doc-1',
+      status: DocumentStatus.DRAFT,
+      versions: [{ versionNumber: 1 }],
+      data: { dataJson: {} },
+    });
+    prismaMock.document.update.mockResolvedValue({
+      id: 'doc-1',
+      status: DocumentStatus.DRAFT,
+      data: { dataJson: {} },
+    });
+    prismaMock.documentVersion.create.mockResolvedValue({});
+
+    await service.updateDraftDocument('user-1', 'doc-1', {
+      contractDate: '2026-03-20',
+      dataJson: { customer_name: 'Jane Doe' },
+    });
+
+    expect(prismaMock.document.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'doc-1' },
+        data: expect.objectContaining({ lastEditedAt: expect.any(Date) }),
+      }),
+    );
   });
 
   it('sendDraftDocument no longer counts billing on SENT', async () => {

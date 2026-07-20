@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Calendar } from 'lucide-react';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { IssueDateDisclaimerModal } from '@/components/dashboard/shared/IssueDateDisclaimerModal';
@@ -64,7 +64,10 @@ export function InvoiceEditPopup({
   const [eventName, setEventName] = useState(str(dataJson.event_name));
   const [eventLocation, setEventLocation] = useState(str(dataJson.event_location));
   const [quantity, setQuantity] = useState(str(dataJson.quantity));
-  const [price, setPrice] = useState(str(dataJson.price));
+  // D3: the stored price is formatted with thousands separators ("123,123.00"),
+  // but CurrencyInput + the live-total math need a clean numeric string — strip
+  // the commas so the field prefills (a comma'd value → NaN → blank/zero).
+  const [price, setPrice] = useState(str(dataJson.price).replace(/,/g, ''));
 
   // Issue date (Billed to only) — mirrors the wizard's "Different day" toggle +
   // date field. Different day is ON when the stored issue date isn't today.
@@ -89,7 +92,21 @@ export function InvoiceEditPopup({
 
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // K3: after a successful save, show the "Saved!" flourish briefly, then close.
+  // onClose via a ref so a re-render (e.g. the parent's detail refresh) doesn't
+  // reset the timer — it fires once when `saved` flips true.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => onCloseRef.current(), 1200);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   const touch =
     (setter: (v: string) => void) =>
@@ -137,14 +154,17 @@ export function InvoiceEditPopup({
       // Totals are recomputed server-side from quantity × price.
       return { quantity: String(qty), price: price.trim() };
     }
-    // billed_to (default)
-    const recipient = business
-      ? companyName.trim()
-      : [firstName, lastName].map((s) => s.trim()).filter(Boolean).join(' ');
-    if (!recipient) {
-      setError(
-        business ? 'Company name is required' : 'First and last name are required',
-      );
+    // billed_to (default). K4: required-ness ALWAYS follows the CURRENT toggle
+    // state — business → company name; person → first AND last (both) — no matter
+    // how many times Business was toggled (the fields keep their values across
+    // toggles, so read them live here).
+    if (business) {
+      if (!companyName.trim()) {
+        setError('Company name is required');
+        return null;
+      }
+    } else if (!firstName.trim() || !lastName.trim()) {
+      setError('First and last name are required');
       return null;
     }
     // Clear the unused name fields so switching business <-> individual overrides
@@ -166,10 +186,16 @@ export function InvoiceEditPopup({
 
   const commit = (data: Record<string, string>, notify: boolean): void => {
     setSaving(true);
-    void onSave(data, notify).catch((e) => {
-      setError(e instanceof Error ? e.message : 'Could not save the invoice');
-      setSaving(false);
-    });
+    void onSave(data, notify)
+      .then(() => {
+        // K3: parent did the update (no close, no toast) — show success here.
+        setSaving(false);
+        setSaved(true);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Could not save the invoice');
+        setSaving(false);
+      });
   };
 
   const handleSave = (): void => {
@@ -199,6 +225,7 @@ export function InvoiceEditPopup({
       onSave={handleSave}
       isDirty={dirty}
       isSaving={saving}
+      isSaved={saved}
     >
       {error ? (
         <div
@@ -340,7 +367,9 @@ export function InvoiceEditPopup({
                 className="form-input"
                 value={companyName}
                 onChange={(e) =>
-                  touch(setCompanyName)(applyTransform(e.target.value, 'titleCase'))
+                  touch(setCompanyName)(
+                    applyTransform(e.target.value, 'capitalizeFirst'),
+                  )
                 }
               />
             </div>

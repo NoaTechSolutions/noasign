@@ -10,6 +10,7 @@ export interface TemplateCatalogItem {
   previewUrl: string; // CROPPED receipt band (card thumbnail), relative path
   fullPreviewUrl: string; // FULL Letter-page render (modal), relative path
   isActive: boolean; // true = the tenant's currently-selected template
+  isOwn: boolean; // L1: true = PRIVATE to this tenant (its own custom template)
 }
 
 // PATCH /templates/active response envelope.

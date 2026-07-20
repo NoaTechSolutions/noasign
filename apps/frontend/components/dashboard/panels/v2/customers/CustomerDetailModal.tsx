@@ -23,7 +23,7 @@ interface CustomerDetailModalProps {
 
 // Flat editable draft of every customer + business field.
 interface Draft {
-  firstName: string; lastName: string; email: string; phone: string;
+  firstName: string; middleName: string; lastName: string; email: string; phone: string;
   addressLine1: string; addressLine2: string; city: string; state: string; zipCode: string;
   businessName: string; businessLegalName: string; licenseNumber: string; industry: string;
   website: string; businessEmail: string; businessPhone: string;
@@ -35,10 +35,14 @@ interface Draft {
 }
 
 function seedDraft(c: Customer): Draft {
-  const { firstName, lastName } = splitFullName(c.fullName);
+  // K8: prefer stored parts; fall back to splitting fullName for older rows.
+  const fb = splitFullName(c.fullName);
+  const hasParts = Boolean(c.firstName || c.lastName);
   const b = c.business;
   return {
-    firstName, lastName,
+    firstName: hasParts ? (c.firstName ?? '') : fb.firstName,
+    middleName: c.middleName ?? '',
+    lastName: hasParts ? (c.lastName ?? '') : fb.lastName,
     email: c.email ?? '', phone: c.phone ?? '',
     addressLine1: c.addressLine1 ?? '', addressLine2: c.addressLine2 ?? '',
     city: c.city ?? '', state: c.state ?? '', zipCode: c.zipCode ?? '',
@@ -149,7 +153,11 @@ export function CustomerDetailModal({
           }
         : {
             customerType: 'PERSONAL',
-            fullName: combineFullName(draft.firstName, draft.lastName),
+            fullName: combineFullName(draft.firstName, draft.middleName, draft.lastName),
+            // K8: persist the parts so invoice/receipt create maps them (K7).
+            firstName: draft.firstName.trim(),
+            middleName: draft.middleName.trim() || undefined,
+            lastName: draft.lastName.trim(),
             email: draft.email || undefined,
             phone: draft.phone || undefined,
             addressLine1: draft.addressLine1 || undefined,
@@ -317,7 +325,8 @@ export function CustomerDetailModal({
         <>
           <GroupEditPopup title="Personal Information" isOpen={editingGroup === 'pi-personal'} onClose={closeGroup} onSave={handleSave} isDirty={dirty} isSaving={saving}>
             <div className="form-field"><label className="form-label">First name *</label><input type="text" className="form-input" value={draft.firstName} onChange={(e) => set('firstName', formatTitleCase(e.target.value))} required /></div>
-            <div className="form-field"><label className="form-label">Last name</label><input type="text" className="form-input" value={draft.lastName} onChange={(e) => set('lastName', formatTitleCase(e.target.value))} /></div>
+            <div className="form-field"><label className="form-label">Middle name</label><input type="text" className="form-input" value={draft.middleName} onChange={(e) => set('middleName', formatTitleCase(e.target.value))} /></div>
+            <div className="form-field"><label className="form-label">Last name *</label><input type="text" className="form-input" value={draft.lastName} onChange={(e) => set('lastName', formatTitleCase(e.target.value))} required /></div>
             <div className="form-field"><label className="form-label">Email</label><input type="email" className="form-input" value={draft.email} onChange={(e) => set('email', e.target.value)} /></div>
             <div className="form-field"><label className="form-label">Phone</label><input type="tel" className="form-input" value={draft.phone} onChange={(e) => set('phone', formatUsPhone(e.target.value))} placeholder="(555) 000-0000" /></div>
           </GroupEditPopup>

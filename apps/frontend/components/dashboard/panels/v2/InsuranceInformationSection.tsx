@@ -5,6 +5,7 @@ import { FieldRow, ProfileSectionSkeleton } from '@/components/dashboard/shared/
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { formatUsPhone } from '@/lib/format-phone';
 import { formatTitleCase } from '@/lib/format-text';
+import { formatDisplayDate } from '@/lib/format';
 
 interface InsuranceInfo {
   company?: string;
@@ -67,7 +68,7 @@ export function InsuranceInformationSection({
           </div>
           <div className="field-rows">
             <FieldRow label="Phone" value={insurance.phone} />
-            <FieldRow label="Expiry Date" value={insurance.expiryDate} />
+            <FieldRow label="Expiry Date" value={formatDisplayDate(insurance.expiryDate)} />
           </div>
         </div>
       </div>

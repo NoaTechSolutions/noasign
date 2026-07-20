@@ -1,10 +1,50 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCompanyInitials } from "@/lib/format";
 import "./field-row.css";
+
+/**
+ * Canonical loading placeholder — the ONE reusable skeleton primitive. Wraps the
+ * global `skeleton-pulse` shimmer (globals.css). Size it to match the real
+ * content so swapping in the loaded value causes NO layout shift. Prefer this
+ * over hand-rolled `skeleton-pulse` spans.
+ */
+export function Skeleton({
+  width,
+  height = 14,
+  radius,
+  circle = false,
+  className,
+  style,
+}: {
+  width?: number | string;
+  height?: number | string;
+  radius?: number | string;
+  circle?: boolean;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "skeleton-pulse",
+        circle ? "skeleton-circle" : "skeleton-line",
+        className,
+      )}
+      style={{
+        display: "inline-block",
+        width,
+        height,
+        ...(radius != null ? { borderRadius: radius } : null),
+        ...style,
+      }}
+    />
+  );
+}
 
 export function FieldRow({ label, value }: { label: string; value?: string | null }) {
   return (

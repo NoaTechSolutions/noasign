@@ -3,6 +3,20 @@
 import React from 'react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { FieldRow } from '@/components/dashboard/shared/ui';
+
+// H2: US MM/DD/YYYY + time, always en-US (never the browser's day-first locale).
+function fmtDateTime(value: string): string {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? value
+    : d.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+}
 import type { AccountRequest } from './types';
 
 interface AccountRequestDetailModalProps {
@@ -66,9 +80,9 @@ export function AccountRequestDetailModal({
             </div>
 
             <div className="field-rows">
-              <FieldRow label="Submitted" value={new Date(request.createdAt).toLocaleString()} />
+              <FieldRow label="Submitted" value={fmtDateTime(request.createdAt)} />
               {request.processedAt && (
-                <FieldRow label="Processed" value={new Date(request.processedAt).toLocaleString()} />
+                <FieldRow label="Processed" value={fmtDateTime(request.processedAt)} />
               )}
             </div>
           </div>

@@ -111,6 +111,26 @@ export class ReceiptsController {
     };
   }
 
+  // "Send now" for a SCHEDULED (deferred) draft receipt — finalizes it TODAY
+  // (un-defers to today's date, refreshes the PDF) and sends. A non-deferred
+  // receipt just sends. Same response shape as :id/resend.
+  @Post(':id/send-now')
+  async sendReceiptNow(
+    @Req() req: { user: { id: string } },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const { document } = await this.receiptsService.sendReceiptNow(
+      req.user.id,
+      id,
+    );
+    const failed = document.status === DocumentStatus.SEND_FAILED;
+    return {
+      message: failed ? 'Receipt send failed' : 'Receipt sent',
+      document,
+      sendError: document.sendError ?? null,
+    };
+  }
+
   @Patch(':id')
   async updateReceipt(
     @Req() req: { user: { id: string } },

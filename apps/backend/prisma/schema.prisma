@@ -256,9 +256,15 @@ model Customer {
   // Soft delete — null = active, timestamp = deleted (restorable by MASTER).
   deletedAt        DateTime?
 
-  fullName String
-  email    String?
-  phone    String?
+  // fullName is the composed display name (kept for backward compat + search).
+  // For a PERSONAL customer it is [first, middle, last] joined; the parts below let
+  // the invoice/receipt create map each to its own field (no lossy re-split). K8.
+  fullName   String
+  firstName  String?
+  middleName String?
+  lastName   String?
+  email      String?
+  phone      String?
 
   addressLine1 String?
   addressLine2 String?
@@ -396,6 +402,8 @@ model FormDefinition {
   documentType DocumentType         @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
   userConfigs  UserDocumentConfig[]
   documents    Document[]
+  // L3: template standards that resolve their creation form from this definition.
+  templateStandards ReceiptTemplateStandard[]
 
   @@index([documentTypeId])
   @@map("form_definitions")
@@ -504,6 +512,12 @@ model ReceiptTemplateStandard {
   // PRIVATE to that tenant (only its users see it; SUPERADMIN sees all). Kept on
   // the standard so the catalog list can filter by tenant without per-tenant rows.
   ownerCompanyProfileId String?
+  // L3: the creation form this template resolves to. The form BELONGS to the
+  // template (which is already tenant-scoped via ownerCompanyProfileId), so it
+  // inherits that isolation — a tenant only ever gets its own template's form.
+  // Nullable: a standard without a form yields no invoice creation (honest empty
+  // state), never another tenant's form.
+  formDefinitionId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -511,9 +525,11 @@ model ReceiptTemplateStandard {
   companyTemplates CompanyTemplate[]
   documentType     DocumentType?     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
   ownerCompanyProfile CompanyProfile? @relation("OwnedTemplateStandards", fields: [ownerCompanyProfileId], references: [id], onDelete: SetNull)
+  formDefinition   FormDefinition?   @relation(fields: [formDefinitionId], references: [id], onDelete: SetNull)
 
   @@index([documentTypeId])
   @@index([ownerCompanyProfileId])
+  @@index([formDefinitionId])
   @@map("receipt_template_standards")
 }
 

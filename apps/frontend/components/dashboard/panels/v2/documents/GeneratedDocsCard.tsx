@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Receipt, FileText } from 'lucide-react';
+import { Skeleton } from '@/components/dashboard/shared/ui';
 import './generated-docs-card.css';
 
 interface GeneratedDocsCardProps {
@@ -34,7 +35,7 @@ export function GeneratedDocsCard({
             <Receipt size={15} /> Receipts
           </span>
           <span className="generated-docs-col__value">
-            {isLoading ? '—' : receiptsThisMonth}
+            {isLoading ? <Skeleton width={32} height={24} /> : receiptsThisMonth}
           </span>
         </div>
 
@@ -45,7 +46,7 @@ export function GeneratedDocsCard({
             <FileText size={15} /> Invoices
           </span>
           <span className="generated-docs-col__value">
-            {isLoading ? '—' : invoicesThisMonth}
+            {isLoading ? <Skeleton width={32} height={24} /> : invoicesThisMonth}
           </span>
         </div>
       </div>

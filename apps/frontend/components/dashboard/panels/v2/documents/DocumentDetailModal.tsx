@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { formatUsPhone } from '@/lib/format-phone';
 import { formatState } from '@/lib/format-text';
+import { formatDisplayDate } from '@/lib/format';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { ConfirmActionModal } from '@/components/dashboard/shared/ConfirmActionModal';
@@ -21,11 +22,20 @@ import type {
   SchemaField,
   SchemaSection,
 } from './types';
-import { isDeferredPending } from './types';
+import { isDeferredPending, invoiceRecipientName, signerEmailFromData } from './types';
 import { StatusBadge } from './StatusBadge';
 import { FINANCE_COLORS, FinanceCard } from './finance-cards';
 import { CurrencyInput } from './CurrencyInput';
 import { forceTwoDecimals } from './currency';
+import {
+  applyTransform,
+  applyLettersOnly,
+  applyDigitsOnly,
+  CAPITALIZE_FIRST_KEYS,
+  LETTERS_ONLY_KEYS,
+  NO_DIGITS_KEYS,
+  DIGITS_ONLY_KEYS,
+} from './wizard/types';
 
 // Canvas PDF viewer (pdf.js). Client-only — never SSR pdf.js.
 const PdfCanvasViewer = dynamic(() => import('./PdfCanvasViewer'), {
@@ -78,6 +88,9 @@ interface DocumentDetailModalProps {
   ) => Promise<void>;
   // Auto-open the reissue form on mount (when opened via the kebab "Reissue").
   autoOpenReissue?: boolean;
+  // C6: auto-open the billed-to edit on mount (kebab "Change send date" on a
+  // scheduled doc) — the date lives in that section.
+  autoOpenDateEdit?: boolean;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   // Manual "Sync status" (BoldSign provider pull) is a fallback to the webhook;
   // restricted to SUPERADMIN (support/admin) so regular users don't see it in prod.
@@ -239,10 +252,7 @@ const FALLBACK_SECTIONS: SchemaSection[] = [
 ];
 
 function fmtDate(value: string | null | undefined): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDisplayDate(value) || '—';
 }
 
 function formatValue(field: SchemaField, raw: unknown): string {
@@ -255,12 +265,12 @@ function formatValue(field: SchemaField, raw: unknown): string {
         ? n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
         : s;
     }
-    case 'date': {
-      const d = new Date(s);
-      return Number.isNaN(d.getTime())
-        ? s
-        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
+    case 'date':
+      // G2 + H2: render through the canonical MM/DD/YYYY formatter, which also pins
+      // a bare ISO date to a LOCAL calendar day (a UTC-parsed ISO date shifts a day
+      // back in negative-offset zones — that made invoice event-date edits look like
+      // they never took).
+      return formatDisplayDate(s) || s;
     case 'select':
       return field.options?.find((o) => o.value === s)?.label ?? s;
     default:
@@ -290,6 +300,7 @@ export function DocumentDetailModal({
   onUpdateReceipt,
   onReissueReceipt,
   autoOpenReissue = false,
+  autoOpenDateEdit = false,
   onFetchReceiptPdf,
   isSuperadmin = false,
 }: DocumentDetailModalProps) {
@@ -347,24 +358,53 @@ export function DocumentDetailModal({
 
   const loadDetail = useCallback(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     setLoading(true);
     setError(null);
-    fetchRef.current(documentId)
-      .then((d) => {
-        if (!cancelled) setDetail(d);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load document');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+
+    // B1: a just-created doc can hit a backend still recompiling (dev) or a brief
+    // network blip — fetch rejects with a bare TypeError (no HTTP status). Retry
+    // those transiently with backoff (loading stays up) before surfacing a hard
+    // error. A real error (an HTTP status, e.g. 404) is shown immediately.
+    const MAX_RETRIES = 4;
+    const attempt = (n: number) => {
+      fetchRef.current(documentId)
+        .then((d) => {
+          if (!cancelled) {
+            setDetail(d);
+            setLoading(false);
+          }
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          const hasStatus =
+            typeof err === 'object' && err !== null && 'status' in err;
+          if (!hasStatus && n < MAX_RETRIES) {
+            timer = setTimeout(
+              () => {
+                if (!cancelled) attempt(n + 1);
+              },
+              400 * 2 ** n,
+            );
+            return;
+          }
+          setError(
+            err instanceof Error ? err.message : 'Could not load document',
+          );
+          setLoading(false);
+        });
+    };
+    attempt(0);
+
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [documentId]);
 
-  useEffect(() => loadDetail(), [loadDetail]);
+  // Bumped by the "Try again" button to force a fresh load after a hard failure.
+  const [reloadNonce, setReloadNonce] = useState(0);
+  useEffect(() => loadDetail(), [loadDetail, reloadNonce]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -471,13 +511,32 @@ export function DocumentDetailModal({
     // cancel/discard/(contract & receipt) send open a confirmation popup that the
     // panel owns — it closes this modal once confirmed. Invoice send is optimistic
     // (no confirm popup), so it falls through and closes the modal itself.
+    // C5: a send with no email on file is blocked by the panel (it shows a
+    // warning and never sends) — keep the detail open so the warning isn't left
+    // hanging over a closed modal. Same email source as the panel's B6 guard.
+    // Per-type recipient source: invoices use recipient_email, receipts use the
+    // legacy `email`, and CONTRACTS follow the REAL send source via the shared
+    // J5 helper (data.customer_email) — never the linked-Customer relation.
+    const dj = detail?.data?.dataJson as Record<string, unknown> | undefined;
+    const rawEmail = isInvoice
+      ? dj?.recipient_email
+      : isReceipt
+        ? dj?.email
+        : signerEmailFromData(dj);
+    const hasEmail = Boolean(
+      (
+        listItem?.customer?.email ||
+        (typeof rawEmail === 'string' ? rawEmail : '')
+      ).trim(),
+    );
     const keepsOpen =
       action === 'download' ||
       action === 'preview' ||
       action === 'cancel' ||
       action === 'discard' ||
       action === 'delete' ||
-      (action === 'send' && !isInvoice);
+      action === 'sendNow' ||
+      (action === 'send' && (!isInvoice || !hasEmail));
     if (!keepsOpen) onClose();
   };
 
@@ -512,6 +571,32 @@ export function DocumentDetailModal({
       setReissueConfirm(true);
     }
   }, [autoOpenReissue, canReissue]);
+
+  // C6: "Change send date" — auto-open the billed-to edit (invoice) or the
+  // receipt edit (both hold the date). Fires once.
+  const autoDateEditFiredRef = useRef(false);
+  useEffect(() => {
+    if (!autoOpenDateEdit || autoDateEditFiredRef.current) return;
+    // G4: the edit popups snapshot dataJson into their state at mount, so we must
+    // wait for the FULL detail (which carries dataJson) to load before opening.
+    // canEdit* derives from status, which is available instantly off the list item
+    // — firing on that alone opens the popup against an empty dataJson and it stays
+    // blank forever. Gate on the loaded detail so the popup mounts prefilled.
+    if (!detail?.data?.dataJson) return;
+    if (canEditInvoice) {
+      autoDateEditFiredRef.current = true;
+      setInvoiceEditSection(
+        sections.find((s) => s.key === 'billed_to') ?? {
+          key: 'billed_to',
+          label: 'Billed to',
+          fields: [],
+        },
+      );
+    } else if (canEditReceipt) {
+      autoDateEditFiredRef.current = true;
+      setReceiptEditOpen(true);
+    }
+  }, [autoOpenDateEdit, canEditInvoice, canEditReceipt, sections, detail]);
 
   const openEdit = (group: CardGroup) => {
     const keys =
@@ -569,8 +654,28 @@ export function DocumentDetailModal({
     setEditDirty(true);
   };
 
+  // J2: in the contract Finance edit, each card's date is REQUIRED once the card
+  // holds data (an amount OR a description). Computed live so the Save button
+  // gates on it and the offending date shows an inline error.
+  const financeDateErrors: Record<string, string> =
+    editGroup?.key === 'contract' && financeOn
+      ? Object.fromEntries(
+          [1, 2, 3, 4]
+            .filter(
+              (n) =>
+                (!!(editValues[`finance_${n}_amount`] ?? '').trim() ||
+                  !!(editValues[`finance_${n}_description`] ?? '').trim()) &&
+                !(editValues[`finance_${n}_date`] ?? '').trim(),
+            )
+            .map((n) => [`finance_${n}_date`, 'Date is required']),
+        )
+      : {};
+  const hasFinanceDateErrors = Object.keys(financeDateErrors).length > 0;
+
   const saveEdit = async () => {
     if (!editGroup || !detail || !onUpdateDraft) return;
+    // Belt-and-suspenders: the Save button is already disabled while invalid.
+    if (hasFinanceDateErrors) return;
     setEditSaving(true);
     try {
       const mergedData = { ...dataJson, ...editValues };
@@ -578,8 +683,21 @@ export function DocumentDetailModal({
         contractDate: detail.contractDate ?? detail.createdAt,
         dataJson: mergedData,
       });
-      // Update local detail in place — no full re-fetch (no flash).
-      setDetail((d) => (d ? { ...d, data: { ...d.data, dataJson: mergedData } } : d));
+      // Update local detail in place — no full re-fetch (no flash). J4: also
+      // stamp lastEditedAt here so the "Edited" event shows in the Timeline tab
+      // in the SAME session; the modal keeps its own detail state and does not
+      // re-fetch after an edit, so without this the persisted lastEditedAt only
+      // appeared on the next open. Client "now" is close enough; a later fetch
+      // replaces it with the exact server time.
+      setDetail((d) =>
+        d
+          ? {
+              ...d,
+              lastEditedAt: new Date().toISOString(),
+              data: { ...d.data, dataJson: mergedData },
+            }
+          : d,
+      );
       toast.success('Document updated');
       setEditGroup(null);
     } catch (e) {
@@ -672,6 +790,15 @@ export function DocumentDetailModal({
         ) : error ? (
           <div className="doc-detail-modal-content">
             <div className="doc-detail-modal__hint">{error}</div>
+            {/* B1: recover from a transient failure without closing/reopening. */}
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ marginTop: 12 }}
+              onClick={() => setReloadNonce((n) => n + 1)}
+            >
+              Try again
+            </button>
           </div>
         ) : (
           <>
@@ -819,7 +946,7 @@ export function DocumentDetailModal({
           isOpen
           onClose={() => setEditGroup(null)}
           onSave={saveEdit}
-          isDirty={editDirty}
+          isDirty={editDirty && !hasFinanceDateErrors}
           isSaving={editSaving}
           wide={editGroup.key === 'contract' && financeOn}
         >
@@ -850,6 +977,7 @@ export function DocumentDetailModal({
                         field={{ key: `finance_${n}_date`, label: 'Date', type: 'date' }}
                         value={editValues[`finance_${n}_date`] ?? ''}
                         onChange={onFieldChange}
+                        error={financeDateErrors[`finance_${n}_date`]}
                       />
                     </FinanceCard>
                   ))}
@@ -870,8 +998,9 @@ export function DocumentDetailModal({
           dataJson={dataJson as Record<string, unknown>}
           onClose={() => setReceiptEditOpen(false)}
           onSave={async (payload) => {
+            // K3: don't close here — the popup shows its "Saved!" flourish then
+            // closes itself via onClose. Just persist + refresh the detail behind it.
             await onUpdateReceipt(documentId, payload);
-            setReceiptEditOpen(false);
             loadDetail();
           }}
         />
@@ -886,8 +1015,8 @@ export function DocumentDetailModal({
             // PATCH the SAME invoice with ONLY this section's fields (never
             // creates a new one). A Billed to edit may carry a new issue date +
             // the notify opt-in, which the backend uses to (re)schedule.
+            // K3: don't close here — the popup shows "Saved!" then closes via onClose.
             await onUpdateInvoice(documentId, { data, notifyOnIssueDate });
-            setInvoiceEditSection(null);
             loadDetail();
           }}
         />
@@ -925,14 +1054,36 @@ export function DocumentDetailModal({
   );
 }
 
+// J1: auto-format a free-text contract field as the user types, mirroring the
+// creation wizard's key-based rules (TextField.handleChange) so a contract EDIT
+// capitalizes names/cities exactly like the create flow does. Keyed by field.key
+// — the same LETTERS_ONLY / NO_DIGITS / CAPITALIZE_FIRST sets already cover the
+// contract fields (customer_name, company_name, project_city, …).
+function formatContractText(key: string, value: string): string {
+  let next = value;
+  if (LETTERS_ONLY_KEYS.has(key) || NO_DIGITS_KEYS.has(key)) {
+    next = applyLettersOnly(next);
+  } else if (DIGITS_ONLY_KEYS.has(key)) {
+    next = applyDigitsOnly(next);
+  }
+  if (NO_DIGITS_KEYS.has(key) || LETTERS_ONLY_KEYS.has(key)) {
+    next = applyTransform(next, 'titleCase');
+  } else if (CAPITALIZE_FIRST_KEYS.has(key)) {
+    next = applyTransform(next, 'capitalizeFirst');
+  }
+  return next;
+}
+
 function FieldInput({
   field,
   value,
   onChange,
+  error,
 }: {
   field: CardField;
   value: string;
   onChange: (key: string, value: string) => void;
+  error?: string;
 }) {
   const set = (v: string) => onChange(field.key, v);
   const label = <label className="form-label">{field.label}</label>;
@@ -955,7 +1106,7 @@ function FieldInput({
           {label}
           <div className="gep-date-wrapper">
             <input
-              className="form-input gep-input-date"
+              className={`form-input gep-input-date${error ? ' gep-input--error' : ''}`}
               type="date"
               value={value}
               onChange={(e) => set(e.target.value)}
@@ -964,6 +1115,7 @@ function FieldInput({
                 native indicator is kept transparent on top as the click target. */}
             <Calendar className="gep-date-icon" size={15} aria-hidden="true" />
           </div>
+          {error ? <span className="gep-field-error">{error}</span> : null}
         </div>
       );
 
@@ -1032,7 +1184,15 @@ function FieldInput({
             className="form-input"
             type={field.type === 'email' ? 'email' : 'text'}
             value={value}
-            onChange={(e) => set(e.target.value)}
+            // Email keeps its raw value (never title-cased); every other free-text
+            // field runs the creation-flow transforms (J1).
+            onChange={(e) =>
+              set(
+                field.type === 'email'
+                  ? e.target.value
+                  : formatContractText(field.key, e.target.value),
+              )
+            }
           />
         </div>
       );
@@ -1175,7 +1335,10 @@ function SectionTab({
         onEdit={onEdit}
       >
         <div className="receipt-detail-grid receipt-detail-grid--2">
-          {field('client')}
+          {/* C4: prefer the split parts (invoiceRecipientName: company for a
+              business, else first/middle/last); fall back to the stored `client`
+              string for older receipts without parts. */}
+          {field('client', invoiceRecipientName(dataJson) || undefined)}
           {field('date')}
         </div>
         <div className="receipt-detail-grid receipt-detail-grid--2">
@@ -1277,16 +1440,16 @@ function InvoiceSectionTab({
   } else {
     // billed_to (default): recipient identity + contact + address.
     icon = <User size={14} />;
-    const business = dataJson.business === true || dataJson.business === 'true';
-    const recipient = business
-      ? str('company_name').trim()
-      : ['first_name', 'middle_name', 'last_name']
-          .map((k) => str(k).trim())
-          .filter(Boolean)
-          .join(' ');
+    // C4: compose the recipient with the SAME helper the list uses
+    // (invoiceRecipientName: company_name for a business, else first/middle/last)
+    // instead of a `business` flag invoices never store.
+    const business = str('company_name').trim() !== '';
+    const recipient = invoiceRecipientName(dataJson);
     // Server-added invoice_date (MM/DD/YYYY) is the issued date; fall back to the
-    // raw issueDate field when a draft hasn't been finalized yet.
-    const issue = str('invoice_date').trim() ? str('invoice_date') : val('issueDate');
+    // raw issueDate field when a draft hasn't been finalized yet. Both normalized to
+    // MM/DD/YYYY (H2).
+    const issue =
+      formatDisplayDate(str('invoice_date').trim() || str('issueDate')) || '—';
     const cityStateZip = [
       str('city').trim(),
       [str('state').trim(), str('zip').trim()].filter(Boolean).join(' '),
@@ -1370,6 +1533,8 @@ function TimelineTab({
         )
     : [
         { label: 'Created', ts: detail?.createdAt, hint: creator ? `by ${creator}` : '' },
+        // J4: a contract edit now leaves a trace (only shown once edited).
+        ...(detail?.lastEditedAt ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }] : []),
         { label: 'Sent', ts: detail?.sentAt, hint: toEmail },
         { label: 'Viewed', ts: detail?.viewedAt, hint: '' },
         { label: 'Signed', ts: detail?.signedAt, hint: '' },
@@ -1473,7 +1638,13 @@ function DetailFooter({
           Delete
         </button>
       );
-      right = isDeferred ? null : (
+      right = isDeferred ? (
+        // C6: a scheduled doc can't Send on its date yet, but Send now finalizes
+        // it today. (Change the date via the Billed-to pencil above.)
+        <button type="button" className="btn-warning" onClick={() => onAction('sendNow')}>
+          Send now
+        </button>
+      ) : (
         <button type="button" className="btn-warning" onClick={() => onAction('send')}>
           Send
         </button>

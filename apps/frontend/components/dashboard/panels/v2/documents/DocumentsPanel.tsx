@@ -33,6 +33,7 @@ import type {
 import toast from 'react-hot-toast';
 import {
   BACKEND_ACTIONS,
+  contractSignerEmail,
   isDeferredPending,
   isInvoiceDoc,
   isReceiptDoc,
@@ -142,6 +143,11 @@ export interface DocumentsPanelProps {
   onVoidInvoice?: (docId: string) => Promise<void>;
   // B7: soft-delete a DRAFT document (DELETE /documents/:id).
   onDeleteDocument?: (docId: string) => Promise<void>;
+  // C6: finalize a scheduled invoice/receipt TODAY (issue date → today).
+  onSendInvoiceNow?: (docId: string) => Promise<void>;
+  onSendReceiptNow?: (docId: string) => Promise<void>;
+  // K6: resend a SENT invoice's email (mirrors the receipt resend).
+  onResendInvoice?: (docId: string) => Promise<void>;
   onFetchReceiptPdf?: (docId: string) => Promise<string>;
   // Invoice-specific (DIRECT_PDF, code INVOICE): regenerated PDF for the SENT
   // invoice's Preview tab (GET /documents/invoice/:id/pdf).
@@ -196,6 +202,9 @@ export function DocumentsPanel({
   onVoidReceipt,
   onVoidInvoice,
   onDeleteDocument,
+  onSendInvoiceNow,
+  onSendReceiptNow,
+  onResendInvoice,
   onFetchReceiptPdf,
   onFetchInvoicePdf,
   isSuperadmin = false,
@@ -232,12 +241,6 @@ export function DocumentsPanel({
     if (typeof window === 'undefined') return null;
     return new URLSearchParams(window.location.search).get('newType');
   });
-  // When editing an invoice, the creation modal opens with its data preloaded and
-  // submits a PATCH instead of a POST (null = create mode).
-  const [editInvoice, setEditInvoice] = useState<{
-    documentId: string;
-    data: Record<string, string>;
-  } | null>(null);
   // When the create modal opens (toolbar "New Document" OR the Overview's
   // ?new=1 deep-link — both set showCreateModal), refetch the customers so the
   // "Client" selector reflects clients created since this page loaded (the
@@ -257,6 +260,11 @@ export function DocumentsPanel({
     email: string;
     isResend: boolean;
   } | null>(null);
+  // K6: resend a SENT invoice — confirm first (emails the client again).
+  const [invoiceResendConfirm, setInvoiceResendConfirm] = useState<{
+    docId: string;
+    email: string;
+  } | null>(null);
   // Which tab the detail modal opens on ('pdf' for kebab "Preview PDF").
   const [initialTab, setInitialTab] = useState<string | undefined>(undefined);
   // When the detail opens via the kebab "Reissue", auto-open the reissue form.
@@ -272,6 +280,14 @@ export function DocumentsPanel({
   const [deleteConfirm, setDeleteConfirm] = useState<{ docId: string } | null>(
     null,
   );
+  // C6: "Send now" confirmation for a scheduled doc — it emits TODAY (not on its
+  // scheduled date).
+  const [sendNowConfirm, setSendNowConfirm] = useState<{ docId: string } | null>(
+    null,
+  );
+  // C6: when the detail opens via the kebab "Change send date", auto-open the
+  // billed-to edit (where the date lives).
+  const [dateEditOnOpen, setDateEditOnOpen] = useState(false);
   // In-flight receipt resends — locks out double-clicks (ajuste 3).
   const resendingRef = useRef<Set<string>>(new Set());
   const [sessionId] = useState<string>(() => {
@@ -469,23 +485,8 @@ export function DocumentsPanel({
       return;
     }
     if (action === 'edit') {
-      // Invoices reopen the schema-driven wizard prefilled (PATCH on submit);
-      // everything else keeps the legacy edit route.
-      if (doc && isInvoiceDoc(doc)) {
-        try {
-          const detail = await onFetchDocument(docId);
-          const raw = (detail?.data?.dataJson ?? {}) as Record<string, unknown>;
-          const flat: Record<string, string> = {};
-          for (const [k, v] of Object.entries(raw)) {
-            if (typeof v === 'string' || typeof v === 'number') flat[k] = String(v);
-          }
-          setEditInvoice({ documentId: docId, data: flat });
-          setShowCreateModal(true);
-        } catch {
-          toast.error('Could not load the invoice for editing');
-        }
-        return;
-      }
+      // Legacy edit route (contracts). Invoices/receipts edit in place via the
+      // detail's scoped edit popup, not this action.
       onEditDocument(docId);
       return;
     }
@@ -522,6 +523,38 @@ export function DocumentsPanel({
       setDeleteConfirm({ docId });
       return;
     }
+    // C6: finalize a scheduled doc TODAY — confirm first (it emits now, not on
+    // the scheduled date).
+    if (action === 'sendNow') {
+      // H1: "Send now" issues AND emails the doc today, so a doc with no recipient
+      // email must warn and NOT attempt the send — same B6/C5 guard as the plain
+      // send (the backend would reject it). Invoice reads recipient_email, receipt
+      // reads email.
+      const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
+      const email = (
+        doc?.customer?.email ||
+        (receipt
+          ? typeof dj?.email === 'string'
+            ? dj.email
+            : ''
+          : typeof dj?.recipient_email === 'string'
+            ? dj.recipient_email
+            : '')
+      ).trim();
+      if (!email) {
+        setNoEmailWarn(true);
+        return;
+      }
+      setSendNowConfirm({ docId });
+      return;
+    }
+    // C6: reschedule — open the detail and auto-open the billed-to edit (date).
+    if (action === 'changeDate') {
+      setInitialTab(undefined);
+      setDateEditOnOpen(true);
+      setSelectedDocId(docId);
+      return;
+    }
     // Finalize (send) a DRAFT invoice — POST /documents/invoice/:id/send. Blocked
     // server-side while still deferred (and the kebab hides it until due).
     if (action === 'send' && doc && isInvoiceDoc(doc)) {
@@ -537,6 +570,20 @@ export function DocumentsPanel({
         return;
       }
       await onSendInvoice?.(docId);
+      return;
+    }
+    // K6: resend a SENT invoice — same no-email guard as the send, then confirm.
+    if (action === 'resend' && doc && isInvoiceDoc(doc)) {
+      const dj = doc?.data?.dataJson as Record<string, unknown> | undefined;
+      const email = (
+        doc?.customer?.email ||
+        (typeof dj?.recipient_email === 'string' ? dj.recipient_email : '')
+      ).trim();
+      if (!email) {
+        setNoEmailWarn(true);
+        return;
+      }
+      setInvoiceResendConfirm({ docId, email });
       return;
     }
     // Any receipt email — send (DRAFT), resend (SENT) or retry (SEND_FAILED) —
@@ -597,6 +644,7 @@ export function DocumentsPanel({
   const handleCloseSidebar = () => {
     setSelectedDocId(null);
     setReissueOnOpen(false);
+    setDateEditOnOpen(false);
   };
 
   const showEmpty = filteredDocuments.length === 0;
@@ -732,6 +780,7 @@ export function DocumentsPanel({
           onUpdateReceipt={onUpdateReceipt}
           onReissueReceipt={onReissueReceipt}
           autoOpenReissue={reissueOnOpen}
+          autoOpenDateEdit={dateEditOnOpen}
           onFetchReceiptPdf={onFetchReceiptPdf}
           isSuperadmin={isSuperadmin}
         />
@@ -747,16 +796,11 @@ export function DocumentsPanel({
           onFetchTypesAsUser={onFetchTypesAsUser}
           onClose={() => {
             setShowCreateModal(false);
-            setEditInvoice(null);
           }}
           onCreate={onCreateDraft}
           onCreateReceipt={onCreateReceipt}
           onCreateInvoice={onCreateInvoice}
-          onUpdateInvoice={onUpdateInvoice}
-          editInvoice={editInvoice ?? undefined}
-          initialDocumentTypeCode={
-            editInvoice ? 'INVOICE' : (createTypeCode ?? undefined)
-          }
+          initialDocumentTypeCode={createTypeCode ?? undefined}
           defaultReceivedBy={defaultReceivedBy}
           receiptQuota={receiptQuota}
         />
@@ -770,7 +814,10 @@ export function DocumentsPanel({
             confirmAction.action === 'send' ? (
               <>
                 This will send the document to{' '}
-                <strong>{confirmDoc.customer?.email ?? 'the customer'}</strong> for
+                {/* J5: show the REAL send target (data.customer_email), not the
+                    linked-Customer email — the two can diverge. Same source the
+                    backend sends to; display only, send path unchanged. */}
+                <strong>{contractSignerEmail(confirmDoc) || 'the customer'}</strong> for
                 signature. This action cannot be undone.
               </>
             ) : (
@@ -806,6 +853,28 @@ export function DocumentsPanel({
         />
       ) : null}
 
+      {invoiceResendConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title="Resend invoice?"
+          message={
+            <>
+              Resend the invoice to{' '}
+              <strong>{invoiceResendConfirm.email || 'the recipient'}</strong>?
+            </>
+          }
+          confirmLabel="Resend"
+          cancelLabel="Cancel"
+          variant="amber"
+          onConfirm={() => {
+            const { docId } = invoiceResendConfirm;
+            setInvoiceResendConfirm(null);
+            void onResendInvoice?.(docId);
+          }}
+          onCancel={() => setInvoiceResendConfirm(null)}
+        />
+      ) : null}
+
       {noEmailWarn ? (
         <ConfirmActionModal
           isOpen
@@ -834,6 +903,27 @@ export function DocumentsPanel({
             setSelectedDocId(null);
           }}
           onCancel={() => setDeleteConfirm(null)}
+        />
+      ) : null}
+
+      {sendNowConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title="Send now?"
+          message="This will issue the document TODAY (not on its scheduled date) and send it now. The issue date changes to today. Continue?"
+          confirmLabel="Send now"
+          cancelLabel="Cancel"
+          variant="amber"
+          onConfirm={() => {
+            const { docId } = sendNowConfirm;
+            const target = documents.find((d) => d.id === docId);
+            setSendNowConfirm(null);
+            if (target && isInvoiceDoc(target)) void onSendInvoiceNow?.(docId);
+            else void onSendReceiptNow?.(docId);
+            // Close the detail (if open) so the updated list shows.
+            setSelectedDocId(null);
+          }}
+          onCancel={() => setSendNowConfirm(null)}
         />
       ) : null}
 

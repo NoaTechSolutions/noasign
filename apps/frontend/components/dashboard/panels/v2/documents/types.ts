@@ -1,5 +1,6 @@
 import type { DashboardDocument } from '@/app/dashboard/page';
 import { formatDocumentStatus } from '@/lib/document-status';
+import { formatDisplayDate } from '@/lib/format';
 import { detectBrowserTimeZone, tenantLocalDate } from '@/lib/tenant-date';
 
 export type { DashboardDocument };
@@ -41,7 +42,11 @@ export type V2DocumentAction =
   // Void a SENT receipt (2c): mark VOID with no replacement.
   | 'void'
   // B7: soft-delete a DRAFT (not an issued doc → deleted, never voided).
-  | 'delete';
+  | 'delete'
+  // C6 (scheduled kebab): finalize+emit a scheduled doc TODAY (issue date → today,
+  // defer cleared), and open the billed-to edit to reschedule.
+  | 'sendNow'
+  | 'changeDate';
 
 /** Subset matching page.tsx `DocumentAction` (the backend-bound one). */
 export type BackendDocumentAction = 'send' | 'resend' | 'cancel' | 'reactivate';
@@ -155,12 +160,37 @@ export function invoiceRecipientName(
   if (!dataJson) return '';
   const company = dataJson.company_name;
   if (typeof company === 'string' && company.trim()) return company.trim();
-  const composed = ['first_name', 'last_name']
+  // D2: include middle_name — it's stored + editable, so the view must show it.
+  const composed = ['first_name', 'middle_name', 'last_name']
     .map((k) => dataJson[k])
     .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
     .map((v) => v.trim())
     .join(' ');
   return composed;
+}
+
+/**
+ * J5: the email a CONTRACT is actually sent to for signature. Mirrors the
+ * backend send source (documents.service buildSignatureRecipient →
+ * firstNonEmptyString(data.customer_email, data.client_email)) so a send
+ * confirmation shows EXACTLY the real recipient — never the linked-Customer
+ * relation (doc.customer.email), which can diverge from what was typed at
+ * creation. Read-only mirror: it does NOT change where the contract is sent.
+ * Returns '' when no email is on file.
+ */
+export function signerEmailFromData(
+  dataJson: Record<string, unknown> | null | undefined,
+): string {
+  if (!dataJson) return '';
+  for (const key of ['customer_email', 'client_email'] as const) {
+    const value = dataJson[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+export function contractSignerEmail(doc: V2DocumentItem): string {
+  return signerEmailFromData(doc.data?.dataJson);
 }
 
 export function getCustomerDisplayName(doc: V2DocumentItem): string {
@@ -190,13 +220,9 @@ export function getCreatorDisplayName(doc: V2DocumentItem): string {
 
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—';
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return (
+    formatDisplayDate(typeof date === 'string' ? date : date.toISOString()) || '—'
+  );
 }
 
 export function formatRelativeTime(date: string | Date): string {
@@ -260,24 +286,27 @@ export function isDeletedDoc(doc: { deletedAt?: string | null }): boolean {
   return Boolean(doc.deletedAt);
 }
 
-/** A deferred (future-dated) document whose issue date has NOT arrived yet — it
- *  can't be sent/finalized. Browser zone is a hint; the backend enforces with the
- *  tenant's authoritative timezone. */
+/** "Scheduled" = a DRAFT whose issue date is still in the future — it can't be
+ *  sent/finalized yet. D4: derived from status + issueDate, NOT the `isDeferred`
+ *  flag: (a) the flag proved unreliable (future-dated docs sometimes persisted
+ *  with isDeferred=false), and (b) requiring DRAFT stops a CANCELLED/terminal doc
+ *  with a leftover deferred flag from painting amber "Scheduled". Browser zone is
+ *  a hint; the backend enforces with the tenant's authoritative timezone. */
 export function isDeferredPending(doc: {
-  isDeferred?: boolean;
+  status?: string;
   issueDate?: string | null;
 }): boolean {
-  if (!doc.isDeferred || !doc.issueDate) return false;
+  if (doc.status !== 'DRAFT' || !doc.issueDate) return false;
   return doc.issueDate.slice(0, 10) > tenantLocalDate(detectBrowserTimeZone());
 }
 
-/** "Scheduled for YYYY-MM-DD" label for a deferred-pending doc, else null. */
+/** "Scheduled for MM/DD/YYYY" label for a deferred-pending doc, else null. */
 export function scheduledLabel(doc: {
-  isDeferred?: boolean;
+  status?: string;
   issueDate?: string | null;
 }): string | null {
   return isDeferredPending(doc)
-    ? `Scheduled for ${doc.issueDate!.slice(0, 10)}`
+    ? `Scheduled for ${formatDisplayDate(doc.issueDate!.slice(0, 10))}`
     : null;
 }
 
@@ -292,9 +321,14 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     const actions: V2DocumentAction[] = ['view', 'viewPdf'];
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
-        // A deferred receipt can't be sent until its issue date arrives. A DRAFT
-        // is deleted (soft), never voided (B7).
-        actions.push(...(isDeferredPending(doc) ? ['delete'] : ['send', 'delete']) as V2DocumentAction[]);
+        // A DRAFT is deleted (soft), never voided (B7). A scheduled (deferred)
+        // receipt can't be sent on its date yet, but the kebab offers Send now
+        // (finalize today) + Change send date (C6).
+        actions.push(
+          ...(isDeferredPending(doc)
+            ? ['sendNow', 'changeDate', 'delete']
+            : ['send', 'delete']) as V2DocumentAction[],
+        );
         break;
       case 'SENT':
         // A voided receipt is terminal: no resend, no reissue, no void.
@@ -319,17 +353,18 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
     if (doc.supersededAt) return actions;
     switch (doc.status as DocumentStatus) {
       case 'DRAFT':
-        // Mirrors receipt DRAFT (send + delete); a scheduled invoice can't send
-        // until its issue date arrives. A DRAFT is deleted (soft), never voided (B7).
+        // Mirrors receipt DRAFT. A DRAFT is deleted (soft), never voided (B7). A
+        // scheduled (deferred) invoice offers Send now + Change send date (C6)
+        // instead of the plain Send.
         actions.push(
           ...((isDeferredPending(doc)
-            ? ['delete']
+            ? ['sendNow', 'changeDate', 'delete']
             : ['send', 'delete']) as V2DocumentAction[]),
         );
         break;
       case 'SENT':
-        // Mirrors receipt SENT's base (view + viewPdf).
-        actions.push('viewPdf');
+        // Mirrors receipt SENT's base (view + viewPdf) + K6 resend ("didn't get it").
+        actions.push('viewPdf', 'resend');
         break;
       case 'SEND_FAILED':
         // Mirrors receipt SEND_FAILED's discard; re-sending is via edit → send.
@@ -379,6 +414,8 @@ export function getActionLabel(action: V2DocumentAction): string {
     reissue: 'Reissue',
     void: 'Void',
     delete: 'Delete',
+    sendNow: 'Send now',
+    changeDate: 'Change send date',
   };
   return labels[action];
 }

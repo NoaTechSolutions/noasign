@@ -15,6 +15,7 @@ const prismaMock = {
   companyProfile: { findUnique: jest.fn() },
   document: {
     findMany: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     count: jest.fn(),
     update: jest.fn(),
@@ -24,8 +25,12 @@ const prismaMock = {
   documentFile: { findFirst: jest.fn(), deleteMany: jest.fn() },
   $transaction: jest.fn(),
 };
-const receiptPdfMock = { generate: jest.fn() };
-const emailMock = { sendReceipt: jest.fn() };
+const receiptPdfMock = {
+  generate: jest.fn(),
+  generateFromAcroFormOverlay: jest.fn(),
+  generateFromAcroForm: jest.fn(),
+};
+const emailMock = { sendReceipt: jest.fn(), sendInvoice: jest.fn() };
 const r2Mock = {
   isConfigured: jest.fn().mockReturnValue(false),
   putObject: jest.fn(),
@@ -541,5 +546,168 @@ describe('ReceiptsService — getReceiptStats', () => {
     });
     // Popup Total must equal the "Receipts this month" card figure.
     expect(stats.monthlyCounts.total).toBe(stats.receiptsThisMonth);
+  });
+});
+
+// ── "Send now" for a SCHEDULED (deferred) invoice / receipt ─────────────────
+describe('ReceiptsService — send now (un-defer)', () => {
+  let service: ReceiptsService;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    r2Mock.isConfigured.mockReturnValue(false);
+    receiptPdfMock.generateFromAcroFormOverlay.mockResolvedValue(
+      Buffer.from('pdf'),
+    );
+    prismaMock.document.update.mockImplementation(async (args: any) => ({
+      id: args.where.id,
+      ...args.data,
+    }));
+    prismaMock.documentFile.deleteMany.mockResolvedValue({ count: 0 });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReceiptsService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: EmailService, useValue: emailMock },
+        { provide: R2Service, useValue: r2Mock },
+        { provide: ReceiptPdfService, useValue: receiptPdfMock },
+      ],
+    }).compile();
+    service = module.get<ReceiptsService>(ReceiptsService);
+  });
+
+  it('sendInvoiceNow un-defers a scheduled invoice to today, then sends (no deferred throw)', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'u',
+      companyProfileId: 'wp',
+    });
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'inv1',
+      documentNumber: 'INV-2026-0001',
+      status: 'DRAFT',
+      companyProfileId: 'wp',
+      customerId: null,
+      isDeferred: true,
+      notifyOnIssueDate: true,
+      deferredNotifiedAt: null,
+      issueDate: new Date('2099-12-31'),
+      data: {
+        dataJson: {
+          receipt_number: 'INV-2026-0001',
+          quantity: '2',
+          price: '50.00',
+          first_name: 'A',
+          last_name: 'B',
+          invoice_date: '12/31/2099',
+        },
+      },
+      receiptTemplate: { id: 'rt', ...TEMPLATE },
+    });
+    prismaMock.companyProfile.findUnique.mockResolvedValue({
+      timezone: 'America/New_York',
+      companyName: 'WP',
+    });
+    // Isolate un-defer: stub the actual send path.
+    const send = jest
+      .spyOn(service, 'sendDraftInvoice')
+      .mockResolvedValue({ document: { id: 'inv1', status: 'SENT' } } as never);
+
+    await expect(service.sendInvoiceNow('u', 'inv1')).resolves.toEqual({
+      document: { id: 'inv1', status: 'SENT' },
+    });
+
+    const undefer = prismaMock.document.update.mock.calls[0][0].data;
+    expect(undefer.isDeferred).toBe(false);
+    expect(undefer.notifyOnIssueDate).toBe(false);
+    expect(undefer.deferredNotifiedAt).toBeNull();
+    expect(undefer.issueDate).toBeInstanceOf(Date);
+    // dataJson.invoice_date was rewritten to today (no longer the future date).
+    expect(undefer.data.update.dataJson.invoice_date).not.toBe('12/31/2099');
+    expect(undefer.data.update.dataJson.invoice_date).toMatch(
+      /^\d{2}\/\d{2}\/\d{4}$/,
+    );
+    expect(send).toHaveBeenCalledWith('u', 'inv1');
+  });
+
+  it('sendReceiptNow un-defers a scheduled receipt to today, then sends', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'u',
+      companyProfileId: 'wp',
+    });
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'rec1',
+      documentNumber: 'REC-2026-0001',
+      status: 'DRAFT',
+      companyProfileId: 'wp',
+      customerId: null,
+      isDeferred: true,
+      notifyOnIssueDate: true,
+      deferredNotifiedAt: null,
+      issueDate: new Date('2099-12-31'),
+      data: {
+        dataJson: {
+          date: '12/31/2099',
+          client: 'Cli',
+          amount: 100,
+          email: 'c@example.com',
+        },
+      },
+      receiptTemplate: { id: 'rt', ...TEMPLATE },
+      companyProfile: { companyName: 'WP' },
+    });
+    prismaMock.companyProfile.findUnique.mockResolvedValue({
+      timezone: 'America/New_York',
+    });
+    const send = jest
+      .spyOn(service, 'resendReceipt')
+      .mockResolvedValue({ document: { id: 'rec1', status: 'SENT' } } as never);
+
+    await expect(service.sendReceiptNow('u', 'rec1')).resolves.toEqual({
+      document: { id: 'rec1', status: 'SENT' },
+    });
+
+    const undefer = prismaMock.document.update.mock.calls[0][0].data;
+    expect(undefer.isDeferred).toBe(false);
+    expect(undefer.notifyOnIssueDate).toBe(false);
+    expect(undefer.deferredNotifiedAt).toBeNull();
+    expect(undefer.issueDate).toBeInstanceOf(Date);
+    // The printed `date` was rewritten to today's MM/DD/YYYY.
+    expect(undefer.data.update.dataJson.date).not.toBe('12/31/2099');
+    expect(undefer.data.update.dataJson.date).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    // The cached PDF is dropped so the next send regenerates it.
+    expect(prismaMock.documentFile.deleteMany).toHaveBeenCalledWith({
+      where: { documentId: 'rec1', fileType: 'RECEIPT' },
+    });
+    expect(send).toHaveBeenCalledWith('u', 'rec1');
+  });
+
+  it('sendInvoiceNow on a NON-deferred draft skips the un-defer and just sends', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'u',
+      companyProfileId: 'wp',
+    });
+    prismaMock.document.findFirst.mockResolvedValue({
+      id: 'inv2',
+      documentNumber: 'INV-2026-0002',
+      status: 'DRAFT',
+      companyProfileId: 'wp',
+      customerId: null,
+      isDeferred: false,
+      notifyOnIssueDate: false,
+      deferredNotifiedAt: null,
+      issueDate: new Date('2026-01-01'),
+      data: { dataJson: { receipt_number: 'INV-2026-0002' } },
+      receiptTemplate: { id: 'rt', ...TEMPLATE },
+    });
+    const send = jest
+      .spyOn(service, 'sendDraftInvoice')
+      .mockResolvedValue({ document: { id: 'inv2', status: 'SENT' } } as never);
+
+    await service.sendInvoiceNow('u', 'inv2');
+
+    // No un-defer write happened — went straight to the send path.
+    expect(prismaMock.document.update).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith('u', 'inv2');
   });
 });

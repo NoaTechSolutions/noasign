@@ -28,10 +28,12 @@ import {
   receiptResendBlockMessage,
 } from '../common/receipt-resend-policy';
 import {
+  formatCalendarParts,
   isDueInTenantTz,
   isFutureCalendarDate,
   parseCalendarDate,
   tenantCurrentYear,
+  tenantLocalDate,
   toDateOnly,
 } from '../common/tenant-date';
 
@@ -437,14 +439,6 @@ export class ReceiptsService {
         'INVOICE document type is not DIRECT_PDF — fix its generationMode',
       );
     }
-    const formDefinition = await this.prisma.formDefinition.findFirst({
-      where: { documentTypeId: docType.id, isActive: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (!formDefinition) {
-      throw new NotFoundException('No active invoice form definition');
-    }
-
     const template = await this.resolveActivePdfTemplate(
       companyProfileId,
       TemplateCategory.INVOICE,
@@ -452,6 +446,23 @@ export class ReceiptsService {
     if (!template) {
       throw new NotFoundException(
         'No invoice template configured for this company',
+      );
+    }
+    // L3: the creation form BELONGS to the tenant's invoice template (its
+    // standard's formDefinition), NOT a global form. The old global findFirst
+    // returned the newest active invoice form regardless of tenant, leaking
+    // another tenant's PRIVATE form. Deriving it from the resolved template
+    // keeps the form inside the template's tenant scope.
+    const standard = template.standardId
+      ? await this.prisma.receiptTemplateStandard.findUnique({
+          where: { id: template.standardId },
+          include: { formDefinition: true },
+        })
+      : null;
+    const formDefinition = standard?.formDefinition ?? null;
+    if (!formDefinition) {
+      throw new NotFoundException(
+        'This invoice template has no form configured',
       );
     }
 
@@ -689,6 +700,222 @@ export class ReceiptsService {
           sendError: reason,
           lastSentRecipientEmail: recipientEmail,
           sendCount: 1,
+          lastAttemptAt: new Date(),
+        },
+      });
+      return { document: failed, sendError: reason };
+    }
+  }
+
+  /**
+   * "Send now" for a DRAFT invoice — the same finalize as sendDraftInvoice, but a
+   * SCHEDULED (deferred, future-dated) invoice is first un-deferred to TODAY: the
+   * issue date is re-resolved to the tenant's local today, the defer/notify flags
+   * are cleared, and the stored dataJson + PDF are rebuilt so the finalized invoice
+   * prints today's date. Then it delegates to sendDraftInvoice (which renders +
+   * emails). A non-deferred draft just sends (no-op un-defer). Mirrors the un-defer
+   * branch of updateInvoice.
+   */
+  async sendInvoiceNow(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+      include: { data: true, receiptTemplate: true },
+    });
+    if (!document || !document.receiptTemplate) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (document.status !== DocumentStatus.DRAFT) {
+      throw new BadRequestException('Only draft invoices can be sent');
+    }
+
+    if (document.isDeferred) {
+      const profile = await this.prisma.companyProfile.findUnique({
+        where: { id: user.companyProfileId },
+        select: { timezone: true },
+      });
+      const parts = parseCalendarDate(tenantLocalDate(profile?.timezone));
+      const issueDateStr = parts
+        ? this.formatInvoicePartsUS(parts)
+        : this.formatInvoiceDate(new Date());
+      const issueDateColumn = parts ? toDateOnly(parts) : new Date();
+
+      // Rebuild the stored form data with today's date + recomputed money.
+      const stored: Record<string, string> = {};
+      const raw = document.data?.dataJson;
+      if (raw && typeof raw === 'object') {
+        for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+          if (typeof v === 'string') stored[k] = v;
+          else if (typeof v === 'number') stored[k] = String(v);
+        }
+      }
+      const receiptNumber = stored.receipt_number ?? '';
+      // H3: also refresh the raw ISO issueDate the edit popup reads.
+      // buildInvoiceDataJson only rewrites invoice_date (the US string the view/PDF
+      // print), so without this the un-deferred invoice showed today in the view but
+      // the edit + stored issueDate kept the old scheduled date (display vs persisted).
+      if (parts) stored.issueDate = formatCalendarParts(parts);
+      const dataJson = this.buildInvoiceDataJson(
+        stored,
+        receiptNumber,
+        issueDateStr,
+      );
+
+      await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          lastEditedAt: new Date(),
+          issueDate: issueDateColumn,
+          isDeferred: false,
+          notifyOnIssueDate: false,
+          deferredNotifiedAt: null,
+          data: { update: { dataJson } },
+        },
+      });
+
+      // Re-render + overwrite the stored PDF so a view/download reflects today.
+      try {
+        const pdfBuffer = await this.renderInvoice(
+          document.receiptTemplate,
+          this.buildInvoicePdfData(dataJson),
+        );
+        await this.persistReceiptToR2(
+          document.id,
+          user.companyProfileId,
+          pdfBuffer,
+          `${receiptNumber || document.documentNumber}.pdf`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `[ReceiptsService] invoice send-now re-render/persist failed for ${document.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // Delegate to the finalize path — no longer deferred, so assertDeferredDue
+    // passes and the invoice is rendered from the fresh dataJson and emailed.
+    return this.sendDraftInvoice(userId, documentId);
+  }
+
+  /**
+   * K6 — resend a SENT invoice's email (for "the client didn't get it"). Re-renders
+   * the invoice PDF from the stored data (identical — a sent invoice is immutable)
+   * and re-emails it. Rate-limited by the SAME policy receipts use (3-email burst →
+   * 1 per 10 min → cap of 10, per (invoice, recipient email); an email change resets
+   * it). Bumps sendCount + lastAttemptAt + lastSentRecipientEmail, so the timeline
+   * shows the resend. A SEND_FAILED invoice is also allowed (a retry). Never counts
+   * billing (invoices aren't receipts). Voided invoices can't be resent.
+   */
+  async resendInvoice(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.companyProfileId) {
+      throw new BadRequestException('User has no company profile');
+    }
+    const document = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
+      include: {
+        data: true,
+        receiptTemplate: true,
+        companyProfile: { select: { companyName: true } },
+      },
+    });
+    if (!document || !document.receiptTemplate) {
+      throw new NotFoundException('Invoice not found');
+    }
+    if (document.supersededAt) {
+      throw new BadRequestException('This invoice is void');
+    }
+    if (
+      document.status !== DocumentStatus.SENT &&
+      document.status !== DocumentStatus.SEND_FAILED
+    ) {
+      throw new BadRequestException('Only a sent invoice can be resent');
+    }
+
+    const dataJson =
+      (document.data?.dataJson as Record<string, string> | undefined) ?? {};
+    const recipientEmail = normalizeEmail(
+      typeof dataJson.recipient_email === 'string'
+        ? dataJson.recipient_email
+        : null,
+    );
+    if (!recipientEmail) {
+      throw new BadRequestException(
+        'This invoice has no recipient email to resend to',
+      );
+    }
+
+    // Same resend policy as receipts (approved). Counts every attempt.
+    const decision = evaluateReceiptResend({
+      sendCount: document.sendCount,
+      lastAttemptAt: document.lastAttemptAt,
+      lastEmail: document.lastSentRecipientEmail,
+      currentEmail: recipientEmail,
+    });
+    if (!decision.allowed) {
+      throw new BadRequestException(
+        receiptResendBlockMessage(decision, recipientEmail),
+      );
+    }
+    const newSendCount = nextSendCount(decision, document.sendCount);
+
+    const pdfBuffer = await this.renderInvoice(
+      document.receiptTemplate,
+      this.buildInvoicePdfData(dataJson),
+    );
+    const clientName =
+      (dataJson.company_name ?? '').trim() ||
+      [dataJson.first_name, dataJson.last_name]
+        .map((s) => (s ?? '').trim())
+        .filter(Boolean)
+        .join(' ') ||
+      'Customer';
+    const receiptNumber = dataJson.receipt_number ?? document.documentNumber;
+
+    try {
+      const { id: providerEmailId } = await this.email.sendInvoice({
+        to: recipientEmail,
+        receiptNumber,
+        clientName,
+        companyName: document.companyProfile?.companyName ?? 'NTSsign',
+        pdfBuffer,
+      });
+      const sent = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SENT,
+          sentAt: new Date(),
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: newSendCount,
+          lastAttemptAt: new Date(),
+          providerEmailId: providerEmailId || null,
+          sendError: null,
+        },
+      });
+      return { document: sent };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `[ReceiptsService] Invoice ${document.documentNumber} resend failed: ${reason}`,
+      );
+      const failed = await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          status: DocumentStatus.SEND_FAILED,
+          sendError: reason,
+          lastSentRecipientEmail: recipientEmail,
+          sendCount: newSendCount,
           lastAttemptAt: new Date(),
         },
       });
@@ -1362,6 +1589,63 @@ export class ReceiptsService {
   }
 
   /**
+   * "Send now" for a receipt — like resendReceipt for a DRAFT first send, but a
+   * SCHEDULED (deferred, future-dated) receipt is first un-deferred to TODAY: the
+   * issue date is set to the tenant's local today, the defer/notify flags are
+   * cleared, the stored `date` is rewritten to today's MM/DD/YYYY so the PDF prints
+   * today, and the cached PDF is dropped. Then it delegates to resendReceipt. A
+   * non-deferred receipt just sends (no-op un-defer).
+   */
+  async sendReceiptNow(userId: string, documentId: string) {
+    const document = await this.loadReceiptForUser(userId, documentId);
+
+    if (document.isDeferred) {
+      const profile = document.companyProfileId
+        ? await this.prisma.companyProfile.findUnique({
+            where: { id: document.companyProfileId },
+            select: { timezone: true },
+          })
+        : null;
+      const parts = parseCalendarDate(tenantLocalDate(profile?.timezone));
+      const todayUs = parts
+        ? this.formatInvoicePartsUS(parts)
+        : this.formatInvoiceDate(new Date());
+      const issueDateColumn = parts ? toDateOnly(parts) : new Date();
+
+      // Merge stored data, overwrite only the printed `date` with today.
+      const merged: Record<string, string | number> = {};
+      for (const [k, v] of Object.entries(
+        this.asObject(document.data?.dataJson),
+      )) {
+        if (typeof v === 'string' || typeof v === 'number') merged[k] = v;
+      }
+      merged.date = todayUs;
+
+      await this.prisma.document.update({
+        where: { id: document.id },
+        data: {
+          lastEditedAt: new Date(),
+          issueDate: issueDateColumn,
+          isDeferred: false,
+          notifyOnIssueDate: false,
+          deferredNotifiedAt: null,
+          data: { update: { dataJson: merged } },
+        },
+      });
+
+      // The data (and thus the rendered PDF) changed — drop the cached R2 copy so
+      // the next send regenerates and re-uploads the current version.
+      await this.prisma.documentFile.deleteMany({
+        where: { documentId: document.id, fileType: DocumentFileType.RECEIPT },
+      });
+    }
+
+    // Delegate to the resend path — no longer deferred, so assertDeferredDue
+    // passes and the receipt is regenerated + emailed (first send from DRAFT).
+    return this.resendReceipt(userId, documentId);
+  }
+
+  /**
    * Reissue (2c): a SENT receipt is never edited — a correction creates a NEW
    * receipt (next number) with the corrected data, sends it, links it to the
    * original (supersedesId), and voids the original (supersededAt + a VOID
@@ -1586,8 +1870,18 @@ export class ReceiptsService {
     if (assignment?.receiptTemplate?.isActive) {
       return assignment.receiptTemplate;
     }
+    // Fallback: for INVOICE, constrain to the category so an invoice never
+    // silently falls back to a receipt template. Receipts KEEP the legacy
+    // unconstrained pick (it also matches legacy null-category rows, so adding a
+    // category filter there could drop a valid template).
     return this.prisma.receiptTemplate.findFirst({
-      where: { companyProfileId, isActive: true },
+      where: {
+        companyProfileId,
+        isActive: true,
+        ...(category === TemplateCategory.INVOICE
+          ? { category: TemplateCategory.INVOICE }
+          : {}),
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

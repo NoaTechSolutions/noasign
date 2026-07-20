@@ -22,3 +22,17 @@ export function fromIsoDate(iso: string, wasUs: boolean): string {
   if (!m) return iso;
   return wasUs ? `${m[2]}/${m[3]}/${m[1]}` : iso;
 }
+
+/** True when a stored date (ISO or US) is strictly AFTER today — i.e. the document
+ *  is being SCHEDULED, not sent. Drives the Send/Schedule conditional copy (I1). */
+export function isFutureDate(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const iso = toIsoDate(value);
+  if (!iso) return false;
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-${String(now.getDate()).padStart(2, '0')}`;
+  return iso > today;
+}

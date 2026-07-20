@@ -31,6 +31,10 @@ export interface DocumentTypeOption {
 export interface CustomerOption {
   id: string;
   fullName: string;
+  // K8/K7: name parts for a PERSONAL customer (null for older rows without them).
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
   email: string | null;
   customerType: 'PERSONAL' | 'BUSINESS';
   status?: 'ACTIVE' | 'INACTIVE';

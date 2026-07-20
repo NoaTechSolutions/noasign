@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Calendar } from 'lucide-react';
 import { GroupEditPopup } from '@/components/dashboard/shared/GroupEditPopup';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
@@ -58,16 +58,11 @@ export function ReceiptEditPopup({
   );
   const [middleName, setMiddleName] = useState(storedMiddle);
   const [lastName, setLastName] = useState(storedLast);
-  const composedClient = business
-    ? companyName.trim()
-    : [firstName, middleName, lastName]
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join(' ');
-
   const [email, setEmail] = useState(str(dataJson.email));
   const [phone, setPhone] = useState(str(dataJson.phone));
-  const [amount, setAmount] = useState(str(dataJson.amount));
+  // D3: strip thousands separators so CurrencyInput prefills (a comma'd stored
+  // value → NaN → blank).
+  const [amount, setAmount] = useState(str(dataJson.amount).replace(/,/g, ''));
   // Date held in ISO for the picker; the stored US format is preserved on save.
   const dateWasUs = US_DATE_RE.test(str(dataJson.date).trim());
   const [date, setDate] = useState(toIsoDate(str(dataJson.date)));
@@ -77,7 +72,20 @@ export function ReceiptEditPopup({
 
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // K3: after a successful save, show the "Saved!" flourish briefly, then close.
+  // onClose via a ref so a re-render doesn't reset the timer.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => onCloseRef.current(), 1200);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   const touch =
     (setter: (v: string) => void) =>
@@ -87,8 +95,16 @@ export function ReceiptEditPopup({
     };
 
   const handleSave = (): void => {
-    if (!composedClient) {
-      setError(business ? 'Company name is required' : 'Client name is required');
+    // K4: required-ness ALWAYS follows the CURRENT toggle state — business →
+    // company name; person → first AND last (both) — regardless of how many times
+    // Business was toggled.
+    if (business) {
+      if (!companyName.trim()) {
+        setError('Company name is required');
+        return;
+      }
+    } else if (!firstName.trim() || !lastName.trim()) {
+      setError('First and last name are required');
       return;
     }
     const amt = Number(amount);
@@ -121,10 +137,16 @@ export function ReceiptEditPopup({
       phone: phone.trim(),
     };
     if (email.trim()) payload.recipientEmail = email.trim();
-    void onSave(payload).catch((e) => {
-      setError(e instanceof Error ? e.message : 'Could not save the receipt');
-      setSaving(false);
-    });
+    void onSave(payload)
+      .then(() => {
+        // K3: parent did the update (no close, no toast) — show success here.
+        setSaving(false);
+        setSaved(true);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Could not save the receipt');
+        setSaving(false);
+      });
   };
 
   return (
@@ -135,6 +157,7 @@ export function ReceiptEditPopup({
       onSave={handleSave}
       isDirty={dirty}
       isSaving={saving}
+      isSaved={saved}
     >
       {error ? (
         <div
@@ -161,7 +184,9 @@ export function ReceiptEditPopup({
             className="form-input"
             value={companyName}
             onChange={(e) =>
-              touch(setCompanyName)(applyTransform(e.target.value, 'titleCase'))
+              touch(setCompanyName)(
+                applyTransform(e.target.value, 'capitalizeFirst'),
+              )
             }
           />
         </div>

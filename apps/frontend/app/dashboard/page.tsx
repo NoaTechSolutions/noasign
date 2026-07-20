@@ -13,6 +13,12 @@ import { DashboardShell } from "../../components/dashboard/layout/DashboardShell
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel, TemplatesPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
 import { invoiceRecipientName } from "../../components/dashboard/panels/v2/documents/types";
+import {
+  isTransportError,
+  draftMaybeSavedMessage,
+} from "../../components/dashboard/panels/v2/documents/submit-error";
+import { isFutureDate } from "../../components/dashboard/panels/v2/documents/document-date";
+import { formatDisplayDate } from "../../lib/format";
 import type {
   V2DocumentItem,
   DocumentVersion as V2DocumentVersion,
@@ -323,6 +329,9 @@ type Customer = {
   customerType: "PERSONAL" | "BUSINESS";
   status?: "ACTIVE" | "INACTIVE" | "DELETED";
   fullName: string;
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   addressLine1: string | null;
@@ -839,11 +848,16 @@ function DashboardPageInner() {
     };
   }, []);
 
-  async function handleSignOut() {
+  function handleSignOut() {
+    // Fire-and-forget with `keepalive` so the redirect is NOT blocked on the
+    // round-trip: the browser still completes the request (clearing the auth
+    // cookie server-side) even after we navigate away. Awaiting it here made
+    // logout feel slow / look like it wasn't redirecting while the fetch hung.
     try {
-      await fetch(`${API_URL}/auth/logout`, {
+      void fetch(`${API_URL}/auth/logout`, {
         method: "POST",
         credentials: "include",
+        keepalive: true,
       });
     } catch {
       // Ignore network/logout errors and clear local state anyway.
@@ -1238,7 +1252,7 @@ function DashboardPageInner() {
   // throws (network/unknown → error state). Copy is per-flow.
   function runSendWithToast(
     send: () => Promise<{ status: string; sendError: string | null }>,
-    copy: { loading: string; success: string },
+    copy: { loading: string; success: string; networkError?: string },
   ): void {
     const id = `send-${Date.now()}-${Math.random()
       .toString(36)
@@ -1266,11 +1280,20 @@ function DashboardPageInner() {
         );
       })
       .catch((e: unknown) => {
+        // G1: a transport failure on a create-and-send may have left a draft on the
+        // server. When the caller provided create-and-send copy, guide the user to
+        // the list instead of a bare "Could not send" (which reads as "nothing
+        // happened" and invites a duplicate). Resends/other flows keep the generic
+        // message — they never create a draft.
+        const message =
+          copy.networkError && isTransportError(e)
+            ? copy.networkError
+            : `Could not send: ${e instanceof Error ? e.message : "unknown error"}`;
         toast.custom(
           () => (
             <SendToast
               state="error"
-              message={`Could not send: ${e instanceof Error ? e.message : "unknown error"}`}
+              message={message}
               onDismiss={() => toast.dismiss(id)}
             />
           ),
@@ -2196,6 +2219,9 @@ function DashboardPageInner() {
     const documentsV2Customers: V2CustomerOption[] = (customers ?? []).map((c) => ({
       id: c.id,
       fullName: c.fullName,
+      firstName: c.firstName,
+      middleName: c.middleName,
+      lastName: c.lastName,
       email: c.email,
       customerType: c.customerType,
       status: c.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
@@ -2258,6 +2284,8 @@ function DashboardPageInner() {
         if (payload.send) {
           // Optimistic: the form already closed; show the progress toast and
           // resolve it with the REAL SENT / SEND_FAILED result.
+          // I1: a future date schedules the receipt (kept as a draft, not sent now).
+          const scheduled = isFutureDate(payload.date);
           runSendWithToast(
             async () => {
               const res = await apiRequest<{
@@ -2271,7 +2299,17 @@ function DashboardPageInner() {
                 sendError: res.sendError ?? null,
               };
             },
-            { loading: "Sending receipt…", success: "Receipt sent successfully" },
+            scheduled
+              ? {
+                  loading: "Scheduling receipt…",
+                  success: `Scheduled for ${formatDisplayDate(payload.date)}`,
+                  networkError: draftMaybeSavedMessage("receipt"),
+                }
+              : {
+                  loading: "Sending receipt…",
+                  success: "Receipt sent successfully",
+                  networkError: draftMaybeSavedMessage("receipt"),
+                },
           );
           return { status: "SENT", sendError: null };
         }
@@ -2290,8 +2328,14 @@ function DashboardPageInner() {
             sendError: res.sendError ?? null,
           };
         } catch (e) {
+          // K2: the form already closed, so report the outcome in the toast (never
+          // re-throw into an unmounted modal). Network fail → guide to the draft.
           toast.error(
-            e instanceof Error ? e.message : "Could not save the draft",
+            isTransportError(e)
+              ? draftMaybeSavedMessage("receipt")
+              : e instanceof Error
+                ? e.message
+                : "Could not save the draft",
             { id: tid },
           );
           return { status: "DRAFT", sendError: null };
@@ -2308,6 +2352,9 @@ function DashboardPageInner() {
         // resolves to the REAL SENT / SEND_FAILED result). Optimistic — the modal
         // has already closed. No PDF is opened automatically.
         if (payload.send) {
+          // I1: a future issue date schedules the invoice (the backend never sends
+          // it now), so the toast reads "Scheduling…" / "Scheduled for DATE".
+          const scheduled = isFutureDate(payload.data.issueDate);
           runSendWithToast(
             async () => {
               const res = await apiRequest<{
@@ -2321,7 +2368,17 @@ function DashboardPageInner() {
                 sendError: res.sendError ?? null,
               };
             },
-            { loading: "Sending invoice…", success: "Invoice sent successfully" },
+            scheduled
+              ? {
+                  loading: "Scheduling invoice…",
+                  success: `Scheduled for ${formatDisplayDate(payload.data.issueDate)}`,
+                  networkError: draftMaybeSavedMessage("invoice"),
+                }
+              : {
+                  loading: "Sending invoice…",
+                  success: "Invoice sent successfully",
+                  networkError: draftMaybeSavedMessage("invoice"),
+                },
           );
           return;
         }
@@ -2333,8 +2390,16 @@ function DashboardPageInner() {
             body: payload,
           });
         } catch (e) {
-          toast.dismiss(tid);
-          throw e; // modal surfaces the error inline + stays open for a retry
+          // K2: the form already closed — report in the toast, never re-throw.
+          toast.error(
+            isTransportError(e)
+              ? draftMaybeSavedMessage("invoice")
+              : e instanceof Error
+                ? e.message
+                : "Unable to create invoice",
+            { id: tid },
+          );
+          return;
         }
         toast.success("Invoice created", { id: tid });
         try {
@@ -2351,17 +2416,12 @@ function DashboardPageInner() {
           notifyOnIssueDate?: boolean;
         },
       ) => {
-        const tid = toast.loading("Saving invoice…");
-        try {
-          await apiRequest(`/documents/invoice/${docId}`, {
-            method: "PATCH",
-            body: payload,
-          });
-        } catch (e) {
-          toast.dismiss(tid);
-          throw e; // modal keeps the inline error + stays open
-        }
-        toast.success("Invoice updated", { id: tid });
+        // K3: no toast — the edit popup owns the progress bar + "Saved!" success.
+        // apiRequest throws on error → the popup catches it and shows it inline.
+        await apiRequest(`/documents/invoice/${docId}`, {
+          method: "PATCH",
+          body: payload,
+        });
         try {
           await loadWorkspace();
         } catch {
@@ -2385,6 +2445,61 @@ function DashboardPageInner() {
             };
           },
           { loading: "Sending invoice…", success: "Invoice sent successfully" },
+        );
+      },
+      // K6: resend a SENT invoice's email (the client didn't get it). Shared send-
+      // toast; rate-limited server-side by the receipt resend policy.
+      onResendInvoice: async (docId: string) => {
+        runSendWithToast(
+          async () => {
+            const res = await apiRequest<{
+              message: string;
+              document: { status: string };
+              sendError: string | null;
+            }>(`/documents/invoice/${docId}/resend`, { method: "POST" });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          },
+          { loading: "Resending invoice…", success: "Invoice resent successfully" },
+        );
+      },
+      // C6 "Send now": finalize a SCHEDULED invoice/receipt TODAY. The backend
+      // un-defers (issue date → today, defer flags cleared, PDF re-emitted) then
+      // sends. Same send-toast as the normal send.
+      onSendInvoiceNow: async (docId: string) => {
+        runSendWithToast(
+          async () => {
+            const res = await apiRequest<{
+              message: string;
+              document: { status: string };
+              sendError: string | null;
+            }>(`/documents/invoice/${docId}/send-now`, { method: "POST" });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          },
+          { loading: "Sending invoice…", success: "Invoice sent successfully" },
+        );
+      },
+      onSendReceiptNow: async (docId: string) => {
+        runSendWithToast(
+          async () => {
+            const res = await apiRequest<{
+              document: { status: string };
+              sendError: string | null;
+            }>(`/documents/receipt/${docId}/send-now`, { method: "POST" });
+            await loadWorkspace();
+            return {
+              status: res.document?.status ?? "SENT",
+              sendError: res.sendError ?? null,
+            };
+          },
+          { loading: "Sending receipt…", success: "Receipt sent successfully" },
         );
       },
       defaultReceivedBy: (() => {
@@ -2559,6 +2674,9 @@ function DashboardPageInner() {
           onCreateInvoice={documentsV2.onCreateInvoice}
           onUpdateInvoice={documentsV2.onUpdateInvoice}
           onSendInvoice={documentsV2.onSendInvoice}
+          onSendInvoiceNow={documentsV2.onSendInvoiceNow}
+          onResendInvoice={documentsV2.onResendInvoice}
+          onSendReceiptNow={documentsV2.onSendReceiptNow}
           defaultReceivedBy={documentsV2.defaultReceivedBy}
           onEditDocument={documentsV2.onEditDocument}
           onDocumentAction={documentsV2.onDocumentAction}
@@ -2663,7 +2781,8 @@ function formatNextBillingDate(monthString: string | null | undefined): string {
   if (!year || !month) return "";
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  return `${SHORT_MONTHS[nextMonth - 1]} 1, ${nextYear}`;
+  // H2: next billing date is the 1st of next month, rendered MM/DD/YYYY.
+  return `${String(nextMonth).padStart(2, "0")}/01/${nextYear}`;
 }
 
 function deriveBillingPeriodStart(monthString: string | null | undefined): string {

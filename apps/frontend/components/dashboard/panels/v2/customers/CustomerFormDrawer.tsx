@@ -55,6 +55,7 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
 
   // PERSONAL form data
   const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -116,9 +117,16 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
   // Load customer data in edit mode
   useEffect(() => {
     if (mode === 'edit' && customer) {
-      const { firstName: fName, lastName: lName } = split(customer.fullName);
-      setFirstName(fName);
-      setLastName(lName);
+      // K8: prefer the stored parts; fall back to splitting fullName for older rows.
+      if (customer.firstName || customer.lastName) {
+        setFirstName(customer.firstName ?? '');
+        setMiddleName(customer.middleName ?? '');
+        setLastName(customer.lastName ?? '');
+      } else {
+        const { firstName: fName, lastName: lName } = split(customer.fullName);
+        setFirstName(fName);
+        setLastName(lName);
+      }
       setEmail(customer.email || '');
       setPhone(customer.phone || '');
       setAddressLine1(customer.addressLine1 || '');
@@ -164,8 +172,9 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
     setError('');
 
     if (type === 'PERSONAL') {
-      if (currentStep === 1 && !firstName.trim()) {
-        setError('First name is required');
+      // K8: first AND last are both required for a person.
+      if (currentStep === 1 && (!firstName.trim() || !lastName.trim())) {
+        setError('First and last name are required');
         return;
       }
     } else {
@@ -192,11 +201,23 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
     setSubmitting(true);
 
     try {
-      const fullName = type === 'BUSINESS' ? businessName : combine(firstName, lastName);
+      const fullName =
+        type === 'BUSINESS'
+          ? businessName
+          : combine(firstName, middleName, lastName);
 
       const payload: CustomerFormData = {
         customerType: type,
         fullName,
+        // K8: persist the parts for a person so invoice/receipt create maps each
+        // field directly (no lossy re-split). Business customers don't use them.
+        ...(type === 'PERSONAL'
+          ? {
+              firstName: firstName.trim(),
+              middleName: middleName.trim() || undefined,
+              lastName: lastName.trim(),
+            }
+          : {}),
         email: email || undefined,
         phone: phone || undefined,
         addressLine1: addressLine1 || undefined,
@@ -346,8 +367,12 @@ export function CustomerFormDrawer({ mode, type, customer, onSubmit, onClose, ro
                 <input id="firstName" type="text" value={firstName} onChange={(e) => setFirstName(formatTitleCase(e.target.value))} className="form-input" required />
               </div>
               <div className="form-group">
-                <label htmlFor="lastName">Last name</label>
-                <input id="lastName" type="text" value={lastName} onChange={(e) => setLastName(formatTitleCase(e.target.value))} className="form-input" />
+                <label htmlFor="middleName">Middle name</label>
+                <input id="middleName" type="text" value={middleName} onChange={(e) => setMiddleName(formatTitleCase(e.target.value))} className="form-input" />
+              </div>
+              <div className="form-group">
+                <label htmlFor="lastName">Last name *</label>
+                <input id="lastName" type="text" value={lastName} onChange={(e) => setLastName(formatTitleCase(e.target.value))} className="form-input" required />
               </div>
             </div>
             <div className="form-group">

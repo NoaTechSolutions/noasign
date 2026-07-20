@@ -89,6 +89,41 @@ export class InvoicesController {
     };
   }
 
+  // "Send now" for a SCHEDULED (deferred) draft invoice — finalizes it TODAY
+  // (un-defers to today's date, rebuilds the PDF) and sends. A non-deferred draft
+  // just sends. Same response shape as :id/send.
+  @Post(':id/send-now')
+  async sendInvoiceNow(
+    @Req() req: { user: { id: string } },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const result = await this.receiptsService.sendInvoiceNow(req.user.id, id);
+    const sendError = 'sendError' in result ? result.sendError : null;
+    const failed = result.document.status === 'SEND_FAILED';
+    return {
+      message: failed ? 'Invoice send failed' : 'Invoice sent',
+      document: result.document,
+      sendError: sendError ?? null,
+    };
+  }
+
+  // K6: resend a SENT (or SEND_FAILED) invoice's email — re-renders the PDF from
+  // stored data and re-emails it, rate-limited by the shared receipt resend policy.
+  @Post(':id/resend')
+  async resendInvoice(
+    @Req() req: { user: { id: string } },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const result = await this.receiptsService.resendInvoice(req.user.id, id);
+    const sendError = 'sendError' in result ? result.sendError : null;
+    const failed = result.document.status === 'SEND_FAILED';
+    return {
+      message: failed ? 'Invoice resend failed' : 'Invoice resent',
+      document: result.document,
+      sendError: sendError ?? null,
+    };
+  }
+
   // Regenerated-on-the-fly invoice PDF, streamed inline (same pipeline as create).
   @Get(':id/pdf')
   async getInvoicePdf(

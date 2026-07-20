@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import type { ManagedUser } from './types';
+import { formatDisplayDate } from '@/lib/format';
 import { getDisplayName, getInitials } from './types';
 
 interface MemberCardProps {
@@ -76,7 +77,7 @@ export function MemberCard({
 
           <div className="member-card__detail-row">
             <span className="member-card__detail-label">Joined</span>
-            <span className="member-card__detail-value">{new Date(user.createdAt).toLocaleDateString()}</span>
+            <span className="member-card__detail-value">{formatDisplayDate(user.createdAt)}</span>
           </div>
 
           <div className="member-card__actions">

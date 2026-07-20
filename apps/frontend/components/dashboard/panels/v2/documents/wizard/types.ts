@@ -92,6 +92,12 @@ export interface DocumentWizardProps {
    *  first (jumping to the offending tab) before calling onSend with the data. */
   onSend?: (dataJson: Record<string, string>) => Promise<void>;
   sendLabel?: string;
+  /** I1: label for the send button when `scheduleDateField` holds a FUTURE date —
+   *  the doc is scheduled, not sent (e.g. "Create and schedule"). */
+  scheduleLabel?: string;
+  /** Field key whose future value flips the send action to "schedule" (e.g.
+   *  "issueDate"). Required together with `scheduleLabel`. */
+  scheduleDateField?: string;
   /** Field keys that are required ONLY for the onSend action (e.g. the recipient
    *  email). Empty/invalid → the wizard navigates to that field's tab + errors it. */
   sendRequiredFields?: string[];
@@ -125,6 +131,13 @@ export const DIGITS_ONLY_KEYS: ReadonlySet<string> = new Set([
   'zip',
   'project_zip',
   'zipCode',
+]);
+
+// Fields that capitalize only the FIRST character (titleCase would wrongly
+// lowercase the rest — e.g. a company "ABC Corp" → "Abc Corp"). Company names
+// keep their internal casing; only the leading letter is forced up.
+export const CAPITALIZE_FIRST_KEYS: ReadonlySet<string> = new Set([
+  'company_name',
 ]);
 
 export const MAX_2_DIGITS_KEYS: ReadonlySet<string> = new Set(['customer_age']);

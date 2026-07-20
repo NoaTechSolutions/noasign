@@ -1,4 +1,5 @@
 import React from 'react';
+import { Skeleton } from '@/components/dashboard/shared/ui';
 
 export interface StatusStripItem {
   key: string;
@@ -38,7 +39,9 @@ export function StatusStrip({ title, subtitle, items, isLoading, variant = 'docu
         {items.map((it) => (
           <div key={it.key} className={`status-mini status-mini--${it.tone}`}>
             <span className="status-mini__icon" aria-hidden="true">{it.icon}</span>
-            <span className="status-mini__count">{isLoading ? '—' : it.count}</span>
+            <span className="status-mini__count">
+              {isLoading ? <Skeleton width={24} height={22} /> : it.count}
+            </span>
             <span className="status-mini__label">{it.label}</span>
           </div>
         ))}

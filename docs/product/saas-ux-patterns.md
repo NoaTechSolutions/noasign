@@ -74,3 +74,77 @@ still in local state — reappears. There is nothing to re-hydrate.
 this behavior for free by (a) rendering inside `GroupEditPopup`, (b) passing
 `isSaving`, and (c) using the `setSaving(true) → onSave().catch(setError + setSaving(false))`
 shape where the parent closes only on success.
+
+**Extends to CREATE / SEND too.** The same shape governs the creation modal
+(`DocumentCreationModal`): pressing Create draft / Create and send / Send covers
+the whole form with a blocking "Saving…" card (nothing can be clicked/typed) and
+makes the modal undismissable while in flight. Success closes it; failure lifts
+the card and the form reappears with the user's values intact + the error. The
+one exception is the optimistic **send** (email is fire-and-forget with a
+top-right progress toast) — it closes immediately and the toast reports the real
+SENT/SEND_FAILED outcome, since a failed *email* still produced a real document.
+A failed **create** (draft) always reopens with values, never a silent toast-only
+loss.
+
+## §6 — Skeletons everywhere async content loads
+
+**The rule.** Any title, value, link, or text that arrives asynchronously shows a
+**skeleton placeholder** while it loads — never a bare pop-in and never a `—`
+stand-in. The skeleton must occupy the **same space** as the final content so
+swapping the real value in causes **no layout shift**.
+
+**One primitive.** Use the shared `<Skeleton>` component
+(`components/dashboard/shared/ui.tsx`) — it wraps the global `.skeleton-pulse`
+shimmer (`globals.css`). Do **not** hand-roll `<span className="skeleton-pulse">`
+spans inline, and do **not** invent per-component skeleton classes (the old
+`welcome-skeleton-*` set was a divergent second implementation — removed).
+
+```tsx
+import { Skeleton } from '@/components/dashboard/shared/ui';
+
+// size it to match the real content (no layout shift):
+{isLoading ? <Skeleton width={32} height={24} /> : count}
+```
+
+Props: `width`, `height` (default 14), `radius`, `circle`, `className`, `style`.
+
+**How loading is available.** Most dashboard panels receive `isLoading` from the
+central `loadWorkspace` hook (`app/dashboard/page.tsx`) — thread it down and gate
+each async value on it. Panels that self-fetch (Customers, Templates) own a local
+`loading` state for the same purpose.
+
+**Applies to:** every surface that renders server data. When you add a card,
+stat, or field that loads, add its skeleton in the same commit.
+
+## §7 — Dates display as US MM/DD/YYYY (4-digit year)
+
+Every calendar date the user SEES renders as **MM/DD/YYYY** with a **4-digit
+year** (e.g. `07/14/2026`), in **en-US regardless of the browser locale**. No
+month-name form (`Jul 14, 2026`), no 2-digit year (`07/14/26`), no day-first
+(`14/07/2026`).
+
+**How.** Route every display through the canonical helper
+`formatDisplayDate(value)` in `lib/format.ts`. It accepts an ISO date
+(`yyyy-mm-dd`), a US date (returned as-is), or a full ISO timestamp, and always
+emits `MM/DD/YYYY`. Never call `toLocaleDateString()`/`toLocaleString()` **without
+an explicit `'en-US'` locale** — the no-arg form follows the browser and renders
+day-first on a non-US machine. A bare ISO date must also be pinned to a **local**
+calendar day (a UTC-parsed `new Date('yyyy-mm-dd')` shifts a day back in
+negative-offset zones); `formatDisplayDate` already does this.
+
+**Month/period labels are exempt.** Billing-month and "member since" labels stay
+month-name (`Jul 2026`, `July 2026`) — they name a period, not a calendar date.
+
+**Date+time** (admin timestamps) uses `toLocaleString('en-US', { … month:'2-digit',
+day:'2-digit', year:'numeric', hour, minute })` — same MM/DD/YYYY ordering, plus
+the time.
+
+**Known gap — native pickers.** A native `<input type="date">` renders its OWN
+text per the browser/OS locale and **cannot be forced** to MM/DD/YYYY. The stored
+value is ISO and every read-only display is normalized, but the picker's editing
+UI still follows the browser (e.g. day-first on an es-AR machine). Making the edit
+inputs show MM/DD/YYYY requires a custom masked date component — tracked as a
+dedicated follow-up (H2b), not yet done.
+
+**Backend.** Receipt/invoice PDFs already print `MM/DD/YYYY`
+(`formatInvoiceDate`/`formatFromParts` in `receipts.service.ts`).

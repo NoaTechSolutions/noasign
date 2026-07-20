@@ -11,6 +11,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { BaseField } from './wizard/fields/BaseField';
+import { formatDisplayDate } from '@/lib/format';
 import { CurrencyInput } from './CurrencyInput';
 import { WizardToggleRow } from './wizard/shell/WizardToggleRow';
 import { applyTransform } from './wizard/types';
@@ -91,7 +92,12 @@ function todayIso(): string {
 interface ReceiptFormProps {
   defaultReceivedBy: string;
   // Pre-fill from the client picked in the setup card (shared with contracts).
+  // prefillClient = the composed name (company name for a business; the trigger for
+  // a re-fill). K7: a PERSON's name arrives already split in the parts below.
   prefillClient?: string;
+  prefillFirstName?: string;
+  prefillMiddleName?: string;
+  prefillLastName?: string;
   prefillEmail?: string;
   // Whether the picked customer is a business (drives the initial toggle state).
   prefillBusiness?: boolean;
@@ -109,7 +115,7 @@ interface ReceiptFormProps {
     overagePrice: number;
   };
   onCreate: (payload: CreateReceiptPayload) => Promise<ReceiptCreateResult>;
-  // Closes the host modal (Cancel + after a successful create / on send).
+  // Closes the host modal (Cancel + on create/send — K2: always immediate).
   onClose: () => void;
 }
 
@@ -119,6 +125,9 @@ interface ReceiptFormProps {
 export function ReceiptForm({
   defaultReceivedBy,
   prefillClient,
+  prefillFirstName,
+  prefillMiddleName,
+  prefillLastName,
   prefillEmail,
   prefillBusiness,
   receiptTemplateId,
@@ -133,11 +142,16 @@ export function ReceiptForm({
   const [companyName, setCompanyName] = useState(
     prefillBusiness ? (prefillClient ?? '') : '',
   );
+  // K7: a person's name arrives already split — prefill each part to its own field.
   const [firstName, setFirstName] = useState(
-    !prefillBusiness ? (prefillClient ?? '') : '',
+    !prefillBusiness ? (prefillFirstName ?? '') : '',
   );
-  const [middleName, setMiddleName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [middleName, setMiddleName] = useState(
+    !prefillBusiness ? (prefillMiddleName ?? '') : '',
+  );
+  const [lastName, setLastName] = useState(
+    !prefillBusiness ? (prefillLastName ?? '') : '',
+  );
   const composedClient = business
     ? companyName.trim()
     : [firstName, middleName, lastName]
@@ -152,6 +166,9 @@ export function ReceiptForm({
   // pick an issue date. The effective date is what validation/submit use.
   const [differentDay, setDifferentDay] = useState(false);
   const effectiveDate = differentDay ? date : todayIso();
+  // I1: a future issue date SCHEDULES the receipt (kept as a draft until then, not
+  // emailed now) — the CTA + confirm read "Schedule" instead of "Send".
+  const scheduling = effectiveDate > todayIso();
   const [paymentFor, setPaymentFor] = useState('');
   // Pending send flag while the issue-date disclaimer is open (null = closed).
   const [disclaimerSend, setDisclaimerSend] = useState<boolean | null>(null);
@@ -182,8 +199,8 @@ export function ReceiptForm({
   if (prefillClient !== seenPrefillClient) {
     setSeenPrefillClient(prefillClient);
     if (prefillClient) {
-      // A picked customer's fullName can't be split reliably — drop it into the
-      // matching single field for the customer's type; the user adjusts if needed.
+      // K7: a person's name comes pre-split (first/middle/last) — map each to its
+      // own field; a business drops its name into the company field.
       const isBiz = Boolean(prefillBusiness);
       setBusiness(isBiz);
       if (isBiz) {
@@ -192,9 +209,9 @@ export function ReceiptForm({
         setMiddleName('');
         setLastName('');
       } else {
-        setFirstName(prefillClient);
-        setMiddleName('');
-        setLastName('');
+        setFirstName(prefillFirstName ?? '');
+        setMiddleName(prefillMiddleName ?? '');
+        setLastName(prefillLastName ?? '');
         setCompanyName('');
       }
     }
@@ -247,11 +264,7 @@ export function ReceiptForm({
   }
 
   function doCreate(send: boolean, notifyOnIssueDate: boolean) {
-    // Optimistic: close immediately; the parent shows the progress toast (a
-    // top-right animated bar for send, a simple toast for draft) with the REAL
-    // result. No in-form spinner/overlay — the popup is already gone.
-    onClose();
-    void onCreate({
+    const payload: CreateReceiptPayload = {
       client: composedClient,
       business,
       company_name: business ? companyName.trim() : undefined,
@@ -272,7 +285,13 @@ export function ReceiptForm({
       send,
       notifyOnIssueDate,
       receiptTemplateId,
-    });
+    };
+    // K2: both draft and send close the receipt form COMPLETELY and immediately;
+    // the parent's top-right toast owns ALL progress + result feedback (SENT /
+    // SEND_FAILED / created / the transport-fail draft guidance) — no in-modal
+    // overlay, no duplicate message.
+    onClose();
+    void onCreate(payload);
   }
 
   // "Create & send" validates first, then asks for confirmation (the receipt is
@@ -336,7 +355,7 @@ export function ReceiptForm({
                 value={companyName}
                 placeholder="Company name"
                 onChange={(e) =>
-                  setCompanyName(applyTransform(e.target.value, 'titleCase'))
+                  setCompanyName(applyTransform(e.target.value, 'capitalizeFirst'))
                 }
               />
             </BaseField>
@@ -573,21 +592,30 @@ export function ReceiptForm({
           className="wizard-btn wizard-btn--primary"
           onClick={handleSendClick}
         >
-          Create &amp; send
+          {scheduling ? 'Create & schedule' : 'Create & send'}
         </button>
       </footer>
 
       <ConfirmActionModal
         isOpen={confirmSend}
-        title="Send receipt?"
+        title={scheduling ? 'Schedule receipt?' : 'Send receipt?'}
         message={
-          <>
-            This will email the receipt to{' '}
-            <strong>{email.trim() || 'the client'}</strong>. This action cannot be
-            undone.
-          </>
+          scheduling ? (
+            <>
+              This receipt will be scheduled for{' '}
+              <strong>{formatDisplayDate(effectiveDate)}</strong> and kept as a
+              draft until then — you send it to{' '}
+              <strong>{email.trim() || 'the client'}</strong> on that date.
+            </>
+          ) : (
+            <>
+              This will email the receipt to{' '}
+              <strong>{email.trim() || 'the client'}</strong>. This action cannot be
+              undone.
+            </>
+          )
         }
-        confirmLabel="Send receipt"
+        confirmLabel={scheduling ? 'Schedule receipt' : 'Send receipt'}
         cancelLabel="Cancel"
         variant="amber"
         onConfirm={() => {

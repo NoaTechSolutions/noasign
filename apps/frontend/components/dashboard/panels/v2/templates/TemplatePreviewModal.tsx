@@ -34,6 +34,9 @@ export function TemplatePreviewModal({
   if (typeof document === 'undefined') return null;
 
   const imageSrc = `${API_URL}${template.fullPreviewUrl}`;
+  // L1: mirror the card — a tenant's own private template reads as the generic
+  // "Your custom template" rather than its per-tenant name.
+  const displayName = template.isOwn ? 'Your custom template' : template.name;
 
   return createPortal(
     <div
@@ -45,11 +48,11 @@ export function TemplatePreviewModal({
         className="template-modal"
         role="dialog"
         aria-modal="true"
-        aria-label={`${template.name} full preview`}
+        aria-label={`${displayName} full preview`}
         onClick={(e) => e.stopPropagation()}
       >
         <header className="template-modal__head">
-          <h2 className="template-modal__title">{template.name}</h2>
+          <h2 className="template-modal__title">{displayName}</h2>
           <button
             ref={closeBtnRef}
             type="button"
@@ -78,7 +81,7 @@ export function TemplatePreviewModal({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imageSrc}
-            alt={`${template.name} full document`}
+            alt={`${displayName} full document`}
             className="template-modal__img"
           />
         </div>

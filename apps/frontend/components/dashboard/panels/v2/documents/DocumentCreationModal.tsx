@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { useBeforeUnload } from '@/lib/use-before-unload';
 import { DiscardChangesModal } from '@/components/dashboard/shared/DiscardChangesModal';
@@ -62,13 +62,6 @@ interface DocumentCreationModalProps {
     recipientEmail?: string;
     notifyOnIssueDate?: boolean;
   }) => Promise<void>;
-  // Edit mode for an existing DRAFT invoice: preload its data into the wizard and
-  // PATCH on submit instead of creating a new one.
-  onUpdateInvoice?: (
-    docId: string,
-    payload: { data: Record<string, string>; customerId?: string },
-  ) => Promise<void>;
-  editInvoice?: { documentId: string; data: Record<string, string> };
   // When opened from the Templates → Invoice tab, preselect this document type by
   // code (+ its first form definition) so the user lands straight on the form.
   initialDocumentTypeCode?: string;
@@ -89,24 +82,53 @@ function todayIso(): string {
 // Maps a selected client to the Client-tab field values. Business uses the
 // primary contact, falling back per-field to the business record for address.
 // customer_age / customer_fax are intentionally not filled.
+// Best-effort split for an older customer stored with only a composed fullName.
+function splitName(fullName: string): { first: string; last: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { first: parts[0] ?? '', last: '' };
+  return { first: parts[0], last: parts.slice(1).join(' ') };
+}
+
+// Maps a picked customer to prefill values. Returns BOTH the contract client-tab
+// keys (customer_name…) AND the invoice billed_to keys (first_name/middle_name/
+// last_name/company_name…). The wizard's applyClientPrefill only writes keys that
+// exist in the active schema, so each doc type picks up the ones it has — no
+// conflict. K7: a person's name goes into first/middle/last (not all in first_name).
 function mapClientToClientTab(c: CustomerOption): Record<string, string> {
   if (c.customerType === 'BUSINESS' && c.business) {
     const b = c.business;
+    const street = b.primaryContactAddressLine1 || b.businessAddressLine1 || '';
     return {
+      // Contract client tab
       customer_name: b.primaryContactName ?? '',
       customer_email: b.primaryContactEmail ?? '',
       customer_phone: b.primaryContactPhone ?? '',
-      customer_address: b.primaryContactAddressLine1 || b.businessAddressLine1 || '',
+      customer_address: street,
+      // Invoice billed_to (business)
+      company_name: c.fullName ?? '',
+      recipient_email: b.primaryContactEmail ?? c.email ?? '',
+      street,
+      // Shared
       city: b.primaryContactCity || b.businessCity || '',
       state: b.primaryContactState || b.businessState || '',
       zip: b.primaryContactZipCode || b.businessZipCode || '',
     };
   }
+  const hasParts = Boolean(c.firstName || c.lastName);
+  const fallback = splitName(c.fullName ?? '');
   return {
+    // Contract client tab (single name field)
     customer_name: c.fullName ?? '',
     customer_email: c.email ?? '',
     customer_phone: c.phone ?? '',
     customer_address: c.addressLine1 ?? '',
+    // Invoice billed_to (split parts) — K7
+    first_name: hasParts ? (c.firstName ?? '') : fallback.first,
+    middle_name: c.middleName ?? '',
+    last_name: hasParts ? (c.lastName ?? '') : fallback.last,
+    recipient_email: c.email ?? '',
+    street: c.addressLine1 ?? '',
+    // Shared
     city: c.city ?? '',
     state: c.state ?? '',
     zip: c.zipCode ?? '',
@@ -124,8 +146,6 @@ export function DocumentCreationModal({
   onCreate,
   onCreateReceipt,
   onCreateInvoice,
-  onUpdateInvoice,
-  editInvoice,
   initialDocumentTypeCode,
   defaultReceivedBy,
   receiptQuota,
@@ -137,6 +157,9 @@ export function DocumentCreationModal({
     contractDate: todayIso(),
     customerId: '',
   });
+  // Contract create only (K2: invoice/receipt now close the popup immediately and
+  // let the top toast report — no in-modal overlay). The blocking "Saving…" card
+  // + inline error below stay for the BOLDSIGN contract path.
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Pending invoice action while the issue-date disclaimer is open (null = closed).
@@ -199,12 +222,14 @@ export function DocumentCreationModal({
 
   // Any close intent (backdrop / Escape / X): warn first if there are changes.
   const handleRequestClose = useCallback(() => {
+    // Can't dismiss while a contract submit is in flight (the saving card owns UI).
+    if (isSubmitting) return;
     if (wizardDirty) {
       setShowDiscard(true);
       return;
     }
     onClose();
-  }, [wizardDirty, onClose]);
+  }, [isSubmitting, wizardDirty, onClose]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -236,6 +261,21 @@ export function DocumentCreationModal({
         : undefined,
     [selectedCustomer],
   );
+
+  // K7: the picked person's name, already split, for the receipt form (fallback to
+  // splitting fullName for older customers without stored parts).
+  const clientNameParts = useMemo(() => {
+    if (!selectedCustomer || selectedCustomer.customerType === 'BUSINESS') {
+      return { first: '', middle: '', last: '' };
+    }
+    const hasParts = Boolean(selectedCustomer.firstName || selectedCustomer.lastName);
+    const fb = splitName(selectedCustomer.fullName ?? '');
+    return {
+      first: hasParts ? (selectedCustomer.firstName ?? '') : fb.first,
+      middle: selectedCustomer.middleName ?? '',
+      last: hasParts ? (selectedCustomer.lastName ?? '') : fb.last,
+    };
+  }, [selectedCustomer]);
 
   // NOA-270 — when a BUSINESS customer is selected, flip any schema toggle
   // whose key === "isBusiness" so business-specific fields surface.
@@ -292,25 +332,8 @@ export function DocumentCreationModal({
   // invoice isn't captured by the receipt branch. Invoices need neither a signature
   // template nor a contract date, so they use their own submit gate.
   const isInvoice =
-    selectedDocType?.code === 'INVOICE' &&
-    (!!onCreateInvoice || !!onUpdateInvoice);
+    selectedDocType?.code === 'INVOICE' && !!onCreateInvoice;
   const canSubmitInvoice = !!setup.documentTypeId && !!setup.formDefinitionId;
-
-  // Edit mode: reconstruct the "business" toggle from the saved data (a non-empty
-  // company_name means the invoice was created as a business).
-  const editToggles = useMemo<Record<string, boolean> | undefined>(() => {
-    if (!editInvoice || !schema) return undefined;
-    const isBusiness = Boolean((editInvoice.data.company_name ?? '').trim());
-    const overrides: Record<string, boolean> = {};
-    for (const section of schema.sections) {
-      for (const toggle of section.toggles ?? []) {
-        if (toggle.key === 'business') {
-          overrides[`${section.key}:${toggle.key}`] = isBusiness;
-        }
-      }
-    }
-    return Object.keys(overrides).length > 0 ? overrides : undefined;
-  }, [editInvoice, schema]);
 
   // Issue date ≠ today → require the disclaimer acknowledgement before saving.
   function handleInvoiceSubmit(dataJson: Record<string, string>) {
@@ -321,33 +344,21 @@ export function DocumentCreationModal({
     return doInvoiceSubmit(dataJson);
   }
 
-  async function doInvoiceSubmit(
+  function doInvoiceSubmit(
     dataJson: Record<string, string>,
     notifyOnIssueDate = false,
   ) {
-    setSubmitError(null);
-    setIsSubmitting(true);
-    try {
-      if (editInvoice && onUpdateInvoice) {
-        await onUpdateInvoice(editInvoice.documentId, {
-          data: dataJson,
-          customerId: setup.customerId || undefined,
-        });
-      } else {
-        await onCreateInvoice!({
-          data: dataJson,
-          customerId: setup.customerId || undefined,
-          notifyOnIssueDate,
-        });
-      }
-      onClose();
-    } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : 'Unable to save invoice',
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    // K2: close the creation popup completely and let the top-right toast own ALL
+    // progress + result feedback (no duplicate in-modal "Saving…" overlay). Fire-
+    // and-forget; the toast reports success or the error (incl. the transport-fail
+    // "draft may be saved" guidance from onCreateInvoice).
+    onClose();
+    void onCreateInvoice!({
+      data: dataJson,
+      customerId: setup.customerId || undefined,
+      notifyOnIssueDate,
+    }).catch(() => {});
+    return Promise.resolve();
   }
 
   // "Create and send": the wizard has already validated the recipient email
@@ -360,28 +371,20 @@ export function DocumentCreationModal({
     return doInvoiceSend(dataJson);
   }
 
-  async function doInvoiceSend(
+  function doInvoiceSend(
     dataJson: Record<string, string>,
     notifyOnIssueDate = false,
   ) {
-    setSubmitError(null);
-    setIsSubmitting(true);
-    try {
-      await onCreateInvoice!({
-        data: dataJson,
-        customerId: setup.customerId || undefined,
-        send: true,
-        recipientEmail: (dataJson.recipient_email ?? '').trim() || undefined,
-        notifyOnIssueDate,
-      });
-      onClose();
-    } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : 'Unable to send invoice',
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    // K2: same as create — close the popup completely; the top toast owns feedback.
+    onClose();
+    void onCreateInvoice!({
+      data: dataJson,
+      customerId: setup.customerId || undefined,
+      send: true,
+      recipientEmail: (dataJson.recipient_email ?? '').trim() || undefined,
+      notifyOnIssueDate,
+    }).catch(() => {});
+    return Promise.resolve();
   }
 
   // DIRECT_PDF (receipt) types render the receipt form below the setup card
@@ -407,7 +410,7 @@ export function DocumentCreationModal({
             id="docs-v2-creation-modal-title"
             className="docs-v2-creation-modal__title"
           >
-            {editInvoice ? 'Edit Invoice' : 'New Document'}
+            New Document
           </h2>
           <button
             type="button"
@@ -419,7 +422,40 @@ export function DocumentCreationModal({
           </button>
         </header>
 
-        <div className="docs-v2-creation-modal__body">
+        <div
+          className="docs-v2-creation-modal__body"
+          style={{ position: 'relative' }}
+        >
+          {/* Contract create only: while the BOLDSIGN submit is in flight the form
+              is covered by a blocking "Saving…" card. Invoice/receipt no longer set
+              isSubmitting — they close the popup immediately (K2), so this never
+              shows for them. */}
+          {isSubmitting ? (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 5,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                background: 'var(--bg-card)',
+              }}
+            >
+              <Loader2
+                size={30}
+                className="animate-spin"
+                style={{ color: 'var(--brand-accent)' }}
+                aria-hidden="true"
+              />
+              <p style={{ margin: 0, fontWeight: 500 }}>Saving…</p>
+            </div>
+          ) : null}
+
           {isSuperadmin && selectableUsers && selectableUsers.length > 0 ? (
             <div className="docs-v2-setup-card">
               <div className="docs-v2-setup-card__row">
@@ -451,7 +487,7 @@ export function DocumentCreationModal({
             customers={customers}
             value={setup}
             onChange={setSetup}
-            disabled={isSubmitting || !!editInvoice}
+            disabled={isSubmitting}
             isSuperadmin={isSuperadmin}
           />
 
@@ -465,28 +501,21 @@ export function DocumentCreationModal({
 
               {hasValidSchema ? (
                 <DocumentWizard
-                  key={
-                    editInvoice
-                      ? `edit-${editInvoice.documentId}`
-                      : `${setup.documentTypeId}-${setup.formDefinitionId}`
-                  }
+                  key={`${setup.documentTypeId}-${setup.formDefinitionId}`}
                   schema={schema!}
-                  initialValues={editInvoice?.data}
-                  clientPrefill={editInvoice ? undefined : clientPrefill}
+                  clientPrefill={clientPrefill}
                   onDirtyChange={setWizardDirty}
-                  initialToggles={editInvoice ? editToggles : initialToggles}
-                  persistKey={editInvoice ? undefined : persistKey}
+                  initialToggles={initialToggles}
+                  persistKey={persistKey}
                   canSubmit={canSubmitInvoice}
                   isSubmitting={isSubmitting}
                   onSubmit={handleInvoiceSubmit}
                   onCancel={onClose}
-                  submitLabel={editInvoice ? 'Save changes' : 'Create invoice'}
-                  onSend={
-                    !editInvoice && onCreateInvoice
-                      ? handleInvoiceSend
-                      : undefined
-                  }
+                  submitLabel="Create invoice"
+                  onSend={handleInvoiceSend}
                   sendLabel="Create and send"
+                  scheduleLabel="Create and schedule"
+                  scheduleDateField="issueDate"
                   sendRequiredFields={['recipient_email']}
                 />
               ) : (
@@ -499,6 +528,9 @@ export function DocumentCreationModal({
             <ReceiptForm
               defaultReceivedBy={defaultReceivedBy ?? ''}
               prefillClient={selectedCustomer?.fullName}
+              prefillFirstName={clientNameParts.first}
+              prefillMiddleName={clientNameParts.middle}
+              prefillLastName={clientNameParts.last}
               prefillEmail={selectedCustomer?.email ?? undefined}
               prefillBusiness={selectedCustomer?.customerType === 'BUSINESS'}
               receiptTemplateId={selectedDocType?.receiptTemplateId}

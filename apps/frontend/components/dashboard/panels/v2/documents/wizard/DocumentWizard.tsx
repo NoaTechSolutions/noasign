@@ -19,6 +19,7 @@ import {
   WizardTabBar,
 } from './shell';
 import type { DocumentWizardProps } from './types';
+import { todayIso } from './types';
 import './document-wizard.css';
 
 const CLIENT_FIELDS = [
@@ -48,6 +49,8 @@ export function DocumentWizard({
   submitLabel,
   onSend,
   sendLabel,
+  scheduleLabel,
+  scheduleDateField,
   sendRequiredFields,
 }: DocumentWizardProps) {
   const { fields, setFields, updateField } = useFormFields(schema, initialValues);
@@ -335,6 +338,14 @@ export function DocumentWizard({
   const isLastSection =
     schema.sections[schema.sections.length - 1]?.key === activeSection;
 
+  // I1: a future issue date SCHEDULES the doc (the backend never sends it now), so
+  // the send action + its verb read "Schedule"/"Scheduling" instead of "Send".
+  const isScheduling =
+    !!scheduleLabel &&
+    !!scheduleDateField &&
+    (fields[scheduleDateField] ?? '') > todayIso();
+  const resolvedSendLabel = isScheduling ? scheduleLabel : sendLabel;
+
   if (!activeSectionDef) return null;
 
   return (
@@ -406,7 +417,8 @@ export function DocumentWizard({
           onSubmit={() => void handleSubmit('submit')}
           submitLabel={submitLabel}
           onSend={onSend ? () => void handleSubmit('send') : undefined}
-          sendLabel={sendLabel}
+          sendLabel={resolvedSendLabel}
+          isScheduling={isScheduling}
         />
       ) : null}
     </div>

@@ -3,6 +3,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useDropdownPosition } from '@/components/dashboard/shared/use-dropdown-position';
+import { formatDisplayDate } from '@/lib/format';
 import type { ManagedUser } from './types';
 import { getDisplayName, getInitials } from './types';
 
@@ -68,7 +69,7 @@ export function MemberTableRow({
 
       <td className="member-row__company">{user.companyProfile?.companyName || '—'}</td>
 
-      <td className="member-row__date">{new Date(user.createdAt).toLocaleDateString()}</td>
+      <td className="member-row__date">{formatDisplayDate(user.createdAt)}</td>
 
       <td>
         <div className="member-row__actions">

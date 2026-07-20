@@ -123,29 +123,13 @@
 :root[data-theme='dark'] .welcome-cta { background: #ffffff; color: #022977; }
 :root[data-theme='dark'] .welcome-cta:hover { background: #eaf1ff; }
 
-/* Loading state */
+/* Loading state — uses the canonical <Skeleton> (globals.css .skeleton-pulse);
+   the old bespoke welcome-skeleton-* classes + local @keyframes were removed. */
 .welcome-card.loading {
   background: var(--bg-card);
   flex-direction: column;
   align-items: stretch;
   min-height: 120px;
-}
-
-.welcome-skeleton-line {
-  height: 20px;
-  background: var(--bg-hover);
-  border-radius: 4px;
-  margin-bottom: 12px;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-}
-
-.welcome-skeleton-title { width: 60%; height: 28px; }
-.welcome-skeleton-subtitle { width: 40%; }
-.welcome-skeleton-date { width: 30%; height: 16px; }
-
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
 }
 
 /* Responsive: stack the button below the text on small screens. */

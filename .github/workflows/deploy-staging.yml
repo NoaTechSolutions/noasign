@@ -61,6 +61,10 @@ on:
         description: 'templates_visibility_setup: World Pavers CompanyProfile.id that owns receipt-classic'
         type: string
         default: 'a6150399-8bd8-4b26-88fc-0f3d38acc1ea'
+      seed_laura:
+        description: 'One-shot: seed the Laura invoice test tenant + her private events template'
+        type: boolean
+        default: false
 
 # Only one deploy at a time
 concurrency:
@@ -205,6 +209,25 @@ jobs:
           echo "--- Wiring ReceiptTemplate for the RECEIPTS_ONLY staging tenants ---"
           node scripts/dev-helpers/_seed-receipt-template.js 5ad11000-0000-4000-8000-000000000002
           node scripts/dev-helpers/_seed-receipt-template.js 5ad11000-0000-4000-8000-000000000003
+
+      # Gated one-shot: seed Laura — the individual / no-contracts test tenant with
+      # her PRIVATE events-invoice template — so the owner can validate the DIRECT_PDF
+      # invoice flow on staging with her own PDF. Idempotent (upserts) and
+      # non-destructive (a DEDICATED private standard; the shared catalog is left
+      # untouched). bcrypt + @prisma/client are prod deps (survive the prune above).
+      # Sources the VM .env for DATABASE_URL. ONLY runs on explicit dispatch.
+      - name: Seed Laura invoice tenant (one-shot, gated)
+        if: github.event.inputs.seed_laura == 'true'
+        run: |
+          set -e
+          export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          cd ~/apps/ntssign/apps/backend
+          DATABASE_URL="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d '=' -f2-)"
+          DATABASE_URL="${DATABASE_URL%\"}"; DATABASE_URL="${DATABASE_URL#\"}"
+          DATABASE_URL="${DATABASE_URL%\'}"; DATABASE_URL="${DATABASE_URL#\'}"
+          export DATABASE_URL
+          echo "--- Seeding Laura invoice tenant + private events template ---"
+          node scripts/dev-helpers/_seed-staging-laura.js
 
       # Gated one-shot: assign a plan + receipt fields to a staging tenant so the
       # owner can validate Model C (overage / RECEIPTS_ONLY). DRY_RUN by default;

@@ -4,6 +4,7 @@ import React from 'react';
 import { User as UserIcon, Calendar } from 'lucide-react';
 import { useBlockScroll } from '@/lib/use-block-scroll';
 import { getPlanEntry } from '@/lib/plan-catalog';
+import { formatDisplayDate } from '@/lib/format';
 import { FieldRow } from '@/components/dashboard/shared/ui';
 import type { ManagedUser } from './types';
 import { getDisplayName, getInitials } from './types';
@@ -101,8 +102,8 @@ export function MemberDetailModal({
                   <span className="card-legend__title">Activity</span>
                 </span>
                 <div className="field-rows">
-                  <FieldRow label="Joined" value={new Date(user.createdAt).toLocaleDateString()} />
-                  <FieldRow label="Last Updated" value={new Date(user.updatedAt).toLocaleDateString()} />
+                  <FieldRow label="Joined" value={formatDisplayDate(user.createdAt)} />
+                  <FieldRow label="Last Updated" value={formatDisplayDate(user.updatedAt)} />
                 </div>
               </div>
             </div>
