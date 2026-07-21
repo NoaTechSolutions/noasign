@@ -968,6 +968,31 @@
   }
 }
 
+/* §9 row exit for the documents table — MIRROR of the docs-v2-row-in entrance
+   (fade + slide UP), overriding the SaaS-wide slide-left (globals.css) just for
+   this table so a delete reads as the visual inverse of a create. Values reused
+   from the entrance/hook: translateY(-6px), ease-out, 0.3s = ROW_EXIT_MS in
+   lib/use-row-exit.ts (keep in sync). pointer-events:none inherited from
+   .row-exiting. Honors prefers-reduced-motion like the entrance. */
+.documents-v2-row.row-exiting {
+  animation: docs-v2-row-out 0.3s ease-out forwards;
+}
+@keyframes docs-v2-row-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .documents-v2-row.row-exiting {
+    animation-duration: 0.01ms;
+  }
+}
+
 /* F6 — "Send failed" reason. Detail modal banner (clear, not a buried hint) and
    the mobile card's inline reason (no hover on touch). Both use the shared
    failed palette. */

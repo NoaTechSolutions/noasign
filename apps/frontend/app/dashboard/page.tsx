@@ -1380,7 +1380,9 @@ function DashboardPageInner() {
   async function handleDeleteDocument(documentId: string): Promise<void> {
     await apiRequest(`/documents/${documentId}`, { method: "DELETE" });
     await loadWorkspace();
-    toast.success("Draft deleted");
+    // Explicit duration: toast.success' built-in default is short (~2s) and the
+    // row also animates out, drawing the eye away — give it ~4s to read.
+    toast.success("Draft deleted", { duration: 4000 });
   }
 
   // F1 restore: reverse a soft-delete (SUPERADMIN-only, enforced server-side).
@@ -1388,7 +1390,7 @@ function DashboardPageInner() {
   async function handleRestoreDocument(documentId: string): Promise<void> {
     await apiRequest(`/documents/${documentId}/restore`, { method: "POST" });
     await loadWorkspace();
-    toast.success("Document restored");
+    toast.success("Document restored", { duration: 4000 });
   }
 
   async function handleUpdateDraft(
