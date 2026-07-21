@@ -142,6 +142,8 @@ export interface DocumentsPanelProps {
   onVoidInvoice?: (docId: string) => Promise<void>;
   // B7: soft-delete a DRAFT document (DELETE /documents/:id).
   onDeleteDocument?: (docId: string) => Promise<void>;
+  // F1: restore a soft-deleted document (SUPERADMIN-only, POST /documents/:id/restore).
+  onRestoreDocument?: (docId: string) => Promise<void>;
   // C6: finalize a scheduled invoice/receipt TODAY (issue date → today).
   onSendInvoiceNow?: (docId: string) => Promise<void>;
   onSendReceiptNow?: (docId: string) => Promise<void>;
@@ -201,6 +203,7 @@ export function DocumentsPanel({
   onVoidReceipt,
   onVoidInvoice,
   onDeleteDocument,
+  onRestoreDocument,
   onSendInvoiceNow,
   onSendReceiptNow,
   onResendInvoice,
@@ -277,6 +280,11 @@ export function DocumentsPanel({
   // Delete confirmation (B7): a DRAFT is soft-deleted (not voided) after a
   // confirm. The actor stops seeing it; a SUPERADMIN still does.
   const [deleteConfirm, setDeleteConfirm] = useState<{ docId: string } | null>(
+    null,
+  );
+  // Restore confirmation (F1): a SUPERADMIN brings a soft-deleted doc back to its
+  // prior status. Cleared deletedAt → it reappears in the owner's list.
+  const [restoreConfirm, setRestoreConfirm] = useState<{ docId: string } | null>(
     null,
   );
   // R3/§9: shared row-exit animation (fade/slide before the delete+reload lands).
@@ -522,6 +530,12 @@ export function DocumentsPanel({
     // B7: soft-delete a DRAFT — confirm first, then DELETE /documents/:id.
     if (action === 'delete') {
       setDeleteConfirm({ docId });
+      return;
+    }
+    // F1: restore a soft-deleted doc (SUPERADMIN-only) — confirm first, then
+    // POST /documents/:id/restore.
+    if (action === 'restore') {
+      setRestoreConfirm({ docId });
       return;
     }
     // C6: finalize a scheduled doc TODAY — confirm first (it emits now, not on
@@ -893,7 +907,7 @@ export function DocumentsPanel({
         <ConfirmActionModal
           isOpen
           title="Delete document?"
-          message="This document will be deleted and removed from your list. It can't be restored — there's no self-service restore for deleted documents yet."
+          message="This document will be deleted and removed from your list. Only an administrator can restore it afterwards."
           confirmLabel="Delete"
           cancelLabel="Cancel"
           variant="danger"
@@ -909,6 +923,25 @@ export function DocumentsPanel({
             );
           }}
           onCancel={() => setDeleteConfirm(null)}
+        />
+      ) : null}
+
+      {restoreConfirm ? (
+        <ConfirmActionModal
+          isOpen
+          title="Restore document?"
+          message="This document will be restored to its previous status and reappear in the owner's list."
+          confirmLabel="Restore"
+          cancelLabel="Cancel"
+          variant="amber"
+          onConfirm={() => {
+            const { docId } = restoreConfirm;
+            setRestoreConfirm(null);
+            // Close the detail (if open) so the refreshed list shows the doc back.
+            setSelectedDocId(null);
+            void onRestoreDocument?.(docId);
+          }}
+          onCancel={() => setRestoreConfirm(null)}
         />
       ) : null}
 

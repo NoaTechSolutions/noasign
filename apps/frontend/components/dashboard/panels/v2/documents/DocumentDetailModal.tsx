@@ -1741,9 +1741,12 @@ function DetailFooter({
 
   switch (status) {
     case 'DRAFT':
+      // A DRAFT contract NEVER reached the client → Delete (soft), aligned with
+      // invoices/receipts and the kebab. Cancel is reserved for SENT/VIEWED docs
+      // the client already received.
       left = (
-        <button type="button" className="btn-danger" onClick={() => onAction('cancel')}>
-          Cancel draft
+        <button type="button" className="btn-danger" onClick={() => onAction('delete')}>
+          Delete
         </button>
       );
       right = (

@@ -1380,7 +1380,17 @@ function DashboardPageInner() {
   async function handleDeleteDocument(documentId: string): Promise<void> {
     await apiRequest(`/documents/${documentId}`, { method: "DELETE" });
     await loadWorkspace();
-    toast.success("Draft deleted");
+    // Explicit duration: toast.success' built-in default is short (~2s) and the
+    // row also animates out, drawing the eye away — give it ~4s to read.
+    toast.success("Draft deleted", { duration: 4000 });
+  }
+
+  // F1 restore: reverse a soft-delete (SUPERADMIN-only, enforced server-side).
+  // Clears deletedAt so the doc comes back in its prior status.
+  async function handleRestoreDocument(documentId: string): Promise<void> {
+    await apiRequest(`/documents/${documentId}/restore`, { method: "POST" });
+    await loadWorkspace();
+    toast.success("Document restored", { duration: 4000 });
   }
 
   async function handleUpdateDraft(
@@ -2560,6 +2570,7 @@ function DashboardPageInner() {
       onVoidReceipt: handleVoidReceipt,
       onVoidInvoice: handleVoidInvoice,
       onDeleteDocument: handleDeleteDocument,
+      onRestoreDocument: handleRestoreDocument,
       onFetchReceiptPdf: handleFetchReceiptPdf,
       onFetchInvoicePdf: handleFetchInvoicePdf,
     };
@@ -2674,6 +2685,7 @@ function DashboardPageInner() {
           onVoidReceipt={documentsV2.onVoidReceipt}
           onVoidInvoice={documentsV2.onVoidInvoice}
           onDeleteDocument={documentsV2.onDeleteDocument}
+          onRestoreDocument={documentsV2.onRestoreDocument}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           onFetchInvoicePdf={documentsV2.onFetchInvoicePdf}
           isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}

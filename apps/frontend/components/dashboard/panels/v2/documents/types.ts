@@ -43,6 +43,8 @@ export type V2DocumentAction =
   | 'void'
   // B7: soft-delete a DRAFT (not an issued doc → deleted, never voided).
   | 'delete'
+  // F1: restore a soft-deleted doc (SUPERADMIN-only) → clears deletedAt.
+  | 'restore'
   // C6 (scheduled kebab): finalize+emit a scheduled doc TODAY (issue date → today,
   // defer cleared), and open the billed-to edit to reschedule.
   | 'sendNow'
@@ -321,9 +323,10 @@ export function scheduledLabel(doc: {
 }
 
 export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
-  // B7: a soft-deleted doc (SUPERADMIN-only view) is terminal — view only, no
-  // re-delete/send. No restore yet (that's F1).
-  if (isDeletedDoc(doc)) return ['view'];
+  // B7/F1: a soft-deleted doc (SUPERADMIN-only view) is terminal for its old
+  // lifecycle — no re-delete/send. A SUPERADMIN can Restore it (clears deletedAt),
+  // bringing it back in its prior status.
+  if (isDeletedDoc(doc)) return ['view', 'restore'];
   // Receipts (DIRECT_PDF): the PDF is always viewable; a SENT receipt is issued
   // and is NOT cancellable; a failed one can be retried or discarded. Edit is a
   // per-card pencil (DRAFT/SEND_FAILED), not a kebab action.
@@ -434,6 +437,7 @@ export function getActionLabel(action: V2DocumentAction): string {
     reissue: 'Reissue',
     void: 'Void',
     delete: 'Delete',
+    restore: 'Restore',
     sendNow: 'Send now',
     changeDate: 'Change send date',
   };
