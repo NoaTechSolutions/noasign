@@ -1383,6 +1383,14 @@ function DashboardPageInner() {
     toast.success("Draft deleted");
   }
 
+  // F1 restore: reverse a soft-delete (SUPERADMIN-only, enforced server-side).
+  // Clears deletedAt so the doc comes back in its prior status.
+  async function handleRestoreDocument(documentId: string): Promise<void> {
+    await apiRequest(`/documents/${documentId}/restore`, { method: "POST" });
+    await loadWorkspace();
+    toast.success("Document restored");
+  }
+
   async function handleUpdateDraft(
     documentId: string,
     payload: { contractDate: string; dataJson: Record<string, unknown> },
@@ -2560,6 +2568,7 @@ function DashboardPageInner() {
       onVoidReceipt: handleVoidReceipt,
       onVoidInvoice: handleVoidInvoice,
       onDeleteDocument: handleDeleteDocument,
+      onRestoreDocument: handleRestoreDocument,
       onFetchReceiptPdf: handleFetchReceiptPdf,
       onFetchInvoicePdf: handleFetchInvoicePdf,
     };
@@ -2674,6 +2683,7 @@ function DashboardPageInner() {
           onVoidReceipt={documentsV2.onVoidReceipt}
           onVoidInvoice={documentsV2.onVoidInvoice}
           onDeleteDocument={documentsV2.onDeleteDocument}
+          onRestoreDocument={documentsV2.onRestoreDocument}
           onFetchReceiptPdf={documentsV2.onFetchReceiptPdf}
           onFetchInvoicePdf={documentsV2.onFetchInvoicePdf}
           isSuperadmin={(dashboardUser?.role ?? user?.role) === "SUPERADMIN"}
