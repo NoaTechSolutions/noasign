@@ -245,6 +245,63 @@ export async function createTemplate(
 export const INVOICE_BASE_PDF = 'assets/templates/INVOCE_LauraBravo.pdf';
 export const RECEIPT_BASE_PDF = 'assets/templates/receipt-basic-v1.pdf';
 
+// A customer owned by a given tenant + user. The "object" whose reference the
+// cross-tenant tests try to smuggle across a boundary.
+export async function createCustomer(
+  prisma: PrismaService,
+  tenant: ReceiptTenant,
+  fullName: string,
+): Promise<{ id: string; fullName: string }> {
+  return prisma.customer.create({
+    data: {
+      companyProfileId: tenant.company.id,
+      userId: tenant.user.id,
+      fullName,
+      email: `${fullName.toLowerCase().replace(/\s+/g, '.')}@customer.test`,
+    },
+    select: { id: true, fullName: true },
+  });
+}
+
+// The full chain createInvoice needs to succeed: a STANDARD (carrying the base
+// PDF, the render mode and the creation form) plus the tenant's own INVOICE
+// template pointing at it. resolveActivePdfTemplate finds the template by
+// { companyProfileId, isActive, category: INVOICE }.
+export async function seedInvoiceCreateStack(
+  prisma: PrismaService,
+  tenant: ReceiptTenant,
+): Promise<{ templateId: string }> {
+  const standard = await prisma.receiptTemplateStandard.create({
+    data: {
+      slug: `e2e-invoice-standard-${tenant.company.id.slice(0, 8)}`,
+      name: 'E2E Invoice Standard',
+      basePdfPath: INVOICE_BASE_PDF,
+      fieldMappingJson: [],
+      renderMode: 'acroform-overlay',
+      category: 'INVOICE',
+      documentTypeId: tenant.documentType.id,
+      formDefinitionId: tenant.formDefinition.id,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+  const template = await prisma.receiptTemplate.create({
+    data: {
+      companyProfileId: tenant.company.id,
+      name: 'E2E Invoice Template',
+      basePdfPath: INVOICE_BASE_PDF,
+      fieldMappingJson: [],
+      category: 'INVOICE',
+      documentTypeId: tenant.documentType.id,
+      standardId: standard.id,
+      isActive: true,
+      isDefault: true,
+    },
+    select: { id: true },
+  });
+  return { templateId: template.id };
+}
+
 // A SECOND, unrelated tenant — the "attacker" side of a cross-tenant test. It gets
 // its own company + user but REUSES the caller's documentType/formDefinition,
 // because DocumentType.code and FormDefinition are global, not per-tenant (both

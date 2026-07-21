@@ -143,6 +143,37 @@ export class ReceiptsService {
    * PAYMENT_RECEIPT Document, and (optionally) email it. Returns the document +
    * the correlative receipt number + the generated PDF buffer.
    */
+  /**
+   * If the caller linked a customer, verify it belongs to this tenant BEFORE the
+   * FK is written. Unknown and cross-tenant ids both raise 404, so the response
+   * never reveals whether the id exists in another company.
+   *
+   * This mirrors the contract path (documents.service.ts:991-1000), which has
+   * always done this check. The sale-document paths (create/update of receipts
+   * AND invoices) wrote `customerId` unvalidated, which let a caller attach
+   * another tenant's customer to their own document and then read that customer
+   * back through `documentDetailInclude` (it joins `customer: true`).
+   * Pinned by customer-tenancy.e2e-spec.
+   */
+  private async assertCustomerInTenant(
+    customerId: string | undefined | null,
+    companyProfileId: string | null,
+  ): Promise<void> {
+    if (!customerId) return;
+    // No tenant to check against means we cannot prove ownership — refuse rather
+    // than fall through to an unscoped write.
+    if (!companyProfileId) {
+      throw new NotFoundException('Customer not found');
+    }
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, companyProfileId },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+  }
+
   async createReceipt(
     userId: string,
     dto: CreateReceiptDto,
@@ -153,6 +184,7 @@ export class ReceiptsService {
       throw new BadRequestException('User has no company profile');
     }
     const companyProfileId = user.companyProfileId;
+    await this.assertCustomerInTenant(dto.customerId, companyProfileId);
 
     const docType = await this.prisma.documentType.findUnique({
       where: { code: RECEIPT_TYPE_CODE },
@@ -422,6 +454,7 @@ export class ReceiptsService {
       throw new BadRequestException('User has no company profile');
     }
     const companyProfileId = user.companyProfileId;
+    await this.assertCustomerInTenant(dto.customerId, companyProfileId);
 
     const docType = await this.prisma.documentType.findUnique({
       where: { code: INVOICE_TYPE_CODE },
@@ -982,6 +1015,7 @@ export class ReceiptsService {
     if (!user?.companyProfileId) {
       throw new BadRequestException('User has no company profile');
     }
+    await this.assertCustomerInTenant(dto.customerId, user.companyProfileId);
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
@@ -1784,6 +1818,12 @@ export class ReceiptsService {
     dto: UpdateReceiptDto,
   ) {
     const document = await this.loadReceiptForUser(userId, documentId);
+    // loadReceiptForUser already proved the DOCUMENT is ours; the customerId in
+    // the payload is a separate object reference and needs its own check.
+    await this.assertCustomerInTenant(
+      dto.customerId,
+      document.companyProfileId,
+    );
     if (
       document.status !== DocumentStatus.DRAFT &&
       document.status !== DocumentStatus.SEND_FAILED
@@ -2082,9 +2122,16 @@ export class ReceiptsService {
     const topCustomerIds = grouped
       .map((g) => g.customerId)
       .filter((id): id is string => !!id);
+    // Defence in depth: the write guard (assertCustomerInTenant) stops NEW dirty
+    // FKs, but rows written before it exists may still point at another tenant's
+    // customer. Scoping this lookup means such a row resolves to no name and
+    // degrades to "Unknown client" instead of leaking one.
     const topCustomers = topCustomerIds.length
       ? await this.prisma.customer.findMany({
-          where: { id: { in: topCustomerIds } },
+          where: {
+            id: { in: topCustomerIds },
+            companyProfileId: user.companyProfileId,
+          },
           select: { id: true, fullName: true },
         })
       : [];

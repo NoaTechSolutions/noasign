@@ -950,8 +950,25 @@ export class DocumentsService {
         this.prisma.formDefinition.findUnique({
           where: { id: body.formDefinitionId },
         }),
-        this.prisma.signatureTemplate.findUnique({
-          where: { id: signatureTemplateId },
+        // Ownership-scoped, not a bare findUnique. SignatureTemplate carries the
+        // rule on companyProfileId (schema.prisma:471-475): NULL = the GLOBAL
+        // catalog any tenant may use; a set value = a CUSTOM template owned by
+        // that one tenant. A bare findUnique cannot express that, so another
+        // tenant's PRIVATE template resolved fine and its providerTemplateId,
+        // field mappings and send templates rendered into the document.
+        // No superadmin bypass on purpose: the on-behalf-of flow below is
+        // constrained to the caller's own tenant (:1015-1018) and the row is
+        // always written with the caller's companyProfileId, so a master never
+        // legitimately needs a foreign PRIVATE template here.
+        // Pinned by signature-template-tenancy.e2e-spec.
+        this.prisma.signatureTemplate.findFirst({
+          where: {
+            id: signatureTemplateId,
+            OR: [
+              { companyProfileId: null },
+              { companyProfileId: user.companyProfileId },
+            ],
+          },
         }),
       ],
     );

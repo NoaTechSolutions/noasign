@@ -36,6 +36,9 @@ const prismaMock = {
   },
   signatureTemplate: {
     findUnique: jest.fn(),
+    // createDraftDocument resolves the template ownership-scoped (global catalog
+    // OR the caller's tenant), so it uses findFirst, not findUnique.
+    findFirst: jest.fn(),
   },
   user: {
     findUnique: jest.fn(),
@@ -818,7 +821,7 @@ describe('DocumentsService', () => {
       id: 'form-1',
       documentTypeId: 'type-1',
     });
-    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+    prismaMock.signatureTemplate.findFirst.mockResolvedValue({
       id: 'tpl-1',
       documentTypeId: 'type-1',
     });
@@ -875,7 +878,7 @@ describe('DocumentsService', () => {
       id: 'form-other',
       documentTypeId: 'type-OTHER',
     });
-    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+    prismaMock.signatureTemplate.findFirst.mockResolvedValue({
       id: 'tpl-1',
       documentTypeId: 'type-1',
     });
@@ -902,7 +905,7 @@ describe('DocumentsService', () => {
       id: 'form-1',
       documentTypeId: 'type-1',
     });
-    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+    prismaMock.signatureTemplate.findFirst.mockResolvedValue({
       id: 'tpl-1',
       documentTypeId: 'type-1',
     });
@@ -958,7 +961,7 @@ describe('DocumentsService', () => {
       id: 'form-owned-by-someone-else',
       documentTypeId: 'type-1',
     });
-    prismaMock.signatureTemplate.findUnique.mockResolvedValue({
+    prismaMock.signatureTemplate.findFirst.mockResolvedValue({
       id: 'tpl-owned-by-someone-else',
       documentTypeId: 'type-1',
     });
