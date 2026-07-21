@@ -937,8 +937,17 @@ export class ReceiptsService {
     if (!user?.companyProfileId) {
       throw new BadRequestException('User has no company profile');
     }
+    // Same three-part guard as every sibling in this family (sendDraftInvoice,
+    // sendInvoiceNow, resendInvoice, updateInvoice, voidInvoice): the id, the
+    // caller's tenant, AND the document type. This method used to omit the type
+    // filter, so a RECEIPT id from the caller's own tenant rendered a blank PDF
+    // with HTTP 200 instead of 404. Pinned by invoice-pdf-authorization.e2e-spec.
     const document = await this.prisma.document.findFirst({
-      where: { id: documentId, companyProfileId: user.companyProfileId },
+      where: {
+        id: documentId,
+        companyProfileId: user.companyProfileId,
+        documentType: { code: INVOICE_TYPE_CODE },
+      },
       include: { data: true, receiptTemplate: true },
     });
     if (!document || !document.receiptTemplate) {

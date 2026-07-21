@@ -132,19 +132,10 @@ export async function createReceiptDoc(
   prisma: PrismaService,
   tenant: ReceiptTenant,
   status: DocumentStatus,
+  opts?: DocOpts,
 ): Promise<{ id: string; status: DocumentStatus }> {
   receiptSeq += 1;
-  return prisma.document.create({
-    data: {
-      documentNumber: `REC-E2E-${receiptSeq}`,
-      userId: tenant.user.id,
-      companyProfileId: tenant.company.id,
-      documentTypeId: tenant.documentType.id,
-      formDefinitionId: tenant.formDefinition.id,
-      status,
-    },
-    select: { id: true, status: true },
-  });
+  return createDoc(prisma, tenant, status, `REC-E2E-${receiptSeq}`, opts);
 }
 
 // An invoices tenant — same shape as a receipts tenant, but the DIRECT_PDF type
@@ -184,17 +175,101 @@ export async function createInvoiceDoc(
   prisma: PrismaService,
   tenant: ReceiptTenant,
   status: DocumentStatus,
+  opts?: DocOpts,
 ): Promise<{ id: string; status: DocumentStatus }> {
   invoiceSeq += 1;
-  return prisma.document.create({
+  return createDoc(prisma, tenant, status, `INV-E2E-${invoiceSeq}`, opts);
+}
+
+// ── PDF-route fixtures ────────────────────────────────────────────────────────
+// The PDF endpoints refuse to render a document with no receiptTemplate, so a
+// test that wants to reach (or be blocked BEFORE) the renderer needs a real
+// template bound to a real base PDF.
+
+export interface DocOpts {
+  receiptTemplateId?: string;
+  dataJson?: Record<string, string>;
+}
+
+// Shared writer behind createReceiptDoc/createInvoiceDoc — optionally attaches a
+// template and a DocumentData row so the PDF route can actually run.
+async function createDoc(
+  prisma: PrismaService,
+  tenant: ReceiptTenant,
+  status: DocumentStatus,
+  documentNumber: string,
+  opts?: DocOpts,
+): Promise<{ id: string; status: DocumentStatus }> {
+  const doc = await prisma.document.create({
     data: {
-      documentNumber: `INV-E2E-${invoiceSeq}`,
+      documentNumber,
       userId: tenant.user.id,
       companyProfileId: tenant.company.id,
       documentTypeId: tenant.documentType.id,
       formDefinitionId: tenant.formDefinition.id,
       status,
+      ...(opts?.receiptTemplateId
+        ? { receiptTemplateId: opts.receiptTemplateId }
+        : {}),
     },
     select: { id: true, status: true },
   });
+  if (opts?.dataJson) {
+    await prisma.documentData.create({
+      data: { documentId: doc.id, dataJson: opts.dataJson },
+    });
+  }
+  return doc;
+}
+
+// A DIRECT_PDF template pointing at a REAL base PDF shipped in assets/, resolved
+// relative to process.cwd() (= apps/backend under jest), which is how
+// receipt-pdf.service resolves basePdfPath. fieldMappingJson is intentionally
+// empty: these tests assert the ROUTE's authorization, not the rendered art.
+export async function createTemplate(
+  prisma: PrismaService,
+  companyProfileId: string,
+  basePdfPath: string,
+): Promise<{ id: string }> {
+  return prisma.receiptTemplate.create({
+    data: {
+      companyProfileId,
+      name: `E2E Template (${basePdfPath})`,
+      basePdfPath,
+      fieldMappingJson: [],
+    },
+    select: { id: true },
+  });
+}
+
+export const INVOICE_BASE_PDF = 'assets/templates/INVOCE_LauraBravo.pdf';
+export const RECEIPT_BASE_PDF = 'assets/templates/receipt-basic-v1.pdf';
+
+// A SECOND, unrelated tenant — the "attacker" side of a cross-tenant test. It gets
+// its own company + user but REUSES the caller's documentType/formDefinition,
+// because DocumentType.code and FormDefinition are global, not per-tenant (both
+// `code` and User.email are @unique, so they cannot simply be duplicated).
+export async function seedPeerTenant(
+  prisma: PrismaService,
+  base: ReceiptTenant,
+  email: string,
+): Promise<ReceiptTenant> {
+  const company = await prisma.companyProfile.create({
+    data: { companyName: 'E2E Peer Co' },
+  });
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash: bcrypt.hashSync('e2e-pass', 4),
+      role: 'USER',
+      status: 'ACTIVE',
+      companyProfileId: company.id,
+    },
+  });
+  return {
+    company,
+    user,
+    documentType: base.documentType,
+    formDefinition: base.formDefinition,
+  };
 }
