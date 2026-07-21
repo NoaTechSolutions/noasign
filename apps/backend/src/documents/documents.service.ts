@@ -1585,6 +1585,49 @@ export class DocumentsService {
     });
   }
 
+  // F1 restore: reverse of B7 soft-delete. ONLY a SUPERADMIN may restore — the
+  // owner never sees a deleted doc (getDocumentAccessScope filters deletedAt), so
+  // they can't act on it. Clears deletedAt so the doc reappears for the owner in
+  // its prior status.
+  async restoreDocument(userId: string, documentId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, companyProfileId: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role !== 'SUPERADMIN') {
+      throw new ForbiddenException(
+        'Only a superadmin can restore a deleted document',
+      );
+    }
+    if (!user.companyProfileId) {
+      throw new BadRequestException('User does not have a company profile');
+    }
+
+    const document = await this.prisma.document.findFirst({
+      where: { id: documentId, companyProfileId: user.companyProfileId },
+    });
+
+    if (!document) throw new NotFoundException('Document not found');
+    if (!document.deletedAt) {
+      throw new BadRequestException('Only deleted documents can be restored');
+    }
+
+    const updatedDocument = await this.prisma.document.update({
+      where: { id: documentId },
+      data: { deletedAt: null },
+      include: documentDetailInclude,
+    });
+
+    return {
+      message: 'Document restored successfully',
+      document: this.serializeDocument(updatedDocument),
+    };
+  }
+
   async reactivateDocument(userId: string, documentId: string) {
     const scope = await this.getDocumentAccessScope(userId);
 

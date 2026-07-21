@@ -130,6 +130,16 @@ export class DocumentsController {
     await this.documentsService.deleteDocument(req.user.id, id);
   }
 
+  // F1 restore: reverse a soft-delete. Service gates it to SUPERADMIN + tenant
+  // scope and clears deletedAt.
+  @Post(':id/restore')
+  async restoreDocument(
+    @Req() req: any,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.documentsService.restoreDocument(req.user.id, id);
+  }
+
   @Post(':id/reactivate')
   async reactivateDocument(
     @Req() req: any,

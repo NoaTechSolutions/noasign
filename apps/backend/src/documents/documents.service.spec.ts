@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { DocumentStatus } from '@prisma/client';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -1164,6 +1168,82 @@ describe('DocumentsService', () => {
       await expect(service.deleteDocument('user-1', 'missing')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  // ── F1: restore a soft-deleted document ─────────────────────────────────────
+  // Reverse of B7 soft-delete. ONLY a SUPERADMIN may restore (the owner never
+  // sees a deleted doc, so they can't act on it). Clears deletedAt.
+  describe('restoreDocument (F1 restore)', () => {
+    it('lets a SUPERADMIN restore a soft-deleted doc by clearing deletedAt, scoped to the tenant', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: 'SUPERADMIN',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue({
+        id: 'doc-del',
+        status: DocumentStatus.DRAFT,
+        deletedAt: new Date(),
+      });
+      prismaMock.document.update.mockResolvedValue({ id: 'doc-del' });
+
+      await service.restoreDocument('admin-1', 'doc-del');
+
+      // Superadmin resolves any doc across the tenant (no owner/deletedAt filter).
+      expect(prismaMock.document.findFirst).toHaveBeenCalledWith({
+        where: { id: 'doc-del', companyProfileId: 'company-1' },
+      });
+      expect(prismaMock.document.update).toHaveBeenCalledWith({
+        where: { id: 'doc-del' },
+        data: { deletedAt: null },
+        include: DOCUMENT_DETAIL_INCLUDE,
+      });
+    });
+
+    it('forbids a non-superadmin from restoring', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+        companyProfileId: 'company-1',
+      });
+
+      await expect(
+        service.restoreDocument('user-1', 'doc-del'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prismaMock.document.findFirst).not.toHaveBeenCalled();
+      expect(prismaMock.document.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects restoring a doc that is not deleted', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: 'SUPERADMIN',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue({
+        id: 'doc-live',
+        status: DocumentStatus.DRAFT,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.restoreDocument('admin-1', 'doc-live'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prismaMock.document.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFound when the doc is out of the tenant scope', async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: 'SUPERADMIN',
+        companyProfileId: 'company-1',
+      });
+      prismaMock.document.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.restoreDocument('admin-1', 'missing'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
