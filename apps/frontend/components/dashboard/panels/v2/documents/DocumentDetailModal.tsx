@@ -315,6 +315,10 @@ export function DocumentDetailModal({
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [editDirty, setEditDirty] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+  // M2: SaaS-wide save UX — after a successful contract edit, show the "Saved!"
+  // green-check flourish (GroupEditPopup isSaved) then auto-close, instead of the
+  // top toast. Mirrors the invoice/receipt edit popups.
+  const [editSaved, setEditSaved] = useState(false);
   const [financeOn, setFinanceOn] = useState(false);
   // Receipt edit popup (DRAFT/SEND_FAILED only — a SENT receipt is immutable).
   const [receiptEditOpen, setReceiptEditOpen] = useState(false);
@@ -624,6 +628,7 @@ export function DocumentDetailModal({
     }
     setEditValues(vals);
     setEditDirty(false);
+    setEditSaved(false);
     if (group.key === 'contract') {
       // Finance ON if any Finance N entry already has data (mirrors showWhen).
       setFinanceOn(
@@ -672,10 +677,47 @@ export function DocumentDetailModal({
       : {};
   const hasFinanceDateErrors = Object.keys(financeDateErrors).length > 0;
 
+  // §8: required-field validation for the contract edit, mirroring the customers
+  // work. Which fields are required is read from the form SCHEMA (single source —
+  // `required` on each SchemaField), never hardcoded, so a template change is
+  // followed automatically. A cleared required field gets a red border + inline
+  // message on THAT input and blocks the save — never a silent no-op. Computed
+  // live (like the J2 finance dates above) over the fields actually in the open
+  // group; the label comes from what the user sees in the popup.
+  const requiredKeys = new Set<string>(
+    sections.flatMap((s) => s.fields.filter((f) => f.required).map((f) => f.key)),
+  );
+  const editFieldLabels: Record<string, string> = {
+    ...Object.fromEntries(CONTRACT_BASE_FIELDS.map((f) => [f.key, f.label])),
+    ...(editGroup?.fields
+      ? Object.fromEntries(editGroup.fields.map((f) => [f.key, f.label]))
+      : {}),
+  };
+  const requiredFieldErrors: Record<string, string> = editGroup
+    ? Object.fromEntries(
+        Object.keys(editValues)
+          .filter((k) => requiredKeys.has(k) && !(editValues[k] ?? '').trim())
+          .map((k) => [k, `${editFieldLabels[k] ?? 'This field'} is required`]),
+      )
+    : {};
+  const hasRequiredErrors = Object.keys(requiredFieldErrors).length > 0;
+
+  // M2: once the "Saved!" check is showing, auto-close the popup after a brief
+  // flourish (matches invoice/receipt). setEditGroup/setEditSaved are stable, so
+  // no ref is needed to keep the timer from resetting on re-render.
+  useEffect(() => {
+    if (!editSaved) return;
+    const t = setTimeout(() => {
+      setEditGroup(null);
+      setEditSaved(false);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [editSaved]);
+
   const saveEdit = async () => {
     if (!editGroup || !detail || !onUpdateDraft) return;
     // Belt-and-suspenders: the Save button is already disabled while invalid.
-    if (hasFinanceDateErrors) return;
+    if (hasFinanceDateErrors || hasRequiredErrors) return;
     setEditSaving(true);
     try {
       const mergedData = { ...dataJson, ...editValues };
@@ -683,12 +725,7 @@ export function DocumentDetailModal({
         contractDate: detail.contractDate ?? detail.createdAt,
         dataJson: mergedData,
       });
-      // Update local detail in place — no full re-fetch (no flash). J4: also
-      // stamp lastEditedAt here so the "Edited" event shows in the Timeline tab
-      // in the SAME session; the modal keeps its own detail state and does not
-      // re-fetch after an edit, so without this the persisted lastEditedAt only
-      // appeared on the next open. Client "now" is close enough; a later fetch
-      // replaces it with the exact server time.
+      // Optimistic patch for instant feedback (no flash).
       setDetail((d) =>
         d
           ? {
@@ -698,8 +735,21 @@ export function DocumentDetailModal({
             }
           : d,
       );
-      toast.success('Document updated');
-      setEditGroup(null);
+      // J4 (real fix): the modal keeps its OWN detail state and never re-fetched
+      // after an edit, so the just-persisted lastEditedAt only surfaced on the
+      // next open — the optimistic stamp above proved fragile on the owner's
+      // path. Silently re-fetch server truth (fetchRef never toggles the loading
+      // flag → no flash) so the Timeline ALWAYS reflects the persisted edit.
+      try {
+        const fresh = await fetchRef.current(documentId);
+        setDetail(fresh);
+      } catch {
+        // Keep the optimistic detail if the silent re-fetch fails.
+      }
+      // M2: show the "Saved!" green-check flourish (the auto-close effect closes
+      // the popup after ~1.2s) instead of a top toast. isSaving flips to false in
+      // finally, so GroupEditPopup renders the success card.
+      setEditSaved(true);
     } catch (e) {
       console.error('Failed to update draft', e);
       toast.error('Could not update document. Please try again.');
@@ -946,14 +996,15 @@ export function DocumentDetailModal({
           isOpen
           onClose={() => setEditGroup(null)}
           onSave={saveEdit}
-          isDirty={editDirty && !hasFinanceDateErrors}
+          isDirty={editDirty && !hasFinanceDateErrors && !hasRequiredErrors}
           isSaving={editSaving}
+          isSaved={editSaved}
           wide={editGroup.key === 'contract' && financeOn}
         >
           {editGroup.key === 'contract' ? (
             <>
               {CONTRACT_BASE_FIELDS.map((f) => (
-                <FieldInput key={f.key} field={f} value={editValues[f.key] ?? ''} onChange={onFieldChange} />
+                <FieldInput key={f.key} field={f} value={editValues[f.key] ?? ''} onChange={onFieldChange} error={requiredFieldErrors[f.key]} />
               ))}
               <hr className="gep-divider" />
               <WizardToggleRow label="Finance" checked={financeOn} onChange={handleFinanceToggle} />
@@ -987,7 +1038,7 @@ export function DocumentDetailModal({
             </>
           ) : (
             editGroup.fields.map((f) => (
-              <FieldInput key={f.key} field={f} value={editValues[f.key] ?? ''} onChange={onFieldChange} />
+              <FieldInput key={f.key} field={f} value={editValues[f.key] ?? ''} onChange={onFieldChange} error={requiredFieldErrors[f.key]} />
             ))
           )}
         </GroupEditPopup>
@@ -1491,6 +1542,25 @@ function TimelineTab({
     ? `to ${detail.lastSentRecipientEmail}`
     : '';
 
+  // M1: one "Edited" row PER saved edit (version ≥ 2), each showing the fields
+  // that changed in that edit (computed server-side). Falls back to the single
+  // lastEditedAt event when a doc has no per-edit versions (keeps old behavior
+  // for anything that doesn't version each save).
+  const editVersions = (detail?.versions ?? [])
+    .filter((v) => v.versionNumber >= 2)
+    .sort((a, b) => a.versionNumber - b.versionNumber);
+  const editEvents: Array<{ label: string; ts?: string | null; hint: string; fields?: string[] }> =
+    editVersions.length > 0
+      ? editVersions.map((v) => ({
+          label: 'Edited',
+          ts: v.createdAt,
+          hint: '',
+          fields: v.changedFields ?? [],
+        }))
+      : detail?.lastEditedAt
+        ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }]
+        : [];
+
   // Contracts keep the signature lifecycle (Viewed/Signed/Completed). Receipts
   // have NO signing — only the events that actually happened, sorted by time.
   const events = isReceipt
@@ -1501,7 +1571,7 @@ function TimelineTab({
           ...(detail?.lastManualReminderAt
             ? [{ label: 'Resent', ts: detail.lastManualReminderAt, hint: toEmail }]
             : []),
-          ...(detail?.lastEditedAt ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }] : []),
+          ...editEvents,
           ...(detail?.status === 'SEND_FAILED'
             ? [
                 {
@@ -1524,7 +1594,7 @@ function TimelineTab({
                 },
               ]
             : []),
-        ] as Array<{ label: string; ts?: string | null; hint: string }>
+        ] as Array<{ label: string; ts?: string | null; hint: string; fields?: string[] }>
       )
         .filter((e) => Boolean(e.ts))
         .sort(
@@ -1533,14 +1603,15 @@ function TimelineTab({
         )
     : [
         { label: 'Created', ts: detail?.createdAt, hint: creator ? `by ${creator}` : '' },
-        // J4: a contract edit now leaves a trace (only shown once edited).
-        ...(detail?.lastEditedAt ? [{ label: 'Edited', ts: detail.lastEditedAt, hint: '' }] : []),
+        // M1: one row per edit (with the changed fields), replacing J4's single
+        // Edited stamp. Shown between Created and Sent (contract edits are draft-only).
+        ...editEvents,
         { label: 'Sent', ts: detail?.sentAt, hint: toEmail },
         { label: 'Viewed', ts: detail?.viewedAt, hint: '' },
         { label: 'Signed', ts: detail?.signedAt, hint: '' },
         { label: 'Completed', ts: detail?.completedAt, hint: '' },
         ...(detail?.cancelledAt ? [{ label: 'Cancelled', ts: detail.cancelledAt, hint: '' }] : []),
-      ];
+      ] as Array<{ label: string; ts?: string | null; hint: string; fields?: string[] }>;
   return (
     <div className="doc-detail-modal__section card-legend">
       <span className="card-legend__label">
@@ -1548,15 +1619,24 @@ function TimelineTab({
         <span className="card-legend__title">Timeline</span>
       </span>
       <div className="doc-timeline">
-        {events.map((e) => {
+        {events.map((e, i) => {
           const active = Boolean(e.ts);
           return (
-            <div key={e.label} className={`doc-timeline__row${active ? '' : ' doc-timeline__row--inactive'}`}>
+            // key includes the index: multiple 'Edited' rows share a label.
+            <div key={`${e.label}-${i}`} className={`doc-timeline__row${active ? '' : ' doc-timeline__row--inactive'}`}>
               <span className="doc-timeline__dot" aria-hidden="true" />
               <span className="doc-timeline__label">{e.label}</span>
               <span className="doc-timeline__value">
                 {active ? fmtDate(e.ts) : '—'}
                 {active && e.hint ? <span className="doc-timeline__hint"> · {e.hint}</span> : null}
+                {/* M1: the fields changed in this edit, as chips. */}
+                {e.fields && e.fields.length > 0 ? (
+                  <span className="doc-timeline__fields">
+                    {e.fields.map((f) => (
+                      <span key={f} className="doc-timeline__field-chip">{f}</span>
+                    ))}
+                  </span>
+                ) : null}
               </span>
             </div>
           );

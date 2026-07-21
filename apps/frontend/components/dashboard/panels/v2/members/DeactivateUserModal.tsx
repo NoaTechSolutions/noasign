@@ -14,11 +14,23 @@ interface DeactivateUserModalProps {
 export function DeactivateUserModal({ user, onConfirm, onClose }: DeactivateUserModalProps) {
   useBlockScroll();
   const [submitting, setSubmitting] = useState(false);
+  // Sweep/§8: handleConfirm used to be try/finally with NO catch. The parent
+  // (handleDeactivateUser) sets a page-level error and re-throws, so on failure
+  // the rejection escaped uncaught AND the message rendered behind this modal —
+  // effectively invisible. Surface it inline here, like CreateUserModal/EditUserModal.
+  const [error, setError] = useState('');
 
   const handleConfirm = async () => {
+    setError('');
     setSubmitting(true);
     try {
       await onConfirm();
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'Failed to deactivate user. Please try again.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -52,6 +64,17 @@ export function DeactivateUserModal({ user, onConfirm, onClose }: DeactivateUser
           <p className="text-muted">
             Are you sure you want to deactivate <strong>{getDisplayName(user)}</strong> ({user.email})?
           </p>
+
+          {error && (
+            <div className="form-error">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {error}
+            </div>
+          )}
         </div>
 
         <div className="modal-footer">

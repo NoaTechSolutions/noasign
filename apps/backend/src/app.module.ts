@@ -17,6 +17,8 @@ import { ReceiptsModule } from './receipts/receipts.module';
 import { TemplatesModule } from './templates/templates.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { VersionModule } from './version/version.module';
+import { LegalModule } from './legal/legal.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { VersionModule } from './version/version.module';
     TemplatesModule,
     NotificationsModule,
     VersionModule,
+    LegalModule,
+    HealthModule,
   ],
   providers: [
     {

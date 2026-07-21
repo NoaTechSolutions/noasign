@@ -9,6 +9,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // Build output of the `verify`/`next build` runs — compiled JS, not source.
+    // Same rationale as `.next/**`; without this eslint lints minified output.
+    ".next-verify/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

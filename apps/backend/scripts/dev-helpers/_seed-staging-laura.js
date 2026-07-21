@@ -3,15 +3,17 @@
  * (contractsEnabled=false) test tenant with her PRIVATE events-invoice template, so
  * the owner can validate the DIRECT_PDF invoice flow on staging with her own PDF.
  *
- * Mirror of the LOCAL dev-helper scripts/dev-helpers/_setup-laura-test.js, with ONE
- * deliberate difference for staging safety: instead of privatizing the SHARED
- * catalog standard `invoice-standard-v1` (which would hide it from every other
- * tenant), Laura gets a DEDICATED private standard `invoice-laura-events-v1` with the
- * SAME base PDF + field mapping + wizard schema. The shared catalog is untouched.
+ * Follows the RECEIPT pattern (identical to receipt-classic -> World Pavers): Laura's
+ * invoice is the catalog standard `invoice-standard-v1` PRIVATIZED IN PLACE to her
+ * tenant. Its base PDF already IS her INVOCE_LauraBravo.pdf, so keeping the slug keeps
+ * its committed preview PNG (invoice-standard-v1.png) -> an honest preview. This
+ * REPLACES the earlier dedicated-copy approach (`invoice-laura-events-v1`, a new slug
+ * with no PNG = the S1 preview bug), which is migrated off + retired here.
  *
- * Provisions (all upserts — safe to re-run):
+ * Provisions (all idempotent — safe to re-run; migrate-before-retire, guarded):
  *   1. DocumentType INVOICE -> generationMode DIRECT_PDF (idempotent; kills any shadow BoldSign)
- *   2. A PRIVATE ReceiptTemplateStandard (invoice-laura-events-v1) owned by Laura's tenant
+ *   2. Privatize invoice-standard-v1 to Laura + migrate any instance off the old
+ *      dedicated standard onto it (carries every existing invoice), then retire it
  *   3. FormDefinition (the 3-tab invoice wizard schema) for the INVOICE type
  *   4. Tenant (CompanyProfile) + user laura@staging.ntssign.com (INDIVIDUAL / USER / ACTIVE, contractsEnabled=false)
  *   5. Per-tenant ReceiptTemplate instance + companyTemplate default (so create resolves it)
@@ -28,7 +30,13 @@ const LOGIN = {
   email: 'laura@staging.ntssign.com',
   password: process.env.STAGING_LAURA_PASSWORD || 'LauraStg2026!',
 };
-const SLUG = 'invoice-laura-events-v1';
+// Receipt pattern (matches associate-template-owner.js receipt-classic <WPC>):
+// Laura's invoice = the CATALOG standard invoice-standard-v1 privatized IN PLACE.
+// Its base PDF already IS her INVOCE_LauraBravo.pdf, so keeping the slug keeps its
+// committed preview PNG -> an HONEST preview. The old dedicated copy (a different
+// slug with no PNG = the bug) is migrated off + retired below.
+const STANDARD_SLUG = 'invoice-standard-v1';
+const OLD_DEDICATED_SLUG = 'invoice-laura-events-v1';
 
 // Owner-approved calibration for INVOCE_LauraBravo.pdf (same as the local helper).
 const INVOICE_MAPPING = {
@@ -147,11 +155,13 @@ async function main() {
       },
     });
 
-    // 2) A DEDICATED standard, PRIVATE to Laura's tenant — the shared catalog
-    //    (invoice-standard-v1) is intentionally left untouched.
+    // 2) Privatize the CATALOG standard invoice-standard-v1 to Laura IN PLACE.
+    //    The catalog seed provides it; if a fresh env hasn't run that, create it
+    //    from the same calibrated data so this seed stays self-contained. The
+    //    UPDATE branch only sets the owner — it NEVER overwrites the catalog content.
     const standardData = {
-      name: 'Invoice — Laura (events)',
-      description: 'Laura Bravo private events invoice, rendered by the AcroForm overlay engine.',
+      name: 'Invoice (standard)',
+      description: 'Standard invoice, rendered by the AcroForm overlay engine.',
       basePdfPath: 'assets/templates/INVOCE_LauraBravo.pdf',
       pageWidth: 595.2,
       pageHeight: 841.9,
@@ -163,13 +173,32 @@ async function main() {
       category: 'INVOICE',
       documentTypeId: docType.id,
       fieldMappingJson: INVOICE_MAPPING,
-      ownerCompanyProfileId: company.id, // PRIVATE to Laura
     };
     const standard = await prisma.receiptTemplateStandard.upsert({
-      where: { slug: SLUG },
-      update: standardData,
-      create: { slug: SLUG, ...standardData },
+      where: { slug: STANDARD_SLUG },
+      update: { ownerCompanyProfileId: company.id }, // privatize only
+      create: { slug: STANDARD_SLUG, ...standardData, ownerCompanyProfileId: company.id },
     });
+
+    // 2b) MIGRATE BEFORE RETIRE: re-point any per-tenant instance still linked to
+    //     the OLD dedicated standard onto invoice-standard-v1. Documents (incl.
+    //     drafts / soft-deleted / versions) reference the INSTANCE (receiptTemplateId,
+    //     onDelete: Restrict) — NOT the standard — so re-pointing standardId carries
+    //     every existing invoice with it. The two standards are identical content
+    //     (same INVOCE_LauraBravo.pdf), so they render EXACTLY the same afterwards.
+    //     Idempotent: no dedicated (local / already-migrated) -> 0 rows, no-op.
+    const dedup = await prisma.receiptTemplateStandard.findUnique({
+      where: { slug: OLD_DEDICATED_SLUG },
+    });
+    if (dedup) {
+      const moved = await prisma.receiptTemplate.updateMany({
+        where: { standardId: dedup.id },
+        data: { standardId: standard.id },
+      });
+      console.log(
+        `  migrated ${moved.count} invoice instance(s): ${OLD_DEDICATED_SLUG} -> ${STANDARD_SLUG}`,
+      );
+    }
 
     // 3) FormDefinition (schemaJson) for the INVOICE type.
     const existingForm = await prisma.formDefinition.findFirst({
@@ -226,6 +255,24 @@ async function main() {
       });
     }
 
+    // 6) RETIRE the old dedicated standard — safe now: after 2b no instance links to
+    //    it, and Documents/CompanyTemplate reference instances (not standards).
+    //    GUARDED: if anything still points to it, skip + warn (never orphan data).
+    //    Idempotent: if the dedicated is already gone, this block is skipped.
+    if (dedup) {
+      const stillLinked = await prisma.receiptTemplate.count({
+        where: { standardId: dedup.id },
+      });
+      if (stillLinked === 0) {
+        await prisma.receiptTemplateStandard.delete({ where: { id: dedup.id } });
+        console.log(`  retired dedicated standard ${OLD_DEDICATED_SLUG}`);
+      } else {
+        console.warn(
+          `  NOT retiring ${OLD_DEDICATED_SLUG}: ${stillLinked} instance(s) still linked — investigate`,
+        );
+      }
+    }
+
     console.log('=== STAGING LAURA SEED DONE ===');
     console.log(
       JSON.stringify(
@@ -235,7 +282,7 @@ async function main() {
           userId: user.id,
           contractsEnabled: false,
           accountType: 'INDIVIDUAL',
-          template: { slug: SLUG, standardId: standard.id, instanceId: instance.id, private: true },
+          template: { slug: STANDARD_SLUG, standardId: standard.id, instanceId: instance.id, private: true },
           formDefinitionId: form.id,
           documentTypeId: docType.id,
           login: { email: LOGIN.email, password: LOGIN.password, role: 'USER' },

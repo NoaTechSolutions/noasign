@@ -13,6 +13,7 @@ import { CustomerFormDrawer } from './CustomerFormDrawer';
 import { CustomerDetailModal } from './CustomerDetailModal';
 import { DeleteCustomerModal } from './DeleteCustomerModal';
 import { AssignCustomerModal } from './AssignCustomerModal';
+import { useRowExit } from '@/lib/use-row-exit';
 import type { Customer, CustomerFormData, CustomerOwnerUser } from './types';
 import './customers-panel.css';
 
@@ -70,6 +71,8 @@ export function CustomersPanel({
     () => parseFilterParam(searchParams.get('status'), ['ACTIVE', 'INACTIVE', 'DELETED']),
   );
   const [currentPage, setCurrentPage] = useState(1);
+  // R3/§9: shared row-exit animation (fade/slide before the reload drops the row).
+  const { removingId, animateRemoval } = useRowExit();
 
   // Mirror filters + search back into the URL via replaceState (NOT the Next
   // router) so persisting them never re-runs the page's data effects. Empty
@@ -89,6 +92,9 @@ export function CustomersPanel({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [customerType, setCustomerType] = useState<'PERSONAL' | 'BUSINESS'>('PERSONAL');
+  // O1: while the create form is open, Back re-opens the type selector as an
+  // OVERLAY (the drawer stays mounted → entered data is preserved).
+  const [reselectType, setReselectType] = useState(false);
 
   const reloadCustomers = useCallback(async () => {
     setLoading(true);
@@ -195,10 +201,14 @@ export function CustomersPanel({
 
   const handleConfirmDelete = async () => {
     if (!selectedCustomer) return;
-    await onDeleteCustomer(selectedCustomer.id);
-    await reloadCustomers();
+    const id = selectedCustomer.id;
+    await onDeleteCustomer(id);
+    // R3/§9: close the modal, then play the shared row exit before the reload
+    // drops the row. On failure onDeleteCustomer throws and none of this runs
+    // (the modal shows the error).
     setActiveModal(null);
     setSelectedCustomer(null);
+    await animateRemoval(id, reloadCustomers);
   };
 
   const handleConfirmAssign = async (newUserId: string) => {
@@ -212,6 +222,7 @@ export function CustomersPanel({
   const closeModal = () => {
     setActiveModal(null);
     setSelectedCustomer(null);
+    setReselectType(false);
   };
 
   const handleRestoreCustomer = async (customer: Customer) => {
@@ -264,6 +275,7 @@ export function CustomersPanel({
             role={role}
             currentUserId={currentUserId}
             loading={loading}
+            removingId={removingId}
             onView={handleViewCustomer}
             onEdit={handleEditCustomer}
             onDelete={handleDeleteCustomer}
@@ -280,6 +292,7 @@ export function CustomersPanel({
             role={role}
             currentUserId={currentUserId}
             loading={loading}
+            removingId={removingId}
             onView={handleViewCustomer}
             onChangeStatus={handleChangeStatus}
             onEdit={handleEditCustomer}
@@ -325,9 +338,26 @@ export function CustomersPanel({
           customer={selectedCustomer}
           onSubmit={handleFormSubmit}
           onClose={closeModal}
+          // O1: create-only Back → re-choose the type (drawer stays mounted).
+          onBack={formMode === 'create' ? () => setReselectType(true) : undefined}
+          // O1: hide (not unmount) the drawer while the type selector is over it,
+          // so it doesn't show through behind the selector's translucent backdrop.
+          hidden={reselectType}
           role={role}
           currentUserId={currentUserId}
           onFetchUsers={onFetchUsersForAssign}
+        />
+      )}
+
+      {/* O1: type selector shown OVER the still-mounted create form, so switching
+          type (or re-picking the same one) never discards what was entered. */}
+      {activeModal === 'form' && reselectType && (
+        <TypeSelectorModal
+          onSelect={(t) => {
+            setCustomerType(t);
+            setReselectType(false);
+          }}
+          onClose={() => setReselectType(false)}
         />
       )}
 

@@ -203,10 +203,58 @@ model User {
   passwordResetTokens PasswordResetToken[]
   createdCustomers    Customer[] @relation("CustomerCreatedBy")
   ownedCustomers      Customer[] @relation("CustomerOwner")
+  legalAcceptances    LegalAcceptance[]
 
   @@index([companyProfileId])
   @@index([parentCompanyProfileId])
   @@map("users")
+}
+
+enum LegalDocType {
+  TERMS
+  PRIVACY
+  COOKIES
+}
+
+// Immutable, append-only record of each PUBLISHED legal document version. The
+// canonical SOURCE is versioned markdown in the repo (legal/); on publish, the
+// exact text + its sha256 hash are FROZEN here so a past acceptance can always
+// be shown ("what did v1 say?"). A published row is NEVER edited — a change =
+// a new version. `isDraft` versions are for building/testing only and MUST NEVER
+// be activated in production (the lawyer's approval is the gate, not the code).
+model LegalDocumentVersion {
+  id                   String            @id @default(uuid())
+  docType              LegalDocType
+  version              String // human label, e.g. "2026-07-18" or "v1-draft"
+  contentHash          String // sha256 of the frozen content
+  content              String // the frozen text/markdown (immutable)
+  publishedAt          DateTime          @default(now())
+  isActive             Boolean           @default(false) // the current one served + accepted (one per docType)
+  requiresReacceptance Boolean           @default(true) // material change → existing users must re-accept
+  isDraft              Boolean           @default(true) // ⚠️ never activate a draft in prod
+  createdAt            DateTime          @default(now())
+  acceptances          LegalAcceptance[]
+
+  @@unique([docType, version])
+  @@map("legal_document_versions")
+}
+
+// Append-only record of a user accepting a specific version. Answers, years
+// later: WHO accepted WHICH VERSION, WHEN, and from WHAT IP. Never a bare
+// boolean — the versionId FK + the frozen version row are the proof.
+model LegalAcceptance {
+  id         String               @id @default(uuid())
+  userId     String
+  versionId  String
+  docType    LegalDocType
+  acceptedAt DateTime             @default(now())
+  ipAddress  String?
+  userAgent  String?
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version    LegalDocumentVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@map("legal_acceptances")
 }
 
 model PasswordResetToken {

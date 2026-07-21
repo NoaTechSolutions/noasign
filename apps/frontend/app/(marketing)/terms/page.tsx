@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Navbar } from "../../../components/marketing/Navbar";
 import { Footer } from "../../../components/marketing/Footer";
 import { FloatingControls } from "../../../components/marketing/FloatingControls";
+import { LegalVersionedContent } from "../../../components/legal/LegalVersionedContent";
 
 export const metadata: Metadata = {
   title: "Terms and Conditions — NTSsign",
@@ -16,8 +17,11 @@ export default function TermsPage() {
       <Navbar />
       <main className="legal-page">
         <div className="wrap">
-          <div className="legal-content">
-            <h1>Terms and Conditions</h1>
+          <LegalVersionedContent
+            docType="TERMS"
+            fallback={
+              <>
+                <h1>Terms and Conditions</h1>
             <p className="legal-meta">Last updated: April 2026 · Version 1.0</p>
 
             <div className="legal-notice">
@@ -216,10 +220,12 @@ export default function TermsPage() {
               <a href="mailto:legal@noatechsolutions.com">legal@noatechsolutions.com</a>.
             </p>
 
-            <div className="legal-footer-note">
-              These terms are interim pending formal business registration and legal review.
-            </div>
-          </div>
+                <div className="legal-footer-note">
+                  These terms are interim pending formal business registration and legal review.
+                </div>
+              </>
+            }
+          />
         </div>
       </main>
       <Footer />

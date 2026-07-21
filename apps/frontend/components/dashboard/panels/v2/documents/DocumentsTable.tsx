@@ -8,6 +8,8 @@ import { STATUS_FILTER_OPTIONS } from './types';
 interface DocumentsTableProps {
   documents: V2DocumentItem[];
   selectedId: string | null;
+  /** R3/§9: id of a row animating out after a delete (shared row exit). */
+  removingId?: string | null;
   onSelect: (docId: string) => void;
   onAction: (action: V2DocumentAction, docId: string) => void | Promise<void>;
   isLoading?: boolean;
@@ -114,6 +116,7 @@ function QuickFilterTh({ label, options, onSelect, isActive }: QuickFilterThProp
 export function DocumentsTable({
   documents,
   selectedId,
+  removingId,
   onSelect,
   onAction,
   isLoading,
@@ -180,6 +183,7 @@ export function DocumentsTable({
                   key={doc.id}
                   document={doc}
                   selected={doc.id === selectedId}
+                  removing={doc.id === removingId}
                   onSelect={onSelect}
                   onAction={onAction}
                   isNew={newIds?.has(doc.id) ?? false}

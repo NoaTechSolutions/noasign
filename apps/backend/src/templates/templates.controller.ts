@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   NotFoundException,
   Param,
   Patch,
@@ -24,6 +25,8 @@ import {
 
 @Controller('templates')
 export class TemplatesController {
+  private readonly logger = new Logger(TemplatesController.name);
+
   constructor(private readonly templatesService: TemplatesService) {}
 
   // Catalog of templates available to the tenant for a category, each flagged
@@ -73,11 +76,25 @@ export class TemplatesController {
       `${slug}.png`,
     );
     if (!fs.existsSync(filePath)) {
+      // Expected for any template whose preview PNG hasn't been curated yet (a
+      // custom per-tenant template — see saas-ux-patterns §10). The frontend shows
+      // an honest "no preview" placeholder. NOT an error, so it isn't logged.
       throw new NotFoundException('Preview not found');
     }
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    fs.createReadStream(filePath).pipe(res);
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', (err) => {
+      // The file EXISTS but couldn't be read (permissions, corruption). That IS a
+      // real problem the placeholder would otherwise hide — make it loud, so the
+      // graceful UI fallback never masks a broken deploy/asset.
+      this.logger.error(
+        `Preview "${slug}.png" exists but failed to read: ${err.message}`,
+      );
+      if (!res.headersSent) res.status(500).end();
+      else res.destroy();
+    });
+    stream.pipe(res);
   }
 
   private parseCategory(raw?: string): SelectableCategory {

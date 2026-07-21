@@ -11,6 +11,7 @@ import type { ReceiptStats } from '../ReceiptMetricCards';
 import { DocumentsToolbar } from './DocumentsToolbar';
 import { DocumentsTable } from './DocumentsTable';
 import { DocumentsCards } from './DocumentsCards';
+import { useRowExit } from '@/lib/use-row-exit';
 import { DocumentDetailModal } from './DocumentDetailModal';
 import { DocumentsEmptyState } from './DocumentsEmptyState';
 import {
@@ -27,7 +28,6 @@ import type {
   V2DocumentAction,
   BackendDocumentAction,
   StatusFilter,
-  DocumentVersion,
   DocumentDetail,
 } from './types';
 import toast from 'react-hot-toast';
@@ -118,7 +118,6 @@ export interface DocumentsPanelProps {
   onSyncStatus: (docId: string) => Promise<void>;
   onPreviewPdf: (docId: string) => void;
   onDownloadPdf: (docId: string) => void;
-  onFetchVersions?: (docId: string) => Promise<DocumentVersion[]>;
   onFetchDocument: (docId: string) => Promise<DocumentDetail>;
   onFetchPdfUrl?: (docId: string) => Promise<string>;
   onUpdateDraft?: (
@@ -280,6 +279,8 @@ export function DocumentsPanel({
   const [deleteConfirm, setDeleteConfirm] = useState<{ docId: string } | null>(
     null,
   );
+  // R3/§9: shared row-exit animation (fade/slide before the delete+reload lands).
+  const { removingId, animateRemoval } = useRowExit();
   // C6: "Send now" confirmation for a scheduled doc — it emits TODAY (not on its
   // scheduled date).
   const [sendNowConfirm, setSendNowConfirm] = useState<{ docId: string } | null>(
@@ -605,14 +606,13 @@ export function DocumentsPanel({
       setReceiptSendConfirm({ docId, email, isResend: action !== 'send' });
       return;
     }
-    // Discard: a receipt = cancel it; an invoice = VOID it (owner decision —
-    // same VOID treatment as receipts). Both confirm first.
+    // Discard maps to DELETE (soft) for receipts AND invoices. Refined rule: a
+    // discarded doc is SEND_FAILED — the send NEVER reached the client — so it's
+    // deleted, the same as a DRAFT. CANCELLED is exclusive to signature docs
+    // (voiding a BoldSign request); VOID is only for genuinely-issued sale docs.
+    // Routes through the same soft-delete confirm as the DRAFT 'delete' action.
     if (action === 'discard') {
-      if (doc && isInvoiceDoc(doc)) {
-        setVoidConfirm({ docId });
-      } else {
-        setConfirmAction({ action: 'cancel', docId });
-      }
+      setDeleteConfirm({ docId });
       return;
     }
     // Send / Cancel are destructive-ish and irreversible → confirm first.
@@ -719,6 +719,7 @@ export function DocumentsPanel({
           <DocumentsTable
             documents={pageItems}
             selectedId={selectedDocId}
+            removingId={removingId}
             onSelect={handleSelect}
             onAction={handleAction}
             statusFilter={statusFilter}
@@ -732,6 +733,7 @@ export function DocumentsPanel({
           <DocumentsCards
             documents={pageItems}
             selectedId={selectedDocId}
+            removingId={removingId}
             onSelect={handleSelect}
             onAction={handleAction}
             receiptsOnly={receiptsOnly}
@@ -890,17 +892,21 @@ export function DocumentsPanel({
       {deleteConfirm ? (
         <ConfirmActionModal
           isOpen
-          title="Delete draft?"
-          message="This draft will be deleted and removed from your list. This can't be undone from here."
+          title="Delete document?"
+          message="This document will be deleted and removed from your list. It can't be restored — there's no self-service restore for deleted documents yet."
           confirmLabel="Delete"
           cancelLabel="Cancel"
           variant="danger"
           onConfirm={() => {
             const { docId } = deleteConfirm;
             setDeleteConfirm(null);
-            void onDeleteDocument?.(docId);
-            // Close the detail (if open) so the updated list shows.
+            // Close the detail (if open) so the row is visible while it exits.
             setSelectedDocId(null);
+            // R3/§9: play the shared row exit, THEN delete+reload (bundled in
+            // onDeleteDocument) — the row animates out, then the reload drops it.
+            void animateRemoval(docId, () =>
+              onDeleteDocument ? onDeleteDocument(docId) : undefined,
+            );
           }}
           onCancel={() => setDeleteConfirm(null)}
         />

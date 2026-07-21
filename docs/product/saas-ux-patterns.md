@@ -27,6 +27,11 @@ it is **deleted**, not voided. Void/Cancel are for already-issued docs (SENT).
 Deletes are soft — the actor stops seeing the doc; a SUPERADMIN still sees it
 flagged as deleted.
 
+The full rule — which of the three kill-mechanisms (Delete / Cancel / Void) fires
+for which type and state, and why each is stored differently — lives in
+[../architecture/document-lifecycle.md](../architecture/document-lifecycle.md).
+This §3 is the UX-behavior view; that doc is the canonical business rule.
+
 ## §4 — Send requires a deliverable channel
 
 An action that emails the recipient (Send) must pre-flight its channel. No email
@@ -148,3 +153,96 @@ dedicated follow-up (H2b), not yet done.
 
 **Backend.** Receipt/invoice PDFs already print `MM/DD/YYYY`
 (`formatInvoiceDate`/`formatFromParts` in `receipts.service.ts`).
+
+## §8 — Validation is per-input: red border + inline message, never silent
+
+Every form validation error is shown **on the specific input that failed**, not as
+a single generic error at the top of the form, and a blocked save **never fails
+silently**.
+
+**The rule.**
+1. The **input that fails** gets a red border (`form-input--error` / the module's
+   `*--error` class — e.g. `wizard-field__input--error`, `gep-input--error`).
+2. The message goes **inline, right below that input**, and is **specific to the
+   field** ("Last name is required"), never a generic top banner ("First and last
+   name are required").
+3. A save/next is **blocked with a visible reason** — never a silent no-op, a bare
+   flash, or a raw backend-error toast. If a required field is empty, the user must
+   SEE which field and why.
+
+**Applies to CREATE and EDIT, in every module.** The reference implementations are
+the document **wizard** (`BaseField` → label + `*` + inline `wizard-field__error`)
+and the **edit popups** (invoice/receipt/contract inline errors). The customers
+form was aligned to this (`CustomerFormDrawer`: `fieldErrors` map + `form-input--error`
++ `form-field-error`, validated on both Next and Save so a cleared required field
+can't reach the backend and fail silently).
+
+**Standardization status.** The pattern is consistent (per-field error map + a
+`*--error` border class + an inline message element) but there is **no single
+shared field component** yet — the wizard uses `BaseField`, other forms wire the
+classes directly. Extracting one shared `FormField`/`FieldError` primitive and
+migrating every module onto it is a worthwhile dedicated refactor; until then, new
+forms MUST follow the same three rules above using the existing classes.
+
+## §9 — Animated row exit on delete (single source)
+
+When a delete **removes a row from a table or card list**, the row **animates out**
+before it disappears — it never vanishes abruptly on reload.
+
+**The rule.**
+1. The removed row/card **fades + slides left (~300ms)**, then the list reloads and
+   drops it for real.
+2. While it animates, the row is **not interactive** (`pointer-events: none`; its
+   click handler is guarded).
+3. It **honors `prefers-reduced-motion`** — the animation collapses to a near-instant
+   fade for users who ask for reduced motion.
+4. **Mobile parity**: the same exit plays on the mobile card list, not just the
+   desktop table.
+
+**Single source (not a per-module copy).** The timing + state live in the shared
+hook `lib/use-row-exit.ts` (`useRowExit` → `{ removingId, animateRemoval }`); the
+visual lives in the shared CSS class **`.row-exiting`** (`globals.css`, with the
+`rowExitOut` keyframe + the reduced-motion override). A table/card just applies
+`row-exiting` to the row whose id === `removingId`. `animateRemoval(id, afterExit)`
+supports both flows: **delete-first** (customers: `await onDelete(id)` then
+`animateRemoval(id, reload)`) and **delete-bundled** (documents:
+`animateRemoval(id, () => onDelete(id))` where the delete already reloads).
+
+**Applied to.** Customers (table + mobile cards) and Documents (draft delete: table +
+mobile cards). **Not** Members — deactivating a member keeps the row (marked
+inactive), so there is no removal to animate. Any future table whose delete removes
+a row MUST reuse `useRowExit` + `.row-exiting`, never re-implement the animation.
+
+## §10 — Template previews: honest placeholder + the curated-PNG alta step
+
+Template preview thumbnails are **pre-generated PNGs committed to the repo** at
+`apps/backend/assets/templates/previews/<slug>.png` (card) + `<slug>-full.png`
+(modal), served by `GET /templates/previews/:file`. They are **owner-curated by
+hand** — never run `gen-template-thumbnails.js` (it overwrites the curated PNGs).
+
+**Two ways a tenant gets a template, two preview outcomes.**
+- **(a) A catalog standard given in exclusivity** → privatize it IN PLACE
+  (`associate-template-owner.js <slug> <companyId>`). The slug is unchanged, so its
+  committed PNG still serves. This is the receipt pattern (`receipt-classic` → WPC)
+  and now the invoice pattern (`invoice-standard-v1` → Laura). **Preview just works.**
+- **(b) A bespoke per-tenant template** → a NEW slug with no PNG yet. This is the
+  real prod case every time a client gets their own template.
+
+**For (b) — the honest placeholder (never fake a preview).** A missing PNG 404s;
+the card/modal `onError` shows a neutral **"No preview yet"** placeholder (icon +
+text), styled as a calm normal state. It **NEVER falls back to another template's
+image** — that would misrepresent what this template looks like (same false-claim
+family as the "cannot be undone" copy or a lying "Saved!"). The backend keeps a
+missing file as a plain 404 (expected, not logged), but logs an ERROR if a file
+**exists yet fails to read** (permissions/corruption) — so the graceful UI never
+masks a real broken asset.
+
+**The alta checklist step (manual, until automated).** Creating a bespoke template
+is NOT done until its preview PNG is curated:
+- **Files:** `<slug>.png` (card) and `<slug>-full.png` (modal).
+- **Format / size:** PNG, **1190×1683 px** (a Letter page; the card box crops via CSS).
+- **Location:** `apps/backend/assets/templates/previews/` — committed to the repo, so
+  it reaches every environment (local + staging + prod), the same way the catalog PNGs do.
+- **Do NOT** run `gen-template-thumbnails.js`. The owner produces the PNG by hand.
+Until this step is automated (generate-on-create), it MUST be in the alta checklist —
+or a new prod client ships with no preview.

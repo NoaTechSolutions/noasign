@@ -10,6 +10,7 @@ import { detectBrowserTimeZone } from "../../lib/tenant-date";
 import { getPlanEntry } from "../../lib/plan-catalog";
 import type { ReceiptStats } from "../../components/dashboard/panels/v2/ReceiptMetricCards";
 import { DashboardShell } from "../../components/dashboard/layout/DashboardShell";
+import { LegalAcceptanceGate } from "../../components/legal/LegalAcceptanceGate";
 import { OverviewPanel, ProfilePanel, BillingPanel, CustomersPanel, MembersPanel, LockedUsersPanel, TemplatesPanel } from "../../components/dashboard/panels/v2";
 import { DocumentsPanel } from "../../components/dashboard/panels/v2/documents";
 import { invoiceRecipientName } from "../../components/dashboard/panels/v2/documents/types";
@@ -21,7 +22,6 @@ import { isFutureDate } from "../../components/dashboard/panels/v2/documents/doc
 import { formatDisplayDate } from "../../lib/format";
 import type {
   V2DocumentItem,
-  DocumentVersion as V2DocumentVersion,
   DocumentDetail as V2DocumentDetail,
   BackendDocumentAction as V2BackendDocumentAction,
 } from "../../components/dashboard/panels/v2/documents";
@@ -2540,24 +2540,6 @@ function DashboardPageInner() {
       onDownloadPdf: (docId: string) => {
         void handleDownloadFinalPdf(docId);
       },
-      onFetchVersions: async (
-        docId: string,
-      ): Promise<V2DocumentVersion[]> => {
-        const detail = await apiRequest<{
-          versions?: Array<{
-            id: string;
-            versionNumber: number;
-            createdAt: string;
-            changedByUserId?: string | null;
-          }>;
-        }>(`/documents/${docId}`);
-        return (detail.versions ?? []).map((v) => ({
-          id: v.id,
-          versionNumber: v.versionNumber,
-          createdAt: v.createdAt,
-          changedBy: null,
-        }));
-      },
       onFetchDocument: handleFetchDocumentDetail,
       onFetchPdfUrl: (docId: string): Promise<string> =>
         handlePreviewFinalPdf(docId),
@@ -2683,7 +2665,6 @@ function DashboardPageInner() {
           onSyncStatus={documentsV2.onSyncStatus}
           onPreviewPdf={documentsV2.onPreviewPdf}
           onDownloadPdf={documentsV2.onDownloadPdf}
-          onFetchVersions={documentsV2.onFetchVersions}
           onFetchDocument={documentsV2.onFetchDocument}
           onFetchPdfUrl={documentsV2.onFetchPdfUrl}
           onUpdateDraft={documentsV2.onUpdateDraft}
@@ -2746,14 +2727,19 @@ function DashboardPageInner() {
       );
 
     return (
-      <DashboardShell
-        user={shellUser}
-        currentPanel={newLayoutPanel}
-        onSignOut={handleSignOut}
-        isLoading={isLoading}
-      >
-        {panelContent}
-      </DashboardShell>
+      <>
+        <DashboardShell
+          user={shellUser}
+          currentPanel={newLayoutPanel}
+          onSignOut={handleSignOut}
+          isLoading={isLoading}
+        >
+          {panelContent}
+        </DashboardShell>
+        {/* Blocking legal-acceptance gate — checked once at app load; blocks until
+            accept or log out. Renders null unless the user must accept. */}
+        <LegalAcceptanceGate onSignOut={handleSignOut} />
+      </>
     );
   }
 

@@ -15,6 +15,8 @@ interface CustomerCardsProps {
   onAssign: (customer: Customer) => void;
   onChangeStatus: (customer: Customer, status: 'ACTIVE' | 'INACTIVE' | 'DELETED') => void | Promise<void>;
   onRestore?: (customer: Customer) => void | Promise<void>;
+  /** R3/§9: id of a card animating out after a delete (mobile parity with the table). */
+  removingId?: string | null;
 }
 
 const SKELETON_CARDS = 5;
@@ -56,6 +58,7 @@ export function CustomerCards({
   onAssign,
   onChangeStatus,
   onRestore,
+  removingId,
 }: CustomerCardsProps) {
   return (
     <div className="customer-cards">
@@ -69,6 +72,7 @@ export function CustomerCards({
               customer={customer}
               role={role}
               currentUserId={currentUserId}
+              removing={customer.id === removingId}
               onView={onView}
               onEdit={onEdit}
               onDelete={onDelete}

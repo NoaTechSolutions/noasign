@@ -94,6 +94,9 @@ export interface SchemaField {
   key: string;
   type: string;
   label: string;
+  // §8: the template marks required fields here — the single source the edit
+  // popups validate against (not a hardcoded list).
+  required?: boolean;
   transform?: string;
   options?: Array<{ value: string; label: string }>;
 }
@@ -134,6 +137,10 @@ export interface DocumentDetail {
   supersededAt?: string | null;
   supersedes?: { id: string; documentNumber: string } | null;
   supersededBy?: Array<{ id: string; documentNumber: string }> | null;
+  // M1: edit history — one entry per saved version, each carrying the labels of
+  // the fields that changed (computed server-side). Drives the Timeline's
+  // per-edit "Edited" rows. Present on GET /documents/:id.
+  versions?: DocumentVersion[];
 }
 
 /** Version timeline entry. Fetched on-demand when the sidebar opens
@@ -146,6 +153,9 @@ export interface DocumentVersion {
     name?: string | null;
     email: string;
   } | null;
+  // M1: human-readable labels of the fields that changed vs the previous version
+  // (computed server-side by diffing snapshots). Empty for v1 (the creation).
+  changedFields?: string[];
 }
 
 /**
@@ -377,8 +387,18 @@ export function getAvailableActions(doc: V2DocumentItem): V2DocumentAction[] {
   const actions: V2DocumentAction[] = ['view'];
   switch (doc.status as DocumentStatus) {
     case 'DRAFT':
+      // Refined rule: a DRAFT contract NEVER reached the client → DELETE (soft),
+      // aligned with invoices/receipts. Cancel (= void the BoldSign signature
+      // request → CANCELLED) is only for docs the client received (SENT/VIEWED).
       // Edit is per-card now (✏️ inside the detail modal), not a kebab action.
-      actions.push('send', 'cancel');
+      actions.push('send', 'delete');
+      break;
+    case 'SEND_FAILED':
+      // A bounced contract NEVER reached the client → DELETE (soft), same as a
+      // DRAFT. Without this case the doc was a dead-end: view-only, stuck in the
+      // list forever with no action. (Sale docs use 'discard' for this; contracts
+      // reuse 'delete'.)
+      actions.push('delete');
       break;
     case 'SENT':
     case 'VIEWED':

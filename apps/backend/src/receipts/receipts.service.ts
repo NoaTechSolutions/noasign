@@ -1104,6 +1104,12 @@ export class ReceiptsService {
       },
     });
     if (!document) throw new NotFoundException('Invoice not found');
+    // VOID is only for an invoice the client actually received (SENT). A draft or
+    // send-failed invoice was never delivered → it's CANCELLED/deleted, not void.
+    // (Mirrors voidReceipt, which already enforces this.)
+    if (document.status !== DocumentStatus.SENT) {
+      throw new BadRequestException('Only sent invoices can be voided');
+    }
     if (document.supersededAt) {
       throw new BadRequestException('This invoice is already void');
     }

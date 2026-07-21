@@ -28,6 +28,8 @@ interface DocumentTableRowProps {
   onAction: (action: V2DocumentAction, docId: string) => void | Promise<void>;
   // Plays the fade/slide-in entrance once when the row was just inserted.
   isNew?: boolean;
+  // R3/§9: true while this row animates out after a delete (shared row exit).
+  removing?: boolean;
   // Receipts-only context: col 1 is just the receipt number (the recipient moves
   // to its own "Recipient" column, so the secondary client line is dropped).
   receiptsOnly?: boolean;
@@ -40,6 +42,7 @@ export function DocumentTableRow({
   onAction,
   isNew = false,
   receiptsOnly = false,
+  removing = false,
 }: DocumentTableRowProps) {
   const { open: menuOpen, toggle, close, style: menuStyle, triggerRef, menuRef } = useDropdownPosition();
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -77,8 +80,8 @@ export function DocumentTableRow({
 
   return (
     <tr
-      className={`documents-v2-row${selected ? ' documents-v2-row--selected' : ''}${isNew ? ' docs-v2-row-in' : ''}`}
-      onClick={() => onSelect(document.id)}
+      className={`documents-v2-row${selected ? ' documents-v2-row--selected' : ''}${isNew ? ' docs-v2-row-in' : ''}${removing ? ' row-exiting' : ''}`}
+      onClick={() => { if (!removing) onSelect(document.id); }}
     >
       {/* 1. Document = number (primary) + client (secondary), two-line + truncate.
           Receipts-only: just the receipt number — the client moves to col 2. */}

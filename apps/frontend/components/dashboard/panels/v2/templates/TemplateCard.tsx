@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { API_URL } from '@/lib/api';
 import type { TemplateCatalogItem } from './types';
 
@@ -38,16 +38,33 @@ export function TemplateCard({
   // needed. previewUrl is relative, so prefix the API base.
   const imageSrc = `${API_URL}${previewUrl}`;
 
+  // §10: a custom per-tenant template may not have a curated PNG yet → the image
+  // 404s. Show an HONEST neutral placeholder ("No preview yet"), NEVER another
+  // template's image (that would misrepresent what this template looks like).
+  const [previewFailed, setPreviewFailed] = useState(false);
+
   return (
     <div className={`template-card${isActive ? ' template-card--active' : ''}`}>
       <div className="template-card__thumb">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imageSrc}
-          alt={`${displayName} preview`}
-          className="template-card__img"
-          loading="lazy"
-        />
+        {previewFailed ? (
+          <div className="template-card__no-preview" aria-label="No preview available yet">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="9" cy="9" r="1.6" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
+            <span>No preview yet</span>
+          </div>
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={imageSrc}
+            alt={`${displayName} preview`}
+            className="template-card__img"
+            loading="lazy"
+            onError={() => setPreviewFailed(true)}
+          />
+        )}
         {isActive && (
           <span className="template-card__badge" aria-label="Active template">
             <svg

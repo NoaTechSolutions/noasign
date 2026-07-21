@@ -1,400 +1,103 @@
 # NTSsign — Product Roadmap
 
-_Last updated: 2026-04-06_
+_This file is **direction**, not this-week priorities. Day-to-day priorities (what's being worked on right now) live in Drive (the session-resume), per the docs governance rule._
+_Last reviewed: 2026-07-17._
 
-Items marked **[SCHEMA]** require Prisma schema changes before implementation.
-
----
-
-## Epic NOA-46 — Schema-Driven Document Forms (Current Sprint)
-
-**Priority:** Blocking — must ship before Phase 1 features  
-**Type:** Epic / Architecture
-
-The current document creation form is hardcoded in the frontend. Every new client with different fields requires a code change and deployment. This epic replaces that with a fully dynamic system.
-
-**Core change:** `FormDefinition` gains a `schemaJson` field. The frontend renders forms dynamically from this schema. No code changes needed to onboard new clients.
-
-**Scenarios covered:**
-- Client brings their own PDF → upload to BoldSign, map fields, define schema in NTSsign
-- Client has no document → use a BoldSign template, same setup flow
-
-**Multi-template per client:** Each client can have Contract, Invoice, Proforma, etc. — each with its own form and BoldSign template, all managed via `UserDocumentConfig`.
-
-**Admin workflow:** MASTER user manages all schemas, templates, and assignments via an in-app admin panel — no deployments.
-
-**Child issues:** NOA-47 (migration) → NOA-48 (API) → NOA-49/50/51 (admin endpoints) → NOA-52 (dynamic renderer) → NOA-53/54/55 (admin UI)
-
-See [schema-driven-forms.md](../architecture/schema-driven-forms.md) for full technical spec.
+> ## How to read this file
+> Two kinds of entries, kept **visually separate on purpose** — in 6 months you must be able to tell committed work from wishes at a glance:
+>
+> - ## ✅ DECISION — committed direction, owner-decided and dated. This is where the product is going.
+> - ## 💭 IDEA — a catalogued possibility (mostly from the April 2026 planning). **Not committed. Build status not re-verified.** Do not treat as planned work or as "coming soon".
 
 ---
 
-## Phase 1 — MVP Completion (Current Sprint)
+## ✅ The arc — committed direction
 
-These are blockers. The product is incomplete without them.
+**DECISION · owner · 2026-07-17.** The product is being built in phases:
 
-### P1-01 · Multi-signer / Sequential Signing **[SCHEMA]**
-**Priority:** Critical  
-**Type:** Feature
-
-Contracts frequently require 2+ signatures (client + agent, spouses, partners, guarantors).
-
-**Flow:**
-1. Sender defines signer order when creating the document
-2. Signer 1 receives the document → signs
-3. Signer 2 receives notification → signs
-4. Document marked COMPLETED when all parties have signed
-
-**Schema additions:**
-- `DocumentSigner` table: `documentId`, `signerEmail`, `signerName`, `order`, `status`, `signedAt`, `token`
-- `Document.signerCount: Int`
-- `Document.signersCompleted: Int`
-
-**BoldSign support:** BoldSign supports multi-signer natively — map existing template fields to signer roles.
+| Phase | Focus | Status |
+|---|---|---|
+| **FASE 1** | Receipt **templates** module | ✅ shipped to staging (verified) |
+| **FASE 2** | **Invoices** (DIRECT_PDF) | ✅ live |
+| **FASE 3** | **Owner signatures** | ▶️ next |
+| **FASE 4** | **Superadmin · plans · Stripe** | ⏭️ ahead |
 
 ---
 
-### P1-02 · Automatic Reminders **[SCHEMA]**
-**Priority:** Critical  
-**Type:** Feature
+## ✅ Shipped
 
-The biggest drop-off in document signing is the signer not responding. Automated reminders solve this without manual work from the sender.
+**Verified against code · 2026-07-17.** Only what was actually confirmed in the codebase:
 
-**Logic:**
-- Reminder 1: 24 hours after sending if not signed
-- Reminder 2: 3 days after sending if not signed
-- Manual reminder: sender can trigger at any time (already partially implemented)
-- Configurable per document or per workspace settings
-
-**Schema additions:**
-- `Document.reminderSentCount: Int @default(0)`
-- `Document.lastAutoReminderAt: DateTime?`
-- `WorkspaceSettings.autoReminderEnabled: Boolean @default(true)`
-- `WorkspaceSettings.reminderIntervalHours: Int @default(24)`
-
-**Implementation:** background job (cron) that scans `SENT` documents and triggers reminders via BoldSign API.
+- Receipt **templates module** (catalog, per-tenant visibility, preview PNGs) — [../architecture/templates-module.md](../architecture/templates-module.md)
+- **Invoices** (DIRECT_PDF / AcroForm) — [../architecture/invoice-pdf-strategy.md](../architecture/invoice-pdf-strategy.md)
+- **Receipts** + void / reissue (Model C billing) — [../architecture/receipt-billing-model-c.md](../architecture/receipt-billing-model-c.md)
+- **Document lifecycle** (Delete / Cancel / Void) — [../architecture/document-lifecycle.md](../architecture/document-lifecycle.md)
+- **Schema-driven forms** (dynamic document forms) — [../architecture/schema-driven-forms.md](../architecture/schema-driven-forms.md)
+- **Customer management** (CRM-lite)
+- **PDF storage in Cloudflare R2** — [../architecture/pdf-storage-r2.md](../architecture/pdf-storage-r2.md)
+- **Resend email + async bounce webhooks** (SEND_FAILED) — [../architecture/email-delivery-and-bounces.md](../architecture/email-delivery-and-bounces.md)
+- **Sentry** observability (front + back, PII-scrubbed)
+- **e2e tests on real Postgres** in CI + staging deploy **health check** — [../development/testing.md](../development/testing.md), [../operations/health-check.md](../operations/health-check.md)
+- **Production + staging environments live**, SSL, CI/CD pipelines (the `/v1` API prefix is **not** shipped — it's a pending B2B item; see [../architecture/b2b-integration.md](../architecture/b2b-integration.md))
+- **Public landing page** (v1, EN/ES, dark mode, on SiteGround)
 
 ---
 
-### P1-03 · Document Expiration **[SCHEMA]**
-**Priority:** Critical  
-**Type:** Feature
+## 💭 Future catalog — IDEAS
 
-Documents that are not signed within a defined window should auto-cancel. Critical for insurance offers, proposals, time-sensitive contracts.
+> Everything below was catalogued in **April 2026** as possible future work. It is **preserved, not committed**. Build status was **NOT re-verified** in the 2026-07-17 pass **except where a schema probe is noted**. Confirm against code before relying on any "not built" assumption.
+>
+> Schema probes (2026-07-17) found **no implementation** for: multi-signer, automatic reminders, decline-to-sign, retention-by-plan, activity log, or the pay-per-contract flow.
 
-**Logic:**
-- Sender sets expiration when creating document (default: 7 days, configurable)
-- If not signed by expiry → document auto-cancels
-- Sender and signer receive expiration notification
-- Expired documents cannot be reactivated (must create new)
+### Signing & document lifecycle
+- 💭 **Multi-signer / sequential signing** — 2+ signers with order. _(schema: `DocumentSigner` not present)_
+- 💭 **Automatic reminders** — cron + BoldSign reminder API, configurable per workspace. _(schema: `reminderSentCount` not present)_
+- 💭 **Document expiration** — auto-cancel unsigned docs past a window. _(⚠️ status **UNVERIFIED** — an `expiresAt` field exists but likely belongs to `ApiKey`, not `Document`; confirm before assuming either way)_
+- 💭 **Decline to sign** — signer declines with a reason. _(schema: no `DECLINED` status)_
 
-**Schema additions:**
-- `Document.expiresAt: DateTime?`
-- `Document.expiredAt: DateTime?`
+### Billing & retention
+- 💭 **Pay-per-contract flow** — buy individual contract credits. _(plan name exists; `contractCredits` / `ContractCreditPurchase` not present — the flow is not built)_
+- 💭 **Document retention & expiry by plan** — retain N years then notify + delete. _(schema: `storageExpiresAt` not present)_
+- 💭 **Extended-retention add-on** — paid extra retention years.
 
-**Implementation:** background job (cron) scans `SENT`/`VIEWED` documents past `expiresAt` and marks them `CANCELLED`.
+### Growth
+- 💭 **Viral loop** — subtle "Sent with NTSsign" branding on signing emails/pages.
+- 💭 **Referral program** — refer a business → 1 month free.
+- 💭 **Template marketplace** — pre-built templates (NDA, service agreement, etc.), some paid.
 
----
+### Team & compliance (Pro / Scale+)
+- 💭 **Audit trail PDF** — downloadable proof (who/IP/time/device/method).
+- 💭 **SMS OTP signer verification** — one-time code before access.
+- 💭 **Granular team roles** — Owner / Admin / Agent / Viewer beyond MASTER/ADMIN/USER.
+- 💭 **Team activity log** — full audit of who did what. _(schema: `ActivityLog` not present)_
 
-### P1-04 · Decline to Sign **[SCHEMA]**
-**Priority:** Critical  
-**Type:** Feature
+### Bulk & organization
+- 💭 **Bulk send** — same document to many recipients, individual copies.
+- 💭 **Document organization** — folders / projects.
+- 💭 **Bulk PDF export** — ZIP of signed PDFs per period (audits).
+- 💭 **Per-tenant analytics dashboard** — docs sent/signed, average sign time.
+- 💭 **White-label signing portal** — tenant logo/colors/domain for the signer.
 
-Signers must be able to decline a document with a reason. Without this, the sender has no visibility into why a document remains unsigned.
-
-**Flow:**
-1. Signer opens the document
-2. Clicks "Decline to sign"
-3. Required: enters reason (free text)
-4. Document status → `DECLINED`
-5. Sender receives email notification with the reason
-
-**Schema additions:**
-- `DocumentStatus` enum: add `DECLINED`
-- `Document.declinedAt: DateTime?`
-- `Document.declineReason: String?`
-
-**BoldSign:** Map to BoldSign's decline webhook event.
-
----
-
-### P1-05 · Pay-per-contract User Flow **[SCHEMA]**
-**Priority:** High  
-**Type:** Feature
-
-Users who don't want a monthly subscription can purchase individual contract credits.
-
-**Flow:** Register → buy credit ($12 via Stripe) → create + send 1 doc → track + download → 90-day history.
-
-**Schema additions:**
-- `PlanName` enum: add `PAY_PER_CONTRACT`
-- `CompanyProfile.contractCredits: Int @default(0)`
-- `ContractCreditPurchase` table: `userId`, `amountCents`, `credits`, `stripePaymentIntentId`, `createdAt`
-
-**Business rule:** Sending a document deducts 1 credit. Zero credits = cannot send.
+### Integrations & platform (Scale+ / long-term)
+- 💭 **Integrations** — Google Drive/Dropbox (auto-save signed PDFs), HubSpot/Salesforce (doc from a CRM deal), Zapier.
+- 💭 **Internal API + outbound webhooks** — for other NTSolutions platforms (NOT a public API product). Design: [../architecture/b2b-integration.md](../architecture/b2b-integration.md).
+- 💭 **Payment at signing (Stripe)** — sign + pay a deposit in one flow.
+- 💭 **In-person signing mode** — hand the tablet to the client. _(pending legal validation)_
+- 💭 **Own signature engine (replace BoldSign)** — full control over UX/branding/cost/compliance. **Long-term, legally blocked** — see below.
 
 ---
 
-### P1-06 · Document Retention & Expiry by Plan **[SCHEMA]**
-**Priority:** High  
-**Type:** Feature
+## 💭 Own signature engine — legal blockers (reference)
 
-Documents are retained for a plan-defined period, then notified and deleted.
+**IDEA · long-term.** If NTSsign ever replaces BoldSign with an in-house engine, these must be cleared **before any implementation starts** (kept here because they're durable, expensive prerequisites, not a sprint):
 
-**Retention by plan:**
-- PAY_PER_CONTRACT: 90 days
-- Starter: 1 year
-- Launch: 2 years
-- Pro: 3 years
-- Scale: 5 years
-- Enterprise: Unlimited
-
-**Schema additions:**
-- `Document.storageExpiresAt: DateTime?` (set on creation based on plan)
-- `Document.storageExpiryNotifiedAt: DateTime?`
-
-**Implementation:** cron job notifies 30 days before expiry; deletes files + record on expiry date.
-
----
-
-### P1-07 · Viral Loop — "Sent with NTSsign" Branding
-**Priority:** High  
-**Type:** Growth / Feature
-
-Every document sent to a signer includes subtle NTSsign branding in the signing email and signing page footer. Clicking it leads to the marketing landing page.
-
-**White-label:** Scale plan can disable this branding entirely (roadmap).
-
-**Implementation:** Add branded footer to outgoing BoldSign emails via template customization. No schema change required.
-
----
-
-## Landing Page Pública (NOA-39)
-
-**Status:** Parcialmente completado — ver epic NOA-56 para tareas restantes.
-
-- ✅ Landing page v1 — completada (ntssign-landing-v3.html)
-- ✅ EN/ES bilingüe
-- ✅ Dark/light mode
-- ✅ Deploy en SiteGround
-- ⬜ SEO meta tags (NOA-71)
-- ⬜ Analytics (NOA-74)
-- ⬜ CTAs conectados (NOA-73)
-- ⬜ Pipeline automático (NOA-78)
-
----
-
-## Phase 2 — Competitive Differentiation
-
-### P2-01 · Audit Trail PDF (Downloadable)
-**Priority:** High  
-**Type:** Feature — Pro+
-
-A separate PDF documenting: who signed, from what IP, at what time, on what device, with what verification method. Required for some contract types legally.
-
-**Available on:** Pro, Scale, Enterprise.
-
----
-
-### P2-02 · SMS OTP Signer Verification
-**Priority:** Medium  
-**Type:** Feature — Pro+
-
-Before the signer can access the document, they receive an SMS with a one-time code. Adds legal weight to the signature.
-
-**Schema additions:**
-- `DocumentSigner.phoneNumber: String?`
-- `DocumentSigner.otpVerifiedAt: DateTime?`
-
----
-
-### P2-03 · Granular Team Roles **[SCHEMA]**
-**Priority:** Medium  
-**Type:** Feature — Scale+
-
-Current: `MASTER / ADMIN / USER`  
-Target:
-- **Owner**: billing + global settings
-- **Admin**: create users and templates
-- **Agent**: create and send documents
-- **Viewer**: read-only access, no sending
-
-**Schema change:** Expand `UserRole` enum.
-
----
-
-### P2-04 · Team Activity Log **[SCHEMA]**
-**Priority:** Medium  
-**Type:** Feature — Scale+
-
-Full audit of who did what and when within the workspace. "Agent X sent contract #1234 on Monday at 3pm." Required for compliance and enterprise accountability.
-
-**Schema additions:**
-- `ActivityLog` table: `workspaceId`, `userId`, `action`, `resourceType`, `resourceId`, `metadata: Json`, `createdAt`
-
----
-
-### P2-05 · Referral Program **[SCHEMA]**
-**Priority:** Medium  
-**Type:** Growth
-
-Refer a business → they subscribe → referrer gets 1 month free.
-
-**Schema additions:**
-- `Referral` table: `referrerId`, `referredEmail`, `referredUserId?`, `rewardGrantedAt?`, `createdAt`
-
----
-
-### P2-06 · Template Marketplace
-**Priority:** Medium  
-**Type:** Feature + Revenue
-
-Pre-built templates for common use cases (NDA, service agreement, construction contract, etc.). Some free, some paid ($9–19 one-time). Revenue share if third parties contribute.
-
-**Schema additions:**
-- `MarketplaceTemplate` table: `name`, `description`, `category`, `priceUsd`, `isActive`, `downloadCount`
-
----
-
-### P2-07 · Bulk Send
-**Priority:** Medium  
-**Type:** Feature — Pro+
-
-Send the same document to multiple recipients at once. Each recipient gets their own individual copy. Useful for sending the same contract to a list of clients.
-
----
-
-### P2-08 · Extended Retention Add-on **[SCHEMA]**
-**Priority:** Low  
-**Type:** Revenue
-
-$5/mo per additional year of document retention beyond the plan default.
-
-**Schema additions:**
-- `AddOnSubscription` table: `companyProfileId`, `type: EXTENDED_RETENTION | TEMPLATE_SLOT | CONTRACT_CREDIT`, `quantity`, `priceUsd`, `activeUntil`
-
----
-
-## Phase 3 — Growth & Enterprise
-
-### P3-01 · Integrations (Zapier, Google Drive, HubSpot, Salesforce)
-**Priority:** Medium  
-**Type:** Feature — Scale+
-
-- **Google Drive / Dropbox**: auto-save signed PDFs
-- **HubSpot / Salesforce**: create document from a CRM deal
-- **Zapier**: connect with any tool via no-code automation
-
----
-
-### P3-02 · Internal API + Webhooks (NTSolutions)
-**Priority:** Medium  
-**Type:** Internal Infrastructure — NTSolutions only
-
-REST API and webhook events for integrating NTSsign with other NTSolutions SaaS platforms (e.g. Daycare SaaS). This is **not a public API product** — it is an internal integration channel used exclusively by NTSolutions-built platforms. Do not reference in customer-facing materials.
-
----
-
-### P3-03 · Payment at Signing (Stripe)
-**Priority:** Low  
-**Type:** Feature — Pro+
-
-Client signs the contract AND pays the deposit in the same flow. High value for contractors, service businesses, insurance.
-
----
-
-### P3-04 · In-Person Signing Mode
-**Priority:** Low (pending legal validation)  
-**Type:** Feature — Enterprise
-
-Agent hands the tablet to the client who signs directly on screen. No email needed.
-
-**Legal requirements:** wet signature vs electronic signature parity, biometric capture, photo/ID verification for high-value contracts. Research required before implementation.
-
----
-
-### P3-05 · Own Signature Engine (replace BoldSign)
-**Priority:** Low — Long-term strategic  
-**Type:** Infrastructure
-
-Full control over signing UX, branding, cost, and legal compliance. Eliminates per-document provider dependency.
-
-**Blockers (must resolve before starting):**
 - ESIGN Act (US) + UETA compliance validation
 - eIDAS (EU) — SES / AES / QES classification
 - Per-country regulations for target markets
-- Legal review of tamper-evident seal (PDF/A, PKCS#7, timestamp authority)
+- Tamper-evident seal (PDF/A, PKCS#7, timestamp authority)
 - Identity verification standards (KBA, biometric, government ID scan)
 - External legal counsel sign-off
 
-_Do not start implementation until all legal blockers are cleared._
-
 ---
 
-## Schema Changes Summary (all phases)
-
-```prisma
-// Phase 1
-model DocumentSigner {
-  id            String   @id @default(uuid())
-  documentId    String
-  signerEmail   String
-  signerName    String?
-  order         Int
-  status        SignerStatus @default(PENDING)
-  signedAt      DateTime?
-  declinedAt    DateTime?
-  declineReason String?
-  token         String   @unique
-  createdAt     DateTime @default(now())
-}
-
-enum SignerStatus { PENDING SENT VIEWED SIGNED DECLINED }
-
-// Add to Document
-expiresAt              DateTime?
-expiredAt              DateTime?
-declinedAt             DateTime?
-declineReason          String?
-reminderSentCount      Int      @default(0)
-lastAutoReminderAt     DateTime?
-storageExpiresAt       DateTime?
-storageExpiryNotifiedAt DateTime?
-
-// Add to CompanyProfile
-contractCredits        Int      @default(0)
-maxPagesPerDocument    Int      @default(10)
-documentRetentionDays  Int      @default(365)
-
-// Add to PlanName enum
-PAY_PER_CONTRACT
-STARTER
-// (rename existing: LAUNCH stays, SCALE stays, add ENTERPRISE)
-
-// New tables Phase 1
-model ContractCreditPurchase { ... }
-model WorkspaceSettings { ... }
-
-// Phase 2
-model ActivityLog { ... }
-model Referral { ... }
-model MarketplaceTemplate { ... }
-model AddOnSubscription { ... }
-```
-
----
-
-## Linear Epics Mapping
-
-When adding to Linear, use these as **Epics**:
-
-| Epic | Phase | Label |
-|------|-------|-------|
-| Multi-signer & Document Lifecycle | 1 | `feature`, `critical` |
-| Pay-per-contract & Billing | 1 | `feature`, `revenue` |
-| Document Retention System | 1 | `feature`, `infrastructure` |
-| Viral Loop & Growth Mechanics | 1–2 | `growth` |
-| Team Roles & Activity Log | 2 | `feature`, `enterprise` |
-| Template Marketplace | 2 | `feature`, `revenue` |
-| Integrations & API | 3 | `feature`, `enterprise` |
-| Own Signature Engine | 3 | `infrastructure`, `legal-blocked` |
+_Roadmap direction is owner-decided; feature ideas are catalogued, not committed. When an idea becomes committed work, promote it to a ✅ DECISION with a date._
