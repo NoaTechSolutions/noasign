@@ -16,6 +16,25 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
   },
+  async headers() {
+    return [
+      {
+        // HTML documents must always be revalidated. Next prerenders /, /login
+        // and /dashboard as static and stamps them `s-maxage=31536000`. That
+        // directive only binds shared caches — browsers ignore it, and with no
+        // `no-cache`/`max-age` they fall back to heuristic freshness and keep
+        // serving the pre-deploy HTML. That stale document references chunk
+        // hashes the new build already rotated → ChunkLoadError → the handler
+        // in components/chunk-error-handler.tsx reloads → same cached HTML →
+        // loop every 10s. `no-cache` still allows ETag revalidation (cheap
+        // 304s); it just forbids serving the document without asking first.
+        // Hashed assets under /_next/static are excluded so they keep their
+        // immutable long-lived cache.
+        source: "/((?!_next/static|_next/image).*)",
+        headers: [{ key: "Cache-Control", value: "no-cache" }],
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {
