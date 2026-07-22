@@ -9,7 +9,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import {
-  clearAuthCookie,
+  clearAuthCookies,
   resolveAuthCookieOptions,
   setAuthCookie,
 } from './auth-cookie';
@@ -36,6 +36,7 @@ export class AuthController {
       this.configService.get<string>('AUTH_COOKIE_DOMAIN'),
       this.configService.get<string>('JWT_EXPIRES_IN'),
       this.configService.get<string>('NODE_ENV'),
+      this.configService.get<string>('AUTH_COOKIE_NAME'),
     );
 
     setAuthCookie(res, result.accessToken, cookieOptions);
@@ -62,9 +63,12 @@ export class AuthController {
       this.configService.get<string>('AUTH_COOKIE_DOMAIN'),
       this.configService.get<string>('JWT_EXPIRES_IN'),
       this.configService.get<string>('NODE_ENV'),
+      this.configService.get<string>('AUTH_COOKIE_NAME'),
     );
 
-    clearAuthCookie(res, cookieOptions);
+    // Clear the configured cookie AND the legacy default — a user logging out who
+    // still carries a stale cross-environment cookie gets both wiped.
+    clearAuthCookies(res, cookieOptions);
 
     return {
       message: 'Logout success',

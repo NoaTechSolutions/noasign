@@ -71,6 +71,11 @@ PORT=3000
 HOST=127.0.0.1
 TRUST_PROXY=1
 AUTH_COOKIE_DOMAIN=.ntssign.com
+# Aisla la cookie de sesion de staging de la de prod. Prod y staging comparten el
+# apex ntssign.com, asi que el Domain (.ntssign.com) es el mismo en ambos: separa
+# por NOMBRE. En prod esta variable NO se setea (queda el nombre legacy
+# ntssign_access_token) — es inerte por defecto, no cambia nada. En staging SI.
+AUTH_COOKIE_NAME=ntssign_access_token_stg
 CORS_ORIGINS=https://app-staging.ntssign.com
 APP_URL=https://app-staging.ntssign.com
 BACKEND_URL=https://api-staging.ntssign.com
@@ -87,6 +92,10 @@ PUBLIC_LINK_SECRET=<staging-public-link-secret>
 
 ```env
 NEXT_PUBLIC_API_URL=https://api-staging.ntssign.com
+# DEBE coincidir con AUTH_COOKIE_NAME del backend: el middleware (proxy.ts) lee la
+# cookie por nombre para decidir los redirects. Si difieren, el front no reconoce
+# la sesion. En prod NO se setea (nombre legacy). En staging SI.
+NEXT_PUBLIC_AUTH_COOKIE_NAME=ntssign_access_token_stg
 ```
 
 ---

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
-import { clearAuthCookie, resolveAuthCookieOptions } from './auth-cookie';
+import { clearAuthCookies, resolveAuthCookieOptions } from './auth-cookie';
 
 /**
  * On ANY 401, emit a Set-Cookie that clears the auth cookie.
@@ -37,8 +37,12 @@ export class ClearCookieOn401Filter implements ExceptionFilter {
       this.config.get<string>('AUTH_COOKIE_DOMAIN'),
       this.config.get<string>('JWT_EXPIRES_IN'),
       this.config.get<string>('NODE_ENV'),
+      this.config.get<string>('AUTH_COOKIE_NAME'),
     );
-    clearAuthCookie(res, options);
+    // Belt and suspenders: clear the configured name AND the legacy default so an
+    // orphan cookie from the OTHER environment is wiped too — the user lands on
+    // login ONCE, no reload loop.
+    clearAuthCookies(res, options);
 
     res.status(exception.getStatus()).json(exception.getResponse());
   }
