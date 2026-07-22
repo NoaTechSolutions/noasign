@@ -29,6 +29,21 @@ function handleUnauthorized() {
 
   clearSession();
 
+  // Throttle the hard redirect. The real loop-break lives on the backend: it now
+  // clears the auth cookie on every 401 (ClearCookieOn401Filter), so once a dead
+  // session is rejected the cookie is gone and the proxy routes to /login instead
+  // of bouncing back into the app. This cap is defence in depth — if a cookie
+  // ever survives (e.g. a cookie-domain the server can't match), a mismatched
+  // session degrades to a single redirect rather than a reload storm at network
+  // speed. Mirrors the 10s guard in components/chunk-error-handler.tsx.
+  const REDIRECT_KEY = "ntssign:auth-redirect";
+  const now = Date.now();
+  const last = Number(window.sessionStorage.getItem(REDIRECT_KEY) ?? 0);
+  if (last && now - last < 10_000) {
+    return;
+  }
+  window.sessionStorage.setItem(REDIRECT_KEY, String(now));
+
   if (window.location.pathname !== "/") {
     window.location.replace("/");
   }
