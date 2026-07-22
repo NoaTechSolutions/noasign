@@ -26,6 +26,7 @@
 | [architecture/overview.md](architecture/overview.md) | System architecture, module map (21 modules), document model & lifecycle, external services |
 | [architecture/document-lifecycle.md](architecture/document-lifecycle.md) | **Business rule** — Delete vs Cancel vs Void: the three kill-mechanisms, why each is stored differently, and the code that implements them |
 | [architecture/legal-acceptance.md](architecture/legal-acceptance.md) | **Business rule** — versioned Terms/Privacy acceptance (who/which-version/when/IP, not a boolean); source-in-repo, render-from-app, frozen-in-DB; "content is the gate, not the code" |
+| [architecture/tenancy-object-references.md](architecture/tenancy-object-references.md) | **Security rule** — how object references are authorized: scope every by-id lookup by tenant, why a bare `findUnique({id})` is the smell, and the `customerId` / `signatureTemplateId` gaps found and closed on 2026-07-21 |
 | [architecture/document-types-coupling-analysis.md](architecture/document-types-coupling-analysis.md) | How coupled contracts / receipts / invoices are today, and why the answer is logical separation in the monolith (not microservices) |
 | [architecture/schema-driven-forms.md](architecture/schema-driven-forms.md) | Dynamic forms: `FormDefinition.schemaJson` + `SignatureTemplate` field mapping |
 | [architecture/invoice-pdf-strategy.md](architecture/invoice-pdf-strategy.md) | DIRECT_PDF invoice generation: AcroForm-overlay engine vs legacy AcroForm |
