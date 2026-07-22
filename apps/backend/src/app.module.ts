@@ -3,6 +3,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { ClearCookieOn401Filter } from './auth/clear-cookie-on-401.filter';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -48,6 +49,13 @@ import { HealthModule } from './health/health.module';
     {
       provide: APP_FILTER,
       useClass: SentryGlobalFilter,
+    },
+    {
+      // Registered AFTER Sentry so this more-specific @Catch(UnauthorizedException)
+      // handles 401s (clearing the auth cookie); everything else still reaches the
+      // Sentry catch-all above.
+      provide: APP_FILTER,
+      useClass: ClearCookieOn401Filter,
     },
   ],
 })
