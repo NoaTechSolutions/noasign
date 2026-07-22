@@ -1,6 +1,6 @@
 # Testing — how it works, what it covers, what it does NOT
 
-_Verified against `apps/backend/test/` + `.github/workflows/ci.yml` — 2026-07-17._
+_Verified against `apps/backend/test/` + `apps/backend/src/**/*.spec.ts` + `.github/workflows/ci.yml` — 2026-07-21 (suite actually run: **17 suites / 156 tests, all green**)._
 
 ## The three CI layers
 
@@ -35,13 +35,30 @@ back to the doc. This is the cheap half of "how does a business-rule doc not lie
 
 The tools catch **different** things — no single one covers everything. 4 of the 5 bug families this week were **frontend**, and the 🔴 rows below are exactly where they lived. Know the gaps *before* trusting a green run:
 
-| Bug class | Real example | Caught by | Status |
+> ⚠️ **Read the "Would be caught by" column as a shopping list, not an inventory.**
+> It names the tool that *would* catch each class. **Vitest, Testing Library and
+> Playwright are NOT installed** — see the frontend callout below.
+
+| Bug class | Real example | Would be caught by | Status |
 |---|---|---|---|
-| Backend lifecycle invariants (delete-guard, void→`supersededAt`, enum values) | an endpoint routing Delete→Cancelled | `contract-lifecycle` + `receipt-lifecycle` e2e + `lifecycle-invariants` unit | ✅ covered |
-| **Frontend action routing** (which endpoint the kebab calls) | the 2026-07-14 lie: Discard→cancel | Vitest (`getAvailableActions`) | 🔴 **NO test — caught by nobody** |
-| **Real wiring** (does the app actually MOUNT the component?) | M1: `DocumentVersionTimeline` was perfect but never mounted | Playwright (browser) | 🔴 **NO test — caught by nobody** |
-| Frontend logic / validation (optional vs required fields) | R1 | Vitest + Testing Library | 🔴 **NO test** |
-| CSS / layout / real render | J4 (modal showed a stale photo) | Playwright / visual | 🔴 **NO test** |
+| Backend lifecycle invariants (delete-guard, void→`supersededAt`, enum values) | an endpoint routing Delete→Cancelled | `contract-lifecycle` + `receipt-lifecycle` e2e + `lifecycle-invariants` unit | ✅ covered (installed & running) |
+| **Frontend action routing** (which endpoint the kebab calls) | the 2026-07-14 lie: Discard→cancel | Vitest (`getAvailableActions`) — **not installed** | 🔴 **NO test — caught by nobody** |
+| **Real wiring** (does the app actually MOUNT the component?) | M1: `DocumentVersionTimeline` was perfect but never mounted | Playwright (browser) — **not installed** | 🔴 **NO test — caught by nobody** |
+| Frontend logic / validation (optional vs required fields) | R1 | Vitest + Testing Library — **not installed** | 🔴 **NO test** |
+| CSS / layout / real render | J4 (modal showed a stale photo) | Playwright / visual — **not installed** | 🔴 **NO test** |
+
+> ### 🔴 The frontend has ZERO automated tests — verified 2026-07-21
+>
+> Not "thin coverage" — **none**. Verified four independent ways: no test files
+> (`*.test.*`, `*.spec.*`, `*.cy.*`) anywhere under `apps/frontend`; no test
+> directory; **no test dependency** in `apps/frontend/package.json` (no vitest, no
+> jest, no `@testing-library/*`, no playwright, no cypress); and **no `test`
+> script** — the four scripts are `dev`, `build`, `start`, `lint`. There is
+> literally no command to run.
+>
+> The only CI gate on the frontend is **ESLint**, which checks style, not behavior.
+> Every rendering path, every action-routing decision and every form validation in
+> the Next.js app is unverified by any automated check.
 
 > ⚠️ **The 🔴 rows are the point of this table.** A green backend suite does **not** mean the frontend works. The `receipt-lifecycle` candado pins the delete/void ENDPOINTS — it does **not** know which endpoint the frontend's kebab calls. A re-drift of the 2026-07-14 routing bug would leave every backend test green. That gap closes only with **Vitest (`getAvailableActions`)** for the routing and **Playwright** for the real mount — both pending.
 
@@ -56,9 +73,29 @@ The tools catch **different** things — no single one covers everything. 4 of t
 | `smoke.e2e-spec.ts` | Proves the harness: boots the real app on the `*_test` DB, serves public `GET /version`, runs a real `document.count()`, asserts `GET /users/me` → 401 without a token. |
 | `contract-lifecycle.e2e-spec.ts` | Drives a contract `DRAFT → SENT → SIGNED → COMPLETED` through the real endpoints + the BoldSign webhook (`POST /boldsign/webhooks/events`), asserting the real persisted `DocumentStatus`; also asserts sending a non-DRAFT is rejected. |
 | `receipt-lifecycle.e2e-spec.ts` | **BACKEND-invariants candado for receipts** — pins the kill-action ENDPOINT behavior against `document-lifecycle.md`: `DELETE`→soft-delete (`deletedAt`, **not** Cancelled), void→`supersededAt`+status stays `SENT`, plus the guards (can't delete a SENT receipt, can't void a DRAFT). Fails with a message pointing to the doc. ⚠️ Backend only — see the coverage map for what it does **not** cover. |
-| `invoice-lifecycle.e2e-spec.ts` | **BACKEND-invariants candado for invoices** — mirror of the receipt one. Its "void a DRAFT → rejected" case guards a bug that **actually regressed** (`voidInvoice` once skipped the SENT check while `voidReceipt` enforced it). Same backend-only boundary. |
+| `invoice-lifecycle.e2e-spec.ts` | **BACKEND-invariants candado for invoices** — mirror of the receipt one. Its "void a DRAFT → rejected" case guards a bug that **actually regressed** (`voidInvoice` once skipped the SENT check while `voidReceipt` enforced it). Same backend-only boundary. ⚠️ **The mirror is incomplete**: the receipt spec asserts "delete a SENT receipt → rejected"; the invoice spec has no equivalent case. |
+| `legal-acceptance.e2e-spec.ts` | 7 cases on the versioned legal-acceptance flow: `mustAccept` when nothing accepted; `POST /legal/accept` records version + IP then clears; `GET /legal/terms/active` returns 200 with a hash; **an active TERMS with empty content 404s rather than serving blank terms** ("copy cannot lie"); activating a DRAFT version without an explicit override is refused; inactive drafts block nobody; no active version → `mustAccept` false. |
 
 Support (not specs): `harness.ts` (boots the real `AppModule`; mocks **only** BoldSign / email / R2), `fixtures.ts` (`resetDb`, `seedContractTenant`), `env-setup.ts` (jest `setupFiles`), `global-setup.js` (jest `globalSetup`).
+
+---
+
+## Backend modules with NO unit spec (verified 2026-07-21)
+
+12 of 23 directories under `apps/backend/src/` have at least one spec. **11 have none:**
+
+| Module | Why it matters |
+|---|---|
+| `admin` | Privileged surface (`$transaction` at `admin.service.ts:402`) — no unit, no e2e |
+| `templates` | `$transaction` at `templates.service.ts:228` — no unit, no e2e |
+| `contact` | Public-facing, and has its own `contact.guard.ts` — untested |
+| `legal` | Covered **only** by `legal-acceptance.e2e-spec.ts`, no unit spec |
+| `email`, `storage` (R2), `signature-provider`, `boldsign` | ⚠️ **All four are the mocked ones in `harness.ts`.** We test the mocks; the real adapters are never exercised by anything. |
+| `prisma`, `version`, `config` | Infra / thin |
+
+Also unspecced inside otherwise-covered modules: `common/receipt-resend-policy.ts`, `common/resend-cooldown.ts`, `common/tenant-date.ts`, `common/client-ip.ts` (pure logic), `receipts/receipt-pdf.service.ts`, and the `public-signatures` / `boldsign` / `resend-webhook` controllers.
+
+No spec is skipped or disabled — no `.skip`, `.only`, `xit` or `@ts-nocheck` anywhere.
 
 ---
 
@@ -100,7 +137,7 @@ npm run test:e2e
 |---|---|
 | `npm test` | Backend unit tests (mocked Prisma). |
 | `npm run test:e2e` | Backend e2e on a real `*_test` DB (above). |
-| `npm run test:smoke` | Hits a running API (`scripts/smoke-api.mjs`) — a live smoke check, not part of CI's Jest jobs. |
+| `npm run test:smoke` | Hits a running API (`scripts/smoke-api.mjs`) — a live smoke check. ⚠️ It runs in **no CI workflow at all**; it only ever runs if a human types it. |
 | `npm run test:cov` | Unit tests with coverage. |
 
 ## Validating the legal-acceptance popup locally

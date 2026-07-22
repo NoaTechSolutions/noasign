@@ -15,17 +15,17 @@ the owner sees don't read as a bug.
 > mis-described "Discard" as routing to Cancel/Void; this document supersedes and
 > corrects it — verified against the code below.)
 
-| Mechanism | Field | Triggered from | Types | UI action |
-|---|---|---|---|---|
-| **DELETE** | `deletedAt` (soft) | DRAFT or SEND_FAILED | **any** | "Delete" (drafts) · "Discard" (SEND_FAILED sale docs) |
-| **CANCEL** | `status = CANCELLED` + `cancelledAt` | SENT / VIEWED | **contracts only** | "Cancel" (= void the BoldSign signature request) |
-| **VOID** | `supersededAt` (status stays SENT) | SENT | **receipts / invoices only** | "Void" (direct) · "Reissue" (void original + corrected copy) |
+| Mechanism | Field | Triggered from | Types | UI action | Reversible by |
+|---|---|---|---|---|---|
+| **DELETE** | `deletedAt` (soft) | DRAFT or SEND_FAILED | **any** | "Delete" (drafts) · "Discard" (SEND_FAILED sale docs) | **SUPERADMIN only** (`restoreDocument`) |
+| **CANCEL** | `status = CANCELLED` + `cancelledAt` | SENT / VIEWED | **contracts only** | "Cancel" (= void the BoldSign signature request) | the owner (`reactivateDocument`) |
+| **VOID** | `supersededAt` (status stays SENT) | SENT | **receipts / invoices only** | "Void" (direct) · "Reissue" (void original + corrected copy) | **nobody — terminal** |
 
 ---
 
 ## DELETE — soft-delete of a not-yet-issued (or failed) document
 
-- **Storage:** a nullable `deletedAt` timestamp (`schema.prisma:664`). Soft — the
+- **Storage:** a nullable `deletedAt` timestamp (`schema.prisma:712`). Soft — the
   row is never removed.
 - **Trigger:** `DocumentsService.deleteDocument` (`documents.service.ts:1562-1586`,
   sets `deletedAt` at 1584). Allowed **only from DRAFT or SEND_FAILED** — the guard
@@ -33,36 +33,52 @@ the owner sees don't read as a bug.
   anything else. Works on **any** document type (no type filter).
 - **UI:** two labels, **one endpoint** (`DELETE /documents/:id`). "Delete" on
   drafts (all types) and SEND_FAILED contracts; "Discard" on SEND_FAILED
-  receipts/invoices (`DocumentsPanel.tsx:522-526` for delete, `609-617` for
+  receipts/invoices (`DocumentsPanel.tsx:531` for delete, `628` for
   discard — *"Discard maps to DELETE (soft) for receipts AND invoices"*).
 - **Who still sees it:** `getDocumentAccessScope` (`documents.service.ts:410-435`).
   A normal user's scope filters `deletedAt: null` (434) — they never resolve a
   deleted doc again. A **SUPERADMIN** has no `deletedAt` filter (433), so they
-  still see it, rendered view-only with a "Deleted" badge (`types.ts:295-297`,
-  `326`).
+  still see it, rendered view-only with a "Deleted" badge (derived by
+  `isDeletedDoc`, `types.ts:297-299`; actions reduced to `['view','restore']` at
+  `types.ts:329`; badge rendered in `DocumentTableRow.tsx:106-107` and
+  `DocumentCard.tsx:109-110`).
+- **Reversible — SUPERADMIN only:** `restoreDocument`
+  (`documents.service.ts:1592`, `POST /documents/:id/restore`) clears `deletedAt`
+  so the doc reappears **in its prior status**. Hard role gate — a non-superadmin
+  gets *"Only a superadmin can restore a deleted document"*. The owner can never
+  restore, because the owner can never even see a deleted doc.
 - **Meaning:** a draft or send-failed document was **never issued** — there is
   nothing to legally annul, so it is simply removed from view.
 
 ## CANCEL — a real status, for a signature contract
 
 - **Storage:** a first-class `DocumentStatus.CANCELLED` value + a `cancelledAt`
-  timestamp (`schema.prisma:43-51`, `660`). It has its own lifecycle rank and is
+  timestamp (`schema.prisma:43-51`, `708`). It has its own lifecycle rank and is
   counted separately in stats.
 - **Trigger:** `DocumentsService.cancelDocument` (`documents.service.ts:1524-1556`,
   sets `CANCELLED` + `cancelledAt` at 1546-1547). The backend guard allows
   DRAFT/SENT/VIEWED/SEND_FAILED, **but the UI only ever fires it for SENT/VIEWED
-  contracts** (`types.ts:391` — *"Cancel (= void the BoldSign signature)"*).
+  contracts** (`types.ts:393-395` — *"Cancel (= void the BoldSign signature)"*).
 - **Types:** **contracts only.** Receipts and invoices **never** reach `CANCELLED`
   — the code is explicit: *"Sale docs use 'discard' for this; contracts [use
-  cancel]"* (`types.ts:399`).
+  cancel]"* (`types.ts:402-403`).
+- **A DRAFT contract is DELETED, not cancelled** (owner rule, 2026-07-20). Cancel
+  is reserved for what the client **already received**. The UI routes a DRAFT or
+  SEND_FAILED contract to `delete` (`types.ts:393-395`, `402-403`), the same as
+  drafts of every other type.
+- **Reversible by the owner:** `reactivateDocument` (`documents.service.ts:1631`)
+  requires `status === CANCELLED` and resets the doc to `DRAFT`, nulling
+  `cancelledAt, sentAt, viewedAt, signedAt, completedAt` and the signature-provider
+  fields, then writing a new `DocumentVersion`. **Not** superadmin-gated — scope
+  only. So it is not "un-cancel": it is *start again with the same content*.
 - **Meaning:** a sent contract's signature request is called off at the provider.
 
 ## VOID — a derived state, for an issued financial document
 
 - **Storage:** **not** a status enum value. VOID is **derived** from `supersededAt`
-  being set (`schema.prisma:691`); the document's internal `status` stays `SENT`.
+  being set (`schema.prisma:739`); the document's internal `status` stays `SENT`.
   It reads as VOID everywhere (list, badge, card, timeline via `isVoidedDoc`,
-  `types.ts:286-291`) and the stored PDF gets a full-page **VOID** watermark.
+  `types.ts:288-293`) and the stored PDF gets a full-page **VOID** watermark.
 - **Trigger:** only a **SENT** receipt/invoice, via two actions:
   - **Void** (direct, no replacement) — `voidReceipt`
     (`receipts.service.ts:1753-1766`, requires SENT) / `voidInvoice`
@@ -70,9 +86,13 @@ the owner sees don't read as a bug.
   - **Reissue** — `voidOriginalReceipt` (`1699-1713`, sets `supersededAt` at 1708)
     voids the original **and** links original → correction.
   - Both surface only on a non-superseded SENT receipt:
-    `actions.push('resend', 'reissue', 'void')` (`types.ts:345`). A voided doc is
-    terminal (`types.ts:344`).
+    `actions.push('resend', 'reissue', 'void')` (`types.ts:348`). A voided doc is
+    terminal (`types.ts:347`).
 - **Types:** **receipts / invoices only.**
+- **Irreversible.** There is no un-void: no production code anywhere writes
+  `supersededAt: null` (the only occurrences are test fixtures), and no endpoint
+  exposes it. Voiding twice is rejected. This is the one mechanism of the three
+  that cannot be walked back.
 - **Meaning:** an already-issued fiscal document can't just be deleted — the record
   must be **preserved and visibly annulled**. VOID keeps the accounting trail (and,
   on a reissue, the "Reissued to" link) intact.
@@ -102,6 +122,20 @@ one mechanism would be worse, not cleaner:
   this?", not "what stage is this at?". A status value would wrongly couple
   visibility to lifecycle position.
 
+## Status lifecycle
+
+The `DocumentStatus` enum has **exactly** these seven values (`schema.prisma:43-51`):
+
+`DRAFT` · `SENT` · `SEND_FAILED` · `VIEWED` · `SIGNED` · `COMPLETED` · `CANCELLED`
+
+`VIEWED`, `SIGNED` and `COMPLETED` are **contract-only** in practice — they are driven
+by BoldSign webhooks, and receipts/invoices (DIRECT_PDF) never reach the provider. The
+sale-document surface uses only `DRAFT`, `SENT` and `SEND_FAILED`.
+
+Three display states are **derived, not stored**: **Deleted** (`deletedAt`), **Void**
+(`supersededAt`) and **Scheduled** (`DRAFT` + a future `issueDate`). None of them is an
+enum value, and none of them should become one.
+
 > ### ⚠️ You will NOT find `VOID` in the `DocumentStatus` enum — that is deliberate
 >
 > The enum is `DRAFT, SENT, SEND_FAILED, VIEWED, SIGNED, COMPLETED, CANCELLED`
@@ -120,6 +154,22 @@ one mechanism would be worse, not cleaner:
 > with a message pointing back here — so this doc can't silently start lying the way the
 > 2026-07-14 note did. When you intentionally change the lifecycle, update the doc **and**
 > the test together.
+
+> ### ⚠️ What the test does NOT pin
+>
+> The spec asserts **exactly two** things: the enum's value set, and that `VOID` is not
+> in it. It does **not** cover any gating condition, any role rule, `deletedAt`,
+> `supersededAt`, or which action each document type gets. **Every other rule in this
+> document can drift without a single test turning red** — which is precisely how the
+> `schema.prisma` line numbers here silently went stale before 2026-07-21.
+
+> ### ⚠️ The backend is wider than the UI — these are UI conventions, not backend invariants
+>
+> `cancelDocument` (`documents.service.ts:1524-1556`) has **no `documentType` filter**, so
+> `POST /documents/:id/cancel` will set `status = CANCELLED` on a **receipt or invoice** —
+> which the "Types: contracts only" rule above declares impossible. Nothing but the absence
+> of a UI button prevents it, and nothing pins it. `reactivateDocument` has the same shape.
+> Read "contracts only" as *"no UI path does this today"*, not as a guarantee.
 
 ---
 
@@ -145,3 +195,18 @@ distinct badges ever prove confusing for financial documents, the options on the
 table (not implemented) are a UI relabel (cosmetic, no backend change) or unifying
 receipts/invoices to a single terminal treatment — both would be a deliberate,
 separate change, not a bug fix.
+
+**Decision (2026-07-20):** a **DRAFT contract is deleted, not cancelled**, aligning
+contracts with receipts/invoices. `CANCELLED` now means exclusively "the client had
+already received it". Shipped to production in `22babb5` together with F1 restore
+(SUPERADMIN-only).
+
+---
+
+_Verified against `apps/backend/src/documents/documents.service.ts`,
+`apps/backend/prisma/schema.prisma`, `apps/frontend/components/dashboard/panels/v2/documents/`
+— 2026-07-21. This pass corrected every `schema.prisma` citation (they had drifted
+~48 lines: `cancelledAt` 660→708, `deletedAt` 664→712, `supersededAt` 691→739),
+corrected the `types.ts` / `DocumentsPanel.tsx` citations, and added the two
+reversibility mechanisms (`restoreDocument`, `reactivateDocument`) that the document
+previously omitted entirely._

@@ -1574,8 +1574,8 @@ export class DocumentsService {
 
   // B7 soft-delete: a DRAFT is deleted (soft), never voided. Void stays for
   // issued (SENT) receipts/invoices. Stamps deletedAt so the owner stops seeing
-  // it while a SUPERADMIN still can (see getDocumentAccessScope). No restore here
-  // — that's a future feature (F1).
+  // it while a SUPERADMIN still can (see getDocumentAccessScope). Reversed by
+  // restoreDocument below (F1) — SUPERADMIN only.
   async deleteDocument(userId: string, documentId: string): Promise<void> {
     const scope = await this.getDocumentAccessScope(userId);
 
