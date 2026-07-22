@@ -89,6 +89,38 @@ jobs:
           JWT_SECRET: ci-e2e-secret-not-used-in-real-env
           NODE_ENV: test
 
+  backend-lint:
+    name: Backend lint (baseline ratchet)
+    runs-on: ubuntu-latest
+
+    # Backend lint has preexisting legacy errors, so this job is a RATCHET, not
+    # a hard gate: it fails only if the error count EXCEEDS the committed
+    # baseline (apps/backend/.eslint-baseline). New code can't add lint errors;
+    # lowering the baseline as debt gets paid down is a one-line PR.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/backend
+
+      # Type-aware lint rules need the generated Prisma client types.
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: apps/backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ntssign
+
+      - name: Lint (fail only above baseline)
+        run: node scripts/check-lint-baseline.mjs
+        working-directory: apps/backend
+
   frontend-lint:
     name: Frontend lint
     runs-on: ubuntu-latest
