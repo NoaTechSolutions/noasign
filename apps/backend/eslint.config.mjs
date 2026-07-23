@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    // eslint.config.mjs: self. test/tz-probe.ts: a standalone driver spawned as
+    // a child process by tenant-date.server-tz.spec.ts; it is excluded from
+    // tsconfig.build, so the type-aware project service can't resolve it — skip it.
+    ignores: ['eslint.config.mjs', 'test/tz-probe.ts'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
