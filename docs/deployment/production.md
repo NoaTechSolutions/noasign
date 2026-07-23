@@ -30,7 +30,7 @@ en SiteGround, separada de la aplicación Next.js.
 - CDN: Cloudflare (activo)
 - SSL: Let's Encrypt (renovación automática)
 - Deploy: manual via File Manager o FTP
-  (pipeline automático pendiente — NOA-78)
+  (pipeline automático pendiente)
 
 If the frontend and backend run on separate VMs, each VM has its own nginx
 instance. The steps below are identical on each VM — just apply them to the

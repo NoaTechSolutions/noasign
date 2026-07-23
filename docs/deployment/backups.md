@@ -4,7 +4,7 @@
 
 This documents the existing production database backup system, discovered while
 setting up R2 for PDF persistence (it was previously undocumented outside the
-script header and Linear NOA-127).
+script header).
 
 > ⚠️ Do not repurpose this system's env vars or bucket for the PDF-storage
 > feature. See [Interaction with PDF storage](#interaction-with-pdf-storage-r2).
@@ -19,8 +19,8 @@ Script: [`scripts/backup-postgres-to-r2.sh`](../../scripts/backup-postgres-to-r2
   `--no-owner --no-privileges`.
 - Uploads the dump to Cloudflare R2 via the **`aws` CLI** (`aws s3 cp`
   `--endpoint-url $R2_ENDPOINT`).
-- **Schedule:** daily at **03:00 UTC** via cron on the prod VM (install steps in
-  Linear **NOA-127**).
+- **Schedule:** daily at **03:00 UTC** via cron on the prod VM (the crontab entry
+  lives on the prod VM; TODO: capture the exact install steps in this repo).
 - Concurrency-locked (`flock`), tees output to `~/logs/ntssign-backup/`, prunes
   local logs older than 14 days. The remote dumps in R2 are **not** auto-pruned
   by this script (retention is whatever R2 lifecycle rules / manual cleanup
@@ -198,5 +198,5 @@ prefix `backups/staging/`) would suffice — but that's a "when needed", not now
 |-----|-----------------|---------------------------|
 | **Restore** | ✅ Documented + helper script `scripts/restore-postgres-from-r2.sh` (safe by default). | Run the SAFE restore drill periodically (needs DB + R2 creds on the VM). |
 | **Retention** | Can add a prune step to the script if lifecycle isn't used. | Add the **R2 lifecycle rule** (30d, prefix `backups/prod/`) — dashboard, ~2 min. |
-| **Live cron** | — | Confirm the crontab entry exists (NOA-127); bucket has dumps so it's running. |
+| **Live cron** | — | Confirm the crontab entry exists; bucket has dumps so it's running. |
 | **Staging backup** | — | Decision: skip (reproducible from seeds). |

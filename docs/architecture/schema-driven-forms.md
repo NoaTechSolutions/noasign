@@ -1,7 +1,6 @@
 # Schema-Driven Document Forms
 
 Last updated: 2026-04-06
-Linear epic: **NOA-46**
 
 ---
 
@@ -131,10 +130,10 @@ A new client in an existing niche gets assigned a pre-built schema. A client in 
 
 ## Future compatibility
 
-This architecture is designed to support **multi-signer workflows** (NOA-44) without structural changes. The `SignatureTemplate` will be extended to define multiple signer roles. The `FormDefinition` schema is signer-agnostic.
+This architecture is designed to support **multi-signer workflows** without structural changes. The `SignatureTemplate` will be extended to define multiple signer roles. The `FormDefinition` schema is signer-agnostic.
 
 ---
 
 ## Implementation tasks
 
-See Linear epic **NOA-46** and child issues NOA-47 through NOA-55.
+See the implementation tasks on GitHub Projects #1.
