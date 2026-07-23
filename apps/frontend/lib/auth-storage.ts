@@ -7,7 +7,13 @@ export type StoredUser = {
   mustChangePassword?: boolean;
 };
 
-export const AUTH_COOKIE = "ntssign_access_token";
+// Per-environment cookie name. prod and staging share the ntssign.com apex, so
+// the session cookie needs Domain=.ntssign.com in both — a distinct NAME is what
+// keeps them from clobbering each other. The Next middleware (proxy.ts) reads this
+// name to decide redirects, so it MUST match the backend's AUTH_COOKIE_NAME.
+// Unset → legacy name → prod behaviour unchanged (inert default).
+export const AUTH_COOKIE =
+  process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME?.trim() || "ntssign_access_token";
 const USER_KEY = "ntssign.user";
 
 export function persistSession(user: StoredUser) {

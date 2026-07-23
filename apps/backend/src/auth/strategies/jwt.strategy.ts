@@ -3,7 +3,10 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
-import { extractAuthCookieToken } from '../auth-cookie';
+import {
+  createAuthCookieTokenExtractor,
+  resolveAuthCookieName,
+} from '../auth-cookie';
 import { getJwtVerificationSecrets, resolveJwtSecret } from '../jwt-secrets';
 
 @Injectable()
@@ -17,9 +20,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // anyone out. With no JWT_SECRETS_LEGACY set the list is [JWT_SECRET] and this
     // behaves exactly like the previous single-secret `secretOrKey`.
     const secrets = getJwtVerificationSecrets(configService);
+    // Read only the cookie whose NAME this environment is configured for. A
+    // staging API (AUTH_COOKIE_NAME=..._stg) must not pick up a prod-named cookie
+    // on the same browser — reading only the configured name is the isolation.
+    const cookieName = resolveAuthCookieName(
+      configService.get<string>('AUTH_COOKIE_NAME'),
+    );
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        extractAuthCookieToken,
+        createAuthCookieTokenExtractor(cookieName),
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
